@@ -1,0 +1,788 @@
+%% This file is based on llvm.grm from the LLVM sources.  
+%% It was originally a polygen grammar for generating random llvm files.
+
+module llvm
+imports
+	%% Lexical %% Operators
+
+exports
+
+	context-free start-symbols Module
+
+	lexical syntax
+		";" ~[\n]* [\n] -> LAYOUT	
+		[\ \t\n]  -> LAYOUT
+	
+%% (*
+
+%% polygen grammar for LLVM assembly language.
+
+%% This file defines an LLVM assembly language grammar for polygen,
+%% which is a tool for generating random text based on a grammar.
+%% It is strictly syntax-based, and makes no attempt to generate
+%% IR that is semantically valid. Most of the IR produced doesn't
+%% pass the Verifier.
+
+%% TODO: Metadata, in all its forms
+
+%% *)
+
+%% I ::=   "title:    LLVM assembly language\n"
+      %% ^ "status:   experimental\n"
+      %% ^ "audience: LLVM developers\n"
+%% ;
+
+%% S ::= Module ;
+
+%% (*
+%% Define rules for non-keyword tokens. This is currently just a bunch
+%% of hacks. They don't cover many valid forms of tokens, and they also
+%% generate some invalid forms of tokens. The LLVM parser has custom
+%% C++ code to lex these; custom C++ code for emitting them would be
+%% convenient, but polygen doesn't support that.
+%% *)
+lexical syntax
+%% NonZeroDecimalDigit ::=     1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 ;
+[1-9] -> NonZeroDecimalDigit
+%% DecimalDigit        ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 ;
+[0-9] -> DecimalDigit
+%% DecimalDigitSeq     ::= DecimalDigit [^ DecimalDigitSeq ];
+[0-9]+ -> DecimalDigitSeq
+%% HexDigit            ::= 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9
+                      %% | a | b | c | d | e | f ;
+[0-9a-fA-F] -> HexDigit
+%% HexDigitSeq         ::= HexDigit [^ HexDigitSeq ];
+HexDigit+ -> HexDigitSeq
+%% StringChar          ::= a | b | c | d | e | f | g | h | i | j | k | l | m
+                      %% | n | o | p | q | r | s | t | u | v | w | x | y | z ;
+[a-z] -> StringChar
+%% StringConstantSeq   ::= StringChar [^ StringConstantSeq ];
+%% StringConstant      ::= StringChar [^ StringConstantSeq ];
+~[\"\\\n\r] -> BasicStringConstant
+"\\" HexDigit HexDigit -> EscapedStringConstant
+(BasicStringConstant | EscapedStringConstant)* -> StringConstant
+
+
+%% EUINT64VAL          ::= NonZeroDecimalDigit [^ DecimalDigitSeq ];
+"0" -> EUINT64VAL
+[1-9][0-9]* -> EUINT64VAL
+%% ESINT64VAL          ::= [ "-" ] ^ EUINT64VAL ;
+"-"? EUINT64VAL -> ESINT64VAL
+%% EUAPINTVAL          ::= EUINT64VAL ;
+EUINT64VAL -> EUAPINTVAL
+%% ESAPINTVAL          ::= ESINT64VAL ;
+ESINT64VAL -> ESAPINTVAL
+%% LOCALVALID          ::= "%" ^ DecimalDigitSeq ;
+"%" DecimalDigitSeq -> LOCALVALID
+%% GLOBALVALID         ::= "@" ^ DecimalDigitSeq ;
+"@" DecimalDigitSeq -> GLOBALVALID
+%% INTTYPE             ::= "i" ^ EUINT64VAL ;
+"i" EUINT64VAL -> INTTYPE
+%% GLOBALVAR           ::= "@" ^ StringConstant ;
+"@" StringConstant -> GLOBALVAR
+"@.str" -> GLOBALVAR
+%% LOCALVAR            ::= "%" ^ StringConstant ;
+"%" StringConstant -> LOCALVAR
+%% STRINGCONSTANT      ::= "\"" ^ StringConstant ^ "\"" ;
+"\"" StringConstant "\"" -> STRINGCONSTANT
+%% ATSTRINGCONSTANT    ::= "@" ^ STRINGCONSTANT ;
+"@" STRINGCONSTANT -> ATSTRINGCONSTANT
+%% PCTSTRINGCONSTANT   ::= "%" ^ STRINGCONSTANT ;
+"%" STRINGCONSTANT -> PCTSTRINGCONSTANT
+%% LABELSTR            ::= StringConstant ;
+StringConstant -> LABELSTR
+%% FPVAL               ::= ESAPINTVAL ^ "." ^ EUAPINTVAL | "0x" ^ HexDigitSeq ;
+ESAPINTVAL "." EUAPINTVAL -> FPVAL
+"0x" HexDigitSeq -> FPVAL
+
+%% (*
+%% The rest of this file is derived directly from llvmAsmParser.y.
+%% *)
+context-free syntax
+%% ArithmeticOps ::= + OptNW add | fadd | OptNW sub | fsub | OptNW mul | fmul |
+                  %% udiv | OptExact sdiv | fdiv | urem | srem | frem ;
+OptNW "add" -> ArithmeticOps
+"fadd" -> ArithmeticOps
+OptNW "sub" -> ArithmeticOps
+"fsub" -> ArithmeticOps
+OptNW "mul" -> ArithmeticOps
+"fmul" -> ArithmeticOps
+OptNW "udiv" -> ArithmeticOps
+OptExact "sdiv" -> ArithmeticOps
+"fdiv" -> ArithmeticOps
+"urem" -> ArithmeticOps
+"srem" -> ArithmeticOps
+"frem" -> ArithmeticOps
+
+%% LogicalOps    ::= shl | lshr | ashr | and | or | xor;
+%% CastOps       ::= trunc | zext | sext | fptrunc | fpext | bitcast |
+                  %% uitofp | sitofp | fptoui | fptosi | inttoptr | ptrtoint ;
+
+%% IPredicates ::= eq | ne | slt | sgt | sle | sge | ult | ugt | ule | uge ;
+
+%% FPredicates ::= oeq | one | olt | ogt | ole | oge | ord | uno | ueq | une
+              %% | ult | ugt | ule | uge | true | false ;
+
+%% IntType ::= INTTYPE;
+INTTYPE -> IntType
+%% FPType  ::= float | double | "ppc_fp128" | fp128 | "x86_fp80";
+"float" -> FPType
+"double" -> FPType
+"ppc_fp128" -> FPType
+"fp128" -> FPType
+"x86_fp80" -> FPType
+
+%% LocalName ::= LOCALVAR | STRINGCONSTANT | PCTSTRINGCONSTANT ;
+LOCALVAR -> LocalName
+STRINGCONSTANT -> LocalName
+PCTSTRINGCONSTANT -> LocalName
+
+%% OptLocalName ::= LocalName | _ ;
+-> OptLocalName
+LocalName -> OptLocalName
+
+%% OptAddrSpace ::= - addrspace ^ "(" ^ EUINT64VAL ^ ")" | _ ;
+-> OptAddrSpace
+"addrspace" "(" EUINT64VAL ")" -> OptAddrSpace
+%% cme3 addition
+"unnamed_addr" -> OptAddrSpace
+
+%% OptLocalAssign ::= LocalName "=" | _ ;
+LocalName "=" -> OptLocalAssign
+-> OptLocalAssign
+
+%% GlobalName ::= GLOBALVAR | ATSTRINGCONSTANT ;
+GLOBALVAR -> GlobalName
+ATSTRINGCONSTANT -> GlobalName
+
+%% OptGlobalAssign ::= GlobalAssign | _ ;
+-> OptGlobalAssign
+GlobalAssign -> OptGlobalAssign
+
+%% GlobalAssign ::= GlobalName "=" ;
+GlobalName "=" -> GlobalAssign
+
+%% GVInternalLinkage
+%% ::= + internal
+%% | weak
+%% | "weak_odr"
+%% | linkonce
+%% | "linkonce_odr"
+%% | appending
+%% | dllexport
+%% | common
+%% | private
+%% | "linker_private"
+%% | "linker_private_weak"
+%% ;
+"internal" -> GVInternalLinkage
+"weak" -> GVInternalLinkage
+"weak_odr" -> GVInternalLinkage
+"linkonce" -> GVInternalLinkage
+"linkonce_odr" -> GVInternalLinkage
+"appending" -> GVInternalLinkage
+"dllexport" -> GVInternalLinkage
+"common" -> GVInternalLinkage
+"private" -> GVInternalLinkage
+"linker_private" -> GVInternalLinkage
+"linker_private_weak" -> GVInternalLinkage
+
+%% GVExternalLinkage
+  %% ::= dllimport
+ %% | "extern_weak"
+ %% | + external
+ %% ;
+"dllimport" -> GVExternalLinkage
+"extern_weak" -> GVExternalLinkage
+"external" -> GVExternalLinkage
+
+%% GVVisibilityStyle
+  %% ::= + _
+ %% | default
+ %% | hidden
+ %% | protected
+ %% ;
+-> GVVisibilityStyle
+"default" -> GVVisibilityStyle
+"hidden" -> GVVisibilityStyle
+"protected" -> GVVisibilityStyle
+
+%% FunctionDeclareLinkage
+  %% ::= + _
+ %% | dllimport
+ %% | "extern_weak"
+ %% ;
+-> FunctionDeclareLinkage
+"dllimport" -> FunctionDeclareLinkage
+"extern_weak" -> FunctionDeclareLinkage
+
+%% FunctionDefineLinkage
+  %% ::= + _
+ %% | internal
+ %% | linkonce
+ %% | "linkonce_odr"
+ %% | weak
+ %% | "weak_odr"
+ %% | dllexport
+ %% ;
+-> FunctionDefineLinkage
+"internal" -> FunctionDefineLinkage
+"linkonce" -> FunctionDefineLinkage
+"linkonce_odr" -> FunctionDefineLinkage
+"weak" -> FunctionDefineLinkage
+"weak_odr" -> FunctionDefineLinkage
+"dllexport" -> FunctionDefineLinkage
+
+%% AliasLinkage ::= + _ | weak | "weak_odr" | internal ;
+-> AliasLinkage
+"weak" -> AliasLinkage
+"weak_odr" -> AliasLinkage
+"internal" -> AliasLinkage
+
+%% OptCallingConv ::= + _ |
+                 %% ccc |
+                 %% fastcc |
+                 %% coldcc |
+                 %% "x86_stdcallcc" |
+                 %% "x86_fastcallcc" |
+                 %% cc EUINT64VAL ;
+-> OptCallingConv
+"ccc" -> OptCallingConv
+"fastcc" -> OptCallingConv
+"coldcc" -> OptCallingConv
+"x86_stdcallcc" -> OptCallingConv
+"x86_fastcallcc" -> OptCallingConv
+"cc" EUINT64VAL -> OptCallingConv
+
+%% ParamAttr ::= zeroext
+ %% | signext
+ %% | inreg
+ %% | sret
+ %% | noalias
+ %% | nocapture
+ %% | byval
+ %% | nest
+ %% | align EUINT64VAL
+ %% ;
+"zeroext" -> ParamAttr
+"signext" -> ParamAttr
+"inreg" -> ParamAttr
+"sret" -> ParamAttr
+"noalias" -> ParamAttr
+"nocapture" -> ParamAttr
+"byval" -> ParamAttr
+"nest" -> ParamAttr
+"align" EUINT64VAL -> ParamAttr
+
+%% OptParamAttrs ::= + _ | OptParamAttrs ParamAttr ;
+-> OptParamAttrs
+OptParamAttrs ParamAttr -> OptParamAttrs
+
+%% RetAttr       ::= inreg
+              %% | zeroext
+              %% | signext
+              %% | noalias
+              %% ;
+"inreg" -> RetAttr
+"zeroext" -> RetAttr
+"signext" -> RetAttr
+"noalias" -> RetAttr
+
+%% OptRetAttrs  ::= _
+             %% | OptRetAttrs RetAttr
+             %% ;
+-> OptRetAttrs
+OptRetAttrs RetAttr -> OptRetAttrs
+
+%% FuncAttr      ::= noreturn
+"noreturn" -> FuncAttr
+%% | nounwind
+"nounwind" -> FuncAttr
+%% | inreg
+"inreg" -> FuncAttr
+%% | zeroext
+"zeroext" -> FuncAttr
+%% | signext
+"signext" -> FuncAttr
+%% | readnone
+"readnone" -> FuncAttr
+%% | readonly
+"readonly" -> FuncAttr
+%% | inlinehint
+"inlinehint" -> FuncAttr
+%% | alignstack
+"alignstack" -> FuncAttr
+%% | noinline
+"noinline" -> FuncAttr
+%% | alwaysinline
+"alwaysinline" -> FuncAttr
+%% | optsize
+"optsize" -> FuncAttr
+%% | ssp
+"ssp" -> FuncAttr
+%% | sspreq
+"sspreq" -> FuncAttr
+%% | returns_twice
+"returns_twice" -> FuncAttr
+%% | nonlazybind
+"nonlazybind" -> FuncAttr
+%% ;
+%% cme3 addition
+"uwtable" -> FuncAttr
+
+%% OptFuncAttrs  ::= + _ | OptFuncAttrs FuncAttr ;
+-> OptFuncAttrs
+OptFuncAttrs FuncAttr -> OptFuncAttrs
+
+%% OptGC         ::= + _ | gc STRINGCONSTANT ;
+-> OptGC
+"gc" STRINGCONSTANT -> OptGC
+
+%% OptAlign      ::= + _ | align EUINT64VAL ;
+-> OptAlign
+"align" EUINT64VAL -> OptAlign
+%% OptCAlign     ::= + _ | ^ "," align EUINT64VAL ;
+-> OptCAlign
+"," "align" EUINT64VAL -> OptCAlign
+
+%% SectionString ::= section STRINGCONSTANT ;
+"section" STRINGCONSTANT -> SectionString
+
+%% OptSection    ::= + _ | SectionString ;
+-> OptSection
+SectionString -> OptSection
+
+%% GlobalVarAttributes ::= + _ | ^ "," GlobalVarAttribute GlobalVarAttributes ;
+-> GlobalVarAttributes
+"," GlobalVarAttribute GlobalVarAttributes -> GlobalVarAttributes
+%% GlobalVarAttribute  ::= SectionString | align EUINT64VAL ;
+SectionString -> GlobalVarAttribute
+"align" EUINT64VAL -> GlobalVarAttribute
+
+%% PrimType ::= INTTYPE | float | double | "ppc_fp128" | fp128 | "x86_fp80"
+          %% | - label ;
+IntType -> PrimType
+"float" -> PrimType
+"double" -> PrimType
+"ppc_fp128" -> PrimType
+"fp128" -> PrimType
+"x86_fp80" -> PrimType
+"label" -> PrimType
+
+%% Types
+%% ::= opaque
+"opaque" -> Types
+%% | PrimType
+PrimType -> Types
+%% | Types OptAddrSpace ^ "*"
+Types OptAddrSpace "*" -> Types
+%% | SymbolicValueRef
+SymbolicValueRef -> Types
+%% | "\\" ^ EUINT64VAL
+"\\" EUINT64VAL -> Types
+%% | Types "(" ^ ArgTypeListI ^ ")" OptFuncAttrs
+Types "(" ArgTypeListI ")" OptFuncAttrs -> Types
+%% | void "(" ^ ArgTypeListI ^ ")" OptFuncAttrs
+"void" "(" ArgTypeListI ")" OptFuncAttrs -> Types
+%% | "[" ^ EUINT64VAL "x" Types ^ "]"
+"[" EUINT64VAL "x" Types "]" -> Types
+%% | "<" ^ EUINT64VAL "x" Types ^ ">"
+"<" EUINT64VAL "x" Types ">" -> Types
+%% | "{" TypeListI "}"
+"{" TypeListI "}" -> Types
+%% | "{" ^ "}"
+"{" "}" -> Types
+%% | "<" ^ "{" TypeListI "}" ^ ">"
+"<" "{" TypeListI "}" ">" -> Types
+%% | "<" ^ "{" ^ "}" ^ ">"
+"<" "{" "}" ">" -> Types
+%% ;
+
+
+%% ArgType ::= Types OptParamAttrs ;
+Types OptParamAttrs -> ArgType
+
+%% ResultTypes ::= Types | void ;
+Types -> ResultTypes
+"void" -> ResultTypes
+
+%% ArgTypeList ::= ArgType | ArgTypeList ^ "," ArgType ;
+ArgType -> ArgTypeList
+ArgTypeList "," ArgType -> ArgTypeList
+
+%% ArgTypeListI ::= ArgTypeList | ArgTypeList ^ "," "..." | "..." | _ ;
+-> ArgTypeListI
+ArgTypeList -> ArgTypeListI
+ArgTypeList "," "..." -> ArgTypeListI
+"..." -> ArgTypeListI
+
+%% TypeListI ::= Types | TypeListI ^ "," Types ;
+Types -> TypeListI
+TypeListI "," Types -> TypeListI
+
+%% ConstVal::= Types "[" ^ ConstVector ^ "]"
+Types "[" ConstVector "]" -> ConstVal
+%% | Types "[" ^ "]"
+Types "[" "]" -> ConstVal
+%% | Types "c" ^ STRINGCONSTANT
+Types "c" STRINGCONSTANT -> ConstVal
+%% | Types "<" ^ ConstVector ^ ">"
+Types "<" ConstVector ">" -> ConstVal
+%% | Types "{" ConstVector "}"
+Types "{" ConstVector "}" -> ConstVal
+%% | Types "{" ^ "}"
+Types "{" "}" -> ConstVal
+%% | Types "<" ^ "{" ConstVector "}" ^ ">"
+Types "<" "{" ConstVector "}" ">" -> ConstVal
+%% | Types "<" ^ "{" ^ "}" ^ ">"
+Types "<" "{" "}" ">" -> ConstVal
+%% | Types null
+Types "null" -> ConstVal
+%% | Types undef
+Types "undef" -> ConstVal
+%% | Types SymbolicValueRef
+Types SymbolicValueRef -> ConstVal
+%% | Types ConstExpr
+Types ConstExpr -> ConstVal
+%% | Types zeroinitializer
+Types "zeroinitializer" -> ConstVal
+%% | Types ESINT64VAL
+Types ESINT64VAL -> ConstVal
+%% | Types ESAPINTVAL
+Types ESAPINTVAL -> ConstVal
+%% | Types EUINT64VAL
+Types EUINT64VAL -> ConstVal
+%% | Types EUAPINTVAL
+Types EUAPINTVAL -> ConstVal
+%% | Types true
+Types "true" -> ConstVal
+%% | Types false
+Types "false" -> ConstVal
+%% | Types FPVAL ;
+Types FPVAL -> ConstVal
+
+%% ConstExpr::= CastOps "(" ^ ConstVal to Types ^ ")"
+CastOps "(" ConstVal "to" Types ")" -> ConstExpr
+%% | getelementptr OptInBounds "(" ^ ConstVal IndexList ^ ")"
+"getelementptr" OptInBounds "(" ConstVal IndexList ")" -> ConstExpr
+%% | select "(" ^ ConstVal ^ "," ConstVal ^ "," ConstVal ^ ")"
+"select" "(" ConstVal "," ConstVal "," ConstVal ")" -> ConstExpr
+%% | ArithmeticOps "(" ^ ConstVal ^ "," ConstVal ^ ")"
+ArithmeticOps "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% | LogicalOps "(" ^ ConstVal ^ "," ConstVal ^ ")"
+LogicalOps "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% | icmp IPredicates "(" ^ ConstVal ^ "," ConstVal ^ ")"
+"icmp" IPredicates "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% | fcmp FPredicates "(" ^ ConstVal ^ "," ConstVal ^ ")"
+"fcmp" FPredicates "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% | extractelement "(" ^ ConstVal ^ "," ConstVal ^ ")"
+"extractelement" "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% | insertelement "(" ^ ConstVal ^ "," ConstVal ^ "," ConstVal ^ ")"
+"insertelement" "(" ConstVal "," ConstVal "," ConstVal ")" -> ConstExpr
+%% | shufflevector "(" ^ ConstVal ^ "," ConstVal ^ "," ConstVal ^ ")"
+"shufflevector" "(" ConstVal "," ConstVal "," ConstVal ")" -> ConstExpr
+%% | extractvalue "(" ^ ConstVal ^ ConstantIndexList ^ ")"
+"extractvalue" "(" ConstVal ConstantIndexList ")" -> ConstExpr
+%% | insertvalue "(" ^ ConstVal ^ "," ConstVal ^ ConstantIndexList ^ ")" ;
+"insertvalue" "(" ConstVal "," ConstVal ConstantIndexList ")" -> ConstExpr
+
+%% ConstVector ::= ConstVector ^ "," ConstVal | ConstVal ;
+ConstVector "," ConstVal -> ConstVector
+ConstVal -> ConstVector
+
+%% GlobalType ::= global | constant ;
+"global" -> GlobalType
+"constant" -> GlobalType
+
+%% ThreadLocal ::= - "thread_local" | _ ;
+-> ThreadLocal
+"thread_local" -> ThreadLocal
+
+%% AliaseeRef ::= ResultTypes SymbolicValueRef
+ %% | bitcast "(" ^ AliaseeRef to Types ^ ")" ;
+ResultTypes SymbolicValueRef -> AliaseeRef
+"bitcast" "(" AliaseeRef "to" Types ")" -> AliaseeRef
+
+%% Module ::= +++ DefinitionList | --- _ ;
+DefinitionList -> Module
+
+%% DefinitionList ::= - Definition | + DefinitionList Definition ;
+Definition | DefinitionList Definition -> DefinitionList
+
+%% Definition
+%% ::= ^ ( +++++ define Function
+"define" Function -> Definition
+%% | declare FunctionProto
+"declare" FunctionProto -> Definition
+%% | - module asm AsmBlock
+"module" "asm" AsmBlock -> Definition
+%% | OptLocalAssign type Types
+OptLocalAssign "type" Types -> Definition
+%% | OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType
+%% ConstVal GlobalVarAttributes
+OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
+%% | OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
+%% GlobalType ConstVal GlobalVarAttributes
+OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
+%% | OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
+%% GlobalType Types GlobalVarAttributes
+OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> Definition
+%% | OptGlobalAssign GVVisibilityStyle alias AliasLinkage AliaseeRef
+OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> Definition
+%% | target TargetDefinition
+"target" TargetDefinition -> Definition
+%% | deplibs "=" LibrariesDefinition
+"deplibs" "=" LibrariesDefinition -> Definition
+%% ) ^ "\n";
+
+%% AsmBlock ::= STRINGCONSTANT ;
+STRINGCONSTANT -> AsmBlock
+
+%% TargetDefinition ::= triple "=" STRINGCONSTANT
+"triple" "=" STRINGCONSTANT -> TargetDefinition
+%% | datalayout "=" STRINGCONSTANT ;
+"datalayout" "=" STRINGCONSTANT -> TargetDefinition
+
+%% LibrariesDefinition ::= "[" ( LibList | _ ) "]";
+"[" LibList "]" -> LibrariesDefinition
+"[" "]" -> LibrariesDefinition
+
+%% LibList ::= LibList ^ "," STRINGCONSTANT | STRINGCONSTANT ;
+LibList "," STRINGCONSTANT -> LibList
+STRINGCONSTANT -> LibList
+
+%% ArgListH ::= ArgListH ^ "," Types OptParamAttrs OptLocalName
+ %% | Types OptParamAttrs OptLocalName ;
+ArgListH "," Types OptParamAttrs OptLocalName -> ArgListH
+Types OptParamAttrs OptLocalName -> ArgListH
+
+%% ArgList ::= ArgListH | ArgListH ^ "," "..." | "..." | _ ;
+-> ArgList
+ArgListH -> ArgList
+ArgListH "," "..." -> ArgList
+ArgListH "..." -> ArgList
+
+%% FunctionHeaderH ::= OptCallingConv OptRetAttrs ResultTypes
+                  %% GlobalName ^ "(" ^ ArgList ^ ")"
+                  %% OptFuncAttrs OptSection OptAlign OptGC ;
+OptCallingConv OptRetAttrs ResultTypes GlobalName "(" ArgList ")" OptFuncAttrs OptSection OptAlign OptGC -> FunctionHeaderH
+%% BEGIN ::= ( begin | "{" ) ^ "\n";
+("begin" | "{") -> BEGIN
+
+%% FunctionHeader ::=
+  %% FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN ;
+FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN -> FunctionHeader
+
+%% END ::= ^ ( end | "}" ) ^ "\n";
+("end" | "}") -> END
+
+%% Function ::= BasicBlockList END ;
+BasicBlockList END -> Function
+
+%% FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH ;
+FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH -> FunctionProto
+
+%% OptSideEffect ::= _ | sideeffect ;
+-> OptSideEffect
+"sideeffect" -> OptSideEffect
+
+%% ConstValueRef ::= ESINT64VAL
+ESINT64VAL -> ConstValueRef
+%% | EUINT64VAL
+EUINT64VAL -> ConstValueRef
+%% | FPVAL
+FPVAL -> ConstValueRef
+%% | true
+"true" -> ConstValueRef
+%% | false
+"false" -> ConstValueRef
+%% | null
+"null" -> ConstValueRef
+%% | undef
+"undef" -> ConstValueRef
+%% | zeroinitializer
+"zeroinitializer" -> ConstValueRef
+%% | "<" ConstVector ">"
+"<" ConstVector ">" -> ConstValueRef
+%% | "[" ConstVector "]"
+"[" ConstVector "]" -> ConstValueRef
+%% | "[" ^ "]"
+"[" "]" -> ConstValueRef
+%% | "c" ^ STRINGCONSTANT
+"c" STRINGCONSTANT -> ConstValueRef
+%% | "{" ConstVector "}"
+"{" ConstVector "}" -> ConstValueRef
+%% | "{" ^ "}"
+"{" "}" -> ConstValueRef
+%% | "<" ^ "{" ConstVector "}" ^ ">"
+"<" "{" ConstVector "}" ">" -> ConstValueRef
+%% | "<" ^ "{" ^ "}" ^ ">"
+"<" "{" "}" ">" -> ConstValueRef
+%% | ConstExpr
+ConstExpr -> ConstValueRef
+%% | asm OptSideEffect STRINGCONSTANT ^ "," STRINGCONSTANT ;
+"asm" OptSideEffect STRINGCONSTANT "," STRINGCONSTANT -> ConstValueRef
+
+%% SymbolicValueRef ::= LOCALVALID
+ %% | GLOBALVALID
+ %% | LocalName
+ %% | GlobalName ;
+LOCALVALID -> SymbolicValueRef
+GLOBALVALID -> SymbolicValueRef
+LocalName -> SymbolicValueRef
+GlobalName -> SymbolicValueRef
+
+%% ValueRef ::= SymbolicValueRef | ConstValueRef;
+SymbolicValueRef -> ValueRef
+ConstValueRef -> ValueRef
+
+%% ResolvedVal ::= Types ValueRef ;
+Types ValueRef -> ResolvedVal
+
+%% ReturnedVal ::= ResolvedVal | ReturnedVal ^ "," ResolvedVal ;
+ResolvedVal -> ReturnedVal
+ReturnedVal "," ResolvedVal -> ReturnedVal
+
+%% BasicBlockList ::= BasicBlockList BasicBlock | FunctionHeader BasicBlock ;
+BasicBlockList BasicBlock -> BasicBlockList
+FunctionHeader BasicBlock -> BasicBlockList
+
+%% BasicBlock ::= InstructionList OptLocalAssign BBTerminatorInst ;
+InstructionList OptLocalAssign BBTerminatorInst -> BasicBlock
+
+%% InstructionList ::= +++ InstructionList Inst
+%% | - _
+%% | ^ LABELSTR ^ ":\n" ;
+-> InstructionList
+InstructionList Inst -> InstructionList
+LABELSTR ":" -> InstructionList
+
+%% BBTerminatorInst ::= ^ "  " ^
+%% ( ret ReturnedVal
+"ret" ReturnedVal -> BBTerminatorInst
+%% | ret void
+"ret" "void" -> BBTerminatorInst
+%% | br label ValueRef
+"br" "label" ValueRef -> BBTerminatorInst
+%% | br INTTYPE ValueRef ^ "," label ValueRef ^ "," label ValueRef
+"br" INTTYPE ValueRef "," "label" ValueRef "," "label" ValueRef -> BBTerminatorInst
+%% | switch IntType ValueRef ^ "," label ValueRef "[" JumpTable "]"
+"switch" IntType ValueRef "," "label" ValueRef "[" JumpTable "]" -> BBTerminatorInst
+%% | switch IntType ValueRef ^ "," label ValueRef "[" ^ "]"
+"switch" IntType ValueRef "," "label" ValueRef "[" "]" -> BBTerminatorInst
+%% | invoke OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
+%% OptFuncAttrs
+%% to label ValueRef unwind label ValueRef
+"invoke" OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs "to" "label" ValueRef "unwind" "label" ValueRef -> BBTerminatorInst
+%% | unwind
+"unwind" -> BBTerminatorInst
+%% | unreachable ) ^ "\n";
+"unreachable" -> BBTerminatorInst
+
+
+%% JumpTable ::= JumpTable IntType ConstValueRef ^ "," label ValueRef
+ %% | IntType ConstValueRef ^ "," label ValueRef ;
+JumpTable IntType ConstValueRef "," "label" ValueRef -> JumpTable
+IntType ConstValueRef "," "label" ValueRef -> JumpTable
+
+%% Inst ::= ^ "  " ^ OptLocalAssign InstVal ^ "\n";
+OptLocalAssign InstVal -> Inst
+
+%% PHIList ::= Types "[" ValueRef ^ "," ValueRef "]"
+ %% | PHIList ^ "," "[" ValueRef ^ "," ValueRef "]" ;
+Types "[" ValueRef "," ValueRef "]" -> PHIList
+PHIList "," "[" ValueRef "," ValueRef "]" -> PHIList
+
+%% ParamList ::= Types OptParamAttrs ValueRef OptParamAttrs
+Types OptParamAttrs ValueRef OptParamAttrs -> ParamList
+%% | label OptParamAttrs ValueRef OptParamAttrs
+"label" OptParamAttrs ValueRef OptParamAttrs -> ParamList
+%% | ParamList ^ "," Types OptParamAttrs ValueRef OptParamAttrs
+ParamList "," Types OptParamAttrs ValueRef OptParamAttrs -> ParamList
+%% | ParamList ^ "," label OptParamAttrs ValueRef OptParamAttrs
+ParamList "," "label" OptParamAttrs ValueRef OptParamAttrs -> ParamList
+%% | - _ ;
+-> ParamList
+
+%% IndexList ::= _ | IndexList ^ "," ResolvedVal ;
+-> IndexList
+IndexList "," ResolvedVal -> IndexList
+
+%% ConstantIndexList ::= "," EUINT64VAL | ConstantIndexList ^ "," EUINT64VAL ;
+"," EUINT64VAL -> ConstantIndexList
+ConstantIndexList "," EUINT64VAL -> ConstantIndexList
+
+%% OptTailCall ::= tail call | call ;
+"tail" "call" -> OptTailCall
+"call" -> OptTailCall
+
+%% InstVal ::=
+%% ArithmeticOps Types ValueRef ^ "," ValueRef
+ArithmeticOps Types ValueRef "," ValueRef -> InstVal
+%% | LogicalOps Types ValueRef ^ "," ValueRef
+LogicalOps Types ValueRef "," ValueRef -> InstVal
+%% | icmp IPredicates Types ValueRef ^ "," ValueRef
+"icmp" IPredicates Types ValueRef "," ValueRef -> InstVal
+%% | fcmp FPredicates Types ValueRef ^ "," ValueRef
+"fcmp" FPredicates Types ValueRef "," ValueRef -> InstVal
+%% | CastOps ResolvedVal to Types
+CastOps ResolvedVal "to" Types -> InstVal
+%% | select ResolvedVal ^ "," ResolvedVal ^ "," ResolvedVal
+"select" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal
+%% | "va_arg" ResolvedVal ^ "," Types
+"va_arg" ResolvedVal "," Types -> InstVal
+%% | extractelement ResolvedVal ^ "," ResolvedVal
+"extractelement" ResolvedVal "," ResolvedVal -> InstVal
+%% | insertelement ResolvedVal ^ "," ResolvedVal ^ "," ResolvedVal
+"insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal
+%% | shufflevector ResolvedVal ^ "," ResolvedVal ^ "," ResolvedVal
+"shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal
+%% | phi PHIList
+"phi" PHIList -> InstVal
+%% | OptTailCall OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
+%% OptFuncAttrs
+OptTailCall OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal
+%% | MemoryInst ;
+MemoryInst -> InstVal
+
+%% OptVolatile ::= - volatile | _ ;
+-> OptVolatile
+"volatile" -> OptVolatile
+%% OptExact ::= - exact | _ ;
+-> OptExact
+"exact" -> OptExact
+%% OptNSW ::= - nsw | _ ;
+-> OptNSW
+"nsw" -> OptNSW
+%% OptNUW ::= - nuw | _ ;
+-> OptNUW
+"nuw" -> OptNUW
+%% OptNW  ::= OptNUW OptNSW | OptNSW OptNUW ;
+OptNUW OptNSW -> OptNW
+OptNSW OptNUW -> OptNW
+%% OptInBounds  ::= - inbounds | _ ;
+-> OptInBounds
+"inbounds" -> OptInBounds
+
+%% MemoryInst ::= malloc Types OptCAlign
+"malloc" Types OptCAlign -> MemoryInst
+%% | malloc Types ^ "," INTTYPE ValueRef OptCAlign
+"malloc" Types "," INTTYPE ValueRef OptCAlign -> MemoryInst
+%% | alloca Types OptCAlign
+"alloca" Types OptCAlign -> MemoryInst
+%% | alloca Types ^ "," INTTYPE ValueRef OptCAlign
+"alloca" Types "," INTTYPE ValueRef OptCAlign -> MemoryInst
+%% | free ResolvedVal
+"free" ResolvedVal -> MemoryInst
+%% | OptVolatile load Types ValueRef OptCAlign
+OptVolatile "load" Types ValueRef OptCAlign -> MemoryInst
+%% | OptVolatile store ResolvedVal ^ "," Types ValueRef OptCAlign
+OptVolatile "store" ResolvedVal "," Types ValueRef OptCAlign -> MemoryInst
+%% | getresult Types ValueRef ^ "," EUINT64VAL
+"getresult" Types ValueRef "," EUINT64VAL -> MemoryInst
+%% | getelementptr OptInBounds Types ValueRef IndexList
+"getelementptr" OptInBounds Types ValueRef IndexList -> MemoryInst
+%% | extractvalue Types ValueRef ^ ConstantIndexList 
+"extractvalue" Types ValueRef ConstantIndexList -> MemoryInst
+%% | insertvalue Types ValueRef ^ "," Types ValueRef ^ ConstantIndexList ;
+"insertvalue" Types ValueRef "," Types ValueRef ConstantIndexList -> MemoryInst

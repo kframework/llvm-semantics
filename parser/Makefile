@@ -3,8 +3,13 @@ Terms = $(wildcard tests/*)
 test: llvm.tbl
 	@for Prog in $(Terms) ;\
 	do \
-		if sglr -A -t -p llvm.tbl -i $$Prog -o /dev/null; then \
-			echo "PASS  " $$Prog; \
+		if sglr -A -t -p llvm.tbl -i $$Prog -o out.parsetree ; then \
+			if cat out.parsetree | implode-asfix | pp-aterm | grep 'amb(' > out.ambs ; then \
+				cat out.ambs; \
+				echo "FAIL  " $$Prog; \
+			else \
+				echo "PASS  " $$Prog; \
+			fi \
 		else \
 			echo "FAIL  " $$Prog; \
 		fi \
@@ -12,7 +17,8 @@ test: llvm.tbl
 #-o /dev/null
 	
 parse-%: llvm.tbl %
-	sglr -A -t -v -p llvm.tbl -i $* -o /dev/null
+	sglr -A -t -v -p llvm.tbl -i $* | implode-asfix | pp-aterm
+#	-o /dev/null
 
 llvm.def: llvm.sdf
 	pack-sdf -i $< -o $@

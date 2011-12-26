@@ -10,9 +10,13 @@ exports
 	context-free start-symbols Module
 
 	lexical syntax
-		";" ~[\n]* -> LAYOUT	
-		[\ \t\r]  -> LAYOUT
-		(LAYOUT? [\n] LAYOUT?)+ -> EOL
+		[\ \t]  -> LAYOUT
+		";" ~[\n]* [\n] -> OneEOL
+		[\n] -> OneEOL
+		%% EOF? | EOF -> EOL
+		%% EOF is defined in context-free
+	lexical restrictions
+		EOF -/- ~[]
 %% (*
 
 %% polygen grammar for LLVM assembly language.
@@ -80,7 +84,7 @@ ESINT64VAL -> ESAPINTVAL
 "i" EUINT64VAL -> INTTYPE
 %% GLOBALVAR           ::= "@" ^ StringConstant ;
 "@" StringConstant -> GLOBALVAR
-"@.str" -> GLOBALVAR
+%% "@.str" -> GLOBALVAR
 %% LOCALVAR            ::= "%" ^ StringConstant ;
 "%" StringConstant -> LOCALVAR
 %% STRINGCONSTANT      ::= "\"" ^ StringConstant ^ "\"" ;
@@ -99,6 +103,9 @@ ESAPINTVAL "." EUAPINTVAL -> FPVAL
 %% The rest of this file is derived directly from llvmAsmParser.y.
 %% *)
 context-free syntax
+
+OneEOL+ -> EOL {cons("EOL")}
+
 %% ArithmeticOps ::= + OptNW add | fadd | OptNW sub | fsub | OptNW mul | fmul |
                   %% udiv | OptExact sdiv | fdiv | urem | srem | frem ;
 %% cme3 reversed optNW with op
@@ -552,35 +559,39 @@ ResultTypes SymbolicValueRef -> AliaseeRef
 "bitcast" "(" AliaseeRef "to" Types ")" -> AliaseeRef
 
 %% Module ::= +++ DefinitionList | --- _ ;
-EOL? DefinitionList -> Module
+EOL? DefinitionList -> Module {cons("Module")}
 
 %% DefinitionList ::= - Definition | + DefinitionList Definition ;
-Definition | DefinitionList Definition -> DefinitionList
+%% {Definition EOL}+ -> DefinitionList %% {bracket}
+%% the above gives me the error "warning trying to build list with illegal tail"
+Definition EOL -> DefinitionList
+DefinitionList Definition EOL -> DefinitionList
 
 %% Definition
+%% "foo" -> Definition {cons("Foo")}
 %% ::= ^ ( +++++ define Function
-"define" Function EOL -> Definition
+"define" Function -> Definition {cons("FunctionDefinition")}
 %% | declare FunctionProto
-"declare" FunctionProto EOL -> Definition
+"declare" FunctionProto -> Definition {cons("FunctionDeclaration")}
 %% | - module asm AsmBlock
-"module" "asm" AsmBlock EOL -> Definition
+"module" "asm" AsmBlock -> Definition {cons("Asm")}
 %% | OptLocalAssign type Types
-OptLocalAssign "type" Types EOL -> Definition
+OptLocalAssign "type" Types -> Definition
 %% | OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType
 %% ConstVal GlobalVarAttributes
-OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes EOL -> Definition
+OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
 %% | OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
 %% GlobalType ConstVal GlobalVarAttributes
-OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes EOL -> Definition
+OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
 %% | OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
 %% GlobalType Types GlobalVarAttributes
-OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes EOL -> Definition
+OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> Definition
 %% | OptGlobalAssign GVVisibilityStyle alias AliasLinkage AliaseeRef
-OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef EOL -> Definition
+OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> Definition
 %% | target TargetDefinition
-"target" TargetDefinition EOL -> Definition
+"target" TargetDefinition -> Definition {cons("TargetDefinition")}
 %% | deplibs "=" LibrariesDefinition
-"deplibs" "=" LibrariesDefinition EOL -> Definition
+"deplibs" "=" LibrariesDefinition -> Definition {cons("LibrariesDefinition")}
 %% ) ^ "\n";
 
 %% AsmBlock ::= STRINGCONSTANT ;

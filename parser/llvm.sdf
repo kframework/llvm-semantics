@@ -67,6 +67,10 @@ HexDigit+ -> HexDigitSeq
 (BasicStringConstant | EscapedStringConstant)* -> StringConstant
 
 
+[a-zA-Z\$\.\_][a-zA-Z\$\.\_0-9]* -> Identifier
+STRINGCONSTANT -> Identifier
+
+
 %% EUINT64VAL          ::= NonZeroDecimalDigit [^ DecimalDigitSeq ];
 "0" -> EUINT64VAL
 [1-9][0-9]* -> EUINT64VAL
@@ -83,18 +87,17 @@ ESINT64VAL -> ESAPINTVAL
 %% INTTYPE             ::= "i" ^ EUINT64VAL ;
 "i" EUINT64VAL -> INTTYPE
 %% GLOBALVAR           ::= "@" ^ StringConstant ;
-"@" StringConstant -> GLOBALVAR
-%% "@.str" -> GLOBALVAR
+"@" Identifier -> GLOBALVAR
 %% LOCALVAR            ::= "%" ^ StringConstant ;
-"%" StringConstant -> LOCALVAR
+"%" Identifier -> LOCALVAR
 %% STRINGCONSTANT      ::= "\"" ^ StringConstant ^ "\"" ;
 "\"" StringConstant "\"" -> STRINGCONSTANT
 %% ATSTRINGCONSTANT    ::= "@" ^ STRINGCONSTANT ;
-"@" STRINGCONSTANT -> ATSTRINGCONSTANT
+%% "@" STRINGCONSTANT -> ATSTRINGCONSTANT
 %% PCTSTRINGCONSTANT   ::= "%" ^ STRINGCONSTANT ;
-"%" STRINGCONSTANT -> PCTSTRINGCONSTANT
+%% "%" STRINGCONSTANT -> PCTSTRINGCONSTANT
 %% LABELSTR            ::= StringConstant ;
-StringConstant -> LABELSTR
+[a-zA-Z\$\.\_0-9]+ -> LABELSTR
 %% FPVAL               ::= ESAPINTVAL ^ "." ^ EUAPINTVAL | "0x" ^ HexDigitSeq ;
 ESAPINTVAL "." EUAPINTVAL -> FPVAL
 "0x" HexDigitSeq -> FPVAL
@@ -105,6 +108,8 @@ ESAPINTVAL "." EUAPINTVAL -> FPVAL
 context-free syntax
 
 OneEOL+ -> EOL {cons("EOL")}
+
+ESINT64VAL -> Int64Val {cons("Int64Val")}
 
 %% ArithmeticOps ::= + OptNW add | fadd | OptNW sub | fsub | OptNW mul | fmul |
                   %% udiv | OptExact sdiv | fdiv | urem | srem | frem ;
@@ -189,8 +194,10 @@ INTTYPE -> IntType
 
 %% LocalName ::= LOCALVAR | STRINGCONSTANT | PCTSTRINGCONSTANT ;
 LOCALVAR -> LocalName
-STRINGCONSTANT -> LocalName
-PCTSTRINGCONSTANT -> LocalName
+%% STRINGCONSTANT -> LocalName
+%% PCTSTRINGCONSTANT -> LocalName
+%% cme3 not sure about this...
+LOCALVALID -> LocalName
 
 %% OptLocalName ::= LocalName | _ ;
 -> OptLocalName
@@ -207,8 +214,10 @@ LocalName "=" -> OptLocalAssign
 -> OptLocalAssign
 
 %% GlobalName ::= GLOBALVAR | ATSTRINGCONSTANT ;
-GLOBALVAR -> GlobalName
-ATSTRINGCONSTANT -> GlobalName
+%% cme3 not sure about this...
+GLOBALVALID -> GlobalName {cons("GlobalName")}
+GLOBALVAR -> GlobalName {cons("GlobalName")}
+%% ATSTRINGCONSTANT -> GlobalName {cons("GlobalName")}
 
 %% OptGlobalAssign ::= GlobalAssign | _ ;
 -> OptGlobalAssign
@@ -386,8 +395,8 @@ OptRetAttrs RetAttr -> OptRetAttrs
 "uwtable" -> FuncAttr
 
 %% OptFuncAttrs  ::= + _ | OptFuncAttrs FuncAttr ;
--> OptFuncAttrs
-OptFuncAttrs FuncAttr -> OptFuncAttrs
+-> OptFuncAttrs {cons("OptFuncAttrs")}
+OptFuncAttrs FuncAttr -> OptFuncAttrs {cons("OptFuncAttrs")}
 
 %% OptGC         ::= + _ | gc STRINGCONSTANT ;
 -> OptGC
@@ -404,8 +413,8 @@ OptFuncAttrs FuncAttr -> OptFuncAttrs
 "section" STRINGCONSTANT -> SectionString
 
 %% OptSection    ::= + _ | SectionString ;
--> OptSection
-SectionString -> OptSection
+-> OptSection {cons("OptSection")}
+SectionString -> OptSection {cons("OptSection")}
 
 %% GlobalVarAttributes ::= + _ | ^ "," GlobalVarAttribute GlobalVarAttributes ;
 -> GlobalVarAttributes
@@ -458,8 +467,8 @@ Types "(" ArgTypeListI ")" OptFuncAttrs -> Types
 Types OptParamAttrs -> ArgType
 
 %% ResultTypes ::= Types | void ;
-Types -> ResultTypes
-"void" -> ResultTypes
+Types -> ResultTypes {cons("ResultTypes")}
+"void" -> ResultTypes {cons("ResultTypes")}
 
 %% ArgTypeList ::= ArgType | ArgTypeList ^ "," ArgType ;
 ArgType -> ArgTypeList
@@ -502,13 +511,14 @@ Types ConstExpr -> ConstVal
 %% | Types zeroinitializer
 Types "zeroinitializer" -> ConstVal
 %% | Types ESINT64VAL
-Types ESINT64VAL -> ConstVal
-%% | Types ESAPINTVAL
-Types ESAPINTVAL -> ConstVal
+%% Types ESINT64VAL -> ConstVal
 %% | Types EUINT64VAL
-Types EUINT64VAL -> ConstVal
+%% Types EUINT64VAL -> ConstVal
+Types Int64Val -> ConstVal
+%% | Types ESAPINTVAL
+%% Types ESAPINTVAL -> ConstVal
 %% | Types EUAPINTVAL
-Types EUAPINTVAL -> ConstVal
+%% Types EUAPINTVAL -> ConstVal
 %% | Types true
 Types "true" -> ConstVal
 %% | Types false
@@ -576,18 +586,18 @@ DefinitionList Definition EOL -> DefinitionList
 %% | - module asm AsmBlock
 "module" "asm" AsmBlock -> Definition {cons("Asm")}
 %% | OptLocalAssign type Types
-OptLocalAssign "type" Types -> Definition
+OptLocalAssign "type" Types -> Definition {cons("GlobalType")}
 %% | OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType
 %% ConstVal GlobalVarAttributes
-OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
+OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition {cons("GlobalNoLinkage")}
 %% | OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
 %% GlobalType ConstVal GlobalVarAttributes
-OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
+OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition {cons("GlobalInternalLinkage")}
 %% | OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
 %% GlobalType Types GlobalVarAttributes
-OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> Definition
+OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> Definition {cons("GlobalExternalLinkage")}
 %% | OptGlobalAssign GVVisibilityStyle alias AliasLinkage AliaseeRef
-OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> Definition
+OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> Definition {cons("GlobalAlias")}
 %% | target TargetDefinition
 "target" TargetDefinition -> Definition {cons("TargetDefinition")}
 %% | deplibs "=" LibrariesDefinition
@@ -616,10 +626,10 @@ ArgListH "," Types OptParamAttrs OptLocalName -> ArgListH
 Types OptParamAttrs OptLocalName -> ArgListH
 
 %% ArgList ::= ArgListH | ArgListH ^ "," "..." | "..." | _ ;
--> ArgList
-ArgListH -> ArgList
-ArgListH "," "..." -> ArgList
-ArgListH "..." -> ArgList
+-> ArgList {cons("ArgList")}
+ArgListH -> ArgList {cons("ArgList")}
+ArgListH "," "..." -> ArgList {cons("ArgList")}
+ArgListH "..." -> ArgList {cons("ArgList")}
 
 %% FunctionHeaderH ::= OptCallingConv OptRetAttrs ResultTypes
                   %% GlobalName ^ "(" ^ ArgList ^ ")"
@@ -630,7 +640,7 @@ OptCallingConv OptRetAttrs ResultTypes GlobalName "(" ArgList ")" OptFuncAttrs O
 
 %% FunctionHeader ::=
   %% FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN ;
-FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN -> FunctionHeader
+FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN -> FunctionHeader {cons("FunctionHeader")}
 
 %% END ::= ^ ( end | "}" ) ^ "\n";
 ("end" | "}") -> END
@@ -646,9 +656,10 @@ FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH -> FunctionProto
 "sideeffect" -> OptSideEffect
 
 %% ConstValueRef ::= ESINT64VAL
-ESINT64VAL -> ConstValueRef
+%% ESINT64VAL -> ConstValueRef
 %% | EUINT64VAL
-EUINT64VAL -> ConstValueRef
+%% EUINT64VAL -> ConstValueRef
+Int64Val -> ConstValueRef
 %% | FPVAL
 FPVAL -> ConstValueRef
 %% | true
@@ -686,14 +697,14 @@ ConstExpr -> ConstValueRef
  %% | GLOBALVALID
  %% | LocalName
  %% | GlobalName ;
-LOCALVALID -> SymbolicValueRef
+LOCALVALID -> SymbolicValueRef 
 GLOBALVALID -> SymbolicValueRef
 LocalName -> SymbolicValueRef
 GlobalName -> SymbolicValueRef
 
 %% ValueRef ::= SymbolicValueRef | ConstValueRef;
-SymbolicValueRef -> ValueRef
-ConstValueRef -> ValueRef
+SymbolicValueRef -> ValueRef {cons("ValueRef")}
+ConstValueRef -> ValueRef {cons("ValueRef")}
 
 %% ResolvedVal ::= Types ValueRef ;
 Types ValueRef -> ResolvedVal
@@ -707,7 +718,7 @@ BasicBlockList BasicBlock -> BasicBlockList
 FunctionHeader BasicBlock -> BasicBlockList
 
 %% BasicBlock ::= InstructionList OptLocalAssign BBTerminatorInst ;
-InstructionList OptLocalAssign BBTerminatorInst -> BasicBlock
+InstructionList OptLocalAssign BBTerminatorInst -> BasicBlock {cons("BasicBlock")}
 
 %% InstructionList ::= +++ InstructionList Inst
 %% | - _
@@ -745,7 +756,7 @@ JumpTable IntType ConstValueRef "," "label" ValueRef -> JumpTable
 IntType ConstValueRef "," "label" ValueRef -> JumpTable
 
 %% Inst ::= ^ "  " ^ OptLocalAssign InstVal ^ "\n";
-OptLocalAssign InstVal EOL -> Inst
+OptLocalAssign InstVal EOL -> Inst {cons ("Instruction")}
 
 %% PHIList ::= Types "[" ValueRef ^ "," ValueRef "]"
  %% | PHIList ^ "," "[" ValueRef ^ "," ValueRef "]" ;
@@ -777,33 +788,33 @@ ConstantIndexList "," EUINT64VAL -> ConstantIndexList
 
 %% InstVal ::=
 %% ArithmeticOps Types ValueRef ^ "," ValueRef
-ArithmeticOps Types ValueRef "," ValueRef -> InstVal
+ArithmeticOps Types ValueRef "," ValueRef -> InstVal {cons("ArithmeticInstVal")}
 %% | LogicalOps Types ValueRef ^ "," ValueRef
-LogicalOps Types ValueRef "," ValueRef -> InstVal
+LogicalOps Types ValueRef "," ValueRef -> InstVal {cons("LogicalInstVal")}
 %% | icmp IPredicates Types ValueRef ^ "," ValueRef
-"icmp" IPredicates Types ValueRef "," ValueRef -> InstVal
+"icmp" IPredicates Types ValueRef "," ValueRef -> InstVal {cons("ICMPInstVal")}
 %% | fcmp FPredicates Types ValueRef ^ "," ValueRef
-"fcmp" FPredicates Types ValueRef "," ValueRef -> InstVal
+"fcmp" FPredicates Types ValueRef "," ValueRef -> InstVal {cons("FCMPInstVal")}
 %% | CastOps ResolvedVal to Types
-CastOps ResolvedVal "to" Types -> InstVal
+CastOps ResolvedVal "to" Types -> InstVal {cons("CastInstVal")}
 %% | select ResolvedVal ^ "," ResolvedVal ^ "," ResolvedVal
-"select" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal
+"select" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal {cons("SelectInstVal")}
 %% | "va_arg" ResolvedVal ^ "," Types
-"va_arg" ResolvedVal "," Types -> InstVal
+"va_arg" ResolvedVal "," Types -> InstVal {cons("VAArgInstVal")}
 %% | extractelement ResolvedVal ^ "," ResolvedVal
-"extractelement" ResolvedVal "," ResolvedVal -> InstVal
+"extractelement" ResolvedVal "," ResolvedVal -> InstVal {cons("ExtractInstVal")}
 %% | insertelement ResolvedVal ^ "," ResolvedVal ^ "," ResolvedVal
-"insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal
+"insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal {cons("InsertInstVal")}
 %% | shufflevector ResolvedVal ^ "," ResolvedVal ^ "," ResolvedVal
-"shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal
+"shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal -> InstVal {cons("ShuffleInstVal")}
 %% | phi PHIList
-"phi" PHIList -> InstVal
+"phi" PHIList -> InstVal {cons("PhiInstVal")}
 %% | OptTailCall OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
 %% OptFuncAttrs
 %% cme3 added OptParamAttrs
-OptTailCall OptParamAttrs OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal
+OptTailCall OptParamAttrs OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal {cons("CallInstVal")}
 %% | MemoryInst ;
-MemoryInst -> InstVal
+MemoryInst -> InstVal {cons("MemoryInstVal")}
 
 %% OptVolatile ::= - volatile | _ ;
 -> OptVolatile

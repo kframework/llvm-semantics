@@ -10,9 +10,9 @@ exports
 	context-free start-symbols Module
 
 	lexical syntax
-		";" ~[\n]* [\n] -> LAYOUT	
-		[\ \t\n]  -> LAYOUT
-	
+		";" ~[\n]* -> LAYOUT	
+		[\ \t]  -> LAYOUT
+		[\n]+ -> EOL
 %% (*
 
 %% polygen grammar for LLVM assembly language.
@@ -115,13 +115,60 @@ OptExact "sdiv" -> ArithmeticOps
 "frem" -> ArithmeticOps
 
 %% LogicalOps    ::= shl | lshr | ashr | and | or | xor;
+"shl" -> LogicalOps
+"lshr" -> LogicalOps
+"ashr" -> LogicalOps
+"and" -> LogicalOps
+"or" -> LogicalOps
+"xor" -> LogicalOps
+
 %% CastOps       ::= trunc | zext | sext | fptrunc | fpext | bitcast |
                   %% uitofp | sitofp | fptoui | fptosi | inttoptr | ptrtoint ;
+"trunc" -> CastOps
+"zext" -> CastOps
+"sext" -> CastOps
+"fptrunc" -> CastOps
+"fpext" -> CastOps
+"bitcast" -> CastOps
+"uitofp" -> CastOps
+"sitofp" -> CastOps
+"fptoui" -> CastOps
+"fptosi" -> CastOps
+"inttoptr" -> CastOps
+"ptrtoint" -> CastOps
+
 
 %% IPredicates ::= eq | ne | slt | sgt | sle | sge | ult | ugt | ule | uge ;
+"eq" -> IPredicates
+"ne" -> IPredicates
+"slt" -> IPredicates
+"sgt" -> IPredicates
+"sle" -> IPredicates
+"sge" -> IPredicates
+"ult" -> IPredicates
+"ugt" -> IPredicates
+"ule" -> IPredicates
+"uge" -> IPredicates
 
 %% FPredicates ::= oeq | one | olt | ogt | ole | oge | ord | uno | ueq | une
               %% | ult | ugt | ule | uge | true | false ;
+"oeq" -> FPredicates
+"one" -> FPredicates
+"olt" -> FPredicates
+"ogt" -> FPredicates
+"ole" -> FPredicates
+"oge" -> FPredicates
+"ord" -> FPredicates
+"uno" -> FPredicates
+"ueq" -> FPredicates
+"une" -> FPredicates
+"ult" -> FPredicates
+"ugt" -> FPredicates
+"ule" -> FPredicates
+"uge" -> FPredicates
+"true" -> FPredicates
+"false" -> FPredicates
+
 
 %% IntType ::= INTTYPE;
 INTTYPE -> IntType
@@ -504,35 +551,35 @@ ResultTypes SymbolicValueRef -> AliaseeRef
 "bitcast" "(" AliaseeRef "to" Types ")" -> AliaseeRef
 
 %% Module ::= +++ DefinitionList | --- _ ;
-DefinitionList -> Module
+EOL? DefinitionList -> Module
 
 %% DefinitionList ::= - Definition | + DefinitionList Definition ;
 Definition | DefinitionList Definition -> DefinitionList
 
 %% Definition
 %% ::= ^ ( +++++ define Function
-"define" Function -> Definition
+"define" Function EOL -> Definition
 %% | declare FunctionProto
-"declare" FunctionProto -> Definition
+"declare" FunctionProto EOL -> Definition
 %% | - module asm AsmBlock
-"module" "asm" AsmBlock -> Definition
+"module" "asm" AsmBlock EOL -> Definition
 %% | OptLocalAssign type Types
-OptLocalAssign "type" Types -> Definition
+OptLocalAssign "type" Types EOL -> Definition
 %% | OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType
 %% ConstVal GlobalVarAttributes
-OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
+OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes EOL -> Definition
 %% | OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
 %% GlobalType ConstVal GlobalVarAttributes
-OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition
+OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes EOL -> Definition
 %% | OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
 %% GlobalType Types GlobalVarAttributes
-OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> Definition
+OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes EOL -> Definition
 %% | OptGlobalAssign GVVisibilityStyle alias AliasLinkage AliaseeRef
-OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> Definition
+OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef EOL -> Definition
 %% | target TargetDefinition
-"target" TargetDefinition -> Definition
+"target" TargetDefinition EOL -> Definition
 %% | deplibs "=" LibrariesDefinition
-"deplibs" "=" LibrariesDefinition -> Definition
+"deplibs" "=" LibrariesDefinition EOL -> Definition
 %% ) ^ "\n";
 
 %% AsmBlock ::= STRINGCONSTANT ;
@@ -567,7 +614,7 @@ ArgListH "..." -> ArgList
                   %% OptFuncAttrs OptSection OptAlign OptGC ;
 OptCallingConv OptRetAttrs ResultTypes GlobalName "(" ArgList ")" OptFuncAttrs OptSection OptAlign OptGC -> FunctionHeaderH
 %% BEGIN ::= ( begin | "{" ) ^ "\n";
-("begin" | "{") -> BEGIN
+("begin" | "{") EOL -> BEGIN
 
 %% FunctionHeader ::=
   %% FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN ;
@@ -655,29 +702,29 @@ InstructionList OptLocalAssign BBTerminatorInst -> BasicBlock
 %% | ^ LABELSTR ^ ":\n" ;
 -> InstructionList
 InstructionList Inst -> InstructionList
-LABELSTR ":" -> InstructionList
+LABELSTR ":" EOL -> InstructionList
 
 %% BBTerminatorInst ::= ^ "  " ^
 %% ( ret ReturnedVal
-"ret" ReturnedVal -> BBTerminatorInst
+"ret" ReturnedVal EOL -> BBTerminatorInst
 %% | ret void
-"ret" "void" -> BBTerminatorInst
+"ret" "void" EOL -> BBTerminatorInst
 %% | br label ValueRef
-"br" "label" ValueRef -> BBTerminatorInst
+"br" "label" ValueRef EOL -> BBTerminatorInst
 %% | br INTTYPE ValueRef ^ "," label ValueRef ^ "," label ValueRef
-"br" INTTYPE ValueRef "," "label" ValueRef "," "label" ValueRef -> BBTerminatorInst
+"br" INTTYPE ValueRef "," "label" ValueRef "," "label" ValueRef EOL -> BBTerminatorInst
 %% | switch IntType ValueRef ^ "," label ValueRef "[" JumpTable "]"
-"switch" IntType ValueRef "," "label" ValueRef "[" JumpTable "]" -> BBTerminatorInst
+"switch" IntType ValueRef "," "label" ValueRef "[" JumpTable "]" EOL -> BBTerminatorInst
 %% | switch IntType ValueRef ^ "," label ValueRef "[" ^ "]"
-"switch" IntType ValueRef "," "label" ValueRef "[" "]" -> BBTerminatorInst
+"switch" IntType ValueRef "," "label" ValueRef "[" "]" EOL -> BBTerminatorInst
 %% | invoke OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
 %% OptFuncAttrs
 %% to label ValueRef unwind label ValueRef
-"invoke" OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs "to" "label" ValueRef "unwind" "label" ValueRef -> BBTerminatorInst
+"invoke" OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs "to" "label" ValueRef "unwind" "label" ValueRef EOL -> BBTerminatorInst
 %% | unwind
-"unwind" -> BBTerminatorInst
+"unwind" EOL -> BBTerminatorInst
 %% | unreachable ) ^ "\n";
-"unreachable" -> BBTerminatorInst
+"unreachable" EOL -> BBTerminatorInst
 
 
 %% JumpTable ::= JumpTable IntType ConstValueRef ^ "," label ValueRef
@@ -686,7 +733,7 @@ JumpTable IntType ConstValueRef "," "label" ValueRef -> JumpTable
 IntType ConstValueRef "," "label" ValueRef -> JumpTable
 
 %% Inst ::= ^ "  " ^ OptLocalAssign InstVal ^ "\n";
-OptLocalAssign InstVal -> Inst
+OptLocalAssign InstVal EOL -> Inst
 
 %% PHIList ::= Types "[" ValueRef ^ "," ValueRef "]"
  %% | PHIList ^ "," "[" ValueRef ^ "," ValueRef "]" ;

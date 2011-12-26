@@ -4,9 +4,8 @@ test: llvm.tbl
 	@time for Prog in $(Terms) ;\
 	do \
 		if sglr -2 -A -t -p llvm.tbl -i $$Prog -o out.parsetree ; then \
-			if cat out.parsetree | implode-asfix | pp-aterm | grep 'amb(' > out.ambs ; then \
-				cat out.ambs; \
-				echo "FAIL  " $$Prog; \
+			if cat out.parsetree | implode-asfix | grep 'amb(' > out.ambs ; then \
+				echo "AMBI  " $$Prog; \
 			else \
 				echo "PASS  " $$Prog; \
 			fi \
@@ -18,6 +17,13 @@ test: llvm.tbl
 	
 parse-%: llvm.tbl %
 	sglr -2 -A -t -v -p llvm.tbl -i $* | implode-asfix | pp-aterm
+#	-o /dev/null
+
+time: llvm.tbl tests/schorr-waite.ll
+#sglr -2 -A -t -v -p llvm.tbl -i tests/schorr-waite.ll -o /dev/null
+#sglr -2 -A -t -v -p llvm.tbl -i tests/gaussianElimination.ll -o /dev/null
+	time sglr -2 -A -t -v -p llvm.tbl -i tests/md5.ll -o out.parsetree
+	
 #	-o /dev/null
 
 llvm.def: llvm.sdf

@@ -3,7 +3,7 @@ Terms = $(wildcard tests/*)
 test: llvm.tbl
 	@time for Prog in $(Terms) ;\
 	do \
-		if sglr -A -t -p llvm.tbl -i $$Prog -o out.parsetree ; then \
+		if sglr -2 -A -t -p llvm.tbl -i $$Prog -o out.parsetree ; then \
 			if cat out.parsetree | implode-asfix | pp-aterm | grep 'amb(' > out.ambs ; then \
 				cat out.ambs; \
 				echo "FAIL  " $$Prog; \
@@ -17,7 +17,7 @@ test: llvm.tbl
 #-o /dev/null
 	
 parse-%: llvm.tbl %
-	sglr -A -t -v -p llvm.tbl -i $* | implode-asfix | pp-aterm
+	sglr -2 -A -t -v -p llvm.tbl -i $* | implode-asfix | pp-aterm
 #	-o /dev/null
 
 llvm.def: llvm.sdf

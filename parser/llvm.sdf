@@ -56,8 +56,17 @@ String -> Identifier
 %% llvm: Label           [-a-zA-Z$._0-9]+:
 [\-a-zA-Z\$\.\_0-9]+ -> Label
 
+%% llvm: FPConstant        [-+]?[0-9]+[.][0-9]*([eE][-+]?[0-9]+)?
+[\-\+]?[0-9]+[\.][0-9]*([eE][\-\+]?[0-9]+)? -> FPVAL
+
 %% FPVAL               ::= ESAPINTVAL ^ "." ^ EUAPINTVAL | "0x" ^ HexDigitSeq ;
-SignedInt "." UnsignedInt -> FPVAL
+%% SignedInt "." [0-9]* -> FPVAL
+
+%% llvm: HexFPConstant     0x[0-9A-Fa-f]+
+%% llvm: HexFP80Constant   0xK[0-9A-Fa-f]+
+%% llvm: HexFP128Constant  0xL[0-9A-Fa-f]+
+%% llvm: HexPPC128Constant 0xM[0-9A-Fa-f]+
+
 "0x" HexDigitSeq -> FPVAL
 
 lexical restrictions
@@ -154,9 +163,6 @@ OptExact "sdiv" -> ArithmeticOps
 
 %% LocalName ::= LocalVar | STRINGCONSTANT | PCTSTRINGCONSTANT ;
 LocalVar -> LocalName {cons("LocalName")}
-%% STRINGCONSTANT -> LocalName
-%% PCTSTRINGCONSTANT -> LocalName
-%% cme3 not sure about this...
 LocalVarId -> LocalName {cons("LocalName")}
 
 %% OptLocalName ::= LocalName | _ ;
@@ -174,10 +180,8 @@ LocalName "=" -> OptLocalAssign
 -> OptLocalAssign
 
 %% GlobalName ::= GlobalVar | ATSTRINGCONSTANT ;
-%% cme3 not sure about this...
 GlobalVarId -> GlobalName {cons("GlobalName")}
 GlobalVar -> GlobalName {cons("GlobalName")}
-%% ATSTRINGCONSTANT -> GlobalName {cons("GlobalName")}
 
 %% OptGlobalAssign ::= GlobalAssign | _ ;
 -> OptGlobalAssign
@@ -533,40 +537,20 @@ ResultTypes SymbolicValueRef -> AliaseeRef
 "bitcast" "(" AliaseeRef "to" Types ")" -> AliaseeRef
 
 %% Module ::= +++ DefinitionList | --- _ ;
-EOL? DefinitionList -> Module {cons("Module")}
+%% llvm: module ::= toplevelentity*
+EOL? {TopLevelEntity EOL}* EOL? -> Module {cons("Module")}
 
-%% DefinitionList ::= - Definition | + DefinitionList Definition ;
-%% {Definition EOL}+ -> DefinitionList %% {bracket}
-%% the above gives me the error "warning trying to build list with illegal tail"
-Definition EOL -> DefinitionList
-DefinitionList Definition EOL -> DefinitionList
-
-%% Definition
-%% "foo" -> Definition {cons("Foo")}
-%% ::= ^ ( +++++ define Function
-"define" Function -> Definition {cons("FunctionDefinition")}
-%% | declare FunctionProto
-"declare" FunctionProto -> Definition {cons("FunctionDeclaration")}
-%% | - module asm AsmBlock
-"module" "asm" AsmBlock -> Definition {cons("Asm")}
-%% | OptLocalAssign type Types
-OptLocalAssign "type" Types -> Definition {cons("GlobalType")}
-%% | OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType
-%% ConstVal GlobalVarAttributes
-OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition {cons("GlobalNoLinkage")}
-%% | OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
-%% GlobalType ConstVal GlobalVarAttributes
-OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> Definition {cons("GlobalInternalLinkage")}
-%% | OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace
-%% GlobalType Types GlobalVarAttributes
-OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> Definition {cons("GlobalExternalLinkage")}
-%% | OptGlobalAssign GVVisibilityStyle alias AliasLinkage AliaseeRef
-OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> Definition {cons("GlobalAlias")}
-%% | target TargetDefinition
-"target" TargetDefinition -> Definition {cons("TargetDefinition")}
-%% | deplibs "=" LibrariesDefinition
-"deplibs" "=" LibrariesDefinition -> Definition {cons("LibrariesDefinition")}
-%% ) ^ "\n";
+%% TopLevelEntity
+"define" Function -> TopLevelEntity {cons("FunctionDefinition")}
+"declare" FunctionProto -> TopLevelEntity {cons("FunctionDeclaration")}
+"module" "asm" AsmBlock -> TopLevelEntity {cons("ModuleAsm")}
+OptLocalAssign "type" Types -> TopLevelEntity {cons("GlobalType")}
+OptGlobalAssign GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> TopLevelEntity {cons("GlobalNoLinkage")}
+OptGlobalAssign GVInternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes -> TopLevelEntity {cons("GlobalInternalLinkage")}
+OptGlobalAssign GVExternalLinkage GVVisibilityStyle ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes -> TopLevelEntity {cons("GlobalExternalLinkage")}
+OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef -> TopLevelEntity {cons("GlobalAlias")}
+"target" TargetDefinition -> TopLevelEntity {cons("TargetDefinition")}
+"deplibs" "=" LibrariesDefinition -> TopLevelEntity {cons("LibrariesDefinition")}
 
 %% AsmBlock ::= STRINGCONSTANT ;
 String -> AsmBlock
@@ -611,7 +595,7 @@ FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN -> FunctionHeader 
 ("end" | "}") -> END
 
 %% Function ::= BasicBlockList END ;
-FunctionHeader BasicBlockList END -> Function
+FunctionHeader BasicBlockList EOL END -> Function
 
 %% FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH ;
 FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH -> FunctionProto
@@ -675,11 +659,12 @@ ConstValueRef -> ValueRef {cons("ValueRef")}
 Types ValueRef -> ResolvedVal
 
 %% ReturnedVal ::= ResolvedVal | ReturnedVal ^ "," ResolvedVal ;
-ResolvedVal -> ReturnedVal
-ReturnedVal "," ResolvedVal -> ReturnedVal
+{ResolvedVal ","}+ -> ReturnedVal
+%% ResolvedVal -> ReturnedVal
+%% ReturnedVal "," ResolvedVal -> ReturnedVal
 
 %% BasicBlockList ::= BasicBlockList BasicBlock | FunctionHeader BasicBlock ;
-{BasicBlock ""}+ -> BasicBlockList
+{BasicBlock EOL}+ -> BasicBlockList
 %% BasicBlockList BasicBlock -> BasicBlockList
 %% BasicBlock -> BasicBlockList
 
@@ -695,25 +680,25 @@ Label ":" EOL -> InstructionList
 
 %% BBTerminatorInst ::= ^ "  " ^
 %% ( ret ReturnedVal
-"ret" ReturnedVal EOL -> BBTerminatorInst
+"ret" ReturnedVal -> BBTerminatorInst
 %% | ret void
-"ret" "void" EOL -> BBTerminatorInst
+"ret" "void" -> BBTerminatorInst
 %% | br label ValueRef
-"br" "label" ValueRef EOL -> BBTerminatorInst
+"br" "label" ValueRef -> BBTerminatorInst
 %% | br IntegerType ValueRef ^ "," label ValueRef ^ "," label ValueRef
-"br" IntegerType ValueRef "," "label" ValueRef "," "label" ValueRef EOL -> BBTerminatorInst
+"br" IntegerType ValueRef "," "label" ValueRef "," "label" ValueRef -> BBTerminatorInst
 %% | switch IntegerType ValueRef ^ "," label ValueRef "[" JumpTable "]"
-"switch" IntegerType ValueRef "," "label" ValueRef "[" JumpTable "]" EOL -> BBTerminatorInst
+"switch" IntegerType ValueRef "," "label" ValueRef "[" JumpTable "]" -> BBTerminatorInst
 %% | switch IntegerType ValueRef ^ "," label ValueRef "[" ^ "]"
-"switch" IntegerType ValueRef "," "label" ValueRef "[" "]" EOL -> BBTerminatorInst
+"switch" IntegerType ValueRef "," "label" ValueRef "[" "]" -> BBTerminatorInst
 %% | invoke OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
 %% OptFuncAttrs
 %% to label ValueRef unwind label ValueRef
-"invoke" OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs "to" "label" ValueRef "unwind" "label" ValueRef EOL -> BBTerminatorInst
+"invoke" OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs "to" "label" ValueRef "unwind" "label" ValueRef -> BBTerminatorInst
 %% | unwind
-"unwind" EOL -> BBTerminatorInst
+"unwind" -> BBTerminatorInst
 %% | unreachable ) ^ "\n";
-"unreachable" EOL -> BBTerminatorInst
+"unreachable" -> BBTerminatorInst
 
 
 %% JumpTable ::= JumpTable IntegerType ConstValueRef ^ "," label ValueRef
@@ -797,6 +782,7 @@ MemoryInst -> InstVal {cons("MemoryInstVal")}
 %% OptNW  ::= OptNUW OptNSW | OptNSW OptNUW ;
 %% OptNUW OptNSW -> OptNW
 %% OptNSW OptNUW -> OptNW
+-> OptNW
 "nuw" -> OptNW
 "nsw" -> OptNW
 "nuw" "nsw" -> OptNW

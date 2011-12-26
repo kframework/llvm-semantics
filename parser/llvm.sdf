@@ -699,8 +699,8 @@ ConstExpr -> ConstValueRef
  %% | GLOBALVALID
  %% | LocalName
  %% | GlobalName ;
-LOCALVALID -> SymbolicValueRef 
-GLOBALVALID -> SymbolicValueRef
+%% LOCALVALID -> SymbolicValueRef 
+%% GLOBALVALID -> SymbolicValueRef
 LocalName -> SymbolicValueRef
 GlobalName -> SymbolicValueRef
 
@@ -825,14 +825,18 @@ MemoryInst -> InstVal {cons("MemoryInstVal")}
 -> OptExact
 "exact" -> OptExact
 %% OptNSW ::= - nsw | _ ;
--> OptNSW
-"nsw" -> OptNSW
+%% -> OptNSW
+%% "nsw" -> OptNSW
 %% OptNUW ::= - nuw | _ ;
--> OptNUW
-"nuw" -> OptNUW
+%% -> OptNUW
+%% "nuw" -> OptNUW
 %% OptNW  ::= OptNUW OptNSW | OptNSW OptNUW ;
-OptNUW OptNSW -> OptNW
-OptNSW OptNUW -> OptNW
+%% OptNUW OptNSW -> OptNW
+%% OptNSW OptNUW -> OptNW
+"nuw" -> OptNW
+"nsw" -> OptNW
+"nuw" "nsw" -> OptNW
+"nsw" "nuw"  -> OptNW
 %% OptInBounds  ::= - inbounds | _ ;
 -> OptInBounds
 "inbounds" -> OptInBounds

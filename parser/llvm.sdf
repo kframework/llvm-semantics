@@ -10,13 +10,15 @@ exports
 	context-free start-symbols Module
 
 	lexical syntax
-		[\ \t]  -> LAYOUT
+		[\ \t]  -> LAYOUT		
 		";" ~[\n]* [\n] -> OneEOL
 		[\n] -> OneEOL
 		%% EOF? | EOF -> EOL
 		%% EOF is defined in context-free
 	lexical restrictions
 		EOF -/- ~[]
+	context-free restrictions
+		LAYOUT? -/- [\ \t]
 %% (*
 
 %% polygen grammar for LLVM assembly language.

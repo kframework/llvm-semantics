@@ -43,8 +43,8 @@ String -> Identifier
 "%" Identifier -> LocalVar
 "@" Identifier -> GlobalVar
 
-%% IntegerType             ::= "i" ^ UnsignedInt ;
-"i" UnsignedInt -> IntegerType
+%% llvm: IntegerType     i[0-9]+
+"i" [0-9]+ -> IntegerType
 
 %% STRINGCONSTANT      ::= "\"" ^ StringConstant ^ "\"" ;
 "\"" StringConstant "\"" -> String
@@ -52,8 +52,10 @@ String -> Identifier
 %% "@" STRINGCONSTANT -> ATSTRINGCONSTANT
 %% PCTSTRINGCONSTANT   ::= "%" ^ STRINGCONSTANT ;
 %% "%" STRINGCONSTANT -> PCTSTRINGCONSTANT
-%% LABELSTR            ::= StringConstant ;
-[a-zA-Z\$\.\_0-9]+ -> LABELSTR
+
+%% llvm: Label           [-a-zA-Z$._0-9]+:
+[\-a-zA-Z\$\.\_0-9]+ -> Label
+
 %% FPVAL               ::= ESAPINTVAL ^ "." ^ EUAPINTVAL | "0x" ^ HexDigitSeq ;
 SignedInt "." UnsignedInt -> FPVAL
 "0x" HexDigitSeq -> FPVAL
@@ -390,6 +392,7 @@ IntegerType -> PrimType
 "fp128" -> PrimType
 "x86_fp80" -> PrimType
 "label" -> PrimType
+"void" -> PrimType
 
 %% Types
 %% ::= opaque
@@ -405,7 +408,7 @@ SymbolicValueRef -> Types
 %% | Types "(" ^ ArgTypeListI ^ ")" OptFuncAttrs
 Types "(" ArgTypeListI ")" OptFuncAttrs -> Types
 %% | void "(" ^ ArgTypeListI ^ ")" OptFuncAttrs
-"void" "(" ArgTypeListI ")" OptFuncAttrs -> Types
+%% "void" "(" ArgTypeListI ")" OptFuncAttrs -> Types
 %% | "[" ^ UnsignedInt "x" Types ^ "]"
 "[" UnsignedInt "x" Types "]" -> Types
 %% | "<" ^ UnsignedInt "x" Types ^ ">"
@@ -426,11 +429,12 @@ Types OptParamAttrs -> ArgType
 
 %% ResultTypes ::= Types | void ;
 Types -> ResultTypes {cons("ResultTypes")}
-"void" -> ResultTypes {cons("ResultTypes")}
+%% "void" -> ResultTypes {cons("ResultTypes")}
 
 %% ArgTypeList ::= ArgType | ArgTypeList ^ "," ArgType ;
-ArgType -> ArgTypeList
-ArgTypeList "," ArgType -> ArgTypeList
+{ArgType ","}+ -> ArgTypeList
+%% ArgType -> ArgTypeList
+%% ArgTypeList "," ArgType -> ArgTypeList
 
 %% ArgTypeListI ::= ArgTypeList | ArgTypeList ^ "," "..." | "..." | _ ;
 -> ArgTypeListI
@@ -439,8 +443,9 @@ ArgTypeList "," "..." -> ArgTypeListI
 "..." -> ArgTypeListI
 
 %% TypeListI ::= Types | TypeListI ^ "," Types ;
-Types -> TypeListI
-TypeListI "," Types -> TypeListI
+{Types ","}+ -> TypeListI
+%% Types -> TypeListI
+%% TypeListI "," Types -> TypeListI
 
 %% ConstVal::= Types "[" ^ ConstVector ^ "]"
 Types "[" ConstVector "]" -> ConstVal
@@ -510,8 +515,9 @@ LogicalOps "(" ConstVal "," ConstVal ")" -> ConstExpr
 "insertvalue" "(" ConstVal "," ConstVal ConstantIndexList ")" -> ConstExpr
 
 %% ConstVector ::= ConstVector ^ "," ConstVal | ConstVal ;
-ConstVector "," ConstVal -> ConstVector
-ConstVal -> ConstVector
+{ConstVal ","}+ -> ConstVector
+%% ConstVector "," ConstVal -> ConstVector
+%% ConstVal -> ConstVector
 
 %% GlobalType ::= global | constant ;
 "global" -> GlobalType
@@ -575,8 +581,9 @@ String -> AsmBlock
 "[" "]" -> LibrariesDefinition
 
 %% LibList ::= LibList ^ "," STRINGCONSTANT | STRINGCONSTANT ;
-LibList "," String -> LibList
-String -> LibList
+{String ","}+ -> LibList
+%% LibList "," String -> LibList
+%% String -> LibList
 
 %% ArgListH ::= ArgListH ^ "," Types OptParamAttrs OptLocalName
  %% | Types OptParamAttrs OptLocalName ;
@@ -604,7 +611,7 @@ FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH BEGIN -> FunctionHeader 
 ("end" | "}") -> END
 
 %% Function ::= BasicBlockList END ;
-BasicBlockList END -> Function
+FunctionHeader BasicBlockList END -> Function
 
 %% FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH ;
 FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH -> FunctionProto
@@ -672,18 +679,19 @@ ResolvedVal -> ReturnedVal
 ReturnedVal "," ResolvedVal -> ReturnedVal
 
 %% BasicBlockList ::= BasicBlockList BasicBlock | FunctionHeader BasicBlock ;
-BasicBlockList BasicBlock -> BasicBlockList
-FunctionHeader BasicBlock -> BasicBlockList
+{BasicBlock ""}+ -> BasicBlockList
+%% BasicBlockList BasicBlock -> BasicBlockList
+%% BasicBlock -> BasicBlockList
 
 %% BasicBlock ::= InstructionList OptLocalAssign BBTerminatorInst ;
 InstructionList OptLocalAssign BBTerminatorInst -> BasicBlock {cons("BasicBlock")}
 
 %% InstructionList ::= +++ InstructionList Inst
 %% | - _
-%% | ^ LABELSTR ^ ":\n" ;
+%% | ^ Label ^ ":\n" ;
 -> InstructionList
 InstructionList Inst -> InstructionList
-LABELSTR ":" EOL -> InstructionList
+Label ":" EOL -> InstructionList
 
 %% BBTerminatorInst ::= ^ "  " ^
 %% ( ret ReturnedVal

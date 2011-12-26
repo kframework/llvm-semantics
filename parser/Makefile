@@ -3,7 +3,7 @@ Terms = $(wildcard tests/*)
 test: llvm.tbl
 	@for Prog in $(Terms) ;\
 	do \
-		if sglr -t -p llvm.tbl -i $$Prog -o /dev/null; then \
+		if sglr -A -t -p llvm.tbl -i $$Prog -o /dev/null; then \
 			echo "PASS  " $$Prog; \
 		else \
 			echo "FAIL  " $$Prog; \
@@ -12,7 +12,7 @@ test: llvm.tbl
 #-o /dev/null
 	
 parse-%: llvm.tbl %
-	sglr -t -v -p llvm.tbl -i $*
+	sglr -A -t -v -p llvm.tbl -i $* -o /dev/null
 
 llvm.def: llvm.sdf
 	pack-sdf -i $< -o $@

@@ -11,8 +11,8 @@ exports
 
 	lexical syntax
 		";" ~[\n]* -> LAYOUT	
-		[\ \t]  -> LAYOUT
-		[\n]+ -> EOL
+		[\ \t\r]  -> LAYOUT
+		(LAYOUT? [\n] LAYOUT?)+ -> EOL
 %% (*
 
 %% polygen grammar for LLVM assembly language.
@@ -101,13 +101,14 @@ ESAPINTVAL "." EUAPINTVAL -> FPVAL
 context-free syntax
 %% ArithmeticOps ::= + OptNW add | fadd | OptNW sub | fsub | OptNW mul | fmul |
                   %% udiv | OptExact sdiv | fdiv | urem | srem | frem ;
-OptNW "add" -> ArithmeticOps
+%% cme3 reversed optNW with op
+"add" OptNW -> ArithmeticOps
 "fadd" -> ArithmeticOps
-OptNW "sub" -> ArithmeticOps
+"sub" OptNW -> ArithmeticOps
 "fsub" -> ArithmeticOps
-OptNW "mul" -> ArithmeticOps
+"mul" OptNW -> ArithmeticOps
 "fmul" -> ArithmeticOps
-OptNW "udiv" -> ArithmeticOps
+"udiv" OptNW -> ArithmeticOps
 OptExact "sdiv" -> ArithmeticOps
 "fdiv" -> ArithmeticOps
 "urem" -> ArithmeticOps
@@ -788,7 +789,8 @@ CastOps ResolvedVal "to" Types -> InstVal
 "phi" PHIList -> InstVal
 %% | OptTailCall OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
 %% OptFuncAttrs
-OptTailCall OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal
+%% cme3 added OptParamAttrs
+OptTailCall OptParamAttrs OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal
 %% | MemoryInst ;
 MemoryInst -> InstVal
 

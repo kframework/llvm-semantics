@@ -1,7 +1,7 @@
 Terms = $(wildcard tests/*)
 
 test: llvm.tbl
-	@for Prog in $(Terms) ;\
+	@time for Prog in $(Terms) ;\
 	do \
 		if sglr -A -t -p llvm.tbl -i $$Prog -o out.parsetree ; then \
 			if cat out.parsetree | implode-asfix | pp-aterm | grep 'amb(' > out.ambs ; then \

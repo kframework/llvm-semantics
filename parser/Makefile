@@ -8,7 +8,7 @@ default: $(GRAMMAR).tbl
 # Simple test harness
 # We (naively) assume clang will compile all of the C tests without error.
 # TODO: $C_SEMANTICS env variable?
-C_TESTS_DIR = /home/david/src/c-semantics/tests/unitTests
+C_TESTS_DIR = ~/c-semantics/tests/unitTests
 C_TESTS = $(wildcard $(C_TESTS_DIR)/*.c)
 LL_TESTS_DIR = tests
 LL_TESTS = $(wildcard $(LL_TESTS_DIR)/*.ll)

@@ -1,0 +1,8 @@
+#! /usr/bin/env bash
+set -e # quit on error
+make
+BASE=`basename $1 .ll`
+sglr -2 -A -t -v -p llvm.tbl -i $1 -o $BASE.parsetree
+implode-asfix < $BASE.parsetree > $BASE.imploded
+pp-aterm < $BASE.imploded
+

@@ -802,7 +802,7 @@ CastOps ResolvedVal "to" Types -> InstVal {cons("CastInstVal")}
 %% | OptTailCall OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
 %% OptFuncAttrs
 %% cme3 added OptParamAttrs
-OptTailCall OptParamAttrs OptCallingConv ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal {cons("CallInstVal")}
+OptTailCall OptCallingConv OptParamAttrs ResultTypes ValueRef "(" ParamList ")" OptFuncAttrs -> InstVal {cons("CallInstVal")}
 %% | MemoryInst ;
 MemoryInst -> InstVal {cons("MemoryInstVal")}
 

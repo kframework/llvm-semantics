@@ -20,13 +20,14 @@ alltests: lltests ctests
 %.test: %.ll
 	@if $(MAKE) --assume-new=$< -s $*.imploded >/dev/null 2>&1; then \
 		if grep 'amb(' $*.imploded ; then \
-			echo "AMBI  " $<; \
+			echo -n "AMBI"; \
 		else \
-			echo "PASS  " $<; \
+			echo -n "PASS"; \
 		fi \
 	else \
-		echo "FAIL  " $<; \
-	fi
+		echo -n "FAIL"; \
+	fi; \
+	echo "   $<"
 
 %.ll: %.c
 	@if ! clang -w -emit-llvm -S $< -o $@; then \

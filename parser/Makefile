@@ -17,21 +17,25 @@ ctests: $(GRAMMAR).tbl $(patsubst %.c,%.test,$(C_TESTS)) $(patsubst %.c,%.opt.te
 alltests: lltests ctests
 
 %.test: %.ll
-	@if $(MAKE) --assume-new=$< -s $*.imploded >/dev/null 2>&1; then \
-		if grep 'amb(' $*.imploded ; then \
-			echo -n "AMBI"; \
-		else \
-			echo -n "PASS"; \
-		fi \
+	@if grep -x 'CLANG FAILURE' $< >/dev/null; then \
+		echo -n "CLANG FAIL"; \
 	else \
-		echo -n "FAIL"; \
+		if $(MAKE) --assume-new=$< -s $*.imploded >/dev/null 2>&1; then \
+			if grep 'amb(' $*.imploded >/dev/null ; then \
+				echo -n "AMBI"; \
+			else \
+				echo -n "PASS"; \
+			fi \
+		else \
+			echo -n "FAIL"; \
+		fi \
 	fi; \
 	echo "   $<"
 
 %.ll: %.c
 	@if ! clang -w -emit-llvm -S $< -o $@; then \
 		echo "CLANG FAILURE" > $@; \
-		echo "FAIL (clang)   $<"; \
+		echo "clang failed to compile $<"; \
 	fi
 
 %.opt.ll: %.ll

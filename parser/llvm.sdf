@@ -90,7 +90,7 @@ SignedInt -> Int64Val {cons("Int64Val")}
 "mul" OptNW -> ArithmeticOps
 "fmul" -> ArithmeticOps
 "udiv" OptNW -> ArithmeticOps
-OptExact "sdiv" -> ArithmeticOps
+"sdiv" OptExact -> ArithmeticOps
 "fdiv" -> ArithmeticOps
 "urem" -> ArithmeticOps
 "srem" -> ArithmeticOps

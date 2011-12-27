@@ -688,7 +688,7 @@ Label ":" EOL -> InstructionList
 %% | br IntegerType ValueRef ^ "," label ValueRef ^ "," label ValueRef
 "br" IntegerType ValueRef "," "label" ValueRef "," "label" ValueRef -> BBTerminatorInst
 %% | switch IntegerType ValueRef ^ "," label ValueRef "[" JumpTable "]"
-"switch" IntegerType ValueRef "," "label" ValueRef "[" JumpTable "]" -> BBTerminatorInst
+"switch" IntegerType ValueRef "," "label" ValueRef "[" EOL JumpTable "]" -> BBTerminatorInst
 %% | switch IntegerType ValueRef ^ "," label ValueRef "[" ^ "]"
 "switch" IntegerType ValueRef "," "label" ValueRef "[" "]" -> BBTerminatorInst
 %% | invoke OptCallingConv ResultTypes ValueRef ^ "(" ^ ParamList ^ ")"
@@ -703,8 +703,11 @@ Label ":" EOL -> InstructionList
 
 %% JumpTable ::= JumpTable IntegerType ConstValueRef ^ "," label ValueRef
  %% | IntegerType ConstValueRef ^ "," label ValueRef ;
-JumpTable IntegerType ConstValueRef "," "label" ValueRef -> JumpTable
-IntegerType ConstValueRef "," "label" ValueRef -> JumpTable
+{JumpTableEntry EOL}+ EOL? -> JumpTable
+%% JumpTable IntegerType ConstValueRef "," "label" ValueRef -> JumpTable
+%% IntegerType ConstValueRef "," "label" ValueRef -> JumpTable
+
+IntegerType ConstValueRef "," "label" ValueRef -> JumpTableEntry
 
 %% Inst ::= ^ "  " ^ OptLocalAssign InstVal ^ "\n";
 OptLocalAssign InstVal EOL -> Inst {cons ("Instruction")}

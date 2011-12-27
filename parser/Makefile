@@ -1,36 +1,53 @@
-Terms = $(wildcard tests/*)
+GRAMMAR = llvm
 
-test: llvm.tbl
-	@time for Prog in $(Terms) ;\
-	do \
-		if sglr -2 -A -t -p llvm.tbl -i $$Prog -o out.parsetree ; then \
-			if cat out.parsetree | implode-asfix | grep 'amb(' > out.ambs ; then \
-				echo "AMBI  " $$Prog; \
-			else \
-				echo "PASS  " $$Prog; \
-			fi \
+# Keep all intermediate files:
+.SECONDARY:
+
+default: $(GRAMMAR).tbl
+
+# Simple test harness
+# We (naively) assume clang will compile all of the C tests without error.
+# TODO: $C_SEMANTICS env variable?
+C_TESTS_DIR = /home/david/src/c-semantics/tests/unitTests
+C_TESTS = $(wildcard $(C_TESTS_DIR)/*.c)
+LL_TESTS_DIR = tests
+LL_TESTS = $(wildcard $(LL_TESTS_DIR)/*.ll)
+
+lltests: $(GRAMMAR).tbl $(patsubst %.ll,%.test,$(LL_TESTS))
+ctests: $(GRAMMAR).tbl $(patsubst %.c,%.test,$(C_TESTS))
+alltests: lltests ctests
+
+%.test: %.ll
+	@if make -s $*.imploded >/dev/null 2>&1; then \
+		if grep 'amb(' $*.imploded ; then \
+			echo "AMBI  " $<; \
 		else \
-			echo "FAIL  " $$Prog; \
+			echo "PASS  " $<; \
 		fi \
-	done
-#-o /dev/null
-	
-parse-%: llvm.tbl %
-	sglr -2 -A -t -v -p llvm.tbl -i $* | implode-asfix | pp-aterm
-#	-o /dev/null
+	else \
+		echo "FAIL  " $<; \
+	fi
 
-time: llvm.tbl tests/schorr-waite.ll
-#sglr -2 -A -t -v -p llvm.tbl -i tests/schorr-waite.ll -o /dev/null
-#sglr -2 -A -t -v -p llvm.tbl -i tests/gaussianElimination.ll -o /dev/null
-	time sglr -2 -A -t -v -p llvm.tbl -i tests/md5.ll -o out.parsetree
+%.ll: %.c
+	@clang -w -emit-llvm -S $< -o $@
 	
-#	-o /dev/null
+%.parsetree: %.ll $(GRAMMAR).tbl
+	sglr -2 -A -t -v -p $(GRAMMAR).tbl -i $< -o $@
 
-llvm.def: llvm.sdf
+%.imploded: %.parsetree
+	implode-asfix < $< > $@
+
+%.pp: %.imploded
+	pp-aterm < $< > $@
+
+%.def: %.sdf
 	pack-sdf -i $< -o $@
 
-llvm.tbl: llvm.def
+# TODO: should create a Main module which imports llvm
+%.tbl: %.def
 	sdf2table -m llvm -i $< -o $@
 
 clean:
-	rm -f llvm.tbl llvm.def
+	rm -f $(GRAMMAR).tbl $(GRAMMAR).def
+	rm -f $(LL_TESTS_DIR)/*.parsetree $(LL_TESTS_DIR)/*.imploded
+	rm -f $(C_TESTS_DIR)/*.ll $(C_TESTS_DIR)/*.parsetree $(C_TESTS_DIR)/*.imploded

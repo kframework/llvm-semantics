@@ -8,10 +8,10 @@ default: $(GRAMMAR).tbl
 # Simple test harness
 # We (naively) assume clang will compile all of the C tests without error.
 # TODO: $C_SEMANTICS env variable?
-C_TESTS_DIR = ~/c-semantics/tests/unitTests
-C_TESTS = $(wildcard $(C_TESTS_DIR)/*.c)
-LL_TESTS_DIR = tests
-LL_TESTS = $(wildcard $(LL_TESTS_DIR)/*.ll)
+C_TESTS_DIRS = ~/c-semantics/tests/unitTests
+C_TESTS = $(foreach dir, $(C_TESTS_DIRS), $(wildcard $(dir)/*.c))
+LL_TESTS_DIRS = tests gcc-torture
+LL_TESTS = $(foreach dir, $(LL_TESTS_DIRS), $(wildcard $(dir)/*.ll))
 
 lltests: $(GRAMMAR).tbl $(patsubst %.ll,%.test,$(LL_TESTS))
 ctests: $(GRAMMAR).tbl $(patsubst %.c,%.test,$(C_TESTS)) $(patsubst %.c,%.opt.test,$(C_TESTS))
@@ -55,5 +55,6 @@ alltests: lltests ctests
 
 clean:
 	rm -f $(GRAMMAR).tbl $(GRAMMAR).def
-	rm -f $(LL_TESTS_DIR)/*.parsetree $(LL_TESTS_DIR)/*.imploded
-	rm -f $(C_TESTS_DIR)/*.ll $(C_TESTS_DIR)/*.parsetree $(C_TESTS_DIR)/*.imploded
+# rm -f $(LL_TESTS_DIR)/*.parsetree $(LL_TESTS_DIR)/*.imploded
+	$(foreach dir, $(LL_TESTS_DIRS), rm -f $(dir)/*.parsetree $(dir)/*.imploded;)
+	$(foreach dir, $(C_TESTS_DIRS), rm -f $(dir)/*.ll $(dir)/*.parsetree $(dir)/*.imploded;)

@@ -18,7 +18,7 @@ ctests: $(GRAMMAR).tbl $(patsubst %.c,%.test,$(C_TESTS)) $(patsubst %.c,%.opt.te
 alltests: lltests ctests
 
 %.test: %.ll
-	@if make -s $*.imploded >/dev/null 2>&1; then \
+	@if make --assume-new=$< -s $*.imploded >/dev/null 2>&1; then \
 		if grep 'amb(' $*.imploded ; then \
 			echo "AMBI  " $<; \
 		else \

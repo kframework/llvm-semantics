@@ -7,7 +7,7 @@ default: $(GRAMMAR).tbl
 
 # Simple test harness
 # We (naively) assume clang will compile all of the C tests without error.
-C_TESTS_DIRS = $(C_SEMANTICS)/tests/unitTests
+C_TESTS_DIRS = $(C_SEMANTICS)/tests/csmith $(C_SEMANTICS)/tests/cil $(C_SEMANTICS)/tests/unitTests
 C_TESTS = $(foreach dir, $(C_TESTS_DIRS), $(wildcard $(dir)/*.c))
 LL_TESTS_DIRS = tests gcc-torture
 LL_TESTS = $(foreach dir, $(LL_TESTS_DIRS), $(wildcard $(dir)/*.ll))

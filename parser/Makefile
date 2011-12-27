@@ -29,7 +29,10 @@ alltests: lltests ctests
 	fi
 
 %.ll: %.c
-	@clang -w -emit-llvm -S $< -o $@
+	@if ! clang -w -emit-llvm -S $< -o $@; then \
+		touch $@; \
+		echo "FAIL (clang) $<"; \
+	fi
 	
 %.parsetree: %.ll $(GRAMMAR).tbl
 	sglr -2 -A -t -v -p $(GRAMMAR).tbl -i $< -o $@

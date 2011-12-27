@@ -1,0 +1,817 @@
+; ModuleID = '/home/grosu/celliso2/c-semantics/tests/unitTests/cq-17-s86.c'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
+target triple = "x86_64-unknown-linux-gnu"
+
+%struct.defs = type { i32, i32, i32, i32, i32, i32, i32, float, float, i32, i32, i32, i32, i32, i32, [8 x i8] }
+
+@setupTable.qs26 = internal global [8 x i8] c"s26    \00", align 1
+@setupTable.s = internal global [18 x i8] c"%3d bits in %ss.\0A\00", align 16
+@setupTable.s2 = internal global [54 x i8] c"%f is the least number that can be added to 1. (%s).\0A\00", align 16
+@svtest.k = internal global i32 0, align 4
+@zero.k = internal global i32 0, align 4
+@extvar = common global i32 0, align 4
+@sec.s86er = internal global [10 x i8] c"s86,er%d\0A\00", align 1
+@sec.qs86 = internal global [8 x i8] c"s86    \00", align 1
+@sec.x = internal global [3 x i32] [i32 1, i32 3, i32 5], align 4
+@sec.pint = internal global i32* bitcast (i8* getelementptr (i8* bitcast ([3 x i32]* @sec.x to i8*), i64 8) to i32*), align 8
+@sec.zero = internal global [10 x i32] zeroinitializer, align 16
+@sec.y0 = internal global [12 x float] [float 1.000000e+00, float 3.000000e+00, float 5.000000e+00, float 2.000000e+00, float 4.000000e+00, float 6.000000e+00, float 3.000000e+00, float 5.000000e+00, float 7.000000e+00, float 0.000000e+00, float 0.000000e+00, float 0.000000e+00], align 16
+@sec.y1 = internal global [4 x [3 x float]] [[3 x float] [float 1.000000e+00, float 3.000000e+00, float 5.000000e+00], [3 x float] [float 2.000000e+00, float 4.000000e+00, float 6.000000e+00], [3 x float] [float 3.000000e+00, float 5.000000e+00, float 7.000000e+00], [3 x float] zeroinitializer], align 16
+@sec.y2 = internal global [4 x [3 x float]] [[3 x float] [float 1.000000e+00, float 3.000000e+00, float 5.000000e+00], [3 x float] [float 2.000000e+00, float 4.000000e+00, float 6.000000e+00], [3 x float] [float 3.000000e+00, float 5.000000e+00, float 7.000000e+00], [3 x float] zeroinitializer], align 16
+@sec.y3 = internal global [4 x [3 x float]] [[3 x float] [float 1.000000e+00, float 0.000000e+00, float 0.000000e+00], [3 x float] [float 2.000000e+00, float 0.000000e+00, float 0.000000e+00], [3 x float] [float 3.000000e+00, float 0.000000e+00, float 0.000000e+00], [3 x float] [float 4.000000e+00, float 0.000000e+00, float 0.000000e+00]], align 16
+@main.d0 = internal global %struct.defs zeroinitializer, align 4
+@main.pd0 = internal global %struct.defs* null, align 8
+@.str = private unnamed_addr constant [25 x i8] c"Section %s returned %d.\0A\00", align 1
+@.str1 = private unnamed_addr constant [22 x i8] c"\0ANo errors detected.\0A\00", align 1
+@.str2 = private unnamed_addr constant [10 x i8] c"\0AFailed.\0A\00", align 1
+
+define i64 @pow2(i64 %n) nounwind uwtable {
+entry:
+  %n.addr = alloca i64, align 8
+  %s = alloca i64, align 8
+  store i64 %n, i64* %n.addr, align 8
+  store i64 1, i64* %s, align 8
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.body, %entry
+  %tmp = load i64* %n.addr, align 8
+  %dec = add nsw i64 %tmp, -1
+  store i64 %dec, i64* %n.addr, align 8
+  %tobool = icmp ne i64 %tmp, 0
+  br i1 %tobool, label %while.body, label %while.end
+
+while.body:                                       ; preds = %while.cond
+  %tmp1 = load i64* %s, align 8
+  %mul = mul nsw i64 %tmp1, 2
+  store i64 %mul, i64* %s, align 8
+  br label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  %tmp2 = load i64* %s, align 8
+  ret i64 %tmp2
+}
+
+define void @zerofill(i8* %x) nounwind uwtable {
+entry:
+  %x.addr = alloca i8*, align 8
+  %j = alloca i32, align 4
+  store i8* %x, i8** %x.addr, align 8
+  store i32 0, i32* %j, align 4
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %entry
+  %tmp = load i32* %j, align 4
+  %cmp = icmp slt i32 %tmp, 256
+  br i1 %cmp, label %for.body, label %for.end
+
+for.body:                                         ; preds = %for.cond
+  %tmp1 = load i8** %x.addr, align 8
+  %incdec.ptr = getelementptr inbounds i8* %tmp1, i32 1
+  store i8* %incdec.ptr, i8** %x.addr, align 8
+  store i8 0, i8* %tmp1
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body
+  %tmp2 = load i32* %j, align 4
+  %inc = add nsw i32 %tmp2, 1
+  store i32 %inc, i32* %j, align 4
+  br label %for.cond
+
+for.end:                                          ; preds = %for.cond
+  ret void
+}
+
+define i32 @sumof(i8* %x) nounwind uwtable {
+entry:
+  %x.addr = alloca i8*, align 8
+  %p = alloca i8*, align 8
+  %total = alloca i32, align 4
+  %j = alloca i32, align 4
+  store i8* %x, i8** %x.addr, align 8
+  %tmp = load i8** %x.addr, align 8
+  store i8* %tmp, i8** %p, align 8
+  store i32 0, i32* %total, align 4
+  store i32 0, i32* %j, align 4
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %entry
+  %tmp1 = load i32* %j, align 4
+  %cmp = icmp slt i32 %tmp1, 256
+  br i1 %cmp, label %for.body, label %for.end
+
+for.body:                                         ; preds = %for.cond
+  %tmp2 = load i32* %total, align 4
+  %tmp3 = load i8** %p, align 8
+  %incdec.ptr = getelementptr inbounds i8* %tmp3, i32 1
+  store i8* %incdec.ptr, i8** %p, align 8
+  %tmp4 = load i8* %tmp3
+  %conv = sext i8 %tmp4 to i32
+  %add = add nsw i32 %tmp2, %conv
+  store i32 %add, i32* %total, align 4
+  br label %for.inc
+
+for.inc:                                          ; preds = %for.body
+  %tmp5 = load i32* %j, align 4
+  %inc = add nsw i32 %tmp5, 1
+  store i32 %inc, i32* %j, align 4
+  br label %for.cond
+
+for.end:                                          ; preds = %for.cond
+  %tmp6 = load i32* %total, align 4
+  ret i32 %tmp6
+}
+
+define i32 @setupTable(%struct.defs* %pd0) nounwind uwtable {
+entry:
+  %pd0.addr = alloca %struct.defs*, align 8
+  %ps = alloca i8*, align 8
+  %pt = alloca i8*, align 8
+  %c0 = alloca i8, align 1
+  %c1 = alloca i8, align 1
+  %temp = alloca float, align 4
+  %one = alloca float, align 4
+  %delta = alloca float, align 4
+  %tempd = alloca double, align 8
+  %oned = alloca double, align 8
+  store %struct.defs* %pd0, %struct.defs** %pd0.addr, align 8
+  store i8* getelementptr inbounds ([8 x i8]* @setupTable.qs26, i32 0, i32 0), i8** %ps, align 8
+  %tmp = load %struct.defs** %pd0.addr, align 8
+  %rfs = getelementptr inbounds %struct.defs* %tmp, i32 0, i32 15
+  %arraydecay = getelementptr inbounds [8 x i8]* %rfs, i32 0, i32 0
+  store i8* %arraydecay, i8** %pt, align 8
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.body, %entry
+  %tmp1 = load i8** %ps, align 8
+  %incdec.ptr = getelementptr inbounds i8* %tmp1, i32 1
+  store i8* %incdec.ptr, i8** %ps, align 8
+  %tmp2 = load i8* %tmp1
+  %tmp3 = load i8** %pt, align 8
+  %incdec.ptr4 = getelementptr inbounds i8* %tmp3, i32 1
+  store i8* %incdec.ptr4, i8** %pt, align 8
+  store i8 %tmp2, i8* %tmp3
+  %tobool = icmp ne i8 %tmp2, 0
+  br i1 %tobool, label %while.body, label %while.end
+
+while.body:                                       ; preds = %while.cond
+  br label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  %tmp5 = load %struct.defs** %pd0.addr, align 8
+  %cbits = getelementptr inbounds %struct.defs* %tmp5, i32 0, i32 0
+  store i32 0, i32* %cbits, align 4
+  store i8 0, i8* %c0, align 1
+  store i8 1, i8* %c1, align 1
+  br label %while.cond6
+
+while.cond6:                                      ; preds = %while.body11, %while.end
+  %tmp7 = load i8* %c0, align 1
+  %conv = zext i8 %tmp7 to i32
+  %tmp8 = load i8* %c1, align 1
+  %conv9 = zext i8 %tmp8 to i32
+  %cmp = icmp ne i32 %conv, %conv9
+  br i1 %cmp, label %while.body11, label %while.end20
+
+while.body11:                                     ; preds = %while.cond6
+  %tmp12 = load i8* %c1, align 1
+  %conv13 = zext i8 %tmp12 to i32
+  %shl = shl i32 %conv13, 1
+  %conv14 = trunc i32 %shl to i8
+  store i8 %conv14, i8* %c1, align 1
+  %tmp15 = load %struct.defs** %pd0.addr, align 8
+  %cbits16 = getelementptr inbounds %struct.defs* %tmp15, i32 0, i32 0
+  %tmp17 = load i32* %cbits16, align 4
+  %add = add nsw i32 %tmp17, 1
+  %tmp18 = load %struct.defs** %pd0.addr, align 8
+  %cbits19 = getelementptr inbounds %struct.defs* %tmp18, i32 0, i32 0
+  store i32 %add, i32* %cbits19, align 4
+  br label %while.cond6
+
+while.end20:                                      ; preds = %while.cond6
+  %tmp21 = load %struct.defs** %pd0.addr, align 8
+  %cbits22 = getelementptr inbounds %struct.defs* %tmp21, i32 0, i32 0
+  %tmp23 = load i32* %cbits22, align 4
+  %conv24 = sext i32 %tmp23 to i64
+  %mul = mul i64 %conv24, 4
+  %conv25 = trunc i64 %mul to i32
+  %tmp26 = load %struct.defs** %pd0.addr, align 8
+  %ibits = getelementptr inbounds %struct.defs* %tmp26, i32 0, i32 1
+  store i32 %conv25, i32* %ibits, align 4
+  %tmp27 = load %struct.defs** %pd0.addr, align 8
+  %cbits28 = getelementptr inbounds %struct.defs* %tmp27, i32 0, i32 0
+  %tmp29 = load i32* %cbits28, align 4
+  %conv30 = sext i32 %tmp29 to i64
+  %mul31 = mul i64 %conv30, 2
+  %conv32 = trunc i64 %mul31 to i32
+  %tmp33 = load %struct.defs** %pd0.addr, align 8
+  %sbits = getelementptr inbounds %struct.defs* %tmp33, i32 0, i32 2
+  store i32 %conv32, i32* %sbits, align 4
+  %tmp34 = load %struct.defs** %pd0.addr, align 8
+  %cbits35 = getelementptr inbounds %struct.defs* %tmp34, i32 0, i32 0
+  %tmp36 = load i32* %cbits35, align 4
+  %conv37 = sext i32 %tmp36 to i64
+  %mul38 = mul i64 %conv37, 8
+  %conv39 = trunc i64 %mul38 to i32
+  %tmp40 = load %struct.defs** %pd0.addr, align 8
+  %lbits = getelementptr inbounds %struct.defs* %tmp40, i32 0, i32 3
+  store i32 %conv39, i32* %lbits, align 4
+  %tmp41 = load %struct.defs** %pd0.addr, align 8
+  %cbits42 = getelementptr inbounds %struct.defs* %tmp41, i32 0, i32 0
+  %tmp43 = load i32* %cbits42, align 4
+  %conv44 = sext i32 %tmp43 to i64
+  %mul45 = mul i64 %conv44, 4
+  %conv46 = trunc i64 %mul45 to i32
+  %tmp47 = load %struct.defs** %pd0.addr, align 8
+  %ubits = getelementptr inbounds %struct.defs* %tmp47, i32 0, i32 4
+  store i32 %conv46, i32* %ubits, align 4
+  %tmp48 = load %struct.defs** %pd0.addr, align 8
+  %cbits49 = getelementptr inbounds %struct.defs* %tmp48, i32 0, i32 0
+  %tmp50 = load i32* %cbits49, align 4
+  %conv51 = sext i32 %tmp50 to i64
+  %mul52 = mul i64 %conv51, 4
+  %conv53 = trunc i64 %mul52 to i32
+  %tmp54 = load %struct.defs** %pd0.addr, align 8
+  %fbits = getelementptr inbounds %struct.defs* %tmp54, i32 0, i32 5
+  store i32 %conv53, i32* %fbits, align 4
+  %tmp55 = load %struct.defs** %pd0.addr, align 8
+  %cbits56 = getelementptr inbounds %struct.defs* %tmp55, i32 0, i32 0
+  %tmp57 = load i32* %cbits56, align 4
+  %conv58 = sext i32 %tmp57 to i64
+  %mul59 = mul i64 %conv58, 8
+  %conv60 = trunc i64 %mul59 to i32
+  %tmp61 = load %struct.defs** %pd0.addr, align 8
+  %dbits = getelementptr inbounds %struct.defs* %tmp61, i32 0, i32 6
+  store i32 %conv60, i32* %dbits, align 4
+  store float 1.000000e+00, float* %one, align 4
+  store float 1.000000e+00, float* %delta, align 4
+  store float 0.000000e+00, float* %temp, align 4
+  br label %while.cond62
+
+while.cond62:                                     ; preds = %while.body67, %while.end20
+  %tmp63 = load float* %temp, align 4
+  %tmp64 = load float* %one, align 4
+  %cmp65 = fcmp une float %tmp63, %tmp64
+  br i1 %cmp65, label %while.body67, label %while.end74
+
+while.body67:                                     ; preds = %while.cond62
+  %tmp68 = load float* %one, align 4
+  %tmp69 = load float* %delta, align 4
+  %add70 = fadd float %tmp68, %tmp69
+  store float %add70, float* %temp, align 4
+  %tmp71 = load float* %delta, align 4
+  %conv72 = fpext float %tmp71 to double
+  %div = fdiv double %conv72, 2.000000e+00
+  %conv73 = fptrunc double %div to float
+  store float %conv73, float* %delta, align 4
+  br label %while.cond62
+
+while.end74:                                      ; preds = %while.cond62
+  %tmp75 = load float* %delta, align 4
+  %conv76 = fpext float %tmp75 to double
+  %mul77 = fmul double %conv76, 4.000000e+00
+  %conv78 = fptrunc double %mul77 to float
+  %tmp79 = load %struct.defs** %pd0.addr, align 8
+  %fprec = getelementptr inbounds %struct.defs* %tmp79, i32 0, i32 7
+  store float %conv78, float* %fprec, align 4
+  store double 1.000000e+00, double* %oned, align 8
+  store float 1.000000e+00, float* %delta, align 4
+  store double 0.000000e+00, double* %tempd, align 8
+  br label %while.cond80
+
+while.cond80:                                     ; preds = %while.body85, %while.end74
+  %tmp81 = load double* %tempd, align 8
+  %tmp82 = load double* %oned, align 8
+  %cmp83 = fcmp une double %tmp81, %tmp82
+  br i1 %cmp83, label %while.body85, label %while.end94
+
+while.body85:                                     ; preds = %while.cond80
+  %tmp86 = load double* %oned, align 8
+  %tmp87 = load float* %delta, align 4
+  %conv88 = fpext float %tmp87 to double
+  %add89 = fadd double %tmp86, %conv88
+  store double %add89, double* %tempd, align 8
+  %tmp90 = load float* %delta, align 4
+  %conv91 = fpext float %tmp90 to double
+  %div92 = fdiv double %conv91, 2.000000e+00
+  %conv93 = fptrunc double %div92 to float
+  store float %conv93, float* %delta, align 4
+  br label %while.cond80
+
+while.end94:                                      ; preds = %while.cond80
+  %tmp95 = load float* %delta, align 4
+  %conv96 = fpext float %tmp95 to double
+  %mul97 = fmul double %conv96, 4.000000e+00
+  %conv98 = fptrunc double %mul97 to float
+  %tmp99 = load %struct.defs** %pd0.addr, align 8
+  %dprec = getelementptr inbounds %struct.defs* %tmp99, i32 0, i32 8
+  store float %conv98, float* %dprec, align 4
+  ret i32 0
+}
+
+define i32 @svtest(i32 %n) nounwind uwtable {
+entry:
+  %n.addr = alloca i32, align 4
+  %rc = alloca i32, align 4
+  store i32 %n, i32* %n.addr, align 4
+  %tmp = load i32* %n.addr, align 4
+  switch i32 %tmp, label %sw.epilog [
+    i32 0, label %sw.bb
+    i32 1, label %sw.bb1
+    i32 2, label %sw.bb3
+  ]
+
+sw.bb:                                            ; preds = %entry
+  store i32 1978, i32* @svtest.k, align 4
+  store i32 0, i32* %rc, align 4
+  br label %sw.epilog
+
+sw.bb1:                                           ; preds = %entry
+  %tmp2 = load i32* @svtest.k, align 4
+  %cmp = icmp ne i32 %tmp2, 1978
+  br i1 %cmp, label %if.then, label %if.else
+
+if.then:                                          ; preds = %sw.bb1
+  store i32 1, i32* %rc, align 4
+  br label %if.end
+
+if.else:                                          ; preds = %sw.bb1
+  store i32 1929, i32* @svtest.k, align 4
+  store i32 0, i32* %rc, align 4
+  br label %if.end
+
+if.end:                                           ; preds = %if.else, %if.then
+  br label %sw.epilog
+
+sw.bb3:                                           ; preds = %entry
+  %tmp4 = load i32* @svtest.k, align 4
+  %cmp5 = icmp ne i32 %tmp4, 1929
+  br i1 %cmp5, label %if.then6, label %if.else7
+
+if.then6:                                         ; preds = %sw.bb3
+  store i32 1, i32* %rc, align 4
+  br label %if.end8
+
+if.else7:                                         ; preds = %sw.bb3
+  store i32 0, i32* %rc, align 4
+  br label %if.end8
+
+if.end8:                                          ; preds = %if.else7, %if.then6
+  br label %sw.epilog
+
+sw.epilog:                                        ; preds = %entry, %if.end8, %if.end, %sw.bb
+  %tmp9 = load i32* %rc, align 4
+  ret i32 %tmp9
+}
+
+define i32 @zero() nounwind uwtable {
+entry:
+  %rc = alloca i32, align 4
+  store i32 2, i32* @zero.k, align 4
+  store i32 0, i32* %rc, align 4
+  %tmp = load i32* %rc, align 4
+  ret i32 %tmp
+}
+
+define i32 @testev() nounwind uwtable {
+entry:
+  %retval = alloca i32, align 4
+  %tmp = load i32* @extvar, align 4
+  %cmp = icmp ne i32 %tmp, 1066
+  br i1 %cmp, label %if.then, label %if.else
+
+if.then:                                          ; preds = %entry
+  store i32 1, i32* %retval
+  br label %return
+
+if.else:                                          ; preds = %entry
+  store i32 0, i32* %retval
+  br label %return
+
+return:                                           ; preds = %if.else, %if.then
+  %0 = load i32* %retval
+  ret i32 %0
+}
+
+define void @setev() nounwind uwtable {
+entry:
+  store i32 1066, i32* @extvar, align 4
+  ret void
+}
+
+define i32 @McCarthy(i32 %x) nounwind uwtable {
+entry:
+  %retval = alloca i32, align 4
+  %x.addr = alloca i32, align 4
+  store i32 %x, i32* %x.addr, align 4
+  %tmp = load i32* %x.addr, align 4
+  %cmp = icmp sgt i32 %tmp, 100
+  br i1 %cmp, label %if.then, label %if.else
+
+if.then:                                          ; preds = %entry
+  %tmp1 = load i32* %x.addr, align 4
+  %sub = sub nsw i32 %tmp1, 10
+  store i32 %sub, i32* %retval
+  br label %return
+
+if.else:                                          ; preds = %entry
+  %tmp2 = load i32* %x.addr, align 4
+  %add = add nsw i32 %tmp2, 11
+  %call = call i32 (...)* bitcast (i32 (i32)* @McCarthy to i32 (...)*)(i32 %add)
+  %call3 = call i32 (...)* bitcast (i32 (i32)* @McCarthy to i32 (...)*)(i32 %call)
+  store i32 %call3, i32* %retval
+  br label %return
+
+return:                                           ; preds = %if.else, %if.then
+  %0 = load i32* %retval
+  ret i32 %0
+}
+
+define i32 @clobber(i32 %x, i32* %y) nounwind uwtable {
+entry:
+  %x.addr = alloca i32, align 4
+  %y.addr = alloca i32*, align 8
+  store i32 %x, i32* %x.addr, align 4
+  store i32* %y, i32** %y.addr, align 8
+  store i32 3, i32* %x.addr, align 4
+  %tmp = load i32** %y.addr, align 8
+  store i32 2, i32* %tmp
+  ret i32 0
+}
+
+define i32 @sec(%struct.defs* %pd0) nounwind uwtable {
+entry:
+  %pd0.addr = alloca %struct.defs*, align 8
+  %lrc = alloca i32, align 4
+  %rc = alloca i32, align 4
+  %ps = alloca i8*, align 8
+  %pt = alloca i8*, align 8
+  %i = alloca i32, align 4
+  %j = alloca i32, align 4
+  %k = alloca i32, align 4
+  %apint = alloca i32*, align 8
+  %rpint = alloca i32*, align 8
+  store %struct.defs* %pd0, %struct.defs** %pd0.addr, align 8
+  %tmp = load i32** @sec.pint, align 8
+  %sub.ptr = getelementptr inbounds i32* %tmp, i64 -1
+  store i32* %sub.ptr, i32** %apint, align 8
+  %tmp2 = load i32** %apint, align 8
+  %call = call i32 @one()
+  %idx.ext = sext i32 %call to i64
+  %add.ptr = getelementptr inbounds i32* %tmp2, i64 %idx.ext
+  store i32* %add.ptr, i32** %rpint, align 8
+  store i8* getelementptr inbounds ([8 x i8]* @sec.qs86, i32 0, i32 0), i8** %ps, align 8
+  %tmp3 = load %struct.defs** %pd0.addr, align 8
+  %rfs = getelementptr inbounds %struct.defs* %tmp3, i32 0, i32 15
+  %arraydecay = getelementptr inbounds [8 x i8]* %rfs, i32 0, i32 0
+  store i8* %arraydecay, i8** %pt, align 8
+  store i32 0, i32* %rc, align 4
+  br label %while.cond
+
+while.cond:                                       ; preds = %while.body, %entry
+  %tmp4 = load i8** %ps, align 8
+  %incdec.ptr = getelementptr inbounds i8* %tmp4, i32 1
+  store i8* %incdec.ptr, i8** %ps, align 8
+  %tmp5 = load i8* %tmp4
+  %tmp6 = load i8** %pt, align 8
+  %incdec.ptr7 = getelementptr inbounds i8* %tmp6, i32 1
+  store i8* %incdec.ptr7, i8** %pt, align 8
+  store i8 %tmp5, i8* %tmp6
+  %tobool = icmp ne i8 %tmp5, 0
+  br i1 %tobool, label %while.body, label %while.end
+
+while.body:                                       ; preds = %while.cond
+  br label %while.cond
+
+while.end:                                        ; preds = %while.cond
+  %tmp8 = load i32** @sec.pint, align 8
+  %tmp9 = load i32* %tmp8
+  %cmp = icmp ne i32 %tmp9, 5
+  br i1 %cmp, label %if.then, label %if.end16
+
+if.then:                                          ; preds = %while.end
+  %tmp10 = load %struct.defs** %pd0.addr, align 8
+  %flgd = getelementptr inbounds %struct.defs* %tmp10, i32 0, i32 11
+  %tmp11 = load i32* %flgd, align 4
+  %cmp12 = icmp ne i32 %tmp11, 0
+  br i1 %cmp12, label %if.then13, label %if.end
+
+if.then13:                                        ; preds = %if.then
+  %call14 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @sec.s86er, i32 0, i32 0), i32 1)
+  br label %if.end
+
+if.end:                                           ; preds = %if.then13, %if.then
+  %tmp15 = load i32* %rc, align 4
+  %add = add nsw i32 %tmp15, 1
+  store i32 %add, i32* %rc, align 4
+  br label %if.end16
+
+if.end16:                                         ; preds = %if.end, %while.end
+  %tmp17 = load i32** %apint, align 8
+  %tmp18 = load i32* %tmp17
+  %cmp19 = icmp ne i32 %tmp18, 3
+  br i1 %cmp19, label %if.then20, label %if.end30
+
+if.then20:                                        ; preds = %if.end16
+  %tmp21 = load %struct.defs** %pd0.addr, align 8
+  %flgd22 = getelementptr inbounds %struct.defs* %tmp21, i32 0, i32 11
+  %tmp23 = load i32* %flgd22, align 4
+  %cmp24 = icmp ne i32 %tmp23, 0
+  br i1 %cmp24, label %if.then25, label %if.end27
+
+if.then25:                                        ; preds = %if.then20
+  %call26 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @sec.s86er, i32 0, i32 0), i32 2)
+  br label %if.end27
+
+if.end27:                                         ; preds = %if.then25, %if.then20
+  %tmp28 = load i32* %rc, align 4
+  %add29 = add nsw i32 %tmp28, 2
+  store i32 %add29, i32* %rc, align 4
+  br label %if.end30
+
+if.end30:                                         ; preds = %if.end27, %if.end16
+  %tmp31 = load i32** %rpint, align 8
+  %tmp32 = load i32* %tmp31
+  %cmp33 = icmp ne i32 %tmp32, 5
+  br i1 %cmp33, label %if.then34, label %if.end44
+
+if.then34:                                        ; preds = %if.end30
+  %tmp35 = load %struct.defs** %pd0.addr, align 8
+  %flgd36 = getelementptr inbounds %struct.defs* %tmp35, i32 0, i32 11
+  %tmp37 = load i32* %flgd36, align 4
+  %cmp38 = icmp ne i32 %tmp37, 0
+  br i1 %cmp38, label %if.then39, label %if.end41
+
+if.then39:                                        ; preds = %if.then34
+  %call40 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @sec.s86er, i32 0, i32 0), i32 4)
+  br label %if.end41
+
+if.end41:                                         ; preds = %if.then39, %if.then34
+  %tmp42 = load i32* %rc, align 4
+  %add43 = add nsw i32 %tmp42, 4
+  store i32 %add43, i32* %rc, align 4
+  br label %if.end44
+
+if.end44:                                         ; preds = %if.end41, %if.end30
+  store i32 0, i32* %lrc, align 4
+  store i32 0, i32* %j, align 4
+  br label %for.cond
+
+for.cond:                                         ; preds = %for.inc, %if.end44
+  %tmp45 = load i32* %j, align 4
+  %cmp46 = icmp slt i32 %tmp45, 10
+  br i1 %cmp46, label %for.body, label %for.end
+
+for.body:                                         ; preds = %for.cond
+  %tmp47 = load i32* %j, align 4
+  %idxprom = sext i32 %tmp47 to i64
+  %arrayidx = getelementptr inbounds [10 x i32]* @sec.zero, i32 0, i64 %idxprom
+  %tmp48 = load i32* %arrayidx, align 4
+  %cmp49 = icmp ne i32 %tmp48, 0
+  br i1 %cmp49, label %if.then50, label %if.end51
+
+if.then50:                                        ; preds = %for.body
+  store i32 1, i32* %lrc, align 4
+  br label %if.end51
+
+if.end51:                                         ; preds = %if.then50, %for.body
+  br label %for.inc
+
+for.inc:                                          ; preds = %if.end51
+  %tmp52 = load i32* %j, align 4
+  %inc = add nsw i32 %tmp52, 1
+  store i32 %inc, i32* %j, align 4
+  br label %for.cond
+
+for.end:                                          ; preds = %for.cond
+  %tmp53 = load i32* %lrc, align 4
+  %cmp54 = icmp ne i32 %tmp53, 0
+  br i1 %cmp54, label %if.then55, label %if.end65
+
+if.then55:                                        ; preds = %for.end
+  %tmp56 = load %struct.defs** %pd0.addr, align 8
+  %flgd57 = getelementptr inbounds %struct.defs* %tmp56, i32 0, i32 11
+  %tmp58 = load i32* %flgd57, align 4
+  %cmp59 = icmp ne i32 %tmp58, 0
+  br i1 %cmp59, label %if.then60, label %if.end62
+
+if.then60:                                        ; preds = %if.then55
+  %call61 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @sec.s86er, i32 0, i32 0), i32 8)
+  br label %if.end62
+
+if.end62:                                         ; preds = %if.then60, %if.then55
+  %tmp63 = load i32* %rc, align 4
+  %add64 = add nsw i32 %tmp63, 8
+  store i32 %add64, i32* %rc, align 4
+  br label %if.end65
+
+if.end65:                                         ; preds = %if.end62, %for.end
+  store i32 0, i32* %lrc, align 4
+  store i32 0, i32* %i, align 4
+  br label %for.cond66
+
+for.cond66:                                       ; preds = %for.inc110, %if.end65
+  %tmp67 = load i32* %i, align 4
+  %cmp68 = icmp slt i32 %tmp67, 4
+  br i1 %cmp68, label %for.body69, label %for.end113
+
+for.body69:                                       ; preds = %for.cond66
+  store i32 0, i32* %j, align 4
+  br label %for.cond70
+
+for.cond70:                                       ; preds = %for.inc106, %for.body69
+  %tmp71 = load i32* %j, align 4
+  %cmp72 = icmp slt i32 %tmp71, 3
+  br i1 %cmp72, label %for.body73, label %for.end109
+
+for.body73:                                       ; preds = %for.cond70
+  %tmp74 = load i32* %i, align 4
+  %mul = mul nsw i32 3, %tmp74
+  %tmp75 = load i32* %j, align 4
+  %add76 = add nsw i32 %mul, %tmp75
+  store i32 %add76, i32* %k, align 4
+  %tmp77 = load i32* %j, align 4
+  %idxprom78 = sext i32 %tmp77 to i64
+  %tmp79 = load i32* %i, align 4
+  %idxprom80 = sext i32 %tmp79 to i64
+  %arrayidx81 = getelementptr inbounds [4 x [3 x float]]* @sec.y1, i32 0, i64 %idxprom80
+  %arrayidx82 = getelementptr inbounds [3 x float]* %arrayidx81, i32 0, i64 %idxprom78
+  %tmp83 = load float* %arrayidx82, align 4
+  %tmp84 = load i32* %j, align 4
+  %idxprom85 = sext i32 %tmp84 to i64
+  %tmp86 = load i32* %i, align 4
+  %idxprom87 = sext i32 %tmp86 to i64
+  %arrayidx88 = getelementptr inbounds [4 x [3 x float]]* @sec.y2, i32 0, i64 %idxprom87
+  %arrayidx89 = getelementptr inbounds [3 x float]* %arrayidx88, i32 0, i64 %idxprom85
+  %tmp90 = load float* %arrayidx89, align 4
+  %cmp91 = fcmp une float %tmp83, %tmp90
+  br i1 %cmp91, label %if.then104, label %lor.lhs.false
+
+lor.lhs.false:                                    ; preds = %for.body73
+  %tmp92 = load i32* %j, align 4
+  %idxprom93 = sext i32 %tmp92 to i64
+  %tmp94 = load i32* %i, align 4
+  %idxprom95 = sext i32 %tmp94 to i64
+  %arrayidx96 = getelementptr inbounds [4 x [3 x float]]* @sec.y1, i32 0, i64 %idxprom95
+  %arrayidx97 = getelementptr inbounds [3 x float]* %arrayidx96, i32 0, i64 %idxprom93
+  %tmp98 = load float* %arrayidx97, align 4
+  %tmp99 = load i32* %k, align 4
+  %idxprom100 = sext i32 %tmp99 to i64
+  %arrayidx101 = getelementptr inbounds [12 x float]* @sec.y0, i32 0, i64 %idxprom100
+  %tmp102 = load float* %arrayidx101, align 4
+  %cmp103 = fcmp une float %tmp98, %tmp102
+  br i1 %cmp103, label %if.then104, label %if.end105
+
+if.then104:                                       ; preds = %lor.lhs.false, %for.body73
+  store i32 1, i32* %lrc, align 4
+  br label %if.end105
+
+if.end105:                                        ; preds = %if.then104, %lor.lhs.false
+  br label %for.inc106
+
+for.inc106:                                       ; preds = %if.end105
+  %tmp107 = load i32* %j, align 4
+  %inc108 = add nsw i32 %tmp107, 1
+  store i32 %inc108, i32* %j, align 4
+  br label %for.cond70
+
+for.end109:                                       ; preds = %for.cond70
+  br label %for.inc110
+
+for.inc110:                                       ; preds = %for.end109
+  %tmp111 = load i32* %i, align 4
+  %inc112 = add nsw i32 %tmp111, 1
+  store i32 %inc112, i32* %i, align 4
+  br label %for.cond66
+
+for.end113:                                       ; preds = %for.cond66
+  %tmp114 = load i32* %lrc, align 4
+  %cmp115 = icmp ne i32 %tmp114, 0
+  br i1 %cmp115, label %if.then116, label %if.end126
+
+if.then116:                                       ; preds = %for.end113
+  %tmp117 = load %struct.defs** %pd0.addr, align 8
+  %flgd118 = getelementptr inbounds %struct.defs* %tmp117, i32 0, i32 11
+  %tmp119 = load i32* %flgd118, align 4
+  %cmp120 = icmp ne i32 %tmp119, 0
+  br i1 %cmp120, label %if.then121, label %if.end123
+
+if.then121:                                       ; preds = %if.then116
+  %call122 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @sec.s86er, i32 0, i32 0), i32 16)
+  br label %if.end123
+
+if.end123:                                        ; preds = %if.then121, %if.then116
+  %tmp124 = load i32* %rc, align 4
+  %add125 = add nsw i32 %tmp124, 16
+  store i32 %add125, i32* %rc, align 4
+  br label %if.end126
+
+if.end126:                                        ; preds = %if.end123, %for.end113
+  store i32 0, i32* %lrc, align 4
+  store i32 0, i32* %j, align 4
+  br label %for.cond127
+
+for.cond127:                                      ; preds = %for.inc142, %if.end126
+  %tmp128 = load i32* %j, align 4
+  %cmp129 = icmp slt i32 %tmp128, 4
+  br i1 %cmp129, label %for.body130, label %for.end145
+
+for.body130:                                      ; preds = %for.cond127
+  %tmp131 = load i32* %j, align 4
+  %idxprom132 = sext i32 %tmp131 to i64
+  %arrayidx133 = getelementptr inbounds [4 x [3 x float]]* @sec.y3, i32 0, i64 %idxprom132
+  %arrayidx134 = getelementptr inbounds [3 x float]* %arrayidx133, i32 0, i64 0
+  %tmp135 = load float* %arrayidx134, align 4
+  %tmp136 = load i32* %j, align 4
+  %add137 = add nsw i32 %tmp136, 1
+  %conv = sitofp i32 %add137 to float
+  %cmp138 = fcmp une float %tmp135, %conv
+  br i1 %cmp138, label %if.then140, label %if.end141
+
+if.then140:                                       ; preds = %for.body130
+  store i32 1, i32* %lrc, align 4
+  br label %if.end141
+
+if.end141:                                        ; preds = %if.then140, %for.body130
+  br label %for.inc142
+
+for.inc142:                                       ; preds = %if.end141
+  %tmp143 = load i32* %j, align 4
+  %inc144 = add nsw i32 %tmp143, 1
+  store i32 %inc144, i32* %j, align 4
+  br label %for.cond127
+
+for.end145:                                       ; preds = %for.cond127
+  %tmp146 = load i32* %lrc, align 4
+  %cmp147 = icmp ne i32 %tmp146, 0
+  br i1 %cmp147, label %if.then149, label %if.end160
+
+if.then149:                                       ; preds = %for.end145
+  %tmp150 = load %struct.defs** %pd0.addr, align 8
+  %flgd151 = getelementptr inbounds %struct.defs* %tmp150, i32 0, i32 11
+  %tmp152 = load i32* %flgd151, align 4
+  %cmp153 = icmp ne i32 %tmp152, 0
+  br i1 %cmp153, label %if.then155, label %if.end157
+
+if.then155:                                       ; preds = %if.then149
+  %call156 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @sec.s86er, i32 0, i32 0), i32 32)
+  br label %if.end157
+
+if.end157:                                        ; preds = %if.then155, %if.then149
+  %tmp158 = load i32* %rc, align 4
+  %add159 = add nsw i32 %tmp158, 32
+  store i32 %add159, i32* %rc, align 4
+  br label %if.end160
+
+if.end160:                                        ; preds = %if.end157, %for.end145
+  %tmp161 = load i32* %rc, align 4
+  ret i32 %tmp161
+}
+
+declare i32 @printf(i8*, ...)
+
+define i32 @one() nounwind uwtable {
+entry:
+  ret i32 1
+}
+
+define i32 @main() nounwind uwtable {
+entry:
+  %retval = alloca i32, align 4
+  store i32 0, i32* %retval
+  store i32 1, i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 9), align 4
+  store i32 1, i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 10), align 4
+  store i32 1, i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 11), align 4
+  store i32 1, i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 12), align 4
+  store %struct.defs* @main.d0, %struct.defs** @main.pd0, align 8
+  %tmp = load %struct.defs** @main.pd0, align 8
+  %call = call i32 (...)* bitcast (i32 (%struct.defs*)* @sec to i32 (...)*)(%struct.defs* %tmp)
+  store i32 %call, i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 13), align 4
+  %tmp1 = load i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 14), align 4
+  %tmp2 = load i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 13), align 4
+  %add = add nsw i32 %tmp1, %tmp2
+  store i32 %add, i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 14), align 4
+  %tmp3 = load i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 9), align 4
+  %cmp = icmp ne i32 %tmp3, 0
+  br i1 %cmp, label %if.then, label %if.end
+
+if.then:                                          ; preds = %entry
+  %tmp4 = load i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 13), align 4
+  %call5 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([25 x i8]* @.str, i32 0, i32 0), i8* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 15, i32 0), i32 %tmp4)
+  br label %if.end
+
+if.end:                                           ; preds = %if.then, %entry
+  %tmp6 = load i32* getelementptr inbounds (%struct.defs* @main.d0, i32 0, i32 14), align 4
+  %cmp7 = icmp eq i32 %tmp6, 0
+  br i1 %cmp7, label %if.then8, label %if.else
+
+if.then8:                                         ; preds = %if.end
+  %call9 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([22 x i8]* @.str1, i32 0, i32 0))
+  br label %if.end11
+
+if.else:                                          ; preds = %if.end
+  %call10 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([10 x i8]* @.str2, i32 0, i32 0))
+  br label %if.end11
+
+if.end11:                                         ; preds = %if.else, %if.then8
+  ret i32 0
+}

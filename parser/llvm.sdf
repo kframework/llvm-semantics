@@ -38,7 +38,11 @@ HexDigit+ -> HexDigitSeq
 "%" DecimalDigitSeq -> LocalVarId
 "@" DecimalDigitSeq -> GlobalVarId
 
-[a-zA-Z\$\.\_][a-zA-Z\$\.\_0-9]* -> Identifier
+%% llvm: GlobalVar   @\"[^\"]*\"
+%% llvm: GlobalVar   @[-a-zA-Z$._][-a-zA-Z$._0-9]*
+%% llvm: GlobalVarID @[0-9]+
+
+[\-a-zA-Z\$\.\_][\-a-zA-Z\$\.\_0-9]* -> Identifier
 String -> Identifier
 "%" Identifier -> LocalVar
 "@" Identifier -> GlobalVar

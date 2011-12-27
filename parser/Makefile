@@ -55,6 +55,7 @@ alltests: lltests ctests
 
 clean:
 	rm -f $(GRAMMAR).tbl $(GRAMMAR).def
+	rm -f *.parsetree *.imploded
 # rm -f $(LL_TESTS_DIR)/*.parsetree $(LL_TESTS_DIR)/*.imploded
 	$(foreach dir, $(LL_TESTS_DIRS), rm -f $(dir)/*.parsetree $(dir)/*.imploded;)
 	$(foreach dir, $(C_TESTS_DIRS), rm -f $(dir)/*.ll $(dir)/*.parsetree $(dir)/*.imploded;)

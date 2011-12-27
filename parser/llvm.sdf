@@ -68,6 +68,9 @@ String -> Identifier
 %% llvm: HexPPC128Constant 0xM[0-9A-Fa-f]+
 
 "0x" HexDigitSeq -> FPVAL
+"0xK" HexDigitSeq -> FPVAL
+"0xL" HexDigitSeq -> FPVAL
+"0xM" HexDigitSeq -> FPVAL
 
 lexical restrictions
 

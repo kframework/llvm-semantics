@@ -32,7 +32,7 @@ alltests: lltests ctests
 %.ll: %.c
 	@if ! clang -w -emit-llvm -S $< -o $@; then \
 		touch $@; \
-		echo "FAIL (clang) $<"; \
+		echo "FAIL (clang)   $<"; \
 	fi
 
 %.opt.ll: %.ll

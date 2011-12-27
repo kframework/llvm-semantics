@@ -599,11 +599,21 @@ String -> AsmBlock
 ArgListH "," Types OptParamAttrs OptLocalName -> ArgListH
 Types OptParamAttrs OptLocalName -> ArgListH
 
+%% llvm:
+%% ParseArgumentList
+%%    ::= '(' ArgTypeListI ')'
+%%  ArgTypeListI
+%%    ::= /*empty*/
+%%    ::= '...'
+%%    ::= ArgTypeList ',' '...'
+%%    ::= ArgType (',' ArgType)*
+
 %% ArgList ::= ArgListH | ArgListH ^ "," "..." | "..." | _ ;
 -> ArgList {cons("ArgList")}
 ArgListH -> ArgList {cons("ArgList")}
 ArgListH "," "..." -> ArgList {cons("ArgList")}
 ArgListH "..." -> ArgList {cons("ArgList")}
+"..." -> ArgList {cons("ArgList")}
 
 %% FunctionHeaderH ::= OptCallingConv OptRetAttrs ResultTypes
                   %% GlobalName ^ "(" ^ ArgList ^ ")"

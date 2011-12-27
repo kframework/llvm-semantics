@@ -86,26 +86,41 @@ SignedInt -> Int64Val {cons("Int64Val")}
 %% ArithmeticOps ::= + OptNW add | fadd | OptNW sub | fsub | OptNW mul | fmul |
                   %% udiv | OptExact sdiv | fdiv | urem | srem | frem ;
 %% cme3 reversed optNW with op
-"add" OptNW -> ArithmeticOps
-"fadd" -> ArithmeticOps
-"sub" OptNW -> ArithmeticOps
-"fsub" -> ArithmeticOps
-"mul" OptNW -> ArithmeticOps
-"fmul" -> ArithmeticOps
-"udiv" OptNW -> ArithmeticOps
-"sdiv" OptExact -> ArithmeticOps
-"fdiv" -> ArithmeticOps
-"urem" -> ArithmeticOps
-"srem" -> ArithmeticOps
-"frem" -> ArithmeticOps
+%% llvm: nuw only applies to integer operations
+%% llvm: nsw only applies to integer operations
+%% llvm: nuw is "no unsigned wrap" and nsw is "no signed wrap"
+
+"exact" -> Modifier
+"nuw" -> Modifier
+"nsw" -> Modifier
+
+{Modifier ""}* -> OptModifiers
+
+ArithmeticIntOp OptModifiers -> BinaryOp
+ArithmeticFloatOp -> BinaryOp
+LogicalOp OptModifiers -> BinaryOp
+
+"add" -> ArithmeticIntOp
+"sub" -> ArithmeticIntOp
+"mul" -> ArithmeticIntOp
+"udiv" -> ArithmeticIntOp
+"sdiv" -> ArithmeticIntOp
+"urem" -> ArithmeticIntOp
+"srem" -> ArithmeticIntOp
+
+"fadd" -> ArithmeticFloatOp
+"fsub" -> ArithmeticFloatOp
+"fmul" -> ArithmeticFloatOp
+"fdiv" -> ArithmeticFloatOp
+"frem" -> ArithmeticFloatOp
 
 %% LogicalOps    ::= shl | lshr | ashr | and | or | xor;
-"shl" -> LogicalOps
-"lshr" -> LogicalOps
-"ashr" -> LogicalOps
-"and" -> LogicalOps
-"or" -> LogicalOps
-"xor" -> LogicalOps
+"shl" -> LogicalOp
+"lshr" -> LogicalOp
+"ashr" -> LogicalOp
+"and" -> LogicalOp
+"or" -> LogicalOp
+"xor" -> LogicalOp
 
 %% CastOps       ::= trunc | zext | sext | fptrunc | fpext | bitcast |
                   %% uitofp | sitofp | fptoui | fptosi | inttoptr | ptrtoint ;
@@ -503,9 +518,11 @@ CastOps "(" ConstVal "to" Types ")" -> ConstExpr
 %% | select "(" ^ ConstVal ^ "," ConstVal ^ "," ConstVal ^ ")"
 "select" "(" ConstVal "," ConstVal "," ConstVal ")" -> ConstExpr
 %% | ArithmeticOps "(" ^ ConstVal ^ "," ConstVal ^ ")"
-ArithmeticOps "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% ArithmeticOps OptModifiers "(" ConstVal "," ConstVal ")" -> ConstExpr
 %% | LogicalOps "(" ^ ConstVal ^ "," ConstVal ^ ")"
-LogicalOps "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% LogicalOps OptModifiers "(" ConstVal "," ConstVal ")" -> ConstExpr
+%% cme3 addition
+BinaryOp "(" ConstVal "," ConstVal ")" -> ConstExpr
 %% | icmp IPredicates "(" ^ ConstVal ^ "," ConstVal ^ ")"
 "icmp" IPredicates "(" ConstVal "," ConstVal ")" -> ConstExpr
 %% | fcmp FPredicates "(" ^ ConstVal ^ "," ConstVal ^ ")"
@@ -541,7 +558,8 @@ ResultTypes SymbolicValueRef -> AliaseeRef
 
 %% Module ::= +++ DefinitionList | --- _ ;
 %% llvm: module ::= toplevelentity*
-EOL? {TopLevelEntity EOL}* EOL? -> Module {cons("Module")}
+EOL? -> Module
+EOL? {TopLevelEntity EOL}+ EOL? -> Module {cons("Module")}
 
 %% TopLevelEntity
 "define" Function -> TopLevelEntity {cons("FunctionDefinition")}
@@ -745,9 +763,10 @@ ConstantIndexList "," UnsignedInt -> ConstantIndexList
 
 %% InstVal ::=
 %% ArithmeticOps Types ValueRef ^ "," ValueRef
-ArithmeticOps Types ValueRef "," ValueRef -> InstVal {cons("ArithmeticInstVal")}
+%% ArithmeticOps Types ValueRef "," ValueRef -> InstVal {cons("ArithmeticInstVal")}
 %% | LogicalOps Types ValueRef ^ "," ValueRef
-LogicalOps Types ValueRef "," ValueRef -> InstVal {cons("LogicalInstVal")}
+%% LogicalOps Types ValueRef "," ValueRef -> InstVal {cons("LogicalInstVal")}
+BinaryOp Types ValueRef "," ValueRef -> InstVal {cons("BinaryInstVal")}
 %% | icmp IPredicates Types ValueRef ^ "," ValueRef
 "icmp" IPredicates Types ValueRef "," ValueRef -> InstVal {cons("ICMPInstVal")}
 %% | fcmp FPredicates Types ValueRef ^ "," ValueRef
@@ -777,22 +796,6 @@ MemoryInst -> InstVal {cons("MemoryInstVal")}
 -> OptVolatile
 "volatile" -> OptVolatile
 %% OptExact ::= - exact | _ ;
--> OptExact
-"exact" -> OptExact
-%% OptNSW ::= - nsw | _ ;
-%% -> OptNSW
-%% "nsw" -> OptNSW
-%% OptNUW ::= - nuw | _ ;
-%% -> OptNUW
-%% "nuw" -> OptNUW
-%% OptNW  ::= OptNUW OptNSW | OptNSW OptNUW ;
-%% OptNUW OptNSW -> OptNW
-%% OptNSW OptNUW -> OptNW
--> OptNW
-"nuw" -> OptNW
-"nsw" -> OptNW
-"nuw" "nsw" -> OptNW
-"nsw" "nuw"  -> OptNW
 %% OptInBounds  ::= - inbounds | _ ;
 -> OptInBounds
 "inbounds" -> OptInBounds

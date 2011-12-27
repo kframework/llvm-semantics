@@ -14,7 +14,7 @@ LL_TESTS_DIR = tests
 LL_TESTS = $(wildcard $(LL_TESTS_DIR)/*.ll)
 
 lltests: $(GRAMMAR).tbl $(patsubst %.ll,%.test,$(LL_TESTS))
-ctests: $(GRAMMAR).tbl $(patsubst %.c,%.test,$(C_TESTS))
+ctests: $(GRAMMAR).tbl $(patsubst %.c,%.test,$(C_TESTS)) $(patsubst %.c,%.opt.test,$(C_TESTS))
 alltests: lltests ctests
 
 %.test: %.ll
@@ -33,6 +33,9 @@ alltests: lltests ctests
 		touch $@; \
 		echo "FAIL (clang) $<"; \
 	fi
+
+%.opt.ll: %.ll
+	@opt -S -std-compile-opts $< > $@
 	
 %.parsetree: %.ll $(GRAMMAR).tbl
 	sglr -2 -A -t -v -p $(GRAMMAR).tbl -i $< -o $@

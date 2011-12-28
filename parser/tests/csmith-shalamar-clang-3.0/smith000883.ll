@@ -1,0 +1,94 @@
+; ModuleID = '/home/david/src/c-semantics/tests/csmith/smith000883.c'
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64-S128"
+target triple = "x86_64-unknown-linux-gnu"
+
+@g_2 = global i32 -2, align 4
+@.str = private unnamed_addr constant [19 x i8] c"checksum g_2 = %d\0A\00", align 1
+@__undefined = common global i64 0, align 8
+
+define i32 @func_1() nounwind uwtable {
+  %1 = alloca i32, align 4
+  %l_5 = alloca [3 x i32], align 4
+  %i = alloca i32, align 4
+  store i32 0, i32* %i, align 4
+  br label %2
+
+; <label>:2                                       ; preds = %9, %0
+  %3 = load i32* %i, align 4
+  %4 = icmp slt i32 %3, 3
+  br i1 %4, label %5, label %12
+
+; <label>:5                                       ; preds = %2
+  %6 = load i32* %i, align 4
+  %7 = sext i32 %6 to i64
+  %8 = getelementptr inbounds [3 x i32]* %l_5, i32 0, i64 %7
+  store i32 -1, i32* %8, align 4
+  br label %9
+
+; <label>:9                                       ; preds = %5
+  %10 = load i32* %i, align 4
+  %11 = add nsw i32 %10, 1
+  store i32 %11, i32* %i, align 4
+  br label %2
+
+; <label>:12                                      ; preds = %2
+  store i32 -24, i32* @g_2, align 4
+  br label %13
+
+; <label>:13                                      ; preds = %18, %12
+  %14 = load i32* @g_2, align 4
+  %15 = icmp sgt i32 %14, 0
+  br i1 %15, label %16, label %23
+
+; <label>:16                                      ; preds = %13
+  %17 = load i32* @g_2, align 4
+  store i32 %17, i32* %1
+  br label %26
+                                                  ; No predecessors!
+  %19 = load i32* @g_2, align 4
+  %20 = trunc i32 %19 to i16
+  %21 = call signext i16 @safe_sub_func_int16_t_s_s(i16 signext %20, i16 signext 6)
+  %22 = sext i16 %21 to i32
+  store i32 %22, i32* @g_2, align 4
+  br label %13
+
+; <label>:23                                      ; preds = %13
+  %24 = getelementptr inbounds [3 x i32]* %l_5, i32 0, i64 2
+  %25 = load i32* %24, align 4
+  store i32 %25, i32* %1
+  br label %26
+
+; <label>:26                                      ; preds = %23, %16
+  %27 = load i32* %1
+  ret i32 %27
+}
+
+define internal signext i16 @safe_sub_func_int16_t_s_s(i16 signext %si1, i16 signext %si2) nounwind uwtable {
+  %1 = alloca i16, align 2
+  %2 = alloca i16, align 2
+  store i16 %si1, i16* %1, align 2
+  store i16 %si2, i16* %2, align 2
+  %3 = load i16* %1, align 2
+  %4 = sext i16 %3 to i32
+  %5 = load i16* %2, align 2
+  %6 = sext i16 %5 to i32
+  %7 = sub nsw i32 %4, %6
+  %8 = trunc i32 %7 to i16
+  ret i16 %8
+}
+
+define i32 @main(i32 %argc, i8** %argv) nounwind uwtable {
+  %1 = alloca i32, align 4
+  %2 = alloca i32, align 4
+  %3 = alloca i8**, align 8
+  store i32 0, i32* %1
+  store i32 %argc, i32* %2, align 4
+  store i8** %argv, i8*** %3, align 8
+  %4 = call i32 @func_1()
+  %5 = load i32* @g_2, align 4
+  %6 = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([19 x i8]* @.str, i32 0, i32 0), i32 %5)
+  %7 = load i32* %1
+  ret i32 %7
+}
+
+declare i32 @printf(i8*, ...)

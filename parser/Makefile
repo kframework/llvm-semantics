@@ -51,7 +51,9 @@ alltests: lltests ctests
 	pp-aterm < $< > $@
 
 %.def: %.sdf
-	pack-sdf -i $< -o $@
+# pack-sdf -i $< -o $@
+	echo 'definition' | cat - $< > $@
+# not sure why pack-sdf doesn't always work
 
 # TODO: should create a Main module which imports llvm
 %.tbl: %.def

@@ -825,9 +825,9 @@ MemoryInst -> InstVal {cons("MemoryInstVal")}
 %% | free ResolvedVal
 "free" ResolvedVal -> MemoryInst
 %% | OptVolatile load Types ValueRef OptCAlign
-OptVolatile "load" Types ValueRef OptCAlign -> MemoryInst
+"load" OptVolatile Types ValueRef OptCAlign -> MemoryInst
 %% | OptVolatile store ResolvedVal ^ "," Types ValueRef OptCAlign
-OptVolatile "store" ResolvedVal "," Types ValueRef OptCAlign -> MemoryInst
+"store" OptVolatile ResolvedVal "," Types ValueRef OptCAlign -> MemoryInst
 %% | getresult Types ValueRef ^ "," UnsignedInt
 "getresult" Types ValueRef "," UnsignedInt -> MemoryInst
 %% | getelementptr OptInBounds Types ValueRef IndexList

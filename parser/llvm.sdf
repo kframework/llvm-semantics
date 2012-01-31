@@ -585,6 +585,85 @@ String -> AsmBlock
 %% | datalayout "=" STRINGCONSTANT ;
 "datalayout" "=" String -> TargetDefinition
 
+%% llvm: below seems to be the llvm code for parsing the datalayout string
+%% while (!Desc.empty()) {
+    %% std::pair<StringRef, StringRef> Split = Desc.split('-');
+    %% StringRef Token = Split.first;
+    %% Desc = Split.second;
+
+    %% if (Token.empty())
+      %% continue;
+
+    %% Split = Token.split(':');
+    %% StringRef Specifier = Split.first;
+    %% Token = Split.second;
+
+    %% assert(!Specifier.empty() && "Can't be empty here");
+
+    %% switch (Specifier[0]) {
+    %% case 'E':
+      %% LittleEndian = false;
+      %% break;
+    %% case 'e':
+      %% LittleEndian = true;
+      %% break;
+    %% case 'p':
+      %% Split = Token.split(':');
+      %% PointerMemSize = getInt(Split.first) / 8;
+      %% Split = Split.second.split(':');
+      %% PointerABIAlign = getInt(Split.first) / 8;
+      %% Split = Split.second.split(':');
+      %% PointerPrefAlign = getInt(Split.first) / 8;
+      %% if (PointerPrefAlign == 0)
+        %% PointerPrefAlign = PointerABIAlign;
+      %% break;
+    %% case 'i':
+    %% case 'v':
+    %% case 'f':
+    %% case 'a':
+    %% case 's': {
+      %% AlignTypeEnum AlignType;
+      %% switch (Specifier[0]) {
+      %% default:
+      %% case 'i': AlignType = INTEGER_ALIGN; break;
+      %% case 'v': AlignType = VECTOR_ALIGN; break;
+      %% case 'f': AlignType = FLOAT_ALIGN; break;
+      %% case 'a': AlignType = AGGREGATE_ALIGN; break;
+      %% case 's': AlignType = STACK_ALIGN; break;
+      %% }
+      %% unsigned Size = getInt(Specifier.substr(1));
+      %% Split = Token.split(':');
+      %% unsigned ABIAlign = getInt(Split.first) / 8;
+
+      %% Split = Split.second.split(':');
+      %% unsigned PrefAlign = getInt(Split.first) / 8;
+      %% if (PrefAlign == 0)
+        %% PrefAlign = ABIAlign;
+      %% setAlignment(AlignType, ABIAlign, PrefAlign, Size);
+      %% break;
+    %% }
+    %% case 'n':  // Native integer types.
+      %% Specifier = Specifier.substr(1);
+      %% do {
+        %% if (unsigned Width = getInt(Specifier))
+          %% LegalIntWidths.push_back(Width);
+        %% Split = Token.split(':');
+        %% Specifier = Split.first;
+        %% Token = Split.second;
+      %% } while (!Specifier.empty() || !Token.empty());
+      %% break;
+    %% case 'S': // Stack natural alignment.
+      %% StackNaturalAlign = getInt(Specifier.substr(1));
+      %% StackNaturalAlign /= 8;
+      %% // FIXME: Should we really be truncating these alingments and
+      %% // sizes silently?
+      %% break;
+    %% default:
+      %% break;
+    %% }
+  %% }
+
+
 %% LibrariesDefinition ::= "[" ( LibList | _ ) "]";
 "[" LibList "]" -> LibrariesDefinition
 "[" "]" -> LibrariesDefinition

@@ -345,38 +345,38 @@ OptParamAttrs ParamAttr -> OptParamAttrs
 OptRetAttrs RetAttr -> OptRetAttrs
 
 %% FuncAttr      ::= noreturn
-"noreturn" -> FuncAttr
 %% | nounwind
-"nounwind" -> FuncAttr
 %% | inreg
-"inreg" -> FuncAttr
 %% | zeroext
-"zeroext" -> FuncAttr
 %% | signext
-"signext" -> FuncAttr
 %% | readnone
-"readnone" -> FuncAttr
 %% | readonly
-"readonly" -> FuncAttr
 %% | inlinehint
-"inlinehint" -> FuncAttr
 %% | alignstack
-"alignstack" -> FuncAttr
 %% | noinline
-"noinline" -> FuncAttr
 %% | alwaysinline
-"alwaysinline" -> FuncAttr
 %% | optsize
-"optsize" -> FuncAttr
 %% | ssp
-"ssp" -> FuncAttr
 %% | sspreq
-"sspreq" -> FuncAttr
 %% | returns_twice
-"returns_twice" -> FuncAttr
 %% | nonlazybind
-"nonlazybind" -> FuncAttr
 %% ;
+"noreturn" -> FuncAttr
+"nounwind" -> FuncAttr
+"inreg" -> FuncAttr
+"zeroext" -> FuncAttr
+"signext" -> FuncAttr
+"readnone" -> FuncAttr
+"readonly" -> FuncAttr
+"inlinehint" -> FuncAttr
+"alignstack" -> FuncAttr
+"noinline" -> FuncAttr
+"alwaysinline" -> FuncAttr
+"optsize" -> FuncAttr
+"ssp" -> FuncAttr
+"sspreq" -> FuncAttr
+"returns_twice" -> FuncAttr
+"nonlazybind" -> FuncAttr
 %% cme3 addition
 "uwtable" -> FuncAttr
 

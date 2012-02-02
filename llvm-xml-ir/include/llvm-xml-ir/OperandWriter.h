@@ -17,6 +17,7 @@ class Module;
 class Constant;
 }
 
+class XMLIROStream;
 class SlotTracker;
 class TypePrinting;
 
@@ -27,38 +28,36 @@ enum PrefixType {
   NoPrefix
 };
 
-const char *getPredicateText(unsigned predicate);
+const char *getPredicateText(unsigned);
 
-void PrintLLVMName(llvm::raw_ostream &OS, llvm::StringRef Name, PrefixType Prefix);
+void PrintLLVMName(XMLIROStream &, llvm::StringRef, PrefixType);
 
 /// PrintLLVMName - Turn the specified name into an 'LLVM name', which is either
 /// prefixed with % (if the string only contains simple characters) or is
 /// surrounded with ""'s (if it has special chars in it).  Print it out.
-void PrintLLVMName(llvm::raw_ostream &OS, const llvm::Value *V);
+void PrintLLVMName(XMLIROStream &, const llvm::Value *);
 
-void PrintLLVMName(llvm::raw_ostream &Out, const llvm::Value *V,
-                   TypePrinting *TypePrinter,
-                   SlotTracker *Machine,
-                   const llvm::Module *Context);
+void PrintLLVMName(XMLIROStream &, const llvm::Value *,
+                   TypePrinting *,
+                   SlotTracker *,
+                   const llvm::Module *);
 
 // PrintEscapedString - Print each character of the specified string, escaping
 // it if it is not printable or if it is an escape char.
-void PrintEscapedString(llvm::StringRef Name, llvm::raw_ostream &Out);
+void PrintEscapedString(llvm::StringRef, XMLIROStream &);
 
 /// WriteAsOperand - Write the name of the specified value out to the specified
 /// ostream.  This can be useful when you just want to print int %reg126, not
 /// the whole instruction that generated it.
 ///
-void WriteAsOperandInternal(llvm::raw_ostream &Out, const llvm::Value *V,
-                                   TypePrinting *TypePrinter,
-                                   SlotTracker *Machine,
-                                   const llvm::Module *Context);
+void WriteAsOperandInternal(XMLIROStream &, const llvm::Value *,
+                                   TypePrinting *,
+                                   SlotTracker *,
+                                   const llvm::Module *);
 
-void WriteConstantInternal(llvm::raw_ostream &Out, const llvm::Constant *CV,
-                                  TypePrinting &TypePrinter,
-                                  SlotTracker *Machine,
-                                  const llvm::Module *Context);
-
-std::string CDATA(llvm::StringRef data);
+void WriteConstantInternal(XMLIROStream &, const llvm::Constant *,
+                                  TypePrinting &,
+                                  SlotTracker *,
+                                  const llvm::Module *);
 
 #endif

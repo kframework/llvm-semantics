@@ -17,6 +17,7 @@
 #include "llvm-xml-ir/TypePrinting.h"
 #include "llvm-xml-ir/OperandWriter.h"
 #include "llvm-xml-ir/AsmXMLWriter.h"
+#include "llvm-xml-ir/RawWriter.h"
 
 #include <llvm/Constants.h>
 #include <llvm/Function.h>
@@ -171,21 +172,24 @@ void AsmXMLWriter::visit(const Module & M) {
   Out << "<?xml version=\"1.0\"?>\n";
 
   Out << "<Module>\n";
-  if (!M.getModuleIdentifier().empty() &&
-      // Don't print the ID if it will start a new line (which would
-      // require a comment char before it).
-      M.getModuleIdentifier().find('\n') == std::string::npos)
-    Out << "<ModuleID>" << CDATA(M.getModuleIdentifier())
-        << "</ModuleID>\n";
+
+  if (!M.getModuleIdentifier().empty()) {
+    Out << "<ModuleID>";
+    RawWriter::write(M.getModuleIdentifier(), Out);
+    Out << "</ModuleID>\n";
+  }
         
+  if (!M.getDataLayout().empty()) {
+    Out << "<TargetLayout>";
+    RawWriter::write(M.getDataLayout(), Out);
+    Out << "</TargetLayout>\n";
+  }
 
-  if (!M.getDataLayout().empty())
-    Out << "<TargetLayout>" << CDATA(M.getDataLayout())
-        << "</TargetLayout>\n";
-
-  if (!M.getTargetTriple().empty())
-    Out << "<TargetTriple>" << CDATA(M.getTargetTriple())
-        << "</TargetTriple>\n";
+  if (!M.getTargetTriple().empty()) {
+    Out << "<TargetTriple>";
+    RawWriter::write(M.getTargetTriple(), Out);
+    Out << "</TargetTriple>\n";
+  }
 
   TypePrinter.incorporateTypes(M);
   TypePrinter.printTypeIdentities(Out);
@@ -438,8 +442,11 @@ void AsmXMLWriter::visitExtractValue(const ExtractValueInst & EVI) {
 
 template <class T>
 void printAlignment(XMLIROStream & Out, const T & I) {
-  if (I.getAlignment())
-    Out << "<Alignment>" << I.getAlignment() << "</Alignment>\n";
+  if (I.getAlignment()) {
+    Out << "<Alignment>";
+    RawWriter::write(I.getAlignment(), Out);
+    Out << "</Alignment>\n";
+  }
 }
 
 template <class Iterator>

@@ -9,6 +9,7 @@
 #include "llvm-xml-ir/TypePrinting.h"
 #include "llvm-xml-ir/XMLIROStream.h"
 #include "llvm-xml-ir/OperandWriter.h"
+#include "llvm-xml-ir/RawWriter.h"
 
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Type.h>
@@ -17,38 +18,39 @@
 
 using namespace llvm;
 
-void TypePrinting::print(Type *Ty, raw_ostream &OS) {
+void TypePrinting::print(Type *Ty, XMLIROStream &Out) {
   switch (Ty->getTypeID()) {
     case Type::VoidTyID:
-      OS << "<VoidType/>";
+      Out << "<VoidType/>";
       break;
     case Type::FloatTyID:
-      OS << "<FloatType/>";
+      Out << "<FloatType/>";
       break;
     case Type::DoubleTyID:
-      OS << "<DoubleType/>";
+      Out << "<DoubleType/>";
       break;
     case Type::X86_FP80TyID:
-      OS << "<X86FP80Type/>";
+      Out << "<X86FP80Type/>";
       break;
     case Type::FP128TyID:
-      OS << "<FP128Type/>";
+      Out << "<FP128Type/>";
       break;
     case Type::PPC_FP128TyID:
-      OS << "<PPCFP128Type/>";
+      Out << "<PPCFP128Type/>";
       break;
     case Type::LabelTyID:
-      OS << "<LabelType/>";
+      Out << "<LabelType/>";
       break;
     case Type::MetadataTyID:
-      OS << "<MetaDataType/>";
+      Out << "<MetaDataType/>";
       break;
     case Type::X86_MMXTyID:
-      OS << "<X86MMXType/>";
+      Out << "<X86MMXType/>";
       break;
     case Type::IntegerTyID:
-      OS << "<IntegerType><Width>" << cast<IntegerType>(Ty)->getBitWidth() 
-         << "</Width></IntegerType>";
+      Out << "<IntegerType><Width>";
+      RawWriter::write(cast<IntegerType>(Ty)->getBitWidth(), Out);
+      Out << "</Width></IntegerType>";
       break;
 
     case Type::StructTyID:
@@ -57,34 +59,34 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
  {
       StructType *STy = cast<StructType>(Ty);
       if (STy->isLiteral())
-        return printStructBody(STy, OS);
+        return printStructBody(STy, Out);
 
       if (!STy->getName().empty())
         return PrintLLVMName(OS, STy->getName(), LocalPrefix);
 
       DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
       if (I != NumberedTypes.end())
-        OS << '%' << I->second;
+        Out << '%' << I->second;
       else  // Not enumerated, print the hex address.
-        OS << "%\"type 0x" << STy << '\"';
+        Out << "%\"type 0x" << STy << '\"';
     }
 #endif
       return;
 
     case Type::FunctionTyID: {
       FunctionType *FTy = cast<FunctionType>(Ty);
-      OS << "<FunctionType vararg=\""
+      Out << "<FunctionType vararg=\""
           << FTy->isVarArg() << "\">";
-      OS << "<RetType>";
-      print(FTy->getReturnType(), OS);
-      OS << "</RetType>\n";
+      Out << "<RetType>";
+      print(FTy->getReturnType(), Out);
+      Out << "</RetType>\n";
       for (FunctionType::param_iterator I = FTy->param_begin(),
                E = FTy->param_end(); I != E; ++I) {
-        OS << "<Type>";
-        print(*I, OS);
-        OS << "</Type>";
+        Out << "<Type>";
+        print(*I, Out);
+        Out << "</Type>";
       }
-      OS << "</FunctionType>\n";
+      Out << "</FunctionType>\n";
     }
       return;
 
@@ -95,21 +97,21 @@ void TypePrinting::print(Type *Ty, raw_ostream &OS) {
 
     case Type::PointerTyID: {
       PointerType *PTy = cast<PointerType>(Ty);
-      OS << "<PointerType>";
-      print(PTy->getElementType(), OS);
-      OS << "</PointerType>\n";
+      Out << "<PointerType>";
+      print(PTy->getElementType(), Out);
+      Out << "</PointerType>\n";
       return;
     }
     case Type::ArrayTyID: {
-      OS << "<ArrayType>";
+      Out << "<ArrayType>";
       ArrayType *ATy = cast<ArrayType>(Ty);
-      print(ATy->getElementType(), OS);
-      OS << "</ArrayType>\n";
+      print(ATy->getElementType(), Out);
+      Out << "</ArrayType>\n";
       return;
     }
       
     default:
-      OS << "<unrecognized-type/>";
+      Out << "<unrecognized-type/>";
       return;
   }
 }
@@ -175,19 +177,19 @@ void TypePrinting::incorporateTypes(const Module &M) {
   NamedTypes.erase(NextToUse, NamedTypes.end());
 }
 
-void TypePrinting::printStructBody(StructType *STy, raw_ostream &OS) {
+void TypePrinting::printStructBody(StructType *STy, XMLIROStream &Out) {
 
   if (STy->isOpaque()) {
-    OS << "<Opaque/>\n";
+    Out << "<Opaque/>\n";
     return;
   }
 
   if (STy->isPacked())
-    OS << "<Packed/>\n";
+    Out << "<Packed/>\n";
 
   for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
-    OS << "<Type>";
-    print(*I, OS);
-    OS << "</Type>\n";
+    Out << "<Type>";
+    print(*I, Out);
+    Out << "</Type>\n";
   }
 }

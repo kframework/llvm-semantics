@@ -9,6 +9,7 @@
 #include "llvm-xml-ir/OperandWriter.h"
 #include "llvm-xml-ir/TypePrinting.h"
 #include "llvm-xml-ir/SlotTracker.h"
+#include "llvm-xml-ir/RawWriter.h"
 
 #include <llvm/Constants.h>
 #include <llvm/DerivedTypes.h>
@@ -19,66 +20,56 @@
 #include <llvm/Support/ErrorHandling.h>
 #include <llvm/Instructions.h>
 
-using namespace llvm;
+#include <sstream>
 
-std::string CDATA(StringRef data) {
-  return "<![CDATA[" + std::string(data) + "]]>";
-}
+using namespace llvm;
 
 class XMLTagOutputHelper {
  public:
-  XMLTagOutputHelper(const char * name, raw_ostream&);
+  XMLTagOutputHelper(const char *, XMLIROStream&);
   ~XMLTagOutputHelper();
  private:
   const char * m_tagName;
-  raw_ostream & m_out;
+  XMLIROStream & m_out;
 };
 
-// PrintEscapedString - Print each character of the specified string, escaping
-// it if it is not printable or if it is an escape char.
-void PrintEscapedString(StringRef Name, raw_ostream &Out) {
-  for (unsigned i = 0, e = Name.size(); i != e; ++i) {
-    unsigned char C = Name[i];
-    if (isprint(C) && C != '\\' && C != '"')
-      Out << C;
-    else
-      Out << '\\' << hexdigit(C >> 4) << hexdigit(C & 0x0F);
-  }
-}
-
 /// PrintLLVMName - Turn the specified name into an 'LLVM name', which is either
 /// prefixed with % (if the string only contains simple characters) or is
 /// surrounded with ""'s (if it has special chars in it).  Print it out.
-void PrintLLVMName(raw_ostream &OS, StringRef Name, PrefixType Prefix) {
+void PrintLLVMName(XMLIROStream & Out, StringRef Name, PrefixType Prefix) {
   assert(!Name.empty() && "Cannot get empty name!");
-  OS << "<Name>";
+  Out << "<Name>";
+
+  std::string name;
   switch (Prefix) {
   default: llvm_unreachable("Bad prefix!");
-  case NoPrefix: break;
-  case GlobalPrefix: OS << '@'; break;
+  case NoPrefix:     break;
+  case GlobalPrefix: name += "@"; break;
   case LabelPrefix:  break;
-  case LocalPrefix:  OS << '%'; break;
+  case LocalPrefix:  name += "%"; break;
   }
+  name += Name.str();
 
-  OS << Name << "</Name>\n";
+  RawWriter::write(name, Out);
+  Out << "</Name>\n";
 }
 
 /// PrintLLVMName - Turn the specified name into an 'LLVM name', which is either
 /// prefixed with % (if the string only contains simple characters) or is
 /// surrounded with ""'s (if it has special chars in it).  Print it out.
-void PrintLLVMName(raw_ostream &OS, const Value *V) {
-  PrintLLVMName(OS, V->getName(),
+void PrintLLVMName(XMLIROStream &Out, const Value *V) {
+  PrintLLVMName(Out, V->getName(),
                 isa<GlobalValue>(V) ? GlobalPrefix : LocalPrefix);
 }
 
-void PrintLLVMName(raw_ostream &Out, const Value *V,
+void PrintLLVMName(XMLIROStream &Out, const Value *V,
                    TypePrinting *TypePrinter,
                    SlotTracker *Machine,
                    const Module *Context) {
   WriteAsOperandInternal(Out, V, TypePrinter, Machine, Context);
 }
 
-void WriteConstantInternal(raw_ostream &Out, const Constant *CV,
+void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
                            TypePrinting &TypePrinter,
                            SlotTracker *Machine,
                            const Module *Context) {
@@ -87,7 +78,8 @@ void WriteConstantInternal(raw_ostream &Out, const Constant *CV,
       Out << (CI->getZExtValue() ? "true" : "false");
       return;
     }
-    Out << CI->getValue();
+    std::string ival = CI->getValue().toString(10, true);
+    RawWriter::writeRawInt(ival, Out);
     return;
   }
 
@@ -215,7 +207,8 @@ void WriteConstantInternal(raw_ostream &Out, const Constant *CV,
     //
     if (CA->isString()) {
       Out << "<ConstantString>";
-      PrintEscapedString(CA->getAsString(), Out);
+      //PrintEscapedString(CA->getAsString(), Out);
+      RawWriter::write(CA->getAsString(), Out);
       Out << "</ConstantString>";
     } else {                // Cannot output in string format...
       Out << "<ConstantArray>";
@@ -337,10 +330,13 @@ void WriteConstantInternal(raw_ostream &Out, const Constant *CV,
 /// ostream.  This can be useful when you just want to print int %reg126, not
 /// the whole instruction that generated it.
 ///
-void WriteAsOperandInternal(raw_ostream &Out, const Value *V,
+void WriteAsOperandInternal(XMLIROStream &Out, const Value *V,
                                    TypePrinting *TypePrinter,
                                    SlotTracker *Machine,
                                    const Module *Context) {
+
+  XMLTagOutputHelper vhelper("Value", Out);
+
   if (V->hasName()) {
     PrintLLVMName(Out, V);
     return;
@@ -439,8 +435,11 @@ void WriteAsOperandInternal(raw_ostream &Out, const Value *V,
     Slot = -1;
   }
 
+  std::stringstream Name;
+  Name << Prefix << Slot;
+
   if (Slot != -1)
-    Out << Prefix << Slot;
+    RawWriter::write(Name.str(), Out);
   else
     Out << "<badref>";
 }
@@ -478,7 +477,7 @@ const char *getPredicateText(unsigned predicate) {
   return pred;
 }
 
-XMLTagOutputHelper::XMLTagOutputHelper(const char * name, raw_ostream & Out)
+XMLTagOutputHelper::XMLTagOutputHelper(const char * name, XMLIROStream & Out)
     : m_tagName(name)
     , m_out(Out)
 {

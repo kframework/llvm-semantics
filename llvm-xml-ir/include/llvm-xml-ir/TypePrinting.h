@@ -23,14 +23,14 @@ class XMLIROStream;
 class TypePrinting {
  public:
   TypePrinting() {}
-  void incorporateTypes(const llvm::Module &M);
-  void print(llvm::Type *Ty, llvm::raw_ostream &OS);
-  void printStructBody(llvm::StructType *Ty, llvm::raw_ostream &OS);
-  void printTypeIdentities(XMLIROStream & Out);
+  void incorporateTypes(const llvm::Module &);
+  void print(llvm::Type *, XMLIROStream &);
+  void printStructBody(llvm::StructType *, XMLIROStream &);
+  void printTypeIdentities(XMLIROStream &);
 
  private:
-  TypePrinting(const TypePrinting &);   // DO NOT IMPLEMENT
-  void operator=(const TypePrinting&);  // DO NOT IMPLEMENT
+  TypePrinting(const TypePrinting &);    // DO NOT IMPLEMENT
+  void operator=(const TypePrinting &);  // DO NOT IMPLEMENT
 
   /// NamedTypes - The named types that are used by the current module.
   std::vector<llvm::StructType*> NamedTypes;

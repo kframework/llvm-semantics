@@ -38,9 +38,9 @@ void RawWriter::write(int i, XMLIROStream & Out) {
 }
 
 void RawWriter::writeRawString(std::string str, XMLIROStream & Out) {
-  Out << "<RawString>";
+  Out << "<Builtin><String>";
   Out << str;
-  Out << "</RawString>\n";
+  Out << "</String></Builtin>\n";
 }
 
 void RawWriter::writeRawBase64(std::string str, XMLIROStream & Out) {
@@ -49,19 +49,19 @@ void RawWriter::writeRawBase64(std::string str, XMLIROStream & Out) {
   int enclen = base64_encode((const uint8_t *) str.data(), datalen, encoded);
   encoded[enclen] = '\0';
 
-  Out << "<RawBase64>";
+  Out << "<Builtin><Base64String>";
   Out << encoded;
-  Out << "</RawBase64>\n";
+  Out << "</Base64String></Builtin>\n";
 }
 
 void RawWriter::writeRawInt(int i, XMLIROStream & Out) {
-  Out << "<RawInt>";
+  Out << "<Builtin><Integer>";
   Out << i;
-  Out << "</RawInt>\n";
+  Out << "</Integer></Builtin>\n";
 }
 
 void RawWriter::writeRawInt(std::string str, XMLIROStream & Out) {
-  Out << "<RawInt>";
+  Out << "<Builtin><Integer>";
   Out << str;
-  Out << "</RawInt>\n";
+  Out << "</Integer></Builtin>\n";
 }

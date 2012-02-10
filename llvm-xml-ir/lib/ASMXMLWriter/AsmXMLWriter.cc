@@ -195,10 +195,14 @@ void AsmXMLWriter::visit(const Module & M) {
   TypePrinter.printTypeIdentities(Out);
 
   // Output all globals.
+  Out << "<GlobalVariables><List>\n";
   visit(M.global_begin(), M.global_end());
+  Out << "</List></GlobalVariables>\n";
 
   // Output all of the functions.
+  Out << "<Functions><List>\n";
   visit(M.begin(), M.end());
+  Out << "</List></Functions>\n";
 
   Out << "</Module>\n";
 }
@@ -217,17 +221,17 @@ void AsmXMLWriter::visit(const Function & F) {
   WriteAsOperandInternal(Out, &F, &TypePrinter, &Machine, F.getParent());
 
   FunctionType *FT = F.getFunctionType();
-  Out << "<Arguments>";
+  Out << "<Arguments><List>\n";
   if (FT->isVarArg())
     Out << "<Vararg/>\n";
 
   visit(F.arg_begin(), F.arg_end());
-  Out << "</Arguments>\n";
+  Out << "</List></Arguments>\n";
 
   if (!F.isDeclaration()) {
-    Out << "<Body>";
+    Out << "<Body><List>";
     visit(F.begin(), F.end());
-    Out << "</Body>";
+    Out << "</List></Body>";
   }
 
   Out << "</Function>\n";
@@ -237,7 +241,7 @@ void AsmXMLWriter::visit(const GlobalVariable & GV) {
   Out << "<GlobalVariable>";
   PrintLLVMName(Out, &GV, &TypePrinter, &Machine, GV.getParent());
 
-  Out << "<Modifiers>";
+  Out << "<Modifiers><List>";
 
 #if 0
   if (GV->isThreadLocal()) Out << "thread_local ";
@@ -257,7 +261,7 @@ void AsmXMLWriter::visit(const GlobalVariable & GV) {
   if (GV.isConstant())
     Out << "<Constant/>\n";
 
-  Out << "</Modifiers>\n";
+  Out << "</List></Modifiers>\n";
 
   Out << "<Type>";
   TypePrinter.print(GV.getType(), Out);
@@ -290,7 +294,9 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
   if (BB.hasName())
     PrintLLVMName(Out, &BB);
 
+  Out << "<Instructions><List>\n";
   visit(BB.begin(), BB.end());
+  Out << "</List></Instructions>\n";
   Out << "</BasicBlock>\n";
 }
 

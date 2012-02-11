@@ -289,7 +289,11 @@ void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
   }
 
   if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(CV)) {
-    Out << "<ConstantExpr opcode=\"" << CE->getOpcodeName() << "\">";
+    Out << "<ConstantExpr>";
+    // David TODO: this doesn't seem very nice:
+    Out << "<Opcode>";
+    RawWriter::write(CE->getOpcodeName(), Out);
+    Out << "</Opcode>";
 
 #if 0
     WriteOptimizationInfo(Out, CE);

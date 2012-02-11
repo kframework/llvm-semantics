@@ -37,8 +37,8 @@ module LLVM-SYNTAX is
 	syntax LLVM ::= `Call "(" K "," K "," K ")"
 	syntax LLVM ::= `Callee "(" K ")"
 	
-	// looks like opcode="getelementptr" is still an attribute, not an element in the llvm xml :(
-	syntax LLVM ::= `ConstantExpr "(" K "," K "," K ")"
+	syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
+	syntax LLVM ::= `Opcode "(" K ")"
 	
 	syntax LLVM ::= `Ret "(" K ")"
 	

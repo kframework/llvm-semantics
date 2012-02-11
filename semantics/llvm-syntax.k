@@ -32,17 +32,15 @@ module LLVM-SYNTAX is
 	syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
 	syntax LLVM ::= `Instructions "(" List{K} ")"
 	
-	syntax LLVM ::= `Alloca "(" K ")"
+	syntax LLVM ::= `Alloca "(" K "," K "," K ")"
 	syntax LLVM ::= `Store "(" K  "," K ")"
-	syntax LLVM ::= `Call "(" K ")" 
+	syntax LLVM ::= `Call "(" K "," K "," K ")"
 	syntax LLVM ::= `Callee "(" K ")"
 	
 	// looks like opcode="getelementptr" is still an attribute, not an element in the llvm xml :(
 	syntax LLVM ::= `ConstantExpr "(" K "," K "," K ")"
 	
 	syntax LLVM ::= `Ret "(" K ")"
-	
-	syntax LLVM ::= `Define "(" K "," K "," K ")" // Value/Name, Type, Alignment
 	
 	syntax LLVM ::= `Alignment "(" #Nat ")"
 	
@@ -54,5 +52,6 @@ module LLVM-SYNTAX is
 	syntax LLVM ::= `Width "(" #Nat ")"
 	
 	syntax LLVM ::= `Arg "(" K ")"
-	
+	syntax LLVM ::= `Vararg
+
 end module

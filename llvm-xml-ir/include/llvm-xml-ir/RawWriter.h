@@ -9,6 +9,7 @@
 
 class RawWriter {
 public:
+  static void write(const char *, XMLIROStream &);
   static void write(llvm::StringRef, XMLIROStream &);
   static void write(std::string, XMLIROStream &);
   static void write(int, XMLIROStream &);

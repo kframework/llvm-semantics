@@ -6,6 +6,10 @@
 
 using namespace llvm;
 
+void RawWriter::write(const char *str, XMLIROStream & Out) {
+  write(std::string(str), Out);
+}
+
 void RawWriter::write(StringRef str, XMLIROStream & Out) {
   write(str.str(), Out);
 }

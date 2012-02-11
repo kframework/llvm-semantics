@@ -10,6 +10,10 @@ binmode STDIN, ":utf8";
 # not handling the case of multiple cdatas 
 # can use 'erase' to get rid of junk cells
 
+# 0 for 'Label`(_`,_`,_`,_`,_`)
+# 1 for 'Label
+my $basicLabel = 0;
+
 my $STRING = "#";
 my $ID = "#";
 my $BOOL = '#';
@@ -20,12 +24,30 @@ my $RAT = '#';
 use constant KLIST_IDENTITY => ".List{K}";
 use constant KLIST_SEPARATOR => ",, ";
 
-my $ltl = "";
+# my $ltl = "";
+
+my %arityMap = ();
 
 # might want to return, say, "'$name"
 sub nameToLabel {
-	my ($name) = (@_);
-	return "'$name";
+	my ($name, $length) = (@_);
+	my $baseLabel = "'$name";
+	if ($basicLabel) { return $baseLabel; }
+	if (exists($arityMap{$name})) {
+		if ($arityMap{$name} != $length) {
+			print STDERR "WARNING: Detected label with multiple arities: label \"$name\" has arities $arityMap{$name} and $length\n";
+		}		
+	} else {
+		$arityMap{$name} = $length;
+	}
+	if ($length == 0) { return $baseLabel; }
+	
+	my $suffix = "`(_";
+	for (my $i = 0; $i < $length-1; $i++){
+		$suffix .= "`,_"
+	}
+	$suffix .= "`)";
+	return "$baseLabel$suffix";
 }
 #########################################################
 my %escapeMap = (
@@ -39,6 +61,8 @@ my %escapeMap = (
 	'"' => '\\"',
 	'\\' => '\\\\'
 );
+
+
 
 my $input = join("", <STDIN>);
 
@@ -146,21 +170,20 @@ sub elementToK {
 	# if (exists($ignoreThese{$label})) {
 		# return ($inNextState, undef);
 	# }
-	my $prefix = "";
-	my $suffix = "";
-	if ($label eq "RawString") {
-		return ($inNextState, rawStringToK($reader));
-	} elsif ($label eq "RawInt"){
-		return ($inNextState, rawIntToK($reader));
-	} elsif ($label eq "RawBase64") {
-		return ($inNextState, rawBase64ToK($reader));
+	# my $prefix = "";
+	# my $suffix = "";
+	if ($label eq "Builtin") {
+		return ($inNextState, builtinToK($reader));
 	}
+	# if ($label eq "RawString") {
+		# return ($inNextState, rawStringToK($reader));
+	# } elsif ($label eq "RawInt"){
+		# return ($inNextState, rawIntToK($reader));
+	# } elsif ($label eq "RawBase64") {
+		# return ($inNextState, rawBase64ToK($reader));
+	# }
 	# if ($label eq 'List') {
-		# $label = "_::_";
-	# } elsif ($label eq 'NewList') {
-		# $label = "List";
-		# $prefix = '(_`(_`)(kList("wklist_"), ';
-		# $suffix = '))';
+
 	# } elsif ($label eq 'Identifier') {
 		# $reader->nextElement;
 		# my $rawData = getRawData($reader);
@@ -203,7 +226,14 @@ sub elementToK {
 		# $ltl .= paren(join(KLIST_SEPARATOR, @klist)) . " .\n";
 		# return ($inNextState, "(.).K");
 	# }
-	return ($inNextState, nameToLabel($label) . $prefix . $kterm . $suffix);
+	if ($label eq 'List') {
+		my $prefix = '(_`(_`)(kList("wklist_"), ';
+		my $suffix = '))';
+		return ($inNextState, $prefix . $kterm . $suffix);
+	} else {
+		return ($inNextState, nameToLabel($label, $numElements) . $kterm);
+	}
+	
 }
 
 # sub rawdataToK {
@@ -213,6 +243,20 @@ sub elementToK {
 	# my $data = getRawData($reader);
 	# return "#" . paren($data) . paren(KLIST_IDENTITY);
 # }
+
+sub builtinToK {
+	my ($reader) = (@_);
+	$reader->read;
+	my $label = $reader->name;
+	if ($label eq "String") {
+		return rawStringToK($reader);
+	} elsif ($label eq "Base64String") {
+		return rawBase64ToK($reader);
+	} elsif ($label eq "Integer") {
+		return rawIntToK($reader);
+	}
+}
+
 sub rawStringToK {
 	my ($reader) = (@_);
 	$reader->read;

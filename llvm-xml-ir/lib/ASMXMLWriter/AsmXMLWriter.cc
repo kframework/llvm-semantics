@@ -228,11 +228,14 @@ void AsmXMLWriter::visit(const Function & F) {
   visit(F.arg_begin(), F.arg_end());
   Out << "</List></Arguments>\n";
 
-  if (!F.isDeclaration()) {
+// David TODO: This is a hackish way to make sure Function has a consistent
+// arity. We probably need a better way to distinguish between functions and
+// declarations.
+//  if (!F.isDeclaration()) {
     Out << "<Body><List>";
     visit(F.begin(), F.end());
     Out << "</List></Body>";
-  }
+//  }
 
   Out << "</Function>\n";
 }

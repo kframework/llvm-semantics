@@ -342,10 +342,8 @@ void AsmXMLWriter::visitCall(const CallInst & CI) {
   TypePrinter.print(CI.getType(), Out);
   Out << "</Type>\n";
 
-  Out << "<Callee>";
   WriteAsOperandInternal(Out, CI.getCalledValue(), &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());
-  Out << "</Callee>";
-  
+
   printOperandList(CI.op_begin(), CI.op_begin() + CI.getNumArgOperands());
 }
 

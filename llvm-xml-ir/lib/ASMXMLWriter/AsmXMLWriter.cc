@@ -338,6 +338,9 @@ void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {
 void AsmXMLWriter::visitCall(const CallInst & CI) {
   if (!CI.getType()->isVoidTy())
     PrintLLVMName(Out, &CI, &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());
+  Out << "<Type>";
+  TypePrinter.print(CI.getType(), Out);
+  Out << "</Type>\n";
 
   Out << "<Callee>";
   WriteAsOperandInternal(Out, CI.getCalledValue(), &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());

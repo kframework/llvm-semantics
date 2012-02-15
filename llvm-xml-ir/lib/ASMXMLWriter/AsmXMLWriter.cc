@@ -309,9 +309,16 @@ void AsmXMLWriter::visit(const Instruction &I) {
       // Build the switch statement using the Instruction.def file...
 #define HANDLE_INST(NUM, OPCODE, CLASS)         \
       case Instruction::OPCODE: \
+        if (!I.getType()->isVoidTy()) { \
+          Out << "<Assign>\n"; \
+          PrintLLVMName(Out, &I, &TypePrinter, &Machine, I.getParent()->getParent()->getParent()); \
+        } \
         Out << "<" #OPCODE ">"; \
         visit##OPCODE(static_cast<const CLASS&>(I)); \
         Out << "</" #OPCODE ">\n"; \
+        if (!I.getType()->isVoidTy()) { \
+          Out << "</Assign>\n"; \
+        } \
         break ;
 #include "llvm/Instruction.def"
   }
@@ -327,8 +334,6 @@ void AsmXMLWriter::visitBr(const BranchInst & BI) {
 }
 
 void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {
-  PrintLLVMName(Out, &AI, &TypePrinter, &Machine, AI.getParent()->getParent()->getParent());
-
   Out << "<Type>";
   TypePrinter.print(AI.getType()->getElementType(), Out);
   Out << "</Type>";
@@ -336,8 +341,6 @@ void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {
 }
 
 void AsmXMLWriter::visitCall(const CallInst & CI) {
-  if (!CI.getType()->isVoidTy())
-    PrintLLVMName(Out, &CI, &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());
   Out << "<Type>";
   TypePrinter.print(CI.getType(), Out);
   Out << "</Type>\n";
@@ -363,9 +366,6 @@ void AsmXMLWriter::writeOperand(const Value *Operand, bool PrintType) {
 
 template <class T>
 void AsmXMLWriter::visitInstruction(const T& I) {
-  if (!I.getType()->isVoidTy())
-    PrintLLVMName(Out, &I, &TypePrinter, &Machine, I.getParent()->getParent()->getParent());
-
   InstructionTrait<T>::printTrait(Out, I);
   printOperandList(I.op_begin(), I.op_end());
 }
@@ -376,8 +376,6 @@ void AsmXMLWriter::visitStore(const StoreInst& SI) {
 }
 
 void AsmXMLWriter::visitCastInst(const CastInst & I) {
-  PrintLLVMName(Out, &I, &TypePrinter, &Machine, I.getParent()->getParent()->getParent());
-
   Out << "<Type>";
   TypePrinter.print(I.getType(), Out);
   Out << "</Type>\n";
@@ -385,16 +383,12 @@ void AsmXMLWriter::visitCastInst(const CastInst & I) {
 }
 
 void AsmXMLWriter::visitCmpInst(const CmpInst & CI) {
-  PrintLLVMName(Out, &CI, &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());
-
   Out << "<Predicate>" << getPredicateText(CI.getPredicate())
       << "</Predicate>";
   printOperandList(CI.op_begin(), CI.op_end());
 }
 
 void AsmXMLWriter::visitPHI(const PHINode & PN) {
-  PrintLLVMName(Out, &PN, &TypePrinter, &Machine, PN.getParent()->getParent()->getParent());
-
   TypePrinter.print(PN.getType(), Out);
 
   for (unsigned op = 0, Eop = PN.getNumIncomingValues(); op < Eop; ++op) {
@@ -427,8 +421,6 @@ void AsmXMLWriter::visitSwitch(const SwitchInst & SI) {
 }
 
 void AsmXMLWriter::visitExtractValue(const ExtractValueInst & EVI) {
-  PrintLLVMName(Out, &EVI, &TypePrinter, &Machine, EVI.getParent()->getParent()->getParent());
-
   writeOperand(EVI.getOperand(0), true);
   for (const unsigned *i = EVI.idx_begin(), *e = EVI.idx_end(); i != e; ++i)
     Out << ", " << *i;

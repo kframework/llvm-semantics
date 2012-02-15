@@ -437,6 +437,10 @@ void printAlignment(XMLIROStream & Out, const T & I) {
 
 template <class Iterator>
 void AsmXMLWriter::printOperandList(Iterator Start, Iterator End) {
+  if (std::distance(Start, End) <= 1) {
+    writeOperand(*Start++, true);
+    return;
+  }
   while (Start != End) {
     Out << "<Operand>";
     writeOperand(*Start++, true);

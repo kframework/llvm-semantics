@@ -32,21 +32,22 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
     syntax LLVM ::= `Instructions "(" List{K} ")"
 
-    syntax LLVM ::= `Alloca "(" K "," K "," K ")"
+    syntax LLVM ::= `Alloca "(" K "," K ")"
+    syntax LLVM ::= `Call "(" K "," K ")"   // Type, Value
+
     syntax LLVM ::= `Store "(" K  "," K ")"
-    syntax LLVM ::= `Call "(" K "," K "," K ")"
-    syntax LLVM ::= `Callee "(" K ")"
 
     syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
     syntax LLVM ::= `Opcode "(" K ")"
 
-    syntax LLVM ::= `Ret "(" K ")"
+    syntax LLVM ::= `Ret "(" K "," K ")" [strict(2)]
 
     syntax LLVM ::= `Alignment "(" #Nat ")"
 
     syntax LLVM ::= `ConstantString "(" #String ")"
 
-    syntax LLVM ::= `Name "(" #String ")"
+    syntax Id ::= `Name "(" #String ")"
+    syntax LLVM ::= Id
     syntax LLVM ::= `Value "(" K ")"
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
     syntax LLVM ::= `Width "(" #Nat ")"

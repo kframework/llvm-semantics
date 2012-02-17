@@ -2,10 +2,6 @@
 
 The goal of this project is to give a complete executable semantics to the [LLVM assembly language](http://llvm.org/docs/LangRef.html) (LLVM IR). The language will be defined in the [K Semantic Framework](http://k-framework.org).
 
-# Status
-
-Currently, we are working on a parser for LLVM IR.
-
 # Contributing
 
 This project is available on [GitHub](https://github.com/davidlazar/llvm-semantics) and [Bitbucket](https://bitbucket.org/davidlazar/llvm-semantics/). You may contribute changes using either.

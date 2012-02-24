@@ -27,6 +27,10 @@
 #include <llvm/Support/InstVisitor.h>
 #include <llvm/ADT/StringExtras.h>
 
+// things we added
+#include <llvm/Operator.h>
+#include <llvm/Support/Casting.h>
+
 namespace llvm {
 
 // We operate on opaque instruction classes, so forward declare all instruction
@@ -41,6 +45,7 @@ using namespace llvm;
 template<class T>
 void printAlignment(XMLIROStream & Out, const T& I);
 
+#if 0
 template <class T>
 struct InstructionTrait {
   static void printTrait(XMLIROStream &, const T &) {}
@@ -52,6 +57,7 @@ struct InstructionTrait<LoadInst> {
     printAlignment(Out, LI);
   }
 };
+#endif
 
 class AsmXMLWriter {
  public:
@@ -68,6 +74,7 @@ class AsmXMLWriter {
 
   template <class Iterator>
   void printOperandList(Iterator Start, Iterator End);
+  void printModifiers(const Instruction &I);
 
   void visit(const GlobalVariable &GV);
   void visit(const Function &F);
@@ -83,24 +90,24 @@ class AsmXMLWriter {
   void visitUnwind(const UnwindInst &) { assert (0 && "Unimplemented"); }
   void visitResume(const ResumeInst &) { assert (0 && "Unimplemented"); }
   void visitUnreachable(const UnreachableInst &) { assert (0 && "Unimplemented"); }
-  void visitAdd(const BinaryOperator &I)  { visitInstruction(I); }
-  void visitFAdd(const BinaryOperator &I) { visitInstruction(I); }
-  void visitSub(const BinaryOperator &I)  { visitInstruction(I); }
-  void visitFSub(const BinaryOperator &I) { visitInstruction(I); }
-  void visitMul(const BinaryOperator &I)  { visitInstruction(I); }
-  void visitFMul(const BinaryOperator &I) { visitInstruction(I); }
-  void visitUDiv(const BinaryOperator &I) { visitInstruction(I); }
-  void visitSDiv(const BinaryOperator &I) { visitInstruction(I); }
-  void visitFDiv(const BinaryOperator &I) { visitInstruction(I); }
-  void visitURem(const BinaryOperator &I) { visitInstruction(I); }
-  void visitSRem(const BinaryOperator &I) { visitInstruction(I); }
-  void visitFRem(const BinaryOperator &I) { visitInstruction(I); }
-  void visitShl(const BinaryOperator &I)  { visitInstruction(I); }
-  void visitLShr(const BinaryOperator &I) { visitInstruction(I); }
-  void visitAShr(const BinaryOperator &I) { visitInstruction(I); }
-  void visitAnd(const BinaryOperator &I)  { visitInstruction(I); }
-  void visitOr(const BinaryOperator &I)   { visitInstruction(I); }
-  void visitXor(const BinaryOperator &I)  { visitInstruction(I); }
+  void visitAdd(const BinaryOperator &I)  { visitBinaryOperator(I); }
+  void visitFAdd(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitSub(const BinaryOperator &I)  { visitBinaryOperator(I); }
+  void visitFSub(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitMul(const BinaryOperator &I)  { visitBinaryOperator(I); }
+  void visitFMul(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitUDiv(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitSDiv(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitFDiv(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitURem(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitSRem(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitFRem(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitShl(const BinaryOperator &I)  { visitBinaryOperator(I); }
+  void visitLShr(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitAShr(const BinaryOperator &I) { visitBinaryOperator(I); }
+  void visitAnd(const BinaryOperator &I)  { visitBinaryOperator(I); }
+  void visitOr(const BinaryOperator &I)   { visitBinaryOperator(I); }
+  void visitXor(const BinaryOperator &I)  { visitBinaryOperator(I); }
   void visitAlloca(const AllocaInst &);
   void visitLoad(const LoadInst &I)       { visitInstruction(I); }
   void visitStore(const StoreInst &I);
@@ -138,6 +145,7 @@ class AsmXMLWriter {
   template<class T>
   void visitInstruction(const T& I);
 
+  void visitBinaryOperator(const BinaryOperator &I);
   void visitCastInst(const CastInst &I);
   void visitCmpInst(const CmpInst &I);
   void printInstruction(const Instruction *I);
@@ -306,6 +314,29 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
   Out << "</BasicBlock>\n";
 }
 
+void AsmXMLWriter::printModifiers(const Instruction &I) {
+
+  if (const OverflowingBinaryOperator *OBI = dyn_cast<OverflowingBinaryOperator>(&I)) {
+    if (OBI->hasNoSignedWrap())
+      Out << "<NoSignedWrap/>\n";
+    if (OBI->hasNoUnsignedWrap())
+      Out << "<NoUnsignedWrap/>\n";
+  }
+
+  if (const StoreInst *SI = dyn_cast<StoreInst>(&I)) {
+    printAlignment(Out, *SI);
+  }
+
+  if (const LoadInst *LI = dyn_cast<LoadInst>(&I)) {
+    printAlignment(Out, *LI);
+  }
+
+  if (const AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
+    printAlignment(Out, *AI);
+  }
+
+}
+
 void AsmXMLWriter::visit(const Instruction &I) {
   switch (I.getOpcode()) {
     default: llvm_unreachable("Unknown instruction type encountered!");
@@ -316,9 +347,14 @@ void AsmXMLWriter::visit(const Instruction &I) {
           Out << "<Assign>\n"; \
           PrintLLVMName(Out, &I, &TypePrinter, &Machine, I.getParent()->getParent()->getParent()); \
         } \
+        Out << "<Instruction>\n"; \
+        Out << "<Modifiers><List>\n"; \
+        printModifiers(I); \
+        Out << "</List></Modifiers>\n"; \
         Out << "<" #OPCODE ">"; \
         visit##OPCODE(static_cast<const CLASS&>(I)); \
         Out << "</" #OPCODE ">\n"; \
+        Out << "</Instruction>\n"; \
         if (!I.getType()->isVoidTy()) { \
           Out << "</Assign>\n"; \
         } \
@@ -340,7 +376,9 @@ void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {
   Out << "<Type>";
   TypePrinter.print(AI.getType()->getElementType(), Out);
   Out << "</Type>";
-  printAlignment(Out, AI);
+  Out << "<Operand>";
+  writeOperand(AI.getArraySize(), true);
+  Out << "</Operand>";
 }
 
 void AsmXMLWriter::visitCall(const CallInst & CI) {
@@ -348,9 +386,13 @@ void AsmXMLWriter::visitCall(const CallInst & CI) {
   TypePrinter.print(CI.getType(), Out);
   Out << "</Type>\n";
 
+  Out << "<Callee>";
   WriteAsOperandInternal(Out, CI.getCalledValue(), &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());
 
+  Out << "<Arguments><List>";
   printOperandList(CI.op_begin(), CI.op_begin() + CI.getNumArgOperands());
+  Out << "</List></Arguments>\n";
+  Out << "</Callee>\n";
 }
 
 void AsmXMLWriter::writeOperand(const Value *Operand, bool PrintType) {
@@ -367,14 +409,23 @@ void AsmXMLWriter::writeOperand(const Value *Operand, bool PrintType) {
   WriteAsOperandInternal(Out, Operand, &TypePrinter, &Machine, TheModule);
 }
 
+void AsmXMLWriter::visitBinaryOperator(const BinaryOperator &I) {
+  Out << "<Type>";
+  TypePrinter.print(I.getType(), Out);
+  Out << "</Type>\n";
+  visitInstruction(I);
+}
+
 template <class T>
 void AsmXMLWriter::visitInstruction(const T& I) {
-  InstructionTrait<T>::printTrait(Out, I);
+//  InstructionTrait<T>::printTrait(Out, I);
   printOperandList(I.op_begin(), I.op_end());
 }
 
 void AsmXMLWriter::visitStore(const StoreInst& SI) {
-  printAlignment(Out, SI);
+  Out << "<Type>";
+  TypePrinter.print(SI.getValueOperand()->getType(), Out);
+  Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
 }
 
@@ -440,10 +491,10 @@ void printAlignment(XMLIROStream & Out, const T & I) {
 
 template <class Iterator>
 void AsmXMLWriter::printOperandList(Iterator Start, Iterator End) {
-  if (std::distance(Start, End) <= 1) {
-    writeOperand(*Start++, true);
-    return;
-  }
+//  if (std::distance(Start, End) <= 1) {
+//    writeOperand(*Start++, true);
+//    return;
+//  }
   while (Start != End) {
     Out << "<Operand>";
     writeOperand(*Start++, true);

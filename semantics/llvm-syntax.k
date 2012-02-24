@@ -2,7 +2,8 @@ module LLVM-SYNTAX is
     including K
 
 
-    syntax LLVM ::= `Module "(" K "," K "," K "," K "," K ")" // ModuleID, TargetLayout, TargetTriple, GlobalVariables, Functions
+    syntax LLVM ::= "Module" "(" K "," K "," K "," K "," K ")" // ModuleID, TargetLayout, TargetTriple, GlobalVariables, Functions
+    // TODO: syntax LLVM ::= Module(K, K, K, K, K)
 
     syntax LLVM ::= `ModuleID "(" #String ")"
     syntax LLVM ::= `TargetLayout "(" #String ")"
@@ -24,6 +25,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `IntegerType "(" K ")"
 
     syntax LLVM ::= `Function "(" K "," K "," K "," K ")" // RetType, Value/Name, Arguments, Body
+    syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
 
     syntax LLVM ::= `RetType "(" K ")"
     syntax LLVM ::= `Arguments "(" List{K} ")"
@@ -32,15 +34,23 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
     syntax LLVM ::= `Instructions "(" List{K} ")"
 
-    syntax LLVM ::= `Alloca "(" K "," K ")"
-    syntax LLVM ::= `Call "(" K "," K ")"   // Type, Value
+    syntax LLVM ::= `Assign "(" K "," K ")" [strict(2)] // Name, Instruction
+    syntax LLVM ::= `Instruction "(" K "," K ")" // Modifiers, the Instruction
+    syntax LLVM ::= `Modifiers "(" List{K} ")"
 
-    syntax LLVM ::= `Store "(" K  "," K ")"
+    syntax LLVM ::= `Alloca "(" K "," K ")" [strict(2)] // Type, NumElements
+    syntax LLVM ::= `Call "(" K "," K ")"   // Type, Callee
+    syntax LLVM ::= `Callee "(" K "," K ")"   // Value/Name, Arguments
+
+    syntax LLVM ::= `Load "(" K ")"
+    syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination
+
+    syntax LLVM ::= `Add "(" K "," K "," K ")" // Type, LHS, RHS
 
     syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
     syntax LLVM ::= `Opcode "(" K ")"
 
-    syntax LLVM ::= `Ret "(" K "," K ")" [strict(2)]
+    syntax LLVM ::= `Ret "(" K ")" [strict]
 
     syntax LLVM ::= `Alignment "(" #Nat ")"
 
@@ -52,7 +62,9 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
     syntax LLVM ::= `Width "(" #Nat ")"
 
-    syntax LLVM ::= `Arg "(" K ")"
     syntax LLVM ::= `Vararg
+
+    syntax LLVM ::= `NoSignedWrap
+    syntax LLVM ::= `NoUnsignedWrap
 
 end module

@@ -293,9 +293,12 @@ void AsmXMLWriter::visit(const Argument & Arg) {
 }
 
 void AsmXMLWriter::visit(const BasicBlock &BB) {
+  BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
   Out << "<BasicBlock>";
-  if (BB.hasName())
-    PrintLLVMName(Out, &BB);
+
+  if (!BB.hasName())
+    BBp->setName(Twine("default"));
+  PrintLLVMName(Out, &BB);
 
   Out << "<Instructions><List>\n";
   visit(BB.begin(), BB.end());

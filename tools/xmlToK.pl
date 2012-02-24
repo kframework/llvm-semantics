@@ -230,6 +230,10 @@ sub elementToK {
 		my $prefix = '(_`(_`)(kList("wklist_"), ';
 		my $suffix = '))';
 		return ($inNextState, $prefix . $kterm . $suffix);
+	} elsif ($label eq 'Set') {
+		my $prefix = '(_`(_`)(wset ';
+		my $suffix = '))';
+		return ($inNextState, $prefix . $kterm . $suffix);
 	} else {
 		return ($inNextState, nameToLabel($label, $numElements) . $kterm);
 	}

@@ -366,15 +366,19 @@ void AsmXMLWriter::visit(const Instruction &I) {
 void AsmXMLWriter::visitBr(const BranchInst & BI) {
   if (BI.isConditional()) {
     Out << "<Conditional>";
-    // writeOperand(BI.getCondition(), false);
-	printOperandList(BI.op_begin(), BI.op_end());
-    Out << "</Conditional>";
   } else {
-    Out << "<Unconditional>";
-	printOperandList(BI.op_begin(), BI.op_end());
+	Out << "<Unconditional>";
+  }
+
+  // TODO excluding types for both branches
+  writeOperand(BI.getOperand(0), false);
+  if (BI.isConditional()) {
+    writeOperand(BI.getOperand(2), false);
+    writeOperand(BI.getOperand(1), false);   
+	Out << "</Conditional>";
+  } else {
     Out << "</Unconditional>";
   }
-  
 }
 
 void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {
@@ -448,8 +452,9 @@ void AsmXMLWriter::visitCastInst(const CastInst & I) {
 }
 
 void AsmXMLWriter::visitCmpInst(const CmpInst & CI) {
-  Out << "<Predicate>" << getPredicateText(CI.getPredicate())
-      << "</Predicate>";
+	Out << "<Predicate>" ;
+	RawWriter::write(getPredicateText(CI.getPredicate()), Out);
+	Out << "</Predicate>";
   printOperandList(CI.op_begin(), CI.op_end());
 }
 

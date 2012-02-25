@@ -23,6 +23,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `PointerType "(" K ")"
     syntax LLVM ::= `ArrayType "(" K ")"
     syntax LLVM ::= `IntegerType "(" K ")"
+	syntax LLVM ::= `LabelType
 
     syntax LLVM ::= `Function "(" K "," K "," K "," K ")" // RetType, Value/Name, Arguments, Body
     syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
@@ -33,6 +34,8 @@ module LLVM-SYNTAX is
 
     syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
     syntax LLVM ::= `Instructions "(" List{K} ")"
+	
+	// context Br(Conditional(HOLE, _, _))
 
     syntax LLVM ::= `Assign "(" K "," K ")" [strict(2)] // Name, Instruction
     syntax LLVM ::= `Instruction "(" K "," K ")" // Modifiers, the Instruction
@@ -49,6 +52,9 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Opcode "(" K ")"
 
     syntax LLVM ::= `Ret "(" K ")" [strict]
+	syntax LLVM ::= `Br "(" K ")"
+	syntax LLVM ::= `Unconditional "(" K ")"
+	syntax LLVM ::= `Conditional "(" K "," K "," K ")" [strict(1)]
 
     syntax LLVM ::= `Alignment "(" #Nat ")"
 
@@ -74,6 +80,10 @@ module LLVM-SYNTAX is
 	syntax LLVM ::= `And "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
 	syntax LLVM ::= `Xor "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
 	
-	// syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op
+	syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op
+	syntax LLVM ::= `Predicate "(" K ")"
+	
+	syntax LLVM ::= `INotEq "(" K "," K ")" [strict]
+	
 
 end module

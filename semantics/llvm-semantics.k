@@ -13,6 +13,7 @@ module LLVM-CONFIGURATION is
             <callStack> .List </callStack>
             <control>
                 <currModule> Name("Initial") </currModule>
+				<currFunction> Name("Initial") </currFunction>
                 <registers> .Map </registers>
                 // TODO: this should eventually be a Set
                 <currentModifiers> .List </currentModifiers>
@@ -23,7 +24,13 @@ module LLVM-CONFIGURATION is
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <globalVariables> .Map </globalVariables>
-                    <functions> .Map </functions>
+                    <functions>
+						<function multiplicity="*">
+							<functionName> Name("") </functionName>
+							<basicBlocks> .Map </basicBlocks>
+							<initialBasicBlock> .K </initialBasicBlock>
+						</function>
+					</functions>
                 </module>
             </modules>
             <memory>
@@ -74,14 +81,18 @@ end module
 module LLVM-CLEAN-TREE is
 	including LLVM-INCLUDE 
 	
+	// rule <k> BasicBlock(_, K:K) => K ...</k>
+	rule <k> Operand(_, K:K) => K ...</k>
+	
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)
     rule Functions(L:List{K}) => List{K}ToK(L)
-    rule Body(L:List{K}) => List{K}ToK(L)
+    //rule Body(L:List{K}) => List{K}ToK(L)
     rule Instructions(L:List{K}) => List{K}ToK(L)
-    rule BasicBlock(_, K:K) => K
-	rule Operand(_, K:K) => K
 	rule ModuleID(S:#String) => Name(S)
     rule Value(K:K) => K
+	rule Br(K:K) => K:K
+	
+	rule ICmp(Predicate("ne"), K1:K, K2:K) => INotEq(K1:K, K2:K)
 end module
 
 
@@ -107,10 +118,30 @@ module LLVM-REGISTERS is
 
 end module
 
+module LLVM-BRANCHING is
+	including LLVM-INCLUDE
+	
+	rule
+		<k> Unconditional(Label:Id) => Body:K ...</k>
+		<currFunction> FunName:Id </currFunction>
+		<functionName> FunName:Id </functionName>
+		<basicBlocks>... Label:Id |-> Body:K ...</basicBlocks>
+	
+	rule
+		<k> Conditional(1, Label:K, _) 
+			=> Unconditional(Label:K)
+		...</k>
+	rule
+		<k> Conditional(0, _, Label:K)
+			=> Unconditional(Label:K)
+		...</k>
+
+end module
+
 module LLVM-START-AND-STOP is
 	including LLVM-INCLUDE
 	
-    rule <k> callMain => Call(int32, Value(Name("@main"))) </k>
+    rule <k> callMain => Call(int32, Callee(Value(Name("@main")), Arguments(.List{K}))) </k>
 
     rule [terminate]:
 		<T>... 
@@ -140,9 +171,30 @@ module LLVM-DECLARATIONS is
         ...</modules>
 		
     rule
-        <k> FUNCTION => . ...</k>
-        <functions>... . => Name |-> FUNCTION ...</functions>
+        <k> FUNCTION => Body:K ...</k>
+		<currFunction> _ => Name </currFunction>
+		(. => 
+			<function>...
+				<functionName> Name </functionName>
+			...</function>
+		)
         where FUNCTION = Function(RetType:K, Name:Id, Arguments:K, Body:K)
+
+	rule
+		<k> Body((BasicBlock(Name:Id, K:K) ,, L:List{K})) 
+			=> BasicBlock(Name:Id, K:K) 
+			~> List{K}ToK(L)
+		...</k>
+		<currFunction> FunName:Id </currFunction>
+		<functionName> FunName:Id </functionName>
+		<initialBasicBlock> .K => Name:Id </initialBasicBlock>
+		
+	rule
+		<k> BasicBlock(Name:Id, K:K) => . ...</k>
+		<currFunction> FunName:Id </currFunction>
+		<functionName> FunName:Id </functionName>
+		<basicBlocks>... . => Name:Id |-> K:K ...</basicBlocks>
+		
 
 end module
 
@@ -152,17 +204,25 @@ module LLVM-CALL-RET is
 	syntax ListItem ::= frame Bag
 	
     rule
-        <k> Call(_, FunName:Id) => Body ...</k>
+        <k> Call(_, Callee(FunName:Id, Args:K)) 
+			=> //bind(Args:K)
+			Body 
+		...</k>
         (<control>
             C:Bag
             <currModule> Name:Id </currModule>
+			<currFunction> FunName':Id </currFunction>
         </control> =>
         <control>...
             <currModule> Name </currModule>
+			<currFunction> FunName:Id </currFunction>
         ...</control>)
-        <callStack> . => frame(C <currModule> Name </currModule>) ...</callStack>
+        <callStack> . => frame(C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
         <moduleName> Name </moduleName>
-        <functions>... FunName |-> Function(_, _, _, Body:K) ...</functions>
+		<functionName> FunName </functionName>
+		<initialBasicBlock> IBBName:Id </initialBasicBlock>
+		<basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
+        //<functions>... FunName |-> Function(_, FunName:Id, _, Body:K) ...</functions>
 		
     rule
         <k> Ret(V:KResult) => V ...</k>
@@ -351,15 +411,29 @@ module LLVM-MEMORY is
 
 end module
 
+module LLVM-COMPARISONS is
+	including LLVM-INCLUDE
+	
+	// TODO reduce these to within bounds
+	rule INotEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)
+	
+	syntax #Int ::= boolToInt "(" K ")"
+	rule boolToInt(true) => 1
+	rule boolToInt(false) => 0
+	
+end module
+
 module LLVM-SEMANTICS is
 	including LLVM-INCLUDE
 	
 	including LLVM-CLEAN-TREE
 	including LLVM-BASIC
+	including LLVM-BRANCHING
 	including LLVM-REGISTERS
 	including LLVM-START-AND-STOP
 	including LLVM-CALL-RET
 	including LLVM-DECLARATIONS
 	including LLVM-ARITHMETIC
 	including LLVM-MEMORY
+	including LLVM-COMPARISONS
 end module

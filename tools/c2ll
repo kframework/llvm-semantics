@@ -1,4 +1,4 @@
 #! /usr/bin/env bash
 BASE=`basename $1 .c`
-clang -emit-llvm -S $1
+clang -O0 -emit-llvm -S $1
 mv $BASE.s $BASE.ll

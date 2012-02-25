@@ -43,13 +43,15 @@ module LLVM-SEMANTICS is
     macro int32 = Type(IntegerType(Width(32))) // TODO [function]
 
     syntax #Nat ::= sizeof K  // TODO [function]
+	syntax #Nat ::= sizeofInBits K  // TODO [function]
 
     syntax #Nat ::= numBitsPerByte
     macro numBitsPerByte = 8
 
     // TODO [function]
-    rule sizeof (Type(IntegerType(Width(N:#Nat)))) => N /Nat numBitsPerByte
-        when numBitsPerByte dividesNat N
+	rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
+    rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
+        when numBitsPerByte dividesNat sizeofInBits(K:K)
 
     rule <k> callMain => Call(int32, Value(Name("@main"))) </k>
 
@@ -103,7 +105,61 @@ module LLVM-SEMANTICS is
         <k> X:Id => V ...</k>
         <registers>... X |-> V:KResult ...</registers>
 
-    rule <T>... <k> V:KResult </k> ...</T> => <result>... <returnValue> V </returnValue> </result>
+    rule 
+		<T>... 
+			<k> I:#Int </k> 
+		...</T> 
+		=> <result>... 
+			<returnValue> ((I %Int 256) +Int 256) %Int 256 </returnValue> 
+		</result>
+
+	rule [add]:
+		<k> Add(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 +Int I2, Type)
+		...</k>
+	rule 
+		<k> Sub(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 -Int I2, Type)
+		...</k>
+	rule 
+		<k> Mul(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 *Int I2, Type)
+		...</k>
+	rule 
+		<k> SDiv(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 /Int I2, Type)
+		...</k>
+		
+	rule 
+		<k> Or(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 |Int I2, Type)
+		...</k>
+	rule 
+		<k> And(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 &Int I2, Type)
+		...</k>
+	rule 
+		<k> Xor(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 xorInt I2, Type)
+		...</k>
+				
+	
+	// weave into add 
+		// checkNSW(unsign(I1) +Int unsign(I2), Type)
+		// ~> checkNUW(sign(I1) +Int sign(I2), Type)
+	// before RHS
+	
+
+		
+	syntax K ::= interpret "(" K "," K ")" // cannot be function
+	
+	// rule interpret(I:#Int, Type:K) => ((I %Int MAX) + MAX) %Int
+		// where MAX = 2 ^Int sizeofInBits(Type)
+	rule <k> interpret(I:#Int, Type:K) => I %Int MAX ...</k>
+		// <modifiers> nsw </modifiers>
+		where MAX = 2 ^Int sizeofInBits(Type)
+
+		
 
     rule <k> GlobalVariables(L:List{K}) => List{K}ToK(L) ...</k>
 

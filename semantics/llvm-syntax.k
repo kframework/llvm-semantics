@@ -45,8 +45,6 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Load "(" K ")"
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination
 
-    syntax LLVM ::= `Add "(" K "," K "," K ")" // Type, LHS, RHS
-
     syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
     syntax LLVM ::= `Opcode "(" K ")"
 
@@ -66,5 +64,16 @@ module LLVM-SYNTAX is
 
     syntax LLVM ::= `NoSignedWrap
     syntax LLVM ::= `NoUnsignedWrap
+	
+    syntax LLVM ::= `Add "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	syntax LLVM ::= `Sub "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	syntax LLVM ::= `Mul "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	syntax LLVM ::= `SDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	
+	syntax LLVM ::= `Or "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	syntax LLVM ::= `And "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	syntax LLVM ::= `Xor "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+	
+	// syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op
 
 end module

@@ -58,7 +58,7 @@ module LLVM-HELPERS is
     syntax K ::= int32
     macro int32 = Type(IntegerType(Width(32))) // TODO [function]
 
-
+	syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
 
 /* this module gets included by all later modules */
@@ -176,32 +176,32 @@ module LLVM-ARITHMETIC is
 	
 	rule [add]:
 		<k> Add(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 +Int I2, Type)
+			=> interpretInt(I1 +Int I2, Type)
 		...</k>
 	rule 
 		<k> Sub(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 -Int I2, Type)
+			=> interpretInt(I1 -Int I2, Type)
 		...</k>
 	rule 
 		<k> Mul(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 *Int I2, Type)
+			=> interpretInt(I1 *Int I2, Type)
 		...</k>
 	rule 
 		<k> SDiv(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 /Int I2, Type)
+			=> interpretInt(I1 /Int I2, Type)
 		...</k>
 		
 	rule 
 		<k> Or(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 |Int I2, Type)
+			=> interpretInt(I1 |Int I2, Type)
 		...</k>
 	rule 
 		<k> And(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 &Int I2, Type)
+			=> interpretInt(I1 &Int I2, Type)
 		...</k>
 	rule 
 		<k> Xor(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 xorInt I2, Type)
+			=> interpretInt(I1 xorInt I2, Type)
 		...</k>
 
 	
@@ -209,12 +209,10 @@ module LLVM-ARITHMETIC is
 		// checkNSW(unsign(I1) +Int unsign(I2), Type)
 		// ~> checkNUW(sign(I1) +Int sign(I2), Type)
 	// before RHS
-		
-	syntax K ::= interpret "(" K "," K ")" // cannot be function
 	
 	// rule interpret(I:#Int, Type:K) => ((I %Int MAX) + MAX) %Int
 		// where MAX = 2 ^Int sizeofInBits(Type)
-	rule <k> interpret(I:#Int, Type:K) => I %Int MAX ...</k>
+	rule <k> interpretInt(I:#Int, Type:K) => I %Int MAX ...</k>
 		// <modifiers> nsw </modifiers>
 		where MAX = 2 ^Int sizeofInBits(Type)
 
@@ -248,7 +246,7 @@ module LLVM-MEMORY is
 	syntax K ::= splitBytes "(" K "," K ")" // value, type
 	syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
 	syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
-	syntax K ::= listK "(" List{K} ")"
+	syntax KResult ::= listK "(" List{K} ")"
 	
 	syntax #Bool ::= isIntegerType "(" K ")" // predicate
 	rule isIntegerType(Type(IntegerType(Width(_)))) => true
@@ -277,7 +275,7 @@ module LLVM-MEMORY is
 		<k> writeBytes(listK(.List{K}), _) => . ...</k>
 		
 	// Type(IntegerType(Width(32)))
-	// should generate list with MSBytes first
+	// should generate list with LSBytes first
 	rule
 		splitBytes(V:KResult, Type:K)
 			=> splitIntegerBytes(V, sizeof(Type))
@@ -299,6 +297,57 @@ module LLVM-MEMORY is
 	rule
 		splitIntegerBytes'(0, 0, L:List{K})
 			=> listK(L)
+			
+			
+	rule
+		<k> Load(Type:K, Loc:#Nat)
+			=> read(Type:K, Loc:#Nat)
+		...</k>
+		
+	rule
+		<k> read(Type:K, Loc:#Nat)
+			=> interpretBytes(readBytes(sizeof(innerType(Type:K)), Loc:#Nat), Type:K)
+		...</k>
+		
+	rule
+		<k> readBytes(Len:#Nat, Loc:#Nat)
+			=> readBytes'(Len:#Nat, Loc:#Nat, .List{K})
+		...</k>
+		
+	rule
+		<k> readBytes'(sNat(Len:#Nat), Base:#Nat +Nat Offset:#Nat, L:List{K})
+			=> readBytes'(Len:#Nat, Base:#Nat +Nat sNat(Offset:#Nat), (L:List{K} ,, V:KResult))
+		...</k>
+		<basePtr> Base:#Nat </basePtr>
+		<bytes>... Offset |-> V:KResult ...</bytes>
+		
+	rule
+		<k> readBytes'(0, _, L:List{K})
+			=> listK(L)
+		...</k>
+		
+	rule
+		<k> interpretBytes(K:KResult, Type:K)
+			=> interpretIntBytes(K:KResult, sizeof(innerType(Type)), 0)
+		...</k>
+	
+	rule
+		<k> interpretIntBytes(listK((L:List{K},, N:#Nat)), sNat(Len:#Nat), N':#Nat)
+			=> interpretIntBytes(listK(L:List{K}), Len:#Nat, RESULT)
+		...</k>
+		where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat N:#Nat
+	
+	rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
+		=> N:#Nat
+	
+	syntax K ::= innerType "(" K ")"
+	rule innerType(Type(PointerType(K:K))) => Type(K:K)
+	
+	syntax K ::= read "(" K "," K ")"
+	syntax K ::= readBytes "(" K "," K ")"
+	syntax K ::= readBytes' "(" K "," K "," List{K} ")"
+	syntax K ::= interpretBytes "(" K "," K ")" [strict(1)]
+	syntax K ::= interpretIntBytes "(" K "," K "," K ")"
 
 end module
 

@@ -42,7 +42,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Call "(" K "," K ")"   // Type, Callee
     syntax LLVM ::= `Callee "(" K "," K ")"   // Value/Name, Arguments
 
-    syntax LLVM ::= `Load "(" K ")"
+    syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination
 
     syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"

@@ -1,12 +1,12 @@
-module LLVM-SEMANTICS is
-    including LLVM-SYNTAX
+module LLVM-CONFIGURATION is
+	including LLVM-SYNTAX
+	
+	syntax KResult ::= #Int
 
-    syntax K ::= debug // TODO [semantic]
-
-    syntax KResult ::= #Int
-
+	
     syntax K ::= callMain // TODO [semantic]
-
+    syntax #Nat ::= sym "(" #Nat ")"    // TODO [semantic]	
+	
     configuration
         <T multiplicity="?">
             <k> $PGM:K ~> callMain </k>
@@ -39,25 +39,118 @@ module LLVM-SEMANTICS is
         <result multiplicity="?">
             <returnValue> -1 </returnValue>
         </result>
+end module
 
+module LLVM-HELPERS is
+	including LLVM-SYNTAX
+	
+	syntax #Nat ::= numBitsPerByte
+    macro numBitsPerByte = 8
+	
+	syntax #Nat ::= sizeofInBits K  // TODO [function]
+    // TODO [function]
+	rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
+	
+	syntax #Nat ::= sizeof K  // TODO [function]
+    rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
+        when numBitsPerByte dividesNat sizeofInBits(K:K)
+		
     syntax K ::= int32
     macro int32 = Type(IntegerType(Width(32))) // TODO [function]
 
-    syntax #Nat ::= sizeof K  // TODO [function]
-	syntax #Nat ::= sizeofInBits K  // TODO [function]
 
-    syntax #Nat ::= numBitsPerByte
-    macro numBitsPerByte = 8
+end module
 
-    // TODO [function]
-	rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
-    rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
-        when numBitsPerByte dividesNat sizeofInBits(K:K)
+/* this module gets included by all later modules */
+module LLVM-INCLUDE is
+	including LLVM-CONFIGURATION
+	including LLVM-HELPERS
 
+    syntax K ::= debug // TODO [semantic]
+
+end module
+
+/* this module contains rules for cleaning up the AST */
+module LLVM-CLEAN-TREE is
+	including LLVM-INCLUDE 
+	
+    rule GlobalVariables(L:List{K}) => List{K}ToK(L)
+    rule Functions(L:List{K}) => List{K}ToK(L)
+    rule Body(L:List{K}) => List{K}ToK(L)
+    rule Instructions(L:List{K}) => List{K}ToK(L)
+    rule BasicBlock(_, K:K) => K
+	rule Operand(_, K:K) => K
+	rule ModuleID(S:#String) => Name(S)
+    rule Value(K:K) => K
+end module
+
+
+module LLVM-BASIC is
+	including LLVM-INCLUDE
+
+    rule
+        <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+
+end module
+
+module LLVM-REGISTERS is
+	including LLVM-INCLUDE 
+	
+    rule [assign-register]:
+        <k> Assign(X:Id, V:KResult) => . ...</k>
+        <registers> M:Map => M[V / X] </registers>
+
+    rule [lookup-register]:
+        <k> X:Id => V ...</k>
+        <registers>... X |-> V:KResult ...</registers>
+
+end module
+
+module LLVM-START-AND-STOP is
+	including LLVM-INCLUDE
+	
     rule <k> callMain => Call(int32, Value(Name("@main"))) </k>
 
-    syntax ListItem ::= frame Bag
+    rule [terminate]:
+		<T>... 
+			<k> I:#Int </k> 
+		...</T> 
+		=> <result>... 
+			<returnValue> ((I %Int 256) +Int 256) %Int 256 </returnValue> 
+		</result>
+end module
 
+module LLVM-DECLARATIONS is
+	including LLVM-INCLUDE 
+	
+    rule
+        <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, GlobalVars:K, Functions:K)
+            => GlobalVars
+            ~> Functions
+        ...</k>
+        <currModule> _ => Name </currModule>
+        <modules>...
+            . =>
+            <module>...
+                <moduleName> Name </moduleName>
+                <targetLayout> TargetLayout </targetLayout>
+                <targetTriple> TargetTriple </targetTriple>
+            ...</module>
+        ...</modules>
+		
+    rule
+        <k> FUNCTION => . ...</k>
+        <functions>... . => Name |-> FUNCTION ...</functions>
+        where FUNCTION = Function(RetType:K, Name:Id, Arguments:K, Body:K)
+
+end module
+
+module LLVM-CALL-RET is
+	including LLVM-INCLUDE
+	   
+	syntax ListItem ::= frame Bag
+	
     rule
         <k> Call(_, FunName:Id) => Body ...</k>
         (<control>
@@ -70,21 +163,67 @@ module LLVM-SEMANTICS is
         <callStack> . => frame(C <currModule> Name </currModule>) ...</callStack>
         <moduleName> Name </moduleName>
         <functions>... FunName |-> Function(_, _, _, Body:K) ...</functions>
-
+		
     rule
         <k> Ret(V:KResult) => V ...</k>
         <callStack> frame(C:Bag) => . ...</callStack>
         <control> _ => C </control>
+	
+end module
 
-    rule
-        <k> Operand(_, K:K) => K ...</k>
+module LLVM-ARITHMETIC is
+	including LLVM-INCLUDE 
+	
+	rule [add]:
+		<k> Add(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 +Int I2, Type)
+		...</k>
+	rule 
+		<k> Sub(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 -Int I2, Type)
+		...</k>
+	rule 
+		<k> Mul(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 *Int I2, Type)
+		...</k>
+	rule 
+		<k> SDiv(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 /Int I2, Type)
+		...</k>
+		
+	rule 
+		<k> Or(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 |Int I2, Type)
+		...</k>
+	rule 
+		<k> And(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 &Int I2, Type)
+		...</k>
+	rule 
+		<k> Xor(Type:K, I1:#Int, I2:#Int)
+			=> interpret(I1 xorInt I2, Type)
+		...</k>
 
-    rule
-        <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
-        <currentModifiers> _ => List(L) </currentModifiers>
+	
+	// weave into add 
+		// checkNSW(unsign(I1) +Int unsign(I2), Type)
+		// ~> checkNUW(sign(I1) +Int sign(I2), Type)
+	// before RHS
+		
+	syntax K ::= interpret "(" K "," K ")" // cannot be function
+	
+	// rule interpret(I:#Int, Type:K) => ((I %Int MAX) + MAX) %Int
+		// where MAX = 2 ^Int sizeofInBits(Type)
+	rule <k> interpret(I:#Int, Type:K) => I %Int MAX ...</k>
+		// <modifiers> nsw </modifiers>
+		where MAX = 2 ^Int sizeofInBits(Type)
 
-    syntax #Nat ::= sym "(" #Nat ")"    // TODO [semantic]
+end module
 
+
+module LLVM-MEMORY is
+	including LLVM-INCLUDE
+	
     syntax #Nat ::= nextSym #Nat
     macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
 
@@ -160,106 +299,18 @@ module LLVM-SEMANTICS is
 	rule
 		splitIntegerBytes'(0, 0, L:List{K})
 			=> listK(L)
-			
-		
 
-    rule
-        <k> Assign(X:Id, V:KResult) => . ...</k>
-        <registers> M:Map => M[V / X] </registers>
+end module
 
-    rule
-        <k> X:Id => V ...</k>
-        <registers>... X |-> V:KResult ...</registers>
-
-    rule 
-		<T>... 
-			<k> I:#Int </k> 
-		...</T> 
-		=> <result>... 
-			<returnValue> ((I %Int 256) +Int 256) %Int 256 </returnValue> 
-		</result>
-
-	rule [add]:
-		<k> Add(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 +Int I2, Type)
-		...</k>
-	rule 
-		<k> Sub(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 -Int I2, Type)
-		...</k>
-	rule 
-		<k> Mul(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 *Int I2, Type)
-		...</k>
-	rule 
-		<k> SDiv(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 /Int I2, Type)
-		...</k>
-		
-	rule 
-		<k> Or(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 |Int I2, Type)
-		...</k>
-	rule 
-		<k> And(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 &Int I2, Type)
-		...</k>
-	rule 
-		<k> Xor(Type:K, I1:#Int, I2:#Int)
-			=> interpret(I1 xorInt I2, Type)
-		...</k>
-				
+module LLVM-SEMANTICS is
+	including LLVM-INCLUDE
 	
-	// weave into add 
-		// checkNSW(unsign(I1) +Int unsign(I2), Type)
-		// ~> checkNUW(sign(I1) +Int sign(I2), Type)
-	// before RHS
-	
-
-		
-	syntax K ::= interpret "(" K "," K ")" // cannot be function
-	
-	// rule interpret(I:#Int, Type:K) => ((I %Int MAX) + MAX) %Int
-		// where MAX = 2 ^Int sizeofInBits(Type)
-	rule <k> interpret(I:#Int, Type:K) => I %Int MAX ...</k>
-		// <modifiers> nsw </modifiers>
-		where MAX = 2 ^Int sizeofInBits(Type)
-
-		
-
-    rule <k> GlobalVariables(L:List{K}) => List{K}ToK(L) ...</k>
-
-    rule <k> Functions(L:List{K}) => List{K}ToK(L) ...</k>
-
-    rule <k> Body(L:List{K}) => List{K}ToK(L) ...</k>
-
-    rule <k> Instructions(L:List{K}) => List{K}ToK(L) ...</k>
-
-    rule <k> BasicBlock(_, K:K) => K ...</k>
-
-    rule
-        <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, GlobalVars:K, Functions:K)
-            => GlobalVars
-            ~> Functions
-        ...</k>
-        <currModule> _ => Name </currModule>
-        <modules>...
-            . =>
-            <module>...
-                <moduleName> Name </moduleName>
-                <targetLayout> TargetLayout </targetLayout>
-                <targetTriple> TargetTriple </targetTriple>
-            ...</module>
-        ...</modules>
-
-
-    rule
-        <k> FUNCTION => . ...</k>
-        <functions>... . => Name |-> FUNCTION ...</functions>
-        where FUNCTION = Function(RetType:K, Name:Id, Arguments:K, Body:K)
-
-
-    rule ModuleID(S:#String) => Name(S)
-    rule Value(K:K) => K
-
+	including LLVM-CLEAN-TREE
+	including LLVM-BASIC
+	including LLVM-REGISTERS
+	including LLVM-START-AND-STOP
+	including LLVM-CALL-RET
+	including LLVM-DECLARATIONS
+	including LLVM-ARITHMETIC
+	including LLVM-MEMORY
 end module

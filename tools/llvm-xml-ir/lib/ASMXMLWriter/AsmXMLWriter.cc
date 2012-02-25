@@ -109,7 +109,7 @@ class AsmXMLWriter {
   void visitOr(const BinaryOperator &I)   { visitBinaryOperator(I); }
   void visitXor(const BinaryOperator &I)  { visitBinaryOperator(I); }
   void visitAlloca(const AllocaInst &);
-  void visitLoad(const LoadInst &I)       { visitInstruction(I); }
+  void visitLoad(const LoadInst &I);//       { visitInstruction(I); }
   void visitStore(const StoreInst &I);
   void visitGetElementPtr(const GetElementPtrInst &I) { visitInstruction(I); }
   void visitFence(const FenceInst &) { assert (0 && "Unimplemented"); }
@@ -425,6 +425,12 @@ void AsmXMLWriter::visitInstruction(const T& I) {
 void AsmXMLWriter::visitStore(const StoreInst& SI) {
   Out << "<Type>";
   TypePrinter.print(SI.getValueOperand()->getType(), Out);
+  Out << "</Type>\n";
+  printOperandList(SI.op_begin(), SI.op_end());
+}
+void AsmXMLWriter::visitLoad(const LoadInst& SI) {
+  Out << "<Type>";
+  TypePrinter.print(SI.getPointerOperand()->getType(), Out);
   Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
 }

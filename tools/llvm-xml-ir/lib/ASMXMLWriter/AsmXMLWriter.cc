@@ -365,11 +365,16 @@ void AsmXMLWriter::visit(const Instruction &I) {
 
 void AsmXMLWriter::visitBr(const BranchInst & BI) {
   if (BI.isConditional()) {
-    Out << "<Condition>";
-    writeOperand(BI.getCondition(), false);
-    Out << "</Condition>";
+    Out << "<Conditional>";
+    // writeOperand(BI.getCondition(), false);
+	printOperandList(BI.op_begin(), BI.op_end());
+    Out << "</Conditional>";
+  } else {
+    Out << "<Unconditional>";
+	printOperandList(BI.op_begin(), BI.op_end());
+    Out << "</Unconditional>";
   }
-  printOperandList(BI.op_begin(), BI.op_end());
+  
 }
 
 void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {

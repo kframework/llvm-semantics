@@ -74,10 +74,10 @@ void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
                            SlotTracker *Machine,
                            const Module *Context) {
   if (const ConstantInt *CI = dyn_cast<ConstantInt>(CV)) {
-    if (CI->getType()->isIntegerTy(1)) {
-      Out << (CI->getZExtValue() ? "true" : "false");
-      return;
-    }
+    // if (CI->getType()->isIntegerTy(1)) {
+      // Out << (CI->getZExtValue() ? "true" : "false");
+      // return;
+    // }
     std::string ival = CI->getValue().toString(10, true);
     RawWriter::writeRawInt(ival, Out);
     return;

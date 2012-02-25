@@ -28,6 +28,7 @@ module LLVM-SEMANTICS is
             </modules>
             <memory>
                 <object multiplicity="*">
+					<type> .K </type>
                     <basePtr> -1 </basePtr>
                     <size> 0 </size>
                     <bytes> .Map </bytes>
@@ -88,14 +89,79 @@ module LLVM-SEMANTICS is
     macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
 
     rule
-        <k> Alloca(Type:K, N:#Nat) => Loc ...</k>
+        <k> Alloca(Type:K, N:#Nat) => Loc +Nat 0 ...</k>
         <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
         (. =>
             <object>...
+				<type> Type </type>
                 <basePtr> Loc </basePtr>
                 <size> sizeof(Type) *Nat N </size>
             ...</object>
         )
+		
+	rule
+		<k> Store(Type:K, V:KResult, Loc:#Nat)
+			=> write(Type:K, V:KResult, Loc:#Nat)
+		...</k>
+		
+	syntax K ::= write "(" K "," K "," K ")" // type, value, location
+	syntax K ::= writeBytes "(" List{K} "," K ")" // list of bytes, location
+	syntax K ::= splitBytes "(" K "," K ")" // value, type
+	syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
+	syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
+	syntax K ::= listK "(" List{K} ")"
+	
+	syntax #Bool ::= isIntegerType "(" K ")" // predicate
+	rule isIntegerType(Type(IntegerType(Width(_)))) => true
+		
+	rule
+		<k> write(Type:K, V:KResult, Loc:#Nat) 
+			=> writeBytes(splitBytes(V, Type), Loc)
+		...</k>
+	// rule
+		// <k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
+		// <basePtr> Base:#Nat </basePtr>
+		// <bytes> M:Map => M:Map[unknownByte / Offset:#Nat] </bytes>
+		// when notBool Offset in keys(M:Map) 
+		
+	rule
+		<k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
+			=> writeBytes(listK(L:List{K}), Base:#Nat +Nat sNat(Offset:#Nat))
+		...</k>
+		<basePtr> Base:#Nat </basePtr>
+		<bytes> M:Map => M:Map[N:#Nat / Offset:#Nat] </bytes>
+		// <size> Len:#Nat </size>
+		// when Offset < Len
+		// i guess
+	
+	rule
+		<k> writeBytes(listK(.List{K}), _) => . ...</k>
+		
+	// Type(IntegerType(Width(32)))
+	// should generate list with MSBytes first
+	rule
+		splitBytes(V:KResult, Type:K)
+			=> splitIntegerBytes(V, sizeof(Type))
+		when isIntegerType(Type)
+
+	rule
+		splitIntegerBytes(V:KResult, NumBytes:#Nat)
+			=> splitIntegerBytes'(V, NumBytes, .List{K})
+
+	rule 
+		splitIntegerBytes'(I:#Int, sNat(NumBytes:#Nat), L:List{K})
+			=> splitIntegerBytes'(
+				I >>Int numBitsPerByte, 
+				NumBytes, 
+				(L ,, (I &Int MASK))
+			)
+		where MASK = (2 ^Int numBitsPerByte) -Int 1
+		
+	rule
+		splitIntegerBytes'(0, 0, L:List{K})
+			=> listK(L)
+			
+		
 
     rule
         <k> Assign(X:Id, V:KResult) => . ...</k>

@@ -1,10 +1,10 @@
 llvm-compiled.maude: llvm.k llvm-syntax.k llvm-semantics.k
 	kompile llvm
 	
-test: llvm-compiled.maude cool.ll
-	krun cool.ll
+test: llvm-compiled.maude mem.ll
+	krun mem.ll
 
-xml: cool.format.xml
+xml: mem.format.xml
 	cat $<
 	
 	

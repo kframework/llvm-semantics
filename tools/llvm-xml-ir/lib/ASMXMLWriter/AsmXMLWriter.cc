@@ -186,7 +186,7 @@ void AsmXMLWriter::visit(const Module & M) {
     RawWriter::write(M.getModuleIdentifier(), Out);
     Out << "</ModuleID>\n";
   }
-        
+
   if (!M.getDataLayout().empty()) {
     Out << "<TargetLayout>";
     RawWriter::write(M.getDataLayout(), Out);
@@ -296,7 +296,7 @@ void AsmXMLWriter::visit(const Argument & Arg) {
   // Output name, if available...
   if (!Arg.getParent()->isDeclaration() && Arg.hasName())
     PrintLLVMName(Out, &Arg);
-        
+
   Out << "</Arg>";
 }
 
@@ -374,7 +374,7 @@ void AsmXMLWriter::visitBr(const BranchInst & BI) {
   writeOperand(BI.getOperand(0), false);
   if (BI.isConditional()) {
     writeOperand(BI.getOperand(2), false);
-    writeOperand(BI.getOperand(1), false);   
+    writeOperand(BI.getOperand(1), false);
 	Out << "</Conditional>";
   } else {
     Out << "</Unconditional>";
@@ -414,7 +414,7 @@ void AsmXMLWriter::writeOperand(const Value *Operand, bool PrintType) {
     TypePrinter.print(Operand->getType(), Out);
     Out << "</Type>\n";
   }
-  
+
   WriteAsOperandInternal(Out, Operand, &TypePrinter, &Machine, TheModule);
 }
 

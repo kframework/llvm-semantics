@@ -28,7 +28,7 @@ void RawWriter::write(std::string str, XMLIROStream & Out) {
       UseBase64 = true;
       break;
     }
-  } 
+  }
 
   if (UseBase64) {
     writeRawBase64(str, Out);

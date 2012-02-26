@@ -40,7 +40,7 @@ int main(int argc, char * argv[]) {
 
         SMDiagnostic Err;
         std::auto_ptr<Module> M;
-        
+
         M.reset(ParseIRFile(InputFilename, Err, getGlobalContext()));
         if (M.get() == 0) {
                 Err.Print(argv[0], errs());
@@ -60,7 +60,7 @@ int main(int argc, char * argv[]) {
         Passes.add(createVerifierPass());
         Passes.add(new AsmXMLWriterPass(Out->os()));
         Passes.run(*M.get());
-       
+
         Out->keep();
         return 0;
 }

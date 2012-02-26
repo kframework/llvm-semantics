@@ -325,7 +325,7 @@ void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
       TypePrinter.print(CE->getType(), Out);
       Out << "</Type>\n";
     }
-          
+
     Out << "</ConstantExpr>";
     return;
   }

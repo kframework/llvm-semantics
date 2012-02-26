@@ -109,7 +109,7 @@ void TypePrinting::print(Type *Ty, XMLIROStream &Out) {
       Out << "</ArrayType>\n";
       return;
     }
-      
+
     default:
       Out << "<unrecognized-type/>";
       return;

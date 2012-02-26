@@ -14,7 +14,7 @@ dist/dist.done: tools/llvm-xml-ir/build/tools/llvm-dis-xml tools/c2ll tools/xmlT
 	cp tools/llvm-xml-ir/build/tools/llvm-dis-xml dist/
 	cp tools/c2ll dist/
 	cp tools/xmlToK.pl dist/
-	cp semantics/llvm-semantics.k dist/
+	cp semantics/llvm-compiled.maude dist/
 	touch dist/dist.done
 
 semantics/llvm-semantics.k: semantics/*.k
@@ -22,4 +22,4 @@ semantics/llvm-semantics.k: semantics/*.k
 	
 clean:
 	rm -rf tools/llvm-xml-ir/build
-	rm -f semantics/llvm-semantics.k
+	rm -f semantics/llvm-compiled.maude

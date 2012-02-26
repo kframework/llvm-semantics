@@ -29,7 +29,10 @@ dist/dist.done: tools/llvm-xml-ir/build/tools/llvm-dis-xml tools/c2ll tools/xmlT
 semantics/llvm-compiled.maude: semantics/*.k
 # $(MAKE) -C semantics # no idea why this doesn't work, maybe bug in K?
 	cd semantics && $(MAKE)
-	
+
+test: dist
+# probably call $(MAKE) -C tests
+
 clean:
 	rm -rf dist
 	rm -rf tools/llvm-xml-ir/build

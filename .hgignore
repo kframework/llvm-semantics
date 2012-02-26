@@ -1,0 +1,15 @@
+syntax: glob
+
+a.out
+*.o
+*.bc
+dist
+tools/llvm-xml-ir/build
+
+semantics/.k
+semantics/*.ll
+semantics/*.s
+semantics/*.c
+semantics/*.kast
+semantics/*.xml
+semantics/llvm-compiled.maude

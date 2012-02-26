@@ -17,9 +17,10 @@ dist/dist.done: tools/llvm-xml-ir/build/tools/llvm-dis-xml tools/c2ll tools/xmlT
 	cp semantics/llvm-compiled.maude dist/
 	touch dist/dist.done
 
-semantics/llvm-semantics.k: semantics/*.k
-	$(MAKE) -C semantics
+semantics/llvm-compiled.maude: semantics/*.k
+# $(MAKE) -C semantics # no idea why this doesn't work, maybe bug in K?
+	cd semantics && $(MAKE)
 	
 clean:
 	rm -rf tools/llvm-xml-ir/build
-	rm -f semantics/llvm-compiled.maude
+	$(MAKE) -C semantics clean

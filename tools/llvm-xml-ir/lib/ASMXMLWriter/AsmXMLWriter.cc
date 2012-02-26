@@ -367,7 +367,7 @@ void AsmXMLWriter::visitBr(const BranchInst & BI) {
   if (BI.isConditional()) {
     Out << "<Conditional>";
   } else {
-	Out << "<Unconditional>";
+    Out << "<Unconditional>";
   }
 
   // TODO excluding types for both branches
@@ -375,7 +375,7 @@ void AsmXMLWriter::visitBr(const BranchInst & BI) {
   if (BI.isConditional()) {
     writeOperand(BI.getOperand(2), false);
     writeOperand(BI.getOperand(1), false);
-	Out << "</Conditional>";
+    Out << "</Conditional>";
   } else {
     Out << "</Unconditional>";
   }
@@ -452,9 +452,9 @@ void AsmXMLWriter::visitCastInst(const CastInst & I) {
 }
 
 void AsmXMLWriter::visitCmpInst(const CmpInst & CI) {
-	Out << "<Predicate>" ;
-	RawWriter::write(getPredicateText(CI.getPredicate()), Out);
-	Out << "</Predicate>";
+  Out << "<Predicate>" ;
+  RawWriter::write(getPredicateText(CI.getPredicate()), Out);
+  Out << "</Predicate>";
   printOperandList(CI.op_begin(), CI.op_end());
 }
 

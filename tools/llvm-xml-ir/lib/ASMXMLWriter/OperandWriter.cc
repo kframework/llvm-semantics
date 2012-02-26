@@ -299,10 +299,10 @@ void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
     WriteOptimizationInfo(Out, CE);
 #endif
     if (CE->isCompare()) {
-		Out << "<Predicate>";
-		RawWriter::write(getPredicateText(CE->getPredicate()), Out);
-		Out << "</Predicate>";
-	}
+      Out << "<Predicate>";
+      RawWriter::write(getPredicateText(CE->getPredicate()), Out);
+      Out << "</Predicate>";
+    }
 
     for (User::const_op_iterator OI=CE->op_begin(); OI != CE->op_end(); ++OI) {
       Out << "<Operand>";

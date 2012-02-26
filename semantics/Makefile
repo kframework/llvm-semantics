@@ -1,8 +1,8 @@
 llvm-compiled.maude: llvm.k llvm-syntax.k llvm-semantics.k
-	kompile llvm
+	$(K_BASE)/core/kompile llvm
 
 test: llvm-compiled.maude sumn.ll
-	krun sumn.ll
+	$(K_BASE)/core/krun sumn.ll
 
 xml: sumn.format.xml
 	cat $<

@@ -1,0 +1,6 @@
+*       filter=trailingwhitespace
+*.k     filter=expandtabs
+*.c     filter=expandtabs
+*.h     filter=expandtabs
+*.cc    filter=expandtabs
+*.hs    filter=expandtabs

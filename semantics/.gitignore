@@ -1,0 +1,9 @@
+.k
+a.out
+*.ll
+*.bc
+*.s
+*.c
+*.kast
+*.xml
+llvm-compiled.maude

@@ -1,2 +1,6 @@
 *~
+a.out
 *.o
+*.bc
+./dist
+./tools/llvm-xml-ir/build

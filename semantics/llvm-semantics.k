@@ -3,7 +3,6 @@ module LLVM-CONFIGURATION is
 
     syntax KResult ::= #Int
 
-
     syntax K ::= callMain // TODO [semantic]
     syntax #Nat ::= sym "(" #Nat ")"    // TODO [semantic]
 
@@ -122,7 +121,7 @@ module LLVM-BRANCHING is
     including LLVM-INCLUDE
 
     rule
-        <k> Unconditional(Label:Id) => Body:K ...</k>
+        <k> Unconditional(Label:Id) => Body:K </k>
         <currFunction> FunName:Id </currFunction>
         <functionName> FunName:Id </functionName>
         <basicBlocks>... Label:Id |-> Body:K ...</basicBlocks>
@@ -201,13 +200,13 @@ end module
 module LLVM-CALL-RET is
     including LLVM-INCLUDE
 
-    syntax ListItem ::= frame Bag
+    syntax ListItem ::= frame "(" K "," Bag ")"
 
     rule
-        <k> Call(_, Callee(FunName:Id, Args:K))
+        <k> Call(_, Callee(FunName:Id, Args:K)) ~> Tail:K
             => //bind(Args:K)
             Body
-        ...</k>
+        </k>
         (<control>
             C:Bag
             <currModule> Name:Id </currModule>
@@ -217,16 +216,17 @@ module LLVM-CALL-RET is
             <currModule> Name </currModule>
             <currFunction> FunName:Id </currFunction>
         ...</control>)
-        <callStack> . => frame(C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
+        <callStack> . => frame(Tail, C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
         <moduleName> Name </moduleName>
         <functionName> FunName </functionName>
         <initialBasicBlock> IBBName:Id </initialBasicBlock>
         <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
         //<functions>... FunName |-> Function(_, FunName:Id, _, Body:K) ...</functions>
 
+    // need to restore k cell?
     rule
-        <k> Ret(V:KResult) => V ...</k>
-        <callStack> frame(C:Bag) => . ...</callStack>
+        <k> Ret(V:KResult) => V ~> K:K </k>
+        <callStack> frame(K:K, C:Bag) => . ...</callStack>
         <control> _ => C </control>
 
 end module
@@ -246,7 +246,7 @@ module LLVM-ARITHMETIC is
         <k> Mul(Type:K, I1:#Int, I2:#Int)
             => interpretInt(I1 *Int I2, Type)
         ...</k>
-    rule
+    rule [division]:
         <k> SDiv(Type:K, I1:#Int, I2:#Int)
             => interpretInt(I1 /Int I2, Type)
         ...</k>
@@ -263,7 +263,6 @@ module LLVM-ARITHMETIC is
         <k> Xor(Type:K, I1:#Int, I2:#Int)
             => interpretInt(I1 xorInt I2, Type)
         ...</k>
-
 
     // weave into add
         // checkNSW(unsign(I1) +Int unsign(I2), Type)

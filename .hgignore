@@ -1,3 +1,5 @@
+syntax: glob
+
 a.out
 *.o
 *.bc

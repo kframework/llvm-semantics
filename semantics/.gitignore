@@ -1,8 +1,0 @@
-.k
-a.out
-*.ll
-*.s
-*.c
-*.kast
-*.xml
-llvm-compiled.maude

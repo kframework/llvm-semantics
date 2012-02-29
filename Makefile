@@ -32,7 +32,10 @@ semantics/llvm-compiled.maude: semantics/*.k
 	cd semantics && $(MAKE)
 
 test: dist
-# probably call $(MAKE) -C tests
+	$(MAKE) -C tests
+
+regression: dist
+	$(MAKE) -C tests regression
 
 clean:
 	rm -rf dist

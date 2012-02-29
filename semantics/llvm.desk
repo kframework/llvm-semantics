@@ -1,1 +1,1 @@
-parser: (../tools/llvm-xml-ir/build/tools/llvm-dis-xml - -o - | perl ../tools/xmlToK.pl) <
+parser: (../dist/llvm-dis-xml - -o - | perl ../dist/xmlToK.pl) <

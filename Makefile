@@ -24,6 +24,7 @@ dist/dist.done: tools/llvm-xml-ir/build/tools/llvm-dis-xml tools/c2ll tools/xmlT
 	cp tools/c2ll dist/
 	cp tools/xmlToK.pl dist/
 	cp semantics/llvm-compiled.maude dist/
+	cp semantics/llvm.desk dist/
 	touch dist/dist.done
 
 semantics/llvm-compiled.maude: semantics/*.k

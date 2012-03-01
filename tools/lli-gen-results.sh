@@ -1,19 +1,28 @@
 #!/bin/bash
+# edited to support multiple nested result directories
 
 if [ $# -ne 2 ]; then
     echo "Usage: `basename $0` <indir> <outdir>"
     exit 1
 fi
-
-for file in $1/*.ll; do
-    echo $file
-    out=`lli "$file"`
-    ret=$?
-    newfilename=`basename $file`
-    newfile="$2/$newfilename.out"
-    echo "<result>" > $newfile
-    echo "  <returnValue>" >> $newfile
-    echo "    $ret" >> $newfile
-    echo "  </returnValue>" >> $newfile
-    echo "</result>" >> $newfile
+for dir in `find $1 -type d`; do
+	[ "$2" = `basename $dir` ] && continue
+	echo "$dir:"
+	outdir="$dir/$2"
+	mkdir -p $outdir
+	for file in $dir/*.ll; do
+		echo "$file"
+		grep '@main' $file > /dev/null || continue # skip if no main
+		out=`timeout 2 lli "$file"`
+		ret=$?
+		[ $ret -eq 124 ] && continue # skip if timed out
+		[ $ret -eq 1 ] && continue # skip if lli had a problem
+		newfilename=`basename $file`
+		newfile="$outdir/$newfilename.out"
+		echo "<result>" > $newfile
+		echo "  <returnValue>" >> $newfile
+		echo "    $ret" >> $newfile
+		echo "  </returnValue>" >> $newfile
+		echo "</result>" >> $newfile
+	done
 done

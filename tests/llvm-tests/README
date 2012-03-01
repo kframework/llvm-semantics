@@ -1,0 +1,2 @@
+These tests come from the LLVM project and are only used by us for testing.
+They are not part of our llvm-semantics project.

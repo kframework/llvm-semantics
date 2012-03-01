@@ -1,10 +1,13 @@
 a.out
 *.o
 *.bc
+*.diff
+*.stderr
+*.stdout
+.k
 dist
 tools/llvm-xml-ir/build
 
-semantics/.k
 semantics/*.ll
 semantics/*.s
 semantics/*.c

@@ -10,6 +10,8 @@ CLEAN_TARGETS = $(foreach dir, $(ALL_DIRECTORIES), clean-$(dir))
 
 all: $(TEST_TARGETS)
 
+test: $(TEST_TARGETS)
+
 regression: $(REGRESSION_TARGETS)
 
 %/results/krun-results.xml:

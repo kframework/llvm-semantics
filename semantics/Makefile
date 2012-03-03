@@ -1,22 +1,16 @@
+CURRTEST ?= ../tests/gcc-torture/931004-7.ll
+
 llvm-compiled.maude: llvm.k llvm-syntax.k llvm-semantics.k
 	$(K_BASE)/core/kompile llvm
 
-test: llvm-compiled.maude sumn.ll
-	$(K_BASE)/core/krun sumn.ll
+test: llvm-compiled.maude $(CURRTEST)
+	$(K_BASE)/core/krun $(CURRTEST)
 
-xml: sumn.format.xml
-	cat $<
+xml:
+	../dist/llvm-dis-xml $(CURRTEST) -o - | xmllint --format -
 
-kast: sumn.format.xml
-	cat $< | perl ../tools/xmlToK.pl
-
-
-%.xml: %.ll
-	../tools/llvm-xml-ir/build/tools/llvm-dis-xml $< -o $@
-
-%.format.xml: %.xml
-	xmllint --format $< > $@
-
+kast:
+	cat $(CURRTEST) | perl ../dist/xmlToK.pl
 
 clean:
 	rm -f llvm-compiled.maude

@@ -1,3 +1,4 @@
+#!/usr/bin/perl
 use strict;
 use File::Basename;
 use Encode;

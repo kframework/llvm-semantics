@@ -135,10 +135,6 @@ void TypePrinting::print(Type *Ty, XMLIROStream &Out) {
 }
 
 void TypePrinting::printTypeIdentities(XMLIROStream & Out) {
-  if (NumberedTypes.empty() &&
-      NamedTypes.empty())
-    return;
-
   Out << '\n';
 
   // We know all the numbers that each type is used and we know that it is a

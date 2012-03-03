@@ -30,6 +30,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `StructType "(" K ")" [strict hybrid]
     syntax LLVMValue ::= `IntegerType "(" K ")"
     syntax LLVM ::= `LabelType
+    syntax LLVMValue ::= `VoidType
 
     syntax LLVM ::= `Fields "(" List{K} ")"
     context Fields((_:List{K},,HOLE,,_:List{K}))
@@ -78,6 +79,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Value "(" K ")"
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
     syntax LLVM ::= `Width "(" #Nat ")"
+    syntax LLVM ::= `Null
 
     syntax LLVM ::= `Vararg
 

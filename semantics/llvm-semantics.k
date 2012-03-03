@@ -71,14 +71,18 @@ module LLVM-HELPERS is
     syntax #Nat ::= sizeofInBits K  // TODO [function]
     // TODO [function]
     rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
+        [anywhere]
     // TODO listK should be Fields (bug in K)
     rule sizeofInBits(Type(StructType(listK((Type:KResult,,L:List{K})))))
       => sizeofInBits(Type) +Nat sizeofInBits(Type(StructType(listK(L))))
+        [anywhere]
     rule sizeofInBits(Type(StructType(listK(.List{K})))) => 0
+        [anywhere]
 
     syntax #Nat ::= sizeof K  // TODO [function]
     rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
         when numBitsPerByte dividesNat sizeofInBits(K:K)
+        [anywhere]
 
     syntax K ::= int32
     macro int32 = Type(IntegerType(Width(32))) // TODO [function]
@@ -102,18 +106,18 @@ module LLVM-CLEAN-TREE is
     // rule <k> BasicBlock(_, K:K) => K ...</k>
     rule <k> Operand(_, K:K) => K ...</k>
 
-    rule GlobalVariables(L:List{K}) => List{K}ToK(L)
-    rule Functions(L:List{K}) => List{K}ToK(L)
-    rule Typedefs(L:List{K}) => List{K}ToK(L)
+    rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
+    rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]
+    rule Typedefs(L:List{K}) => List{K}ToK(L)         [anywhere]
     //rule Body(L:List{K}) => List{K}ToK(L)
-    rule Instructions(L:List{K}) => List{K}ToK(L)
-    rule ModuleID(S:#String) => Name(S)
-    rule Value(K:K) => K
-    rule Br(K:K) => K:K
+    rule Instructions(L:List{K}) => List{K}ToK(L)     [anywhere]
+    rule ModuleID(S:#String) => Name(S)               [anywhere]
+    rule Value(K:K) => K                              [anywhere]
+    rule Br(K:K) => K:K                               [anywhere]
 
-    rule ICmp(Predicate("ne"), K1:K, K2:K) => INotEq(K1:K, K2:K)
+    rule ICmp(Predicate("ne"), K1:K, K2:K) => INotEq(K1:K, K2:K) [anywhere]
 
-    rule RetType(K:K) => K
+    rule RetType(K:K) => K [anywhere]
 end module
 
 
@@ -387,7 +391,7 @@ module LLVM-MEMORY is
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
 
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
-    rule isIntegerType(Type(IntegerType(Width(_)))) => true
+    rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
 
     rule
         <k> write(Type:KResult, V:KResult, Loc:#Nat)
@@ -418,10 +422,12 @@ module LLVM-MEMORY is
         splitBytes(V:KResult, Type:KResult)
             => splitIntegerBytes(V, sizeof(Type))
         when isIntegerType(Type)
+        [anywhere]
 
     rule
         splitIntegerBytes(V:KResult, NumBytes:#Nat)
             => splitIntegerBytes'(V, NumBytes, .List{K})
+        [anywhere]
 
     rule
         splitIntegerBytes'(I:#Int, sNat(NumBytes:#Nat), L:List{K})
@@ -431,12 +437,14 @@ module LLVM-MEMORY is
                 (L ,, (I &Int MASK))
             )
         where MASK = (2 ^Int numBitsPerByte) -Int 1
+        [anywhere]
 
     // TODO: ideally, the parser should canonicalize integer literals to positive
     rule
         splitIntegerBytes'(I:#Int, 0, L:List{K})
             => listK(L)
         when I ==Bool 0 orBool I ==Bool -1
+        [anywhere]
 
 
     rule
@@ -479,9 +487,10 @@ module LLVM-MEMORY is
 
     rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
         => N:#Nat
+        [anywhere]
 
     syntax K ::= innerType "(" K ")"
-    rule innerType(Type(PointerType(K:K))) => Type(K:K)
+    rule innerType(Type(PointerType(K:K))) => Type(K:K)  [anywhere]
 
     syntax K ::= read "(" K "," K ")"
     syntax K ::= readBytes "(" K "," K ")"
@@ -495,11 +504,11 @@ module LLVM-COMPARISONS is
     including LLVM-INCLUDE
 
     // TODO reduce these to within bounds
-    rule INotEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)
+    rule INotEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)  [anywhere]
 
     syntax #Int ::= boolToInt "(" K ")"
-    rule boolToInt(true) => 1
-    rule boolToInt(false) => 0
+    rule boolToInt(true) => 1   [anywhere]
+    rule boolToInt(false) => 0  [anywhere]
 
 end module
 

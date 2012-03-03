@@ -111,7 +111,7 @@ class AsmXMLWriter {
   void visitAlloca(const AllocaInst &);
   void visitLoad(const LoadInst &I);//       { visitInstruction(I); }
   void visitStore(const StoreInst &I);
-  void visitGetElementPtr(const GetElementPtrInst &I) { visitInstruction(I); }
+  void visitGetElementPtr(const GetElementPtrInst &I); //{ visitInstruction(I); }
   void visitFence(const FenceInst &) { assert (0 && "Unimplemented"); }
   void visitAtomicCmpXchg(const AtomicCmpXchgInst &) { assert (0 && "Unimplemented"); }
   void visitAtomicRMW(const AtomicRMWInst &) { assert (0 && "Unimplemented"); }
@@ -437,11 +437,24 @@ void AsmXMLWriter::visitStore(const StoreInst& SI) {
   Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
 }
+
 void AsmXMLWriter::visitLoad(const LoadInst& SI) {
   Out << "<Type>";
   TypePrinter.print(SI.getPointerOperand()->getType(), Out);
   Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
+}
+
+void AsmXMLWriter::visitGetElementPtr(const GetElementPtrInst &I) {
+  Out << "<Type>";
+  TypePrinter.print(I.getPointerOperandType(), Out);
+  Out << "</Type>\n";
+  Out << "<Operand>";
+  writeOperand(I.getPointerOperand(), true);
+  Out << "</Operand>\n";
+  Out << "<List>\n";
+  printOperandList(I.idx_begin(), I.idx_end());
+  Out << "</List>\n";
 }
 
 void AsmXMLWriter::visitCastInst(const CastInst & I) {

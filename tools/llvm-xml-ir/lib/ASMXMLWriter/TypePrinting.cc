@@ -53,8 +53,26 @@ void TypePrinting::print(Type *Ty, XMLIROStream &Out) {
       Out << "</Width></IntegerType>";
       break;
 
-    case Type::StructTyID:
+    case Type::StructTyID: {
+      StructType *STy = cast<StructType>(Ty);
+      if (STy->isLiteral())
+        assert (0 && "unimplemented");
+
+      if (!STy->getName().empty()) {
+        Out << "<NamedType>";
+        PrintLLVMName(Out, STy->getName(), LocalPrefix);
+        Out << "</NamedType>";
+        break;
+      }
+
       assert (0 && "unimplemented");
+      //DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
+      //if (I != NumberedTypes.end())
+      //  Out << '%' << I->second;
+      //else  // Not enumerated, print the hex address.
+      //  Out << "%\"type 0x" << STy << '\"';
+    }
+      //assert (0 && "unimplemented");
 #if 0
  {
       StructType *STy = cast<StructType>(Ty);
@@ -143,6 +161,7 @@ void TypePrinting::printTypeIdentities(XMLIROStream & Out) {
     Out << '\n';
   }
 
+  Out << "<Typedefs><List>\n";
   for (unsigned i = 0, e = NamedTypes.size(); i != e; ++i) {
     Out << "<Typedef>";
     PrintLLVMName(Out, NamedTypes[i]->getName(), LocalPrefix);
@@ -151,6 +170,7 @@ void TypePrinting::printTypeIdentities(XMLIROStream & Out) {
     printStructBody(NamedTypes[i], Out);
     Out << "</Typedef>\n";
   }
+  Out << "</List></Typedefs>";
 }
 
 void TypePrinting::incorporateTypes(const Module &M) {
@@ -178,7 +198,6 @@ void TypePrinting::incorporateTypes(const Module &M) {
 }
 
 void TypePrinting::printStructBody(StructType *STy, XMLIROStream &Out) {
-
   if (STy->isOpaque()) {
     Out << "<Opaque/>\n";
     return;
@@ -187,9 +206,11 @@ void TypePrinting::printStructBody(StructType *STy, XMLIROStream &Out) {
   if (STy->isPacked())
     Out << "<Packed/>\n";
 
+  Out << "<StructType><Fields><List>\n";
   for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
     Out << "<Type>";
     print(*I, Out);
     Out << "</Type>\n";
   }
+  Out << "</List></Fields></StructType>";
 }

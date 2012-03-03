@@ -3,6 +3,7 @@ module LLVM-CONFIGURATION is
 
     syntax KResult ::= #Int
 
+
     syntax K ::= callMain // TODO [semantic]
     syntax #Nat ::= sym "(" #Nat ")"    // TODO [semantic]
 
@@ -22,6 +23,7 @@ module LLVM-CONFIGURATION is
                     <moduleName> Name("") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
+                    <typedefs> .Map </typedefs>
                     <globalVariables> .Map </globalVariables>
                     <functions>
                         <function multiplicity="*">
@@ -30,6 +32,12 @@ module LLVM-CONFIGURATION is
                             <initialBasicBlock> .K </initialBasicBlock>
                         </function>
                     </functions>
+                    <typeInfos>
+                        <typeInfo multiplicity="*">
+                            <typeName> Name("") </typeName>
+                            <offsets> .Map </offsets>
+                        </typeInfo>
+                    </typeInfos>
                 </module>
             </modules>
             <memory>
@@ -41,10 +49,17 @@ module LLVM-CONFIGURATION is
                 </object>
             </memory>
             <nextLoc> sym(0) </nextLoc>
+            // auxiliary cells:
+            <gepInfo multiplicity="?">
+                <gepType> .K </gepType>
+                <gepResult> 0 </gepResult>
+                <gepIndices> .K </gepIndices>
+            </gepInfo>
         </T>
         <result multiplicity="?">
             <returnValue> -1 </returnValue>
         </result>
+
 end module
 
 module LLVM-HELPERS is
@@ -56,6 +71,10 @@ module LLVM-HELPERS is
     syntax #Nat ::= sizeofInBits K  // TODO [function]
     // TODO [function]
     rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
+    // TODO listK should be Fields (bug in K)
+    rule sizeofInBits(Type(StructType(listK((Type:KResult,,L:List{K})))))
+      => sizeofInBits(Type) +Nat sizeofInBits(Type(StructType(listK(L))))
+    rule sizeofInBits(Type(StructType(listK(.List{K})))) => 0
 
     syntax #Nat ::= sizeof K  // TODO [function]
     rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
@@ -85,6 +104,7 @@ module LLVM-CLEAN-TREE is
 
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)
     rule Functions(L:List{K}) => List{K}ToK(L)
+    rule Typedefs(L:List{K}) => List{K}ToK(L)
     //rule Body(L:List{K}) => List{K}ToK(L)
     rule Instructions(L:List{K}) => List{K}ToK(L)
     rule ModuleID(S:#String) => Name(S)
@@ -92,10 +112,12 @@ module LLVM-CLEAN-TREE is
     rule Br(K:K) => K:K
 
     rule ICmp(Predicate("ne"), K1:K, K2:K) => INotEq(K1:K, K2:K)
+
+    rule RetType(K:K) => K
 end module
 
 
-module LLVM-BASIC is
+module LLVM-MISC is
     including LLVM-INCLUDE
 
     rule
@@ -121,7 +143,7 @@ module LLVM-BRANCHING is
     including LLVM-INCLUDE
 
     rule
-        <k> Unconditional(Label:Id) => Body:K </k>
+        <k> Unconditional(Label:Id) => Body:K ...</k>
         <currFunction> FunName:Id </currFunction>
         <functionName> FunName:Id </functionName>
         <basicBlocks>... Label:Id |-> Body:K ...</basicBlocks>
@@ -155,8 +177,9 @@ module LLVM-DECLARATIONS is
     including LLVM-INCLUDE
 
     rule
-        <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, GlobalVars:K, Functions:K)
-            => GlobalVars
+        <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K, Functions:K)
+            => Typedefs
+            ~> GlobalVars
             ~> Functions
         ...</k>
         <currModule> _ => Name </currModule>
@@ -170,6 +193,21 @@ module LLVM-DECLARATIONS is
         ...</modules>
 
     rule
+        <k> Typedef(X:Id, UnresolvedType:K) => . ...</k>
+        <currModule> Name:Id </currModule>
+        <moduleName> Name </moduleName>
+        <typedefs>... . => X |-> UnresolvedType ...</typedefs>
+
+    rule
+        <k> NamedType(X:Id) => UnresolvedType ...</k>
+        <typedefs>... X |-> UnresolvedType:K ...</typedefs>
+
+    // TODO: hack because hybrids don't seem to be working
+    rule
+        <k> Fields(L:List{K}) => listK(L) ...</k>
+        when isKResult(L)
+
+    rule
         <k> FUNCTION => Body:K ...</k>
         <currFunction> _ => Name </currFunction>
         (. =>
@@ -177,7 +215,7 @@ module LLVM-DECLARATIONS is
                 <functionName> Name </functionName>
             ...</function>
         )
-        where FUNCTION = Function(RetType:K, Name:Id, Arguments:K, Body:K)
+        where FUNCTION = Function(RetType:KResult, Name:Id, Arguments:K, Body:K)
 
     rule
         <k> Body((BasicBlock(Name:Id, K:K) ,, L:List{K}))
@@ -200,13 +238,13 @@ end module
 module LLVM-CALL-RET is
     including LLVM-INCLUDE
 
-    syntax ListItem ::= frame "(" K "," Bag ")"
+    syntax ListItem ::= frame Bag
 
     rule
-        <k> Call(_, Callee(FunName:Id, Args:K)) ~> Tail:K
+        <k> Call(_, Callee(FunName:Id, Args:K))
             => //bind(Args:K)
             Body
-        </k>
+        ...</k>
         (<control>
             C:Bag
             <currModule> Name:Id </currModule>
@@ -216,17 +254,16 @@ module LLVM-CALL-RET is
             <currModule> Name </currModule>
             <currFunction> FunName:Id </currFunction>
         ...</control>)
-        <callStack> . => frame(Tail, C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
+        <callStack> . => frame(C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
         <moduleName> Name </moduleName>
         <functionName> FunName </functionName>
         <initialBasicBlock> IBBName:Id </initialBasicBlock>
         <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
         //<functions>... FunName |-> Function(_, FunName:Id, _, Body:K) ...</functions>
 
-    // need to restore k cell?
     rule
-        <k> Ret(V:KResult) => V ~> K:K </k>
-        <callStack> frame(K:K, C:Bag) => . ...</callStack>
+        <k> Ret(V:KResult) => V ...</k>
+        <callStack> frame(C:Bag) => . ...</callStack>
         <control> _ => C </control>
 
 end module
@@ -235,48 +272,91 @@ module LLVM-ARITHMETIC is
     including LLVM-INCLUDE
 
     rule [add]:
-        <k> Add(Type:K, I1:#Int, I2:#Int)
+        <k> Add(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 +Int I2, Type)
         ...</k>
     rule
-        <k> Sub(Type:K, I1:#Int, I2:#Int)
+        <k> Sub(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 -Int I2, Type)
         ...</k>
     rule
-        <k> Mul(Type:K, I1:#Int, I2:#Int)
+        <k> Mul(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 *Int I2, Type)
         ...</k>
-    rule [division]:
-        <k> SDiv(Type:K, I1:#Int, I2:#Int)
+    rule
+        <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 /Int I2, Type)
         ...</k>
 
     rule
-        <k> Or(Type:K, I1:#Int, I2:#Int)
+        <k> Or(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 |Int I2, Type)
         ...</k>
     rule
-        <k> And(Type:K, I1:#Int, I2:#Int)
+        <k> And(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 &Int I2, Type)
         ...</k>
     rule
-        <k> Xor(Type:K, I1:#Int, I2:#Int)
+        <k> Xor(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 xorInt I2, Type)
         ...</k>
+
 
     // weave into add
         // checkNSW(unsign(I1) +Int unsign(I2), Type)
         // ~> checkNUW(sign(I1) +Int sign(I2), Type)
     // before RHS
 
-    // rule interpret(I:#Int, Type:K) => ((I %Int MAX) + MAX) %Int
+    // rule interpret(I:#Int, Type:KResult) => ((I %Int MAX) + MAX) %Int
         // where MAX = 2 ^Int sizeofInBits(Type)
-    rule <k> interpretInt(I:#Int, Type:K) => I %Int MAX ...</k>
+    rule <k> interpretInt(I:#Int, Type:KResult) => I %Int MAX ...</k>
         // <modifiers> nsw </modifiers>
         where MAX = 2 ^Int sizeofInBits(Type)
 
 end module
 
+module LLVM-GEP is
+    including LLVM-INCLUDE
+
+    syntax K ::= gep
+
+    rule
+        <k> GetElementPtr(Type:KResult, PtrVal:#Nat, Indices:List{K}) => gep ...</k>
+        (. =>
+            <gepInfo>...
+                <gepType> Type </gepType>
+                <gepResult> PtrVal </gepResult>
+                <gepIndices> List{K}ToK(Indices) </gepIndices>
+            ...</gepInfo>
+        )
+
+    rule
+        <k> gep => Loc ...</k>
+        (
+            <gepInfo>...
+                <gepResult> Loc:#Nat </gepResult>
+            ...</gepInfo>
+            => .
+        )
+
+    rule <gepType> Type(Type:KResult) => Type </gepType>
+
+    rule
+        <gepType> PointerType(Type:KResult) => Type </gepType>
+        <gepIndices> N:#Nat => . ...</gepIndices> 
+        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type(Type)) *Nat N </gepResult>
+
+    // WARNING TODO: _ may match more than one result (ask Traian)
+    rule
+        <gepType> StructType(listK((Type:KResult => .List{K}),,L:List{K})) </gepType>
+        <gepIndices> sNat(N:#Nat) => N ...</gepIndices> 
+        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) </gepResult>
+
+    rule
+        <gepType> StructType(listK(Type:KResult,,L:List{K})) => Type </gepType>
+        <gepIndices> 0 => . ...</gepIndices>
+
+end module
 
 module LLVM-MEMORY is
     including LLVM-INCLUDE
@@ -285,7 +365,7 @@ module LLVM-MEMORY is
     macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
 
     rule
-        <k> Alloca(Type:K, N:#Nat) => Loc +Nat 0 ...</k>
+        <k> Alloca(Type:KResult, N:#Nat) => Loc +Nat 0 ...</k>
         <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
         (. =>
             <object>...
@@ -296,8 +376,8 @@ module LLVM-MEMORY is
         )
 
     rule
-        <k> Store(Type:K, V:KResult, Loc:#Nat)
-            => write(Type:K, V:KResult, Loc:#Nat)
+        <k> Store(Type:KResult, V:KResult, Loc:#Nat)
+            => write(Type:KResult, V:KResult, Loc:#Nat)
         ...</k>
 
     syntax K ::= write "(" K "," K "," K ")" // type, value, location
@@ -305,13 +385,12 @@ module LLVM-MEMORY is
     syntax K ::= splitBytes "(" K "," K ")" // value, type
     syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
-    syntax KResult ::= listK "(" List{K} ")"
 
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
     rule isIntegerType(Type(IntegerType(Width(_)))) => true
 
     rule
-        <k> write(Type:K, V:KResult, Loc:#Nat)
+        <k> write(Type:KResult, V:KResult, Loc:#Nat)
             => writeBytes(splitBytes(V, Type), Loc)
         ...</k>
     // rule
@@ -336,7 +415,7 @@ module LLVM-MEMORY is
     // Type(IntegerType(Width(32)))
     // should generate list with LSBytes first
     rule
-        splitBytes(V:KResult, Type:K)
+        splitBytes(V:KResult, Type:KResult)
             => splitIntegerBytes(V, sizeof(Type))
         when isIntegerType(Type)
 
@@ -353,19 +432,21 @@ module LLVM-MEMORY is
             )
         where MASK = (2 ^Int numBitsPerByte) -Int 1
 
+    // TODO: ideally, the parser should canonicalize integer literals to positive
     rule
-        splitIntegerBytes'(0, 0, L:List{K})
+        splitIntegerBytes'(I:#Int, 0, L:List{K})
             => listK(L)
+        when I ==Bool 0 orBool I ==Bool -1
 
 
     rule
-        <k> Load(Type:K, Loc:#Nat)
-            => read(Type:K, Loc:#Nat)
+        <k> Load(Type:KResult, Loc:#Nat)
+            => read(Type:KResult, Loc:#Nat)
         ...</k>
 
     rule
-        <k> read(Type:K, Loc:#Nat)
-            => interpretBytes(readBytes(sizeof(innerType(Type:K)), Loc:#Nat), Type:K)
+        <k> read(Type:KResult, Loc:#Nat)
+            => interpretBytes(readBytes(sizeof(innerType(Type:KResult)), Loc:#Nat), Type:KResult)
         ...</k>
 
     rule
@@ -386,7 +467,7 @@ module LLVM-MEMORY is
         ...</k>
 
     rule
-        <k> interpretBytes(K:KResult, Type:K)
+        <k> interpretBytes(K:KResult, Type:KResult)
             => interpretIntBytes(K:KResult, sizeof(innerType(Type)), 0)
         ...</k>
 
@@ -426,13 +507,14 @@ module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
     including LLVM-CLEAN-TREE
-    including LLVM-BASIC
+    including LLVM-MISC
     including LLVM-BRANCHING
     including LLVM-REGISTERS
     including LLVM-START-AND-STOP
     including LLVM-CALL-RET
     including LLVM-DECLARATIONS
     including LLVM-ARITHMETIC
+    including LLVM-GEP
     including LLVM-MEMORY
     including LLVM-COMPARISONS
 end module

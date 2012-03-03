@@ -1,16 +1,21 @@
 module LLVM-SYNTAX is
     including K
 
+    syntax KResult ::= LLVMValue
+    syntax KResult ::= listK "(" List{K} ")"
 
-    syntax LLVM ::= "Module" "(" K "," K "," K "," K "," K ")" // ModuleID, TargetLayout, TargetTriple, GlobalVariables, Functions
+    // ModuleID, TargetLayout, TargetTriple, Typedefs, GlobalVariables, Functions
+    syntax LLVM ::= "Module" "(" K "," K "," K "," K "," K "," K ")"
     // TODO: syntax LLVM ::= Module(K, K, K, K, K)
 
     syntax LLVM ::= `ModuleID "(" #String ")"
     syntax LLVM ::= `TargetLayout "(" #String ")"
     syntax LLVM ::= `TargetTriple "(" #String ")"
+    syntax LLVM ::= `Typedefs "(" List{K} ")"
     syntax LLVM ::= `GlobalVariables "(" List{K} ")"
     syntax LLVM ::= `Functions "(" List{K} ")"
 
+    syntax LLVM ::= `Typedef "(" K "," K ")"
     syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" // Value/Name, Modifiers, Type, Initializer
 
     syntax LLVM ::= `Modifiers "(" List{K} ")"
@@ -18,14 +23,18 @@ module LLVM-SYNTAX is
 
     syntax LLVM ::= `Constant
 
-    syntax LLVM ::= `Type "(" K ")"
-
-    syntax LLVM ::= `PointerType "(" K ")"
+    syntax LLVM ::= `Type "(" K ")"         [strict hybrid]
+    syntax LLVM ::= `NamedType "(" K ")"
+    syntax LLVM ::= `PointerType "(" K ")"  [strict hybrid]
     syntax LLVM ::= `ArrayType "(" K ")"
-    syntax LLVM ::= `IntegerType "(" K ")"
+    syntax LLVM ::= `StructType "(" K ")" [strict hybrid]
+    syntax LLVMValue ::= `IntegerType "(" K ")"
     syntax LLVM ::= `LabelType
 
-    syntax LLVM ::= `Function "(" K "," K "," K "," K ")" // RetType, Value/Name, Arguments, Body
+    syntax LLVM ::= `Fields "(" List{K} ")"
+    context Fields((_:List{K},,HOLE,,_:List{K}))
+
+    syntax LLVM ::= `Function "(" K "," K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments, Body
     syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
 
     syntax LLVM ::= `RetType "(" K ")"
@@ -41,12 +50,15 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Instruction "(" K "," K ")" // Modifiers, the Instruction
     syntax LLVM ::= `Modifiers "(" List{K} ")"
 
-    syntax LLVM ::= `Alloca "(" K "," K ")" [strict(2)] // Type, NumElements
+    syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
     syntax LLVM ::= `Call "(" K "," K ")"   // Type, Callee
     syntax LLVM ::= `Callee "(" K "," K ")"   // Value/Name, Arguments
 
     syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination
+    syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]
+
+    context GetElementPtr(_, _, (_,,HOLE,,_))
 
     syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
     syntax LLVM ::= `Opcode "(" K ")"

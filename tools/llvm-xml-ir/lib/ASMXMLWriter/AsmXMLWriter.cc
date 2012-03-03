@@ -89,7 +89,7 @@ class AsmXMLWriter {
   void visitInvoke(const InvokeInst &) { assert (0 && "Unimplemented"); }
   void visitUnwind(const UnwindInst &) { assert (0 && "Unimplemented"); }
   void visitResume(const ResumeInst &) { assert (0 && "Unimplemented"); }
-  void visitUnreachable(const UnreachableInst &) { assert (0 && "Unimplemented"); }
+  void visitUnreachable(const UnreachableInst &I) { visitInstruction(I); }
   void visitAdd(const BinaryOperator &I)  { visitBinaryOperator(I); }
   void visitFAdd(const BinaryOperator &I) { visitBinaryOperator(I); }
   void visitSub(const BinaryOperator &I)  { visitBinaryOperator(I); }

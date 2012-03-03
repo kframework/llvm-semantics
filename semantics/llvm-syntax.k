@@ -67,6 +67,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Br "(" K ")"
     syntax LLVM ::= `Unconditional "(" K ")"
     syntax LLVM ::= `Conditional "(" K "," K "," K ")" [strict(1)]
+    syntax LLVM ::= `Unreachable
 
     syntax LLVM ::= `Alignment "(" #Nat ")"
 

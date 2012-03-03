@@ -7,7 +7,7 @@ use XML::LibXML::Reader;
 binmode STDOUT, ":utf8";
 binmode STDIN, ":utf8";
 
-# not handling the case of multiple cdatas 
+# not handling the case of multiple cdatas
 # can use 'erase' to get rid of junk cells
 
 # 0 for 'Label`(_`,_`,_`,_`,_`)
@@ -30,18 +30,19 @@ my %arityMap = ();
 
 # might want to return, say, "'$name"
 sub nameToLabel {
-	my ($name, $length) = (@_);
+	my ($name, $length, $isLabel) = (@_);
 	my $baseLabel = "'$name";
 	if ($basicLabel) { return $baseLabel; }
 	if (exists($arityMap{$name})) {
 		if ($arityMap{$name} != $length) {
 			print STDERR "WARNING: Detected label with multiple arities: label \"$name\" has arities $arityMap{$name} and $length\n";
-		}		
+		}
 	} else {
 		$arityMap{$name} = $length;
 	}
 	if ($length == 0) { return $baseLabel; }
-	
+	if ($isLabel) { return $baseLabel; }
+
 	my $suffix = "`(_";
 	for (my $i = 0; $i < $length-1; $i++){
 		$suffix .= "`,_"
@@ -66,7 +67,7 @@ my %escapeMap = (
 
 my $input = join("", <STDIN>);
 
-# my %ignoreThese = (	
+# my %ignoreThese = (
 	# 'Filename' => 1,
 	# 'Lineno' => 1,
 	# 'Byteno' => 1,
@@ -97,7 +98,7 @@ my $input = join("", <STDIN>);
 # );
 
 # foreach my $key (keys %labelMap) {
-	# $handlers->{$key} = sub { $_->set_tag($labelMap{$key}); };	
+	# $handlers->{$key} = sub { $_->set_tag($labelMap{$key}); };
 # }
 
 my $reader = new XML::LibXML::Reader(string => $input) or die "cannot create XML::LibXML::Reader object\n";
@@ -167,6 +168,7 @@ sub elementToK {
 	my ($reader) = (@_);
 	my $inNextState = 0;
 	my $label = $reader->name;
+	my $isLabel = $reader->getAttribute('label');
 	# if (exists($ignoreThese{$label})) {
 		# return ($inNextState, undef);
 	# }
@@ -213,13 +215,13 @@ sub elementToK {
 		} while ($reader->depth > $depth) # while ($reader->nextSiblingElement == 1);
 	}
 	$inNextState = 1;
-	
+
 	my $numElements = scalar @klist;
 	if ($numElements == 0) {
 		push (@klist, KLIST_IDENTITY);
 	}
 	my $kterm = paren(join(KLIST_SEPARATOR, @klist));
-	
+
 	# if ($label eq 'LTLAnnotation') {
 		# $ltl .= "eq 'LTLAnnotation($klist[0]) = ";
 		# shift (@klist);
@@ -235,9 +237,9 @@ sub elementToK {
 		my $suffix = '))';
 		return ($inNextState, $prefix . $kterm . $suffix);
 	} else {
-		return ($inNextState, nameToLabel($label, $numElements) . $kterm);
+		return ($inNextState, nameToLabel($label, $numElements, $isLabel) . $kterm);
 	}
-	
+
 }
 
 # sub rawdataToK {
@@ -284,7 +286,7 @@ sub rawBase64ToK {
 	# my ($reader) = (@_);
 	# my $data = "";
 	# $reader->read;
-	
+
 	# if ($sort eq 'String') {
 		# $data = '"' . escapeString($reader->value) . '"';
 	# } elsif ($sort eq 'Int') {
@@ -300,7 +302,7 @@ sub rawBase64ToK {
 
 sub escapeSingleCharacter {
 	my ($char) = (@_);
-	
+
 	if (exists($escapeMap{$char})) {
 		return $escapeMap{$char};
 	} elsif ($char =~ /[\x20-\x7E]/) {
@@ -335,7 +337,7 @@ sub escapeString {
 		# }
 		# $retval .= "$RAT $single" . paren(KLIST_IDENTITY) . KLIST_SEPARATOR . " ";
 	# }
-	
+
 	# $retval .= ".List{K}))";
 	# return $retval;
 # }

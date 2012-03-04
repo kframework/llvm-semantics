@@ -289,6 +289,7 @@ void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
   }
 
   if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(CV)) {
+    assert (0 && "Not yet handling ConstantExpr-essions");
     Out << "<ConstantExpr>";
     // David TODO: this doesn't seem very nice:
     Out << "<Opcode>";

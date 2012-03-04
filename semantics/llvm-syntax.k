@@ -35,8 +35,10 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Fields "(" List{K} ")"
     context Fields((_:List{K},,HOLE,,_:List{K}))
 
-    syntax LLVM ::= `Function "(" K "," K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments, Body
+    syntax LLVM ::= `FunctionDef "(" K "," K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments, Body
+    syntax LLVM ::= `FunctionDecl "(" K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments
     syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
+    syntax LLVM ::= `NoName // used for arguments with no name
 
     syntax LLVM ::= `RetType "(" K ")"
     syntax LLVM ::= `Arguments "(" List{K} ")"
@@ -109,6 +111,7 @@ module LLVM-SYNTAX is
     //@ Conversion Operations
     syntax LLVM ::= `Trunc "(" K "," K ")" [strict(1)] // op, type
     syntax LLVM ::= `ZExt "(" K "," K ")" [strict(1)] // op, type
+    syntax LLVM ::= `BitCast "(" K "," K ")" [strict(1)] // op, type
     
     //@ Other Operations
     syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op  

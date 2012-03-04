@@ -219,7 +219,7 @@ module LLVM-DECLARATIONS is
                 <functionName> Name </functionName>
             ...</function>
         )
-        where FUNCTION = Function(RetType:KResult, Name:Id, Arguments:K, Body:K)
+        where FUNCTION = FunctionDef(RetType:KResult, Name:Id, Arguments:K, Body:K)
 
     rule
         <k> Body((BasicBlock(Name:Id, K:K) ,, L:List{K}))

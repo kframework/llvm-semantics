@@ -216,7 +216,11 @@ void AsmXMLWriter::visit(const Module & M) {
 }
 
 void AsmXMLWriter::visit(const Function & F) {
-  Out << "<Function>";
+    if (F.isDeclaration()) {
+        Out << "<FunctionDecl>";
+    } else {
+        Out << "<FunctionDef>";
+    }
 
 #if 0
   PrintLinkage(F.getLinkage(), Out);
@@ -236,16 +240,17 @@ void AsmXMLWriter::visit(const Function & F) {
   visit(F.arg_begin(), F.arg_end());
   Out << "</List></Arguments>\n";
 
-// David TODO: This is a hackish way to make sure Function has a consistent
-// arity. We probably need a better way to distinguish between functions and
-// declarations.
-//  if (!F.isDeclaration()) {
+  if (!F.isDeclaration()) {
     Out << "<Body><List>";
     visit(F.begin(), F.end());
     Out << "</List></Body>";
-//  }
+  }
 
-  Out << "</Function>\n";
+    if (F.isDeclaration()) {
+        Out << "</FunctionDecl>\n";
+    } else {
+        Out << "</FunctionDef>\n";
+    }
 }
 
 void AsmXMLWriter::visit(const GlobalVariable & GV) {
@@ -294,8 +299,11 @@ void AsmXMLWriter::visit(const Argument & Arg) {
   Out << "</Type>\n";
 
   // Output name, if available...
-  if (!Arg.getParent()->isDeclaration() && Arg.hasName())
+  if (!Arg.getParent()->isDeclaration() && Arg.hasName()) {
     PrintLLVMName(Out, &Arg);
+  } else {
+    Out << "<NoName/>\n";
+  }
 
   Out << "</Arg>";
 }

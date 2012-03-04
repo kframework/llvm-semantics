@@ -26,7 +26,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Type "(" K ")"         [strict hybrid]
     syntax LLVM ::= `NamedType "(" K ")"
     syntax LLVM ::= `PointerType "(" K ")"  [strict hybrid]
-    syntax LLVM ::= `ArrayType "(" K ")"
+    syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid] // inner type, length
     syntax LLVM ::= `StructType "(" K ")" [strict hybrid]
     syntax LLVMValue ::= `IntegerType "(" K ")"
     syntax LLVM ::= `LabelType

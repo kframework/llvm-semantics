@@ -124,6 +124,7 @@ void TypePrinting::print(Type *Ty, XMLIROStream &Out) {
       Out << "<ArrayType>";
       ArrayType *ATy = cast<ArrayType>(Ty);
       print(ATy->getElementType(), Out);
+      RawWriter::write(ATy->getNumElements(), Out);
       Out << "</ArrayType>\n";
       return;
     }

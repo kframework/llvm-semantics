@@ -72,6 +72,10 @@ module LLVM-HELPERS is
 
     syntax #Nat ::= sizeofInBits K  // TODO [function]
     // TODO [function]
+    
+    rule sizeofInBits(Type(ArrayType(Type:KResult, Len:#Nat))) => sizeofInBits(Type(Type)) *Nat Len
+        [anywhere]
+    
     rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
         [anywhere]
     // TODO listK should be Fields (bug in K)

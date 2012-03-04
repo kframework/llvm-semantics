@@ -28,6 +28,8 @@ module LLVM-CONFIGURATION is
                     <functions>
                         <function multiplicity="*">
                             <functionName> Name("") </functionName>
+                            <returnType> .K </returnType>
+                            <formalParameters> .K </formalParameters>
                             <basicBlocks> .Map </basicBlocks>
                             <initialBasicBlock> .K </initialBasicBlock>
                         </function>
@@ -216,10 +218,23 @@ module LLVM-DECLARATIONS is
         <currFunction> _ => Name </currFunction>
         (. =>
             <function>...
+                <returnType> RetType </returnType>
+                <formalParameters> Arguments:K </formalParameters>
                 <functionName> Name </functionName>
             ...</function>
         )
         where FUNCTION = FunctionDef(RetType:KResult, Name:Id, Arguments:K, Body:K)
+    
+    rule
+        <k> FUNCTION => . ...</k>
+        (. =>
+            <function>...
+                <returnType> RetType </returnType>
+                <formalParameters> Arguments:K </formalParameters>
+                <functionName> Name </functionName>
+            ...</function>
+        )
+        where FUNCTION = FunctionDecl(RetType:KResult, Name:Id, Arguments:K)
 
     rule
         <k> Body((BasicBlock(Name:Id, K:K) ,, L:List{K}))
@@ -243,11 +258,12 @@ module LLVM-CALL-RET is
     including LLVM-INCLUDE
 
     syntax ListItem ::= frame Bag
-
+    syntax K ::= "bind" "(" List{K} "," List{K} ")"
+    
     rule
-        <k> Call(_, Callee(FunName:Id, Args:K))
-            => //bind(Args:K)
-            Body
+        <k> Call(_, Callee(FunName:Id, Arguments(Args:List{K})))
+            => bind(Args, Formals)
+            ~> Body
         ...</k>
         (<control>
             C:Bag
@@ -261,9 +277,19 @@ module LLVM-CALL-RET is
         <callStack> . => frame(C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
         <moduleName> Name </moduleName>
         <functionName> FunName </functionName>
+        <formalParameters> Arguments(Formals:List{K}) </formalParameters>
         <initialBasicBlock> IBBName:Id </initialBasicBlock>
         <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
         //<functions>... FunName |-> Function(_, FunName:Id, _, Body:K) ...</functions>
+        
+    // might need a way to convert nonmatching types here?  depends on semantics
+    rule
+        <k> bind((Arg:K,, Args:List{K}), (Arg(_, Formal:K),, Formals:List{K}))
+            => Assign(Formal, Arg)
+            ~> bind(Args:List{K}, Formals:List{K})
+        ...</k>
+    rule
+        <k> bind(.List{K}, .List{K}) => . ...</k>
 
     rule
         <k> Ret(V:KResult) => V ...</k>
@@ -292,6 +318,15 @@ module LLVM-ARITHMETIC is
             => interpretInt(I1 /Int I2, Type)
         ...</k>
 
+        
+    rule
+        <k> Shl(Type:KResult, I:#Int, Len:#Nat)
+            => interpretInt(I <<Int Len, Type)
+        ...</k>
+    rule // LShr can only shift in zeroes, so assume nat for now
+        <k> LShr(Type:KResult, N:#Nat, Len:#Nat)
+            => interpretInt(N >>Int Len, Type)
+        ...</k>
     rule
         <k> Or(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(I1 |Int I2, Type)

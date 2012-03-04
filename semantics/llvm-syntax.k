@@ -42,6 +42,7 @@ module LLVM-SYNTAX is
 
     syntax LLVM ::= `RetType "(" K ")"
     syntax LLVM ::= `Arguments "(" List{K} ")"
+    context Arguments((_:List{K},,HOLE,,_:List{K}))
     syntax LLVM ::= `Body "(" List{K} ")"
 
     syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
@@ -54,7 +55,11 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Modifiers "(" List{K} ")"
 
     syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
-    syntax LLVM ::= `Callee "(" K "," K ")"   // Value/Name, Arguments
+    syntax LLVM ::= `Callee "(" K "," K ")" [strict(2)] // Value/Name, Arguments
+    
+    // TODO should probably be both arguments (hybrid) for handling function pointers
+    define isKResult(Callee(_, K:K)) => true
+        when isKResult(K:K)
 
     syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination
@@ -116,6 +121,6 @@ module LLVM-SYNTAX is
     
     //@ Other Operations
     syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op  
-    syntax LLVM ::= `Call "(" K "," K ")"   // Type, Callee
+    syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
 
 end module

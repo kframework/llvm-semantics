@@ -263,8 +263,13 @@ module LLVM-CALL-RET is
     syntax ListItem ::= frame Bag
     syntax K ::= "bind" "(" List{K} "," List{K} ")"
     
+    
+     rule
+        <k> Arguments(L:List{K}) => listK(L) ...</k>
+        when isKResult(L)
+    
     rule
-        <k> Call(_, Callee(FunName:Id, Arguments(Args:List{K})))
+        <k> Call(_, Callee(FunName:Id, listK(Args:List{K})))
             => bind(Args, Formals)
             ~> Body
         ...</k>

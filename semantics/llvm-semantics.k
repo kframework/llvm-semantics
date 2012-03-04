@@ -566,6 +566,26 @@ module LLVM-COMPARISONS is
 
 end module
 
+module LLVM-STANDARD-LIBRARY is
+    including LLVM-INCLUDE
+    
+    // perhaps this kind of stuff could be generalized, or done away with
+    // its purpose is to make the actual function definitions nice
+    syntax K ::= exit "(" K ")"
+    rule
+        <k> Call(_, Callee(Name("@exit"), listK(V:KResult)))
+            => exit(V)
+        ...</k>
+
+    // actual library definitions
+    rule
+        <k> exit(I:#Int) ~> _
+            => I:#Int
+        ...</k>
+    
+end module
+
+
 module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
@@ -580,4 +600,5 @@ module LLVM-SEMANTICS is
     including LLVM-GEP
     including LLVM-MEMORY
     including LLVM-COMPARISONS
+    including LLVM-STANDARD-LIBRARY
 end module

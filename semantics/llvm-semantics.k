@@ -172,6 +172,15 @@ module LLVM-START-AND-STOP is
     including LLVM-INCLUDE
 
     rule <k> callMain => Call(int32, Callee(Value(Name("@main")), Arguments(.List{K}))) </k>
+        <functionName> Name("@main") </functionName>
+        <formalParameters> Arguments(L:List{K}) </formalParameters>
+        when lengthList{K}(L) ==Bool 0
+    
+    // TODO need to allocate char** etc for command line arguments
+    rule <k> callMain => Call(int32, Callee(Value(Name("@main")), Arguments((0,, 0)))) </k>
+        <functionName> Name("@main") </functionName>
+        <formalParameters> Arguments(L:List{K}) </formalParameters>
+        when lengthList{K}(L) ==Bool 2
 
     rule [terminate]:
         <T>...

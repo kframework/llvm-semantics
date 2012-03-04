@@ -118,6 +118,9 @@ module LLVM-CLEAN-TREE is
     rule Br(K:K) => K:K                               [anywhere]
 
     rule ICmp(Predicate("ne"), K1:K, K2:K) => INotEq(K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate(Str:#String), K1:K, K2:K) => IEq(K1:K, K2:K) 
+        when Str ==Bool "e" +String "q" // TODO avoiding bug in kompile
+        [anywhere]
 
     rule RetType(K:K) => K [anywhere]
 end module
@@ -538,8 +541,10 @@ end module
 module LLVM-COMPARISONS is
     including LLVM-INCLUDE
 
+    // TODO FIXME these are wrong unless we apply a modulus or keep canonical
     // TODO reduce these to within bounds
     rule INotEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)  [anywhere]
+    rule IEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int ==Bool I2:#Int)  [anywhere]
 
     syntax #Int ::= boolToInt "(" K ")"
     rule boolToInt(true) => 1   [anywhere]

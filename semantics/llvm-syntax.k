@@ -88,6 +88,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Predicate "(" K ")"
 
     syntax LLVM ::= `INotEq "(" K "," K ")" [strict]
+    syntax LLVM ::= `IEq "(" K "," K ")" [strict]
     
     //@ Terminator Instructions
     syntax LLVM ::= `Ret "(" K ")" [strict]

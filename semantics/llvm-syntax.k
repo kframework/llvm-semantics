@@ -52,7 +52,6 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Modifiers "(" List{K} ")"
 
     syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
-    syntax LLVM ::= `Call "(" K "," K ")"   // Type, Callee
     syntax LLVM ::= `Callee "(" K "," K ")"   // Value/Name, Arguments
 
     syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
@@ -64,11 +63,8 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
     syntax LLVM ::= `Opcode "(" K ")"
 
-    syntax LLVM ::= `Ret "(" K ")" [strict]
-    syntax LLVM ::= `Br "(" K ")"
     syntax LLVM ::= `Unconditional "(" K ")"
     syntax LLVM ::= `Conditional "(" K "," K "," K ")" [strict(1)]
-    syntax LLVM ::= `Unreachable
 
     syntax LLVM ::= `Alignment "(" #Nat ")"
 
@@ -86,19 +82,36 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `NoSignedWrap
     syntax LLVM ::= `NoUnsignedWrap
 
+    
+    syntax LLVM ::= `Predicate "(" K ")"
+
+    syntax LLVM ::= `INotEq "(" K "," K ")" [strict]
+    
+    //@ Terminator Instructions
+    syntax LLVM ::= `Ret "(" K ")" [strict]
+    syntax LLVM ::= `Br "(" K ")"
+    syntax LLVM ::= `Unreachable
+    
+    //@ Binary Operations
     syntax LLVM ::= `Add "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `Sub "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `Mul "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `SDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
 
+    //@ Bitwise Binary Operations
+    syntax LLVM ::= `Shl "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= `LShr "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= `AShr "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `Or "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `And "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `Xor "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
 
-    syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op
-    syntax LLVM ::= `Predicate "(" K ")"
-
-    syntax LLVM ::= `INotEq "(" K "," K ")" [strict]
-
+    //@ Conversion Operations
+    syntax LLVM ::= `Trunc "(" K "," K ")" [strict(1)] // op, type
+    syntax LLVM ::= `ZExt "(" K "," K ")" [strict(1)] // op, type
+    
+    //@ Other Operations
+    syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op  
+    syntax LLVM ::= `Call "(" K "," K ")"   // Type, Callee
 
 end module

@@ -21,7 +21,7 @@ regression: $(REGRESSION_TARGETS)
 llvm: $(LLVM_TARGETS)
 
 %/results/krun-results.xml:
-	@perl $(K_BASE)/tools/tester.pl -d $*/results -f "--k-definition=../dist/llvm --desk-file=../dist/llvm.desk --no-color" -n $*
+	@perl $(K_BASE)/tools/tester.pl -d $*/results -f "--k-definition=../dist/llvm --desk-file=../dist/llvm.desk --no-color" -n $* -timeout 20
 
 clean: $(CLEAN_TARGETS)
 

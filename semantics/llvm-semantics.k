@@ -661,7 +661,10 @@ module LLVM-COMPARISONS is
     rule INotEq(_, I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)  [anywhere]
     rule IEq(_, I1:#Int, I2:#Int) => boolToInt(I1:#Int ==Bool I2:#Int)  [anywhere]
     
+    rule SGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >Int signed(Type, I2:#Int))  [anywhere]
     rule SGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))  [anywhere]
+    rule SLT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) <Int signed(Type, I2:#Int))  [anywhere]
+    rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))  [anywhere]
     
     // should be a K, but builtins can't use K :(
     syntax #Int ::= signed "(" K "," K ")" // type, value

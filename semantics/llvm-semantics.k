@@ -332,21 +332,21 @@ module LLVM-CALL-RET is
         ...</k>
     rule
         <k> bind(.List{K}, .List{K}) => . ...</k>
-    rule
-        <k> bind(Args:List{K}, Vararg) => bindVariadic(Args) ...</k>
+    // rule
+        // <k> bind(Args:List{K}, Vararg) => bindVariadic(Args) ...</k>
     
-    syntax K ::= bindVariadic "(" List{K} ")"
-    syntax K ::= bindVariadic' "(" List{K} "," K ")"
-    syntax Id ::= variadic "(" K ")"
-    rule
-        <k> bindVariadic(Args:List{K}) => bindVariadic'(Args, 0) ...</k>
-    rule
-        <k> bindVariadic'((Arg:K,, Args:List{K}), N:#Nat)
-            => Assign(variadic(N), Arg)
-            ~> bindVariadic'(Args:List{K}, sNat(N))
-        ...</k>
-    rule
-        <k> bindVariadic'(.List{K}, _) => . ...</k>
+    // syntax K ::= bindVariadic "(" List{K} ")"
+    // syntax K ::= bindVariadic' "(" List{K} "," K ")"
+    // syntax Id ::= variadic "(" K "," K ")"
+    // rule
+        // <k> bindVariadic(Args:List{K}) => bindVariadic'(Args, 0) ...</k>
+    // rule
+        // <k> bindVariadic'((Arg:K,, Args:List{K}), Loc:#Nat, N:#Nat)
+            // => Assign(variadic(N), Arg)
+            // ~> bindVariadic'(Args:List{K}, sNat(N))
+        // ...</k>
+    // rule
+        // <k> bindVariadic'(.List{K}, _) => . ...</k>
 
     rule
         <k> Ret(V:KResult) => V ...</k>

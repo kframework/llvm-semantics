@@ -306,7 +306,7 @@ end module
 module LLVM-CALL-RET is
     including LLVM-INCLUDE
 
-    syntax ListItem ::= frame Bag
+    syntax ListItem ::= frame "(" K "," Bag ")"
     syntax K ::= "bind" "(" List{K} "," List{K} ")"
     
     
@@ -315,10 +315,10 @@ module LLVM-CALL-RET is
         when isKResult(L)
     
     rule
-        <k> Call(_, Callee(FunName:Id, listK(Args:List{K})))
+        <k> Call(_, Callee(FunName:Id, listK(Args:List{K}))) ~> Tail:K
             => bind(Args, Formals)
             ~> Body
-        ...</k>
+        </k>
         (<control>
             C:Bag
             <currModule> Name:Id </currModule>
@@ -328,7 +328,7 @@ module LLVM-CALL-RET is
             <currModule> Name </currModule>
             <currFunction> FunName:Id </currFunction>
         ...</control>)
-        <callStack> . => frame(C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>) ...</callStack>
+        <callStack> . => frame(Tail, (C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>)) ...</callStack>
         <moduleName> Name </moduleName>
         <functionName> FunName </functionName>
         <formalParameters> Arguments(Formals:List{K}) </formalParameters>
@@ -360,11 +360,19 @@ module LLVM-CALL-RET is
     // rule
         // <k> bindVariadic'(.List{K}, _) => . ...</k>
 
+    // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
+    syntax K ::= clearVoid
+    
     rule
-        <k> Ret(V:KResult) => V ...</k>
-        <callStack> frame(C:Bag) => . ...</callStack>
+        <k> Ret(V:KResult) ~> _ => V ~> clearVoid ~> Tail </k>
+        <callStack> frame(Tail:K, C:Bag) => . ...</callStack>
         <control> _ => C </control>
 
+    rule
+        <k> VoidValue ~> clearVoid => . ...</k>
+    rule
+        <k> V:KResult ~> clearVoid => V ...</k>
+        when V =/=Bool VoidValue
 end module
 
 module LLVM-ARITHMETIC is

@@ -84,7 +84,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
     syntax LLVM ::= `Width "(" #Nat ")"
     syntax LLVM ::= `Null
-    syntax LLVM ::= `VoidValue // for returning from void functions
+    syntax LLVMValue ::= `VoidValue // for returning from void functions
     
     syntax LLVM ::= `Vararg
 

@@ -83,12 +83,14 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
     syntax LLVM ::= `Width "(" #Nat ")"
     syntax LLVM ::= `Null
-
+    syntax LLVM ::= `VoidValue // for returning from void functions
+    
     syntax LLVM ::= `Vararg
 
     syntax LLVM ::= `NoSignedWrap
     syntax LLVM ::= `NoUnsignedWrap
 
+    syntax LLVM ::= `Edge "(" K "," K ")" // used by PHI
     
     syntax LLVM ::= `Predicate "(" K ")"
 
@@ -128,6 +130,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `BitCast "(" K "," K ")"
     
     //@ Other Operations
+    syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list
     syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Kind, Type, Left op, Right op  
     syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
 

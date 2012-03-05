@@ -82,7 +82,8 @@ class AsmXMLWriter {
   void visit(const Argument &);
   void visit(const Instruction & I);
 
-  void visitRet(const ReturnInst &I) { visitInstruction(I); }
+  void visitRet(const ReturnInst &I); // { visitInstruction(I); }
+  // void visitRet(const ReturnInst &I) { visitInstruction(I); }
   void visitBr(const BranchInst &);
   void visitSwitch(const SwitchInst &);
   void visitIndirectBr(const IndirectBrInst &) { assert (0 && "Unimplemented"); }
@@ -414,7 +415,8 @@ void AsmXMLWriter::visitCall(const CallInst & CI) {
 
 void AsmXMLWriter::writeOperand(const Value *Operand, bool PrintType) {
   if (Operand == 0) {
-    Out << "<null operand!>";
+    Out << "<Type><VoidType/></Type>";
+    Out << "<VoidValue/>";
     return;
   }
   if (PrintType) {
@@ -444,6 +446,16 @@ void AsmXMLWriter::visitStore(const StoreInst& SI) {
   TypePrinter.print(SI.getValueOperand()->getType(), Out);
   Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
+}
+
+void AsmXMLWriter::visitRet(const ReturnInst &I) {
+  // Out << "<Type>";
+  // TypePrinter.print(SI.getPointerOperand()->getType(), Out);
+  // Out << "</Type>\n";
+  // printOperandList(SI.op_begin(), SI.op_end());
+  Out << "<Operand>";
+  writeOperand(I.getReturnValue(), true);
+  Out << "</Operand>";
 }
 
 void AsmXMLWriter::visitLoad(const LoadInst& SI) {
@@ -485,12 +497,14 @@ void AsmXMLWriter::visitCmpInst(const CmpInst & CI) {
 void AsmXMLWriter::visitPHI(const PHINode & PN) {
   TypePrinter.print(PN.getType(), Out);
 
+  Out << "<List>";
   for (unsigned op = 0, Eop = PN.getNumIncomingValues(); op < Eop; ++op) {
     Out << "<Edge>";
     writeOperand(PN.getIncomingValue(op), false);
     writeOperand(PN.getIncomingBlock(op), false);
     Out << "</Edge>\n";
   }
+  Out << "</List>";
 }
 
 void AsmXMLWriter::visitSwitch(const SwitchInst & SI) {

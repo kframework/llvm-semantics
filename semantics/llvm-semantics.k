@@ -160,6 +160,18 @@ module LLVM-MISC is
 
 end module
 
+module LLVM-GLOBALS is
+    including LLVM-INCLUDE
+    
+    // TODO might need a new globalRegisters, and GId vs LId
+    
+    // TODO no need to do anything since not yet checking whether variables exist before using them
+    // rule
+        // <k> GlobalVariable(X:Id, _, _, .List{K}) => . ...</k>
+    // rule
+        // <k> GlobalVariable(X:Id, _, _, K:K) => Assign(X:Id, K:K) ...</k> 
+end module
+
 module LLVM-REGISTERS is
     including LLVM-INCLUDE
 
@@ -723,6 +735,7 @@ module LLVM-SEMANTICS is
 
     including LLVM-CLEAN-TREE
     including LLVM-MISC
+    including LLVM-GLOBALS
     including LLVM-BRANCHING
     including LLVM-REGISTERS
     including LLVM-START-AND-STOP

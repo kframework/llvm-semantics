@@ -283,11 +283,12 @@ void AsmXMLWriter::visit(const GlobalVariable & GV) {
   TypePrinter.print(GV.getType(), Out);
   Out << "</Type>\n";
 
+  
+  Out << "<List>";
   if (GV.hasInitializer()) {
-    Out << "<Initializer>";
-    writeOperand(GV.getInitializer(), false);
-    Out << "</Initializer>\n";
+    writeOperand(GV.getInitializer(), true);
   }
+  Out << "</List>\n";
 
   Out << "</GlobalVariable>\n";
 }

@@ -682,10 +682,20 @@ module LLVM-CONVERSIONS is
     // TODO only handling positives
     rule
         <k> ZExt(_, N:#Nat) => N:#Nat ...</k>
+    
+    // TODO only handling scalars
+    // TODO only handling positives
+    rule
+        <k> SExt(_, N:#Nat) => N:#Nat ...</k>
         
     // TODO need to normalize here
     rule
         <k> BitCast(_, I:#Int) => I:#Int ...</k>
+        
+    syntax #Nat ::= intToPtr "(" K "," K ")"
+    // TODO need to normalize here
+    rule
+        <k> IntToPtr(Type:KResult, I:#Int) => intToPtr(Type, I) ...</k>
 end module
 
 module LLVM-STANDARD-LIBRARY is

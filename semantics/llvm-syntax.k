@@ -126,8 +126,11 @@ module LLVM-SYNTAX is
 
     //@ Conversion Operations
     syntax LLVM ::= `Trunc "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `SExt "(" K "," K ")" [strict] // type, op
     syntax LLVM ::= `ZExt "(" K "," K ")" [strict] // type, op
     syntax LLVM ::= `BitCast "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `IntToPtr "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `PtrToInt "(" K "," K ")" [strict] // type, op
     
     //@ Other Operations
     syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list

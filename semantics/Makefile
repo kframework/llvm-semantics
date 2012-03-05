@@ -12,6 +12,9 @@ xml:
 kast:
 	cat $(CURRTEST) | ../dist/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/xmlToK.pl
 
+ll:
+	cat $(CURRTEST)
+
 clean:
 	rm -f llvm-compiled.maude
 

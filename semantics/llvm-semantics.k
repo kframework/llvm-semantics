@@ -13,6 +13,8 @@ module LLVM-CONFIGURATION is
             <k> $PGM:K ~> callMain </k>
             <callStack> .List </callStack>
             <control>
+                <currBlock> Name("Initial") </currBlock>
+                <prevBlock> Name("Initial") </prevBlock>
                 <currModule> Name("Initial") </currModule>
                 <currFunction> Name("Initial") </currFunction>
                 <registers> .Map </registers>
@@ -162,6 +164,13 @@ module LLVM-MISC is
         <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>
 
+    rule
+        <k> PHI(_, (Edge(K:K, Name:Id),, _:List{K})) => K:K ...</k>
+        <prevBlock> Name </prevBlock>
+    rule
+        <k> PHI(_, ((Edge(K:K, Name:Id) => .List{K}),, _:List{K})) ...</k>
+        <prevBlock> Name':Id </prevBlock>
+        when Name =/=Bool Name'
 end module
 
 module LLVM-GLOBALS is
@@ -298,12 +307,17 @@ module LLVM-DECLARATIONS is
         <functionName> FunName:Id </functionName>
         <initialBasicBlock> .K => Name:Id </initialBasicBlock>
 
+    syntax K ::= setBlock "(" K ")"
     rule
         <k> BasicBlock(Name:Id, K:K) => . ...</k>
         <currFunction> FunName:Id </currFunction>
         <functionName> FunName:Id </functionName>
-        <basicBlocks>... . => Name:Id |-> K:K ...</basicBlocks>
+        <basicBlocks>... . => Name:Id |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
 
+    rule
+        <k> setBlock(Name:Id) => . ...</k>
+        <currBlock> Name':Id => Name </currBlock>
+        <prevBlock> _ => Name' </prevBlock>
 
 end module
 

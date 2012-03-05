@@ -10,6 +10,7 @@
 #include "llvm-xml-ir/TypePrinting.h"
 #include "llvm-xml-ir/SlotTracker.h"
 #include "llvm-xml-ir/RawWriter.h"
+#include "llvm-xml-ir/AsmXMLWriter.h"
 
 #include <llvm/Constants.h>
 #include <llvm/DerivedTypes.h>
@@ -292,40 +293,43 @@ void WriteConstantInternal(XMLIROStream &Out, const Constant *CV,
     assert (0 && "Not yet handling ConstantExpr-essions");
     Out << "<ConstantExpr>";
     // David TODO: this doesn't seem very nice:
-    Out << "<Opcode>";
-    RawWriter::write(CE->getOpcodeName(), Out);
-    Out << "</Opcode>";
+    
+    // Use *Ops
+    // AsmXMLWriter::visit(Instruction (CE->getType(), CE->getOpcode(), NULL, CE->NumOperands));
+    // Out << "<Opcode>";
+    // RawWriter::write(CE->getOpcodeName(), Out);
+    // Out << "</Opcode>";
 
-#if 0
-    WriteOptimizationInfo(Out, CE);
-#endif
-    if (CE->isCompare()) {
-      Out << "<Predicate>";
-      RawWriter::write(getPredicateText(CE->getPredicate()), Out);
-      Out << "</Predicate>";
-    }
+// #if 0
+    // WriteOptimizationInfo(Out, CE);
+// #endif
+    // if (CE->isCompare()) {
+      // Out << "<Predicate>";
+      // RawWriter::write(getPredicateText(CE->getPredicate()), Out);
+      // Out << "</Predicate>";
+    // }
 
-    for (User::const_op_iterator OI=CE->op_begin(); OI != CE->op_end(); ++OI) {
-      Out << "<Operand>";
-      Out << "<Type>";
-      TypePrinter.print((*OI)->getType(), Out);
-      Out << "</Type>";
-      WriteAsOperandInternal(Out, *OI, &TypePrinter, Machine, Context);
-      Out << "</Operand>\n";
-    }
+    // for (User::const_op_iterator OI=CE->op_begin(); OI != CE->op_end(); ++OI) {
+      // Out << "<Operand>";
+      // Out << "<Type>";
+      // TypePrinter.print((*OI)->getType(), Out);
+      // Out << "</Type>";
+      // WriteAsOperandInternal(Out, *OI, &TypePrinter, Machine, Context);
+      // Out << "</Operand>\n";
+    // }
 
-    if (CE->hasIndices()) {
-      ArrayRef<unsigned> Indices = CE->getIndices();
-      for (unsigned i = 0, e = Indices.size(); i != e; ++i) {
-        Out << "<Index>" << Indices[i] << "</Index>\n";
-      }
-    }
+    // if (CE->hasIndices()) {
+      // ArrayRef<unsigned> Indices = CE->getIndices();
+      // for (unsigned i = 0, e = Indices.size(); i != e; ++i) {
+        // Out << "<Index>" << Indices[i] << "</Index>\n";
+      // }
+    // }
 
-    if (CE->isCast()) {
-      Out << "<Type>";
-      TypePrinter.print(CE->getType(), Out);
-      Out << "</Type>\n";
-    }
+    // if (CE->isCast()) {
+      // Out << "<Type>";
+      // TypePrinter.print(CE->getType(), Out);
+      // Out << "</Type>\n";
+    // }
 
     Out << "</ConstantExpr>";
     return;

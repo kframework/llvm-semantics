@@ -77,6 +77,12 @@ module LLVM-HELPERS is
     syntax #Nat ::= sizeofInBits K  // TODO [function]
     // TODO [function]
     
+    
+    syntax #Bool ::= isIntegerType "(" K ")" // predicate
+    rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
+    syntax #Bool ::= isPointerType "(" K ")" // predicate
+    rule isPointerType(Type(PointerType(_))) => true  [anywhere]
+    
     // fixme size should depend on architecture
     rule sizeofInBits(Type(PointerType(_))) => numBytesPerPointer *Nat numBitsPerByte
         [anywhere]
@@ -128,11 +134,19 @@ module LLVM-CLEAN-TREE is
     rule Value(K:K) => K                              [anywhere]
     rule Br(K:K) => K:K                               [anywhere]
 
-    rule ICmp(Predicate("ne"), K1:K, K2:K) => INotEq(K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate(Str:#String), K1:K, K2:K) => IEq(K1:K, K2:K) 
+    rule ICmp(Predicate("ne"), TyK:K, K1:K, K2:K) => INotEq(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate(Str:#String), TyK:K, K1:K, K2:K) => IEq(TyK:K, K1:K, K2:K) 
         when Str ==Bool "e" +String "q" // TODO avoiding bug in kompile
         [anywhere]
-
+    rule ICmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("ule"), TyK:K, K1:K, K2:K) => ULE(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("sgt"), TyK:K, K1:K, K2:K) => SGT(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("sge"), TyK:K, K1:K, K2:K) => SGE(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K) [anywhere] 
+    
     rule RetType(K:K) => K [anywhere]
 end module
 
@@ -455,11 +469,6 @@ module LLVM-MEMORY is
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitPointerBytes' "(" K "," K "," K "," List{K} ")" // value, numbytes, whichByte, accumulator
 
-    syntax #Bool ::= isIntegerType "(" K ")" // predicate
-    rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
-    syntax #Bool ::= isPointerType "(" K ")" // predicate
-    rule isPointerType(Type(PointerType(_))) => true  [anywhere]
-
     rule
         <k> write(Type:KResult, V:KResult, Loc:#Nat)
             => writeBytes(splitBytes(V, Type), Loc)
@@ -610,13 +619,54 @@ module LLVM-COMPARISONS is
 
     // TODO FIXME these are wrong unless we apply a modulus or keep canonical
     // TODO reduce these to within bounds
-    rule INotEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)  [anywhere]
-    rule IEq(I1:#Int, I2:#Int) => boolToInt(I1:#Int ==Bool I2:#Int)  [anywhere]
+    rule INotEq(_, I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)  [anywhere]
+    rule IEq(_, I1:#Int, I2:#Int) => boolToInt(I1:#Int ==Bool I2:#Int)  [anywhere]
+    
+    rule SGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))  [anywhere]
+    
+    // should be a K, but builtins can't use K :(
+    syntax #Int ::= signed "(" K "," K ")" // type, value
+    // syntax #Nat ::= canonicalize "(" K "," K ")" // type, value
+    
+    // TODO min and max should probably be functions taking a type
+    // TODO only handling case where I is already in range
+    rule
+        signed(Type:KResult, I:#Int) => I
+        when MIN <=Int I andBool MAX >=Int I
+        where MAX = (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
+        and MIN = -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
+        [anywhere]
+    // rule
+        // signed(Type:KResult, I:#Int) => 
+        // where SIGNEDBASE = 2 ^Int (sizeofInBits(Type) -Int 1)
+        // [anywhere]
+    // rule canonicalize(Type:KResult, I:#Int) => ((I:#Int %Int BASE) +Int BASE) %Int BASE
+        // when isIntegerType(Type)
+        // where BASE = (2 ^Int sizeofInBits(Type))
+        
+        // [anywhere]
 
     syntax #Int ::= boolToInt "(" K ")"
     rule boolToInt(true) => 1   [anywhere]
     rule boolToInt(false) => 0  [anywhere]
 
+end module
+
+module LLVM-CONVERSIONS is
+    including LLVM-INCLUDE
+    
+    // TODO only handling scalars
+    // TODO only handling positives
+    rule
+        <k> Trunc(Type:KResult, N:#Nat) => N:#Nat %Int BASE ...</k>
+        when isIntegerType(Type)
+        where BASE = (2 ^Int (numBitsPerByte *Int sizeof(Type)))
+
+    
+    // TODO only handling scalars
+    // TODO only handling positives
+    rule
+        <k> ZExt(_, N:#Nat) => N:#Nat ...</k>
 end module
 
 module LLVM-STANDARD-LIBRARY is
@@ -653,5 +703,6 @@ module LLVM-SEMANTICS is
     including LLVM-GEP
     including LLVM-MEMORY
     including LLVM-COMPARISONS
+    including LLVM-CONVERSIONS
     including LLVM-STANDARD-LIBRARY
 end module

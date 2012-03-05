@@ -92,8 +92,16 @@ module LLVM-SYNTAX is
     
     syntax LLVM ::= `Predicate "(" K ")"
 
-    syntax LLVM ::= `INotEq "(" K "," K ")" [strict]
-    syntax LLVM ::= `IEq "(" K "," K ")" [strict]
+    syntax LLVM ::= `INotEq "(" K "," K "," K ")" [strict] // type, left op, right op
+    syntax LLVM ::= `IEq "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `UGT "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `UGE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `ULT "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `ULE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `SGT "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `SGE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `SLT "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `SLE "(" K "," K "," K ")" [strict]
     
     //@ Terminator Instructions
     syntax LLVM ::= `Ret "(" K ")" [strict]
@@ -115,12 +123,12 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Xor "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
 
     //@ Conversion Operations
-    syntax LLVM ::= `Trunc "(" K "," K ")" [strict(1)] // op, type
-    syntax LLVM ::= `ZExt "(" K "," K ")" [strict(1)] // op, type
-    syntax LLVM ::= `BitCast "(" K "," K ")" [strict(1)] // op, type
+    syntax LLVM ::= `Trunc "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `ZExt "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `BitCast "(" K "," K ")"
     
     //@ Other Operations
-    syntax LLVM ::= `ICmp "(" K "," K "," K ")" // Type, Left op, Right op  
+    syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Kind, Type, Left op, Right op  
     syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
 
 end module

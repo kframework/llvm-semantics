@@ -476,6 +476,9 @@ void AsmXMLWriter::visitCmpInst(const CmpInst & CI) {
   Out << "<Predicate>" ;
   RawWriter::write(getPredicateText(CI.getPredicate()), Out);
   Out << "</Predicate>";
+  Out << "<Type>";
+  TypePrinter.print(CI.getOperand(0)->getType(), Out);
+  Out << "</Type>\n";
   printOperandList(CI.op_begin(), CI.op_end());
 }
 

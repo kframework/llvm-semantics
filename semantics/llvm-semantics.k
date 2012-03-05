@@ -332,6 +332,21 @@ module LLVM-CALL-RET is
         ...</k>
     rule
         <k> bind(.List{K}, .List{K}) => . ...</k>
+    rule
+        <k> bind(Args:List{K}, Vararg) => bindVariadic(Args) ...</k>
+    
+    syntax K ::= bindVariadic "(" List{K} ")"
+    syntax K ::= bindVariadic' "(" List{K} "," K ")"
+    syntax Id ::= variadic "(" K ")"
+    rule
+        <k> bindVariadic(Args:List{K}) => bindVariadic'(Args, 0) ...</k>
+    rule
+        <k> bindVariadic'((Arg:K,, Args:List{K}), N:#Nat)
+            => Assign(variadic(N), Arg)
+            ~> bindVariadic'(Args:List{K}, sNat(N))
+        ...</k>
+    rule
+        <k> bindVariadic'(.List{K}, _) => . ...</k>
 
     rule
         <k> Ret(V:KResult) => V ...</k>
@@ -667,6 +682,10 @@ module LLVM-CONVERSIONS is
     // TODO only handling positives
     rule
         <k> ZExt(_, N:#Nat) => N:#Nat ...</k>
+        
+    // TODO need to normalize here
+    rule
+        <k> BitCast(_, I:#Int) => I:#Int ...</k>
 end module
 
 module LLVM-STANDARD-LIBRARY is

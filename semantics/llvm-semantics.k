@@ -70,12 +70,15 @@ module LLVM-HELPERS is
 
     syntax #Nat ::= numBitsPerByte
     macro numBitsPerByte = 8
+    
+    syntax #Nat ::= numBytesPerPointer
+    macro numBytesPerPointer = 4
 
     syntax #Nat ::= sizeofInBits K  // TODO [function]
     // TODO [function]
     
     // fixme size should depend on architecture
-    rule sizeofInBits(Type(PointerType(_))) => 4 *Nat numBitsPerByte
+    rule sizeofInBits(Type(PointerType(_))) => numBytesPerPointer *Nat numBitsPerByte
         [anywhere]
     rule sizeofInBits(Type(ArrayType(Type:KResult, Len:#Nat))) => sizeofInBits(Type(Type)) *Nat Len
         [anywhere]
@@ -526,6 +529,28 @@ module LLVM-MEMORY is
         splitPointerBytes'(V:KResult, 0, _, L:List{K})
             => listK(L)
         [anywhere]
+    
+    // crazy stuff to reassemble pointer
+    syntax #Nat ::= ptrBytes "(" K "," K "," K ")"
+    rule 
+        0 |Nat ptrByte(V:KResult, N:#Nat)
+            => ptrByte(V:KResult, N:#Nat)
+        [anywhere]
+    rule
+        (ptrByte(V:KResult, sNat(N:#Nat)) <<Nat Len:#Nat) |Nat ptrByte(V:KResult, N:#Nat)
+            => ptrBytes(V:KResult, N:#Nat, sNat(N:#Nat))
+        when Len ==Bool numBitsPerByte
+        [anywhere]
+    rule
+        (ptrBytes(V:KResult, sNat(N:#Nat), N':#Nat) <<Nat Len:#Nat) |Nat ptrByte(V:KResult, N:#Nat)
+            => ptrBytes(V:KResult, N:#Nat, N':#Nat)
+        [anywhere]
+    rule
+        ptrBytes(V:KResult, 0, N:#Nat)
+            => V
+        where N ==Bool (numBytesPerPointer -Int 1)
+        [anywhere]
+        
 
     rule
         <k> Load(Type:KResult, Loc:#Nat)

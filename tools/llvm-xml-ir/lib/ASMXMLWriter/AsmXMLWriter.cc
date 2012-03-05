@@ -235,10 +235,9 @@ void AsmXMLWriter::visit(const Function & F) {
 
   FunctionType *FT = F.getFunctionType();
   Out << "<Arguments><List>\n";
+  visit(F.arg_begin(), F.arg_end());
   if (FT->isVarArg())
     Out << "<Vararg/>\n";
-
-  visit(F.arg_begin(), F.arg_end());
   Out << "</List></Arguments>\n";
 
   if (!F.isDeclaration()) {

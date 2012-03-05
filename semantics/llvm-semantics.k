@@ -5,7 +5,7 @@ module LLVM-CONFIGURATION is
 
 
     syntax K ::= callMain // TODO [semantic]
-    syntax #Nat ::= sym "(" #Nat ")"    // TODO [semantic]
+    syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
 
     configuration
@@ -154,6 +154,10 @@ end module
 module LLVM-MISC is
     including LLVM-INCLUDE
 
+    // TODO many possible errors will slip by with this, but lots of stuff will work
+    rule
+        <k> Null => sym(-1) +Nat 0 ...</k>
+    
     rule
         <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>

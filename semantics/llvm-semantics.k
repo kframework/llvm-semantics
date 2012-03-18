@@ -78,8 +78,27 @@ module LLVM-HELPERS is
 
     syntax #Nat ::= sizeofInBits K  // TODO [function]
     // TODO [function]
+
+    // these give the two's complement signed max and min of a type
+    declare smax_ : K -> #Nat
+    declare smin_ : K -> #Int
+    define smax Type:KResult => (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
+    define smin Type:KResult => -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
+
+    // should be a K, but builtins can't use K :(
+    syntax #Int ::= signed "(" K "," K ")" // type, value
+    // syntax #Nat ::= canonicalize "(" K "," K ")" // type, value
     
-    
+    // TODO only handling case where I is already in range
+    rule
+        signed(Type:KResult, I:#Int) => I
+        when smin(Type) <=Int I andBool smax(Type) >=Int I
+        [anywhere]
+    // rule
+        // signed(Type:KResult, I:#Int) => 
+        // where SIGNEDBASE = 2 ^Int (sizeofInBits(Type) -Int 1)
+        // [anywhere]
+
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
     rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
     syntax #Bool ::= isPointerType "(" K ")" // predicate
@@ -419,8 +438,13 @@ module LLVM-ARITHMETIC is
             => interpretInt(I <<Int Len, Type)
         ...</k>
     rule // LShr can only shift in zeroes, so assume nat for now
+    // can probably do like ashr below, but used unsigned()
         <k> LShr(Type:KResult, N:#Nat, Len:#Nat)
             => interpretInt(N >>Int Len, Type)
+        ...</k>
+    rule 
+        <k> AShr(Type:KResult, I:#Int, Len:#Nat)
+            => interpretInt(signed(Type, I:#Int) >>Int Len, Type)
         ...</k>
     rule
         <k> Or(Type:KResult, I1:#Int, I2:#Int)
@@ -680,22 +704,6 @@ module LLVM-COMPARISONS is
     rule SLT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) <Int signed(Type, I2:#Int))  [anywhere]
     rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))  [anywhere]
     
-    // should be a K, but builtins can't use K :(
-    syntax #Int ::= signed "(" K "," K ")" // type, value
-    // syntax #Nat ::= canonicalize "(" K "," K ")" // type, value
-    
-    // TODO min and max should probably be functions taking a type
-    // TODO only handling case where I is already in range
-    rule
-        signed(Type:KResult, I:#Int) => I
-        when MIN <=Int I andBool MAX >=Int I
-        where MAX = (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
-        and MIN = -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
-        [anywhere]
-    // rule
-        // signed(Type:KResult, I:#Int) => 
-        // where SIGNEDBASE = 2 ^Int (sizeofInBits(Type) -Int 1)
-        // [anywhere]
     // rule canonicalize(Type:KResult, I:#Int) => ((I:#Int %Int BASE) +Int BASE) %Int BASE
         // when isIntegerType(Type)
         // where BASE = (2 ^Int sizeofInBits(Type))
@@ -725,9 +733,8 @@ module LLVM-CONVERSIONS is
         <k> ZExt(_, N:#Nat) => N:#Nat ...</k>
     
     // TODO only handling scalars
-    // TODO only handling positives
     rule
-        <k> SExt(_, N:#Nat) => N:#Nat ...</k>
+        <k> SExt(Type:KResult, I:#Int) => signed(Type, I) ...</k>
         
     // TODO need to normalize here
     rule

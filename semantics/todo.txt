@@ -1,0 +1,2 @@
+global variables (needs global register cell, perhaps different looks)
+

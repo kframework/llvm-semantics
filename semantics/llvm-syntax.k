@@ -38,6 +38,9 @@ module LLVM-SYNTAX is
     
     syntax LLVM ::= `ConstantArray "(" K "," K ")" // element type, arguments
     
+    syntax LLVM ::= `Switch "(" K "," K "," K ")" // condition, default dest, list of cases
+    syntax LLVM ::= `Case "(" K "," K ")" // value, successor
+    
     
     syntax LLVM ::= `Types "(" List{K} ")"
     context Types((_:List{K},,HOLE,,_:List{K}))

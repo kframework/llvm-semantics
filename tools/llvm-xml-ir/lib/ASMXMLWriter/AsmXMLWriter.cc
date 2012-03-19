@@ -472,23 +472,33 @@ void AsmXMLWriter::visitPHI(const PHINode &PN) {
 
 void AsmXMLWriter::visitSwitch(const SwitchInst &SI) {
   // Special case switch instruction to get formatting nice and correct.
-  Out << "<Condition>";
+  //Out << "<Condition>";
+  Out << "<Operand>";
   printOperand(SI.getCondition(), true);
-  Out << "</Condition>\n";
-  Out << "<DefaultDest>";
+  Out << "</Operand>\n";
+  //Out << "</Condition>\n";
+  //Out << "<DefaultDest>";
+  Out << "<Operand>";
   printOperand(SI.getDefaultDest(), true);
-  Out << "</DefaultDest>\n";
+  Out << "</Operand>\n";
+  //Out << "</DefaultDest>\n";
+  Out << "<Arguments><List>\n";
   unsigned NumCases = SI.getNumCases();
   for (unsigned i = 1; i < NumCases; ++i) {
     Out << "<Case>";
-    Out << "<Value>";
+    // Out << "<Value>";
+    Out << "<Operand>";
     printOperand(SI.getCaseValue(i), true);
-    Out << "</Value>\n";
-    Out << "<Successor>";
+    Out << "</Operand>\n";
+    // Out << "</Value>\n";
+    // Out << "<Successor>";
+    Out << "<Operand>";
     printOperand(SI.getSuccessor(i), true);
-    Out << "</Successor>\n";
+    Out << "</Operand>\n";
+    // Out << "</Successor>\n";
     Out << "</Case>\n";
   }
+  Out << "</List></Arguments>\n";
 }
 
 void AsmXMLWriter::printOperator(const Operator &I) {

@@ -328,9 +328,7 @@ void AsmXMLWriter::visit(const GlobalVariable &GV) {
 
   Out << "</List></Modifiers>\n";
 
-  // Out << "<Type>";
   printType(GV.getType());
-  // Out << "</Type>\n";
 
   Out << "<Initializer>";
   if (GV.hasInitializer()) {
@@ -343,9 +341,7 @@ void AsmXMLWriter::visit(const GlobalVariable &GV) {
 
 void AsmXMLWriter::visit(const Argument &Arg) {
   Out << "<Arg>";
-  // Out << "<Type>";
   printType(Arg.getType());
-  // Out << "</Type>\n";
 
   // Output name, if available...
   if (!Arg.getParent()->isDeclaration() && Arg.hasName()) {
@@ -404,18 +400,14 @@ void AsmXMLWriter::visitBr(const BranchInst &BI) {
 }
 
 void AsmXMLWriter::visitAlloca(const AllocaInst &AI) {
-  // Out << "<Type>";
   printType(AI.getType()->getElementType());
-  // Out << "</Type>\n";
   Out << "<Operand>";
   printOperand(AI.getArraySize(), true);
   Out << "</Operand>";
 }
 
 void AsmXMLWriter::visitCall(const CallInst &CI) {
-  // Out << "<Type>";
   printType(CI.getType());
-  // Out << "</Type>\n";
 
   Out << "<Callee>";
   printValue(CI.getCalledValue(), CI.getParent()->getParent()->getParent());
@@ -427,23 +419,17 @@ void AsmXMLWriter::visitCall(const CallInst &CI) {
 }
 
 void AsmXMLWriter::visitStore(const StoreInst &SI) {
-  // Out << "<Type>";
   printType(SI.getValueOperand()->getType());
-  // Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
 }
 
 void AsmXMLWriter::visitLoad(const LoadInst &LI) {
-  // Out << "<Type>";
   printType(LI.getPointerOperand()->getType());
-  // Out << "</Type>\n";
   printOperandList(LI.op_begin(), LI.op_end());
 }
 
 void AsmXMLWriter::visitRet(const ReturnInst &I) {
-  // Out << "<Type>";
   // TypePrinter.print(SI.getPointerOperand()->getType(), Out);
-  // Out << "</Type>\n";
   // printOperandList(SI.op_begin(), SI.op_end());
   Out << "<Operand>";
   printOperand(I.getReturnValue(), true);
@@ -451,9 +437,7 @@ void AsmXMLWriter::visitRet(const ReturnInst &I) {
 }
 
 void AsmXMLWriter::visitGetElementPtr(const GEPOperator &I) {
-  // Out << "<Type>";
   printType(I.getPointerOperandType());
-  // Out << "</Type>\n";
   Out << "<Operand>";
   printOperand(I.getPointerOperand(), true);
   Out << "</Operand>\n";
@@ -463,9 +447,7 @@ void AsmXMLWriter::visitGetElementPtr(const GEPOperator &I) {
 }
 
 void AsmXMLWriter::visitPHI(const PHINode &PN) {
-  // Out << "<Type>";
   printType(PN.getType());
-  // Out << "</Type>\n";
 
   Out << "<List>";
   for (unsigned op = 0, Eop = PN.getNumIncomingValues(); op < Eop; ++op) {
@@ -479,9 +461,7 @@ void AsmXMLWriter::visitPHI(const PHINode &PN) {
 
 void AsmXMLWriter::visitSwitch(const SwitchInst &SI) {
   // Special case switch instruction to get formatting nice and correct.
-  // Out << "<Type>";
   printType(SI.getCondition()->getType());
-  // Out << "</Type>\n";
   //Out << "<Condition>";
   Out << "<Operand>";
   printOperand(SI.getCondition(), true);
@@ -530,9 +510,7 @@ void AsmXMLWriter::printOperator(const Operator &I) {
 
 void AsmXMLWriter::printOperatorBody(const Operator &I, bool includeType) {
   if (includeType) {
-    // Out << "<Type>";
     printType(I.getType());
-    // Out << "</Type>\n";
   }
   printOperandList(I.op_begin(), I.op_end());
 }
@@ -547,9 +525,7 @@ void AsmXMLWriter::printCmpBody(const Operator &I) {
   Out << "<Predicate>" ;
   RawWriter::write(getPredicateText(predicate), Out);
   Out << "</Predicate>";
-  // Out << "<Type>";
   printType(I.getOperand(0)->getType());
-  // Out << "</Type>\n";
   printOperandList(I.op_begin(), I.op_end());
 }
 
@@ -561,9 +537,7 @@ void AsmXMLWriter::printOperand(const Value *Operand, bool includeType) {
   }
 
   if (includeType) {
-    // Out << "<Type>";
     printType(Operand->getType());
-    // Out << "</Type>\n";
   }
 
   printValue(Operand, TheModule);
@@ -1131,9 +1105,7 @@ void AsmXMLWriter::printStructBody(StructType *STy) {
 
   Out << "<StructType><Fields><List>\n";
   for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
-    // Out << "<Type>";
     printType(*I);
-    // Out << "</Type>\n";
   }
   Out << "</List></Fields></StructType>";
 }

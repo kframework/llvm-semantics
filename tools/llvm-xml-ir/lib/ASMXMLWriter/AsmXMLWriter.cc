@@ -223,23 +223,30 @@ void AsmXMLWriter::visit(const Module &M) {
 
   Out << "<Module>\n";
 
+  Out << "<ModuleID>";
   if (!M.getModuleIdentifier().empty()) {
-    Out << "<ModuleID>";
     RawWriter::write(M.getModuleIdentifier(), Out);
-    Out << "</ModuleID>\n";
+  } else {
+    RawWriter::write("#NoModuleId", Out);
+    // TODO maybe generate unique id, or something else.  going to be problematic if we have multiple nonamed modules
   }
+  Out << "</ModuleID>\n";
 
+  Out << "<TargetLayout>";
   if (!M.getDataLayout().empty()) {
-    Out << "<TargetLayout>";
     RawWriter::write(M.getDataLayout(), Out);
-    Out << "</TargetLayout>\n";
+  } else {
+    RawWriter::write("", Out);
   }
+  Out << "</TargetLayout>\n";
 
+  Out << "<TargetTriple>";
   if (!M.getTargetTriple().empty()) {
-    Out << "<TargetTriple>";
     RawWriter::write(M.getTargetTriple(), Out);
-    Out << "</TargetTriple>\n";
+  } else {
+    RawWriter::write("", Out);
   }
+  Out << "</TargetTriple>\n";
 
   incorporateTypes(M);
   printTypeIdentities();

@@ -84,20 +84,49 @@ module LLVM-HELPERS is
     declare smin_ : K -> #Int
     define smax Type:KResult => (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
     define smin Type:KResult => -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
-
+    
+    declare umax_ : K -> #Nat
+    declare umin_ : K -> #Nat
+    define umax Type:KResult => (2 ^Int absInt(sizeofInBits(Type))) -Int 1
+    define umin Type:KResult => 0
+    
     // should be a K, but builtins can't use K :(
     syntax #Int ::= signed "(" K "," K ")" // type, value
     // syntax #Nat ::= canonicalize "(" K "," K ")" // type, value
     
-    // TODO only handling case where I is already in range
     rule
         signed(Type:KResult, I:#Int) => I
         when smin(Type) <=Int I andBool smax(Type) >=Int I
         [anywhere]
-    // rule
-        // signed(Type:KResult, I:#Int) => 
-        // where SIGNEDBASE = 2 ^Int (sizeofInBits(Type) -Int 1)
-        // [anywhere]
+    // TODO these could be sped up
+    rule
+        signed(Type:KResult, (I:#Int => I +Int umax(I)))
+        when I <Int smin(Type)
+        [anywhere]
+    rule
+        signed(Type:KResult, (I:#Int => I -Int umax(I)))
+        when I >Int smax(Type)
+        [anywhere]
+        
+    
+    // computes the positive remainder, whereas % can returns a negative number
+    // TODO maybe should go in pl builtins
+    syntax #Nat ::= K "remNat" K
+    rule (I:#Int remNat N:#Nat) => ((I %Int N) +Int N) %Int N [anywhere]
+    
+    syntax #Nat ::= unsigned "(" K "," K ")" // type, value
+    rule
+        unsigned(Type:KResult, N:#Nat) => N
+        when umin(Type) <=Nat N andBool umax(Type) >=Nat N
+        [anywhere]
+    rule
+        unsigned(Type:KResult, I:#Int) => I remNat (umax(Type) +Nat 1)
+        when I <Int umin(Type)
+        [anywhere]
+    rule
+        unsigned(Type:KResult, N:#Nat) => N %Nat (umax(Type) +Nat 1)
+        when N >Nat umax(Type)
+        [anywhere]
 
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
     rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
@@ -256,7 +285,7 @@ module LLVM-START-AND-STOP is
             <k> I:#Int </k>
         ...</T>
         => <result>...
-            <returnValue> ((I %Int 256) +Int 256) %Int 256 </returnValue>
+            <returnValue> I remNat 256 </returnValue>
         </result>
 end module
 
@@ -429,9 +458,12 @@ module LLVM-ARITHMETIC is
         ...</k>
     rule
         <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 /Int I2, Type)
+            => interpretInt(signed(Type, I1) /Int signed(Type, I2), Type)
         ...</k>
-
+    // rule
+        // <k> SRem(Type:KResult, I1:#Int, I2:#Int)
+            // => interpretInt(I1 %Int I2, Type)
+        // ...</k>
         
     rule
         <k> Shl(Type:KResult, I:#Int, Len:#Nat)
@@ -730,7 +762,7 @@ module LLVM-CONVERSIONS is
     // TODO only handling scalars
     // TODO only handling positives
     rule
-        <k> ZExt(_, N:#Nat) => N:#Nat ...</k>
+        <k> ZExt(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
     
     // TODO only handling scalars
     rule

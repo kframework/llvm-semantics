@@ -1054,13 +1054,17 @@ void AsmXMLWriter::printType(Type *Ty) {
       FunctionType *FTy = cast<FunctionType>(Ty);
       Out << "<FunctionType vararg=\""
           << FTy->isVarArg() << "\">";
-      Out << "<RetType>";
+      Out << "<ReturnType>";
       printType(FTy->getReturnType());
-      Out << "</RetType>\n";
-      for (FunctionType::param_iterator I = FTy->param_begin(),
-               E = FTy->param_end(); I != E; ++I) {
+      Out << "</ReturnType>\n";
+      Out << "<Types><List>\n";
+      for (FunctionType::param_iterator I = FTy->param_begin(), E = FTy->param_end(); I != E; ++I) {
         printType(*I);
       }
+      if (FTy->isVarArg()) {
+        Out << "<VarargType/>\n";
+      }
+      Out << "</List></Types>\n";
       Out << "</FunctionType>\n";
       break;
     }

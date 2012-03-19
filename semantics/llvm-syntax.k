@@ -29,9 +29,14 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `PointerType "(" K ")"  [strict hybrid]
     syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid] // inner type, length
     syntax LLVM ::= `StructType "(" K ")" [strict hybrid]
+    syntax LLVM ::= `FunctionType "(" K "," K ")" [strict hybrid] // return type, argument types
+    syntax LLVMValue ::= `VarargType
     syntax LLVMValue ::= `IntegerType "(" K ")"
     syntax LLVM ::= `LabelType
     syntax LLVMValue ::= `VoidType
+    
+    syntax LLVM ::= `Types "(" List{K} ")"
+    context Types((_:List{K},,HOLE,,_:List{K}))
 
     syntax LLVM ::= `Fields "(" List{K} ")"
     context Fields((_:List{K},,HOLE,,_:List{K}))

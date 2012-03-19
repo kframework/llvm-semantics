@@ -326,7 +326,9 @@ module LLVM-DECLARATIONS is
     rule
         <k> Fields(L:List{K}) => listK(L) ...</k>
         when isKResult(L)
-
+    rule <k> Types(L:List{K}) => listK(L) ...</k>
+        when isKResult(L)
+        
     rule
         <k> FUNCTION => Body:K ...</k>
         <currFunction> _ => Name </currFunction>

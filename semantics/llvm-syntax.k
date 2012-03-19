@@ -16,7 +16,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Functions "(" List{K} ")"
 
     syntax LLVM ::= `Typedef "(" K "," K ")"
-    syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," List{K} ")" // Value/Name, Modifiers, Type, Initializer
+    syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
     // TODO maybe some or none type instead of using list
 
     syntax LLVM ::= `Modifiers "(" List{K} ")"
@@ -78,7 +78,7 @@ module LLVM-SYNTAX is
         when 'isKResult(K:K)
 
     syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
-    syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination
+    syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict]  // Type, Value, Destination
     syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]
 
     context GetElementPtr(_, _, (_,,HOLE,,_))

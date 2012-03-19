@@ -2,7 +2,7 @@ module LLVM-CONFIGURATION is
     including LLVM-SYNTAX
 
     syntax KResult ::= #Int
-
+    syntax KResult ::= arrayValue "(" List{K} ")"
 
     syntax K ::= callMain // TODO [semantic]
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
@@ -27,7 +27,7 @@ module LLVM-CONFIGURATION is
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
-                    <globalVariables> .Map </globalVariables>
+                    <globalRegisters> .Map </globalRegisters>
                     <functions>
                         <function multiplicity="*">
                             <functionName> Name("") </functionName>
@@ -137,6 +137,8 @@ module LLVM-HELPERS is
     rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
     syntax #Bool ::= isPointerType "(" K ")" // predicate
     rule isPointerType(Type(PointerType(_))) => true  [anywhere]
+    syntax #Bool ::= isArrayType "(" K ")" // predicate
+    rule isArrayType(Type(ArrayType(_, _))) => true  [anywhere]
     
     // fixme size should depend on architecture
     rule sizeofInBits(Type(PointerType(_))) => numBytesPerPointer *Nat numBitsPerByte
@@ -232,14 +234,20 @@ end module
 
 module LLVM-GLOBALS is
     including LLVM-INCLUDE
+
+    syntax K ::= init "(" K "," K "," K ")" [strict(2)]
     
-    // TODO might need a new globalRegisters, and GId vs LId
-    
-    // TODO no need to do anything since not yet checking whether variables exist before using them
-    // rule
-        // <k> GlobalVariable(X:Id, _, _, .List{K}) => . ...</k>
-    // rule
-        // <k> GlobalVariable(X:Id, _, _, K:K) => Assign(X:Id, K:K) ...</k> 
+    rule
+        <k> GlobalVariable(X:Id, Modifiers(L:List{K}), Type(PointerType(Type:KResult)), Init:K)
+            => init(X, Alloca(Type, 1), Init:K)
+        ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+        
+    rule
+        <k> init(X:Id, Loc:#Nat, Initializer(TK:K, K:K))
+            => Store(TK:K, K:K, Loc)
+        ...</k>
+        <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
 end module
 
 module LLVM-REGISTERS is
@@ -250,8 +258,16 @@ module LLVM-REGISTERS is
         <registers> M:Map => M[V / X] </registers>
 
     rule [lookup-register]:
-        <k> X:Id => V ...</k>
+        <k> X => V ...</k>
         <registers>... X |-> V:KResult ...</registers>
+        when substrString(S, 0, 1) ==Bool "%"
+        where X = Name(S:#String)
+        
+    rule [lookup-global-register]:
+        <k> X => V ...</k>
+        <globalRegisters>... X |-> V:KResult ...</globalRegisters>
+        when substrString(S, 0, 1) ==Bool "@"
+        where X = Name(S:#String)
 
 end module
 
@@ -603,10 +619,12 @@ module LLVM-MEMORY is
     syntax K ::= write "(" K "," K "," K ")" // type, value, location
     syntax K ::= writeBytes "(" List{K} "," K ")" // list of bytes, location
     syntax K ::= splitBytes "(" K "," K ")" // value, type
+    
     syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitPointerBytes' "(" K "," K "," K "," List{K} ")" // value, numbytes, whichByte, accumulator
+    syntax K ::= splitArrayBytes "(" K "," K ")" // value, numBytes
 
     rule
         <k> write(Type:KResult, V:KResult, Loc:#Nat)
@@ -644,6 +662,12 @@ module LLVM-MEMORY is
             => splitPointerBytes(V, sizeof(Type))
         when isPointerType(Type)
         [anywhere]
+        
+    rule
+        splitBytes(V:KResult, Type:KResult)
+            => splitArrayBytes(V, sizeof(Type))
+        when isArrayType(Type)
+        [anywhere]
 
     rule
         splitIntegerBytes(V:KResult, NumBytes:#Nat)
@@ -676,6 +700,12 @@ module LLVM-MEMORY is
     rule
         splitPointerBytes'(V:KResult, 0, _, L:List{K})
             => listK(L)
+        [anywhere]
+        
+    rule
+        splitArrayBytes(arrayValue(L:List{K}), NumBytes:#Nat)
+            => listK(L)
+        when lengthList{K}(L) ==Bool NumBytes
         [anywhere]
     
     // crazy stuff to reassemble pointer
@@ -812,6 +842,31 @@ module LLVM-CONVERSIONS is
         <k> IntToPtr(Type:KResult, I:#Int) => intToPtr(Type, I) ...</k>
 end module
 
+
+module LLVM-LITERALS is
+    including LLVM-INCLUDE
+    
+    rule
+        <k> ConstantString(S:#String)
+            => arrayValue(StringToList{K}(S))
+        ...</k>
+
+    // declare stringToArray : K -> K
+    // declare stringToArray' : K K -> K
+    
+    // define
+        // stringToArray(S:#String)
+            // => arrayValue( StringToListstringToArray'(S:#String, .List{K})
+    // define
+        // stringToArray'("", L:List{K})
+            // => listK(L)
+    // define
+        // stringToArray'(S:#String, L:List{K})
+            // => stringToArray'(tail(S:#String), (L:List{K},, head(S)))
+        
+    
+end module
+
 module LLVM-STANDARD-LIBRARY is
     including LLVM-INCLUDE
     
@@ -831,7 +886,6 @@ module LLVM-STANDARD-LIBRARY is
     
 end module
 
-
 module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
@@ -848,5 +902,6 @@ module LLVM-SEMANTICS is
     including LLVM-MEMORY
     including LLVM-COMPARISONS
     including LLVM-CONVERSIONS
+    including LLVM-LITERALS
     including LLVM-STANDARD-LIBRARY
 end module

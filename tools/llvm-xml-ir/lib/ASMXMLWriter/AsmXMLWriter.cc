@@ -762,13 +762,14 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
     } else {                // Cannot output in string format...
       Out << "<ConstantArray>";
       Type *ETy = CA->getType()->getElementType();
-      Out << "<ElementType>";
+      // Out << "<ElementType>";
       printType(ETy);
-      Out << "</ElementType>\n";
-
+      // Out << "</ElementType>\n";
+      Out << "<Arguments><List>\n";
       for (unsigned i = 0, e = CA->getNumOperands(); i != e; ++i) {
         printValue(CA->getOperand(i), Context);
       }
+      Out << "</List></Arguments>\n";
       Out << "</ConstantArray>\n";
     }
     return;

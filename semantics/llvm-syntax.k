@@ -35,6 +35,10 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `LabelType
     syntax LLVMValue ::= `VoidType
     
+    
+    syntax LLVM ::= `ConstantArray "(" K "," K ")" // element type, arguments
+    
+    
     syntax LLVM ::= `Types "(" List{K} ")"
     context Types((_:List{K},,HOLE,,_:List{K}))
 

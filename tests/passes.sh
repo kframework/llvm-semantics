@@ -9,6 +9,7 @@ DIR=`dirname $1`
 FILE=`basename $1`
 
 # should test existence of some stuff
+mkdir -p "regression/$DIR/results"
 
 git mv $1 "regression/$DIR/"
 git mv "$DIR/results/$FILE.out" "regression/$DIR/results/$FILE.out"

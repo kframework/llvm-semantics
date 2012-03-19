@@ -756,19 +756,18 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
     return;
   }
 
-#if 0
   if (const BlockAddress *BA = dyn_cast<BlockAddress>(CV)) {
-    Out << "blockaddress(";
-    printValue(Out, BA->getFunction(), &TypePrinter, Machine,
-                           Context);
-    Out << ", ";
-    printValue(Out, BA->getBasicBlock(), &TypePrinter, Machine,
-                           Context);
-    Out << ")";
-    return;
+    assert (0 && "Not handling BlockAddress");
+    
+    // Out << "blockaddress(";
+    // printValue(Out, BA->getFunction(), &TypePrinter, Machine,
+                           // Context);
+    // Out << ", ";
+    // printValue(Out, BA->getBasicBlock(), &TypePrinter, Machine,
+                           // Context);
+    // Out << ")";
+    // return;
   }
-
-#endif
 
   if (const ConstantArray *CA = dyn_cast<ConstantArray>(CV)) {
     // As a special case, print the array as a string if it is an array of
@@ -795,57 +794,60 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
     return;
   }
 
-#if 0
+
   if (const ConstantStruct *CS = dyn_cast<ConstantStruct>(CV)) {
-    if (CS->getType()->isPacked())
-      Out << '<';
-    Out << '{';
-    unsigned N = CS->getNumOperands();
-    if (N) {
-      Out << ' ';
-      TypePrinter.print(CS->getOperand(0)->getType(), Out);
-      Out << ' ';
+    assert (0 && "Not handling ConstantStruct");
+     
+    // if (CS->getType()->isPacked())
+      // Out << '<';
+    // Out << '{';
+    // unsigned N = CS->getNumOperands();
+    // if (N) {
+      // Out << ' ';
+      // TypePrinter.print(CS->getOperand(0)->getType(), Out);
+      // Out << ' ';
 
-      printValue(Out, CS->getOperand(0), &TypePrinter, Machine,
-                             Context);
+      // printValue(Out, CS->getOperand(0), &TypePrinter, Machine,
+                             // Context);
 
-      for (unsigned i = 1; i < N; i++) {
-        Out << ", ";
-        TypePrinter.print(CS->getOperand(i)->getType(), Out);
-        Out << ' ';
+      // for (unsigned i = 1; i < N; i++) {
+        // Out << ", ";
+        // TypePrinter.print(CS->getOperand(i)->getType(), Out);
+        // Out << ' ';
 
-        printValue(Out, CS->getOperand(i), &TypePrinter, Machine,
-                               Context);
-      }
-      Out << ' ';
-    }
+        // printValue(Out, CS->getOperand(i), &TypePrinter, Machine,
+                               // Context);
+      // }
+      // Out << ' ';
+    // }
 
-    Out << '}';
-    if (CS->getType()->isPacked())
-      Out << '>';
-    return;
+    // Out << '}';
+    // if (CS->getType()->isPacked())
+      // Out << '>';
+    // return;
   }
 
   if (const ConstantVector *CP = dyn_cast<ConstantVector>(CV)) {
-    Type *ETy = CP->getType()->getElementType();
-    assert(CP->getNumOperands() > 0 &&
-           "Number of operands for a PackedConst must be > 0");
-    Out << '<';
-    TypePrinter.print(ETy, Out);
-    Out << ' ';
-    printValue(Out, CP->getOperand(0), &TypePrinter, Machine,
-                           Context);
-    for (unsigned i = 1, e = CP->getNumOperands(); i != e; ++i) {
-      Out << ", ";
-      TypePrinter.print(ETy, Out);
-      Out << ' ';
-      printValue(Out, CP->getOperand(i), &TypePrinter, Machine,
-                             Context);
-    }
-    Out << '>';
-    return;
+    assert (0 && "Not handling ConstantVector");
+    
+    // Type *ETy = CP->getType()->getElementType();
+    // assert(CP->getNumOperands() > 0 &&
+           // "Number of operands for a PackedConst must be > 0");
+    // Out << '<';
+    // TypePrinter.print(ETy, Out);
+    // Out << ' ';
+    // printValue(Out, CP->getOperand(0), &TypePrinter, Machine,
+                           // Context);
+    // for (unsigned i = 1, e = CP->getNumOperands(); i != e; ++i) {
+      // Out << ", ";
+      // TypePrinter.print(ETy, Out);
+      // Out << ' ';
+      // printValue(Out, CP->getOperand(i), &TypePrinter, Machine,
+                             // Context);
+    // }
+    // Out << '>';
+    // return;
   }
-#endif
 
   if (isa<ConstantPointerNull>(CV)) {
     Out << "<Null/>";

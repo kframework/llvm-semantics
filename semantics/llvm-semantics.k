@@ -100,11 +100,16 @@ module LLVM-HELPERS is
         [anywhere]
     // TODO these could be sped up
     rule
-        signed(Type:KResult, (I:#Int => I +Int umax(I)))
+        // TODO K not compiling this correctly :(
+        // signed(Type:KResult, (I:#Int => I +Int umax(I)))
+        signed(Type:KResult, I:#Int)
+        => signed(Type:KResult, I +Int umax(Type))
         when I <Int smin(Type)
         [anywhere]
     rule
-        signed(Type:KResult, (I:#Int => I -Int umax(I)))
+        // signed(Type:KResult, (I:#Int => I -Int umax(I)))
+        signed(Type:KResult, I:#Int)
+        => signed(Type:KResult, I -Int umax(Type))
         when I >Int smax(Type)
         [anywhere]
         
@@ -267,6 +272,19 @@ module LLVM-BRANCHING is
         <k> Conditional(0, _, Label:K)
             => Unconditional(Label:K)
         ...</k>
+        
+    rule [switch-default]:
+        <k> Switch(_, I:#Int, Label:K, listK(.List{K}))
+            => Unconditional(Label:K)
+        ...</k>
+    rule [switch-hit]:
+        <k> Switch(Type:KResult, I:#Int, _, listK((Case(I':#Int, Label:K),, L:List{K})))
+            => Unconditional(Label:K)
+        ...</k>
+        when unsigned(Type, I) ==Bool unsigned(Type, I')
+    rule [switch-miss]:
+        <k> Switch(Type:KResult, I:#Int, _, listK(((Case(I':#Int, Label:K) => .List{K}),, L:List{K}))) ...</k>
+        when unsigned(Type, I) =/=Bool unsigned(Type, I')
 
 end module
 

@@ -38,8 +38,10 @@ module LLVM-SYNTAX is
     
     syntax LLVM ::= `ConstantArray "(" K "," K ")" // element type, arguments
     
-    syntax LLVM ::= `Switch "(" K "," K "," K ")" // condition, default dest, list of cases
-    syntax LLVM ::= `Case "(" K "," K ")" // value, successor
+    syntax LLVM ::= `Switch "(" K "," K "," K "," K ")" [strict(1 2 4)] // type, condition, default dest, list of cases
+    syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor
+    define isKResult(Case(K:K, _)) => true
+        when isKResult(K:K)
     
     
     syntax LLVM ::= `Types "(" List{K} ")"

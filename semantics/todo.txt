@@ -1,2 +1,4 @@
 - global variables (needs global register cell, perhaps different looks)
 - varargs (how to pass them, etc)
+- floats
+- structs constants

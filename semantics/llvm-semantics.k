@@ -286,6 +286,10 @@ module LLVM-BRANCHING is
         <k> Switch(Type:KResult, I:#Int, _, listK(((Case(I':#Int, Label:K) => .List{K}),, L:List{K}))) ...</k>
         when unsigned(Type, I) =/=Bool unsigned(Type, I')
 
+    rule [select-false]: Select(0, _, K:K) => K
+    rule [select-true]:  Select(I:#Int, K:K, _) => K
+        when I =/=Bool 0 // TODO normalize numbers?
+
 end module
 
 module LLVM-START-AND-STOP is

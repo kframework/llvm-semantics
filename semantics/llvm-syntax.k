@@ -155,5 +155,6 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list
     syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Kind, Type, Left op, Right op  
     syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
+    syntax LLVM ::= `Select "(" K "," K "," K ")" [strict(1)] // condition, true val, false val
 
 end module

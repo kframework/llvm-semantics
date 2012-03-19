@@ -197,7 +197,7 @@ module LLVM-CLEAN-TREE is
     rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K) [anywhere]
     rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K) [anywhere] 
     
-    rule RetType(K:K) => K [anywhere]
+    rule ReturnType(K:K) => K [anywhere]
 end module
 
 

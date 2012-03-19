@@ -14,8 +14,6 @@
 
 #include "llvm-xml-ir/XMLIROStream.h"
 #include "llvm-xml-ir/SlotTracker.h"
-#include "llvm-xml-ir/TypePrinting.h"
-#include "llvm-xml-ir/OperandWriter.h"
 #include "llvm-xml-ir/AsmXMLWriter.h"
 #include "llvm-xml-ir/RawWriter.h"
 
@@ -26,6 +24,8 @@
 #include <llvm/Support/CFG.h>
 #include <llvm/Support/InstVisitor.h>
 #include <llvm/ADT/StringExtras.h>
+#include <llvm/ADT/SmallString.h>
+#include <sstream>
 
 // things we added
 #include <llvm/Operator.h>
@@ -37,13 +37,10 @@ namespace llvm {
 // types now...
 //
 #define HANDLE_INST(NUM, OPCODE, CLASS)   class CLASS;
-#include "llvm/Instruction.def"
+#include "llvm-xml-ir/Operator.def"
 }
 
 using namespace llvm;
-
-template<class T>
-void printAlignment(XMLIROStream & Out, const T& I);
 
 #if 0
 template <class T>
@@ -61,8 +58,8 @@ struct InstructionTrait<LoadInst> {
 
 class AsmXMLWriter {
  public:
-  void visit(const Module &M);
-  AsmXMLWriter(raw_ostream & o, const Module * M);
+  void visit(const Module &);
+  AsmXMLWriter(raw_ostream &, const Module *);
 
  private:
   // Generic visit method - Allow visitation to all instructions in a range
@@ -72,95 +69,139 @@ class AsmXMLWriter {
       visit(*Start++);
   }
 
-  template <class Iterator>
-  void printOperandList(Iterator Start, Iterator End);
-  void printModifiers(const Instruction &I);
-
-  void visit(const GlobalVariable &GV);
-  void visit(const Function &F);
-  void visit(const BasicBlock & BB);
+  void visit(const GlobalVariable &);
+  void visit(const Function &);
+  void visit(const BasicBlock &);
   void visit(const Argument &);
-  void visit(const Instruction & I);
+  void visit(const Instruction &);
 
-  void visitRet(const ReturnInst &I); // { visitInstruction(I); }
-  // void visitRet(const ReturnInst &I) { visitInstruction(I); }
+  // unimplemented instructions
+  void visitIndirectBr(const IndirectBrInst &)         { assert (0 && "Unimplemented"); }
+  void visitInvoke(const InvokeInst &)                 { assert (0 && "Unimplemented"); }
+  void visitUnwind(const UnwindInst &)                 { assert (0 && "Unimplemented"); }
+  void visitResume(const ResumeInst &)                 { assert (0 && "Unimplemented"); }
+  void visitFence(const FenceInst &)                   { assert (0 && "Unimplemented"); }
+  void visitAtomicCmpXchg(const AtomicCmpXchgInst &)   { assert (0 && "Unimplemented"); }
+  void visitAtomicRMW(const AtomicRMWInst &)           { assert (0 && "Unimplemented"); }
+  void visitExtractElement(const ExtractElementInst &) { assert (0 && "Unimplemented"); }
+  void visitInsertElement(const InsertElementInst &)   { assert (0 && "Unimplemented"); }
+  void visitShuffleVector(const ShuffleVectorInst &)   { assert (0 && "Unimplemented"); }
+  void visitExtractValue(const ExtractValueInst &)     { assert (0 && "Unimplemented"); }
+  void visitInsertValue(const InsertValueInst &)       { assert (0 && "Unimplemented"); }
+  void visitLandingPad(const LandingPadInst &)         { assert (0 && "Unimplemented"); }
+  void visitVAArg(const VAArgInst &)                   { assert (0 && "Unimplemented"); }
+  void visitUserOp1(const Instruction &)               { assert (0 && "Unimplemented"); }
+  void visitUserOp2(const Instruction &)               { assert (0 && "Unimplemented"); }
+
+  // instructions with special cases
+  void visitRet(const ReturnInst &);
   void visitBr(const BranchInst &);
   void visitSwitch(const SwitchInst &);
-  void visitIndirectBr(const IndirectBrInst &) { assert (0 && "Unimplemented"); }
-  void visitInvoke(const InvokeInst &) { assert (0 && "Unimplemented"); }
-  void visitUnwind(const UnwindInst &) { assert (0 && "Unimplemented"); }
-  void visitResume(const ResumeInst &) { assert (0 && "Unimplemented"); }
-  void visitUnreachable(const UnreachableInst &I) { visitInstruction(I); }
-  void visitAdd(const BinaryOperator &I)  { visitBinaryOperator(I); }
-  void visitFAdd(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitSub(const BinaryOperator &I)  { visitBinaryOperator(I); }
-  void visitFSub(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitMul(const BinaryOperator &I)  { visitBinaryOperator(I); }
-  void visitFMul(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitUDiv(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitSDiv(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitFDiv(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitURem(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitSRem(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitFRem(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitShl(const BinaryOperator &I)  { visitBinaryOperator(I); }
-  void visitLShr(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitAShr(const BinaryOperator &I) { visitBinaryOperator(I); }
-  void visitAnd(const BinaryOperator &I)  { visitBinaryOperator(I); }
-  void visitOr(const BinaryOperator &I)   { visitBinaryOperator(I); }
-  void visitXor(const BinaryOperator &I)  { visitBinaryOperator(I); }
   void visitAlloca(const AllocaInst &);
-  void visitLoad(const LoadInst &I);//       { visitInstruction(I); }
-  void visitStore(const StoreInst &I);
-  void visitGetElementPtr(const GetElementPtrInst &I); //{ visitInstruction(I); }
-  void visitFence(const FenceInst &) { assert (0 && "Unimplemented"); }
-  void visitAtomicCmpXchg(const AtomicCmpXchgInst &) { assert (0 && "Unimplemented"); }
-  void visitAtomicRMW(const AtomicRMWInst &) { assert (0 && "Unimplemented"); }
-  void visitTrunc(const TruncInst &I)       { visitCastInst(I); }
-  void visitZExt(const ZExtInst &I)         { visitCastInst(I); }
-  void visitSExt(const SExtInst &I)         { visitCastInst(I); }
-  void visitFPToUI(const FPToUIInst &I)     { visitCastInst(I); }
-  void visitFPToSI(const FPToSIInst &I)     { visitCastInst(I); }
-  void visitUIToFP(const UIToFPInst &I)     { visitCastInst(I); }
-  void visitSIToFP(const SIToFPInst &I)     { visitCastInst(I); }
-  void visitFPTrunc(const FPTruncInst &I)   { visitCastInst(I); }
-  void visitFPExt(const FPExtInst &I)       { visitCastInst(I); }
-  void visitPtrToInt(const PtrToIntInst &I) { visitCastInst(I); }
-  void visitIntToPtr(const IntToPtrInst &I) { visitCastInst(I); }
-  void visitBitCast(const BitCastInst &I)   { visitCastInst(I); }
-  void visitICmp(const ICmpInst &I)          { visitCmpInst(I); }
-  void visitFCmp(const FCmpInst &I)          { visitCmpInst(I); }
+  void visitLoad(const LoadInst &);
+  void visitStore(const StoreInst &);
+  void visitGetElementPtr(const GEPOperator &);
   void visitPHI(const PHINode &);
   void visitCall(const CallInst &);
-  void visitSelect(const SelectInst &I)       { visitInstruction(I); }
-  void visitUserOp1(const Instruction &) {}
-  void visitUserOp2(const Instruction &) {}
-  void visitVAArg(const VAArgInst &) { assert (0 && "Unimplemented"); }
-  void visitExtractElement(const ExtractElementInst &) { assert (0 && "Unimplemented"); }
-  void visitInsertElement(const InsertElementInst &) { assert (0 && "Unimplemented"); }
-  void visitShuffleVector(const ShuffleVectorInst &) { assert (0 && "Unimplemented"); }
-  void visitExtractValue(const ExtractValueInst &);
-  void visitInsertValue(const InsertValueInst &) { assert (0 && "Unimplemented"); }
-  void visitLandingPad(const LandingPadInst &) { assert (0 && "Unimplemented"); }
 
+  // instructions implemented using printOperatorBody
+  void visitAdd      (const Operator &I) { printOperatorBody(I); }
+  void visitFAdd     (const Operator &I) { printOperatorBody(I); }
+  void visitSub      (const Operator &I) { printOperatorBody(I); }
+  void visitFSub     (const Operator &I) { printOperatorBody(I); }
+  void visitMul      (const Operator &I) { printOperatorBody(I); }
+  void visitFMul     (const Operator &I) { printOperatorBody(I); }
+  void visitUDiv     (const Operator &I) { printOperatorBody(I); }
+  void visitSDiv     (const Operator &I) { printOperatorBody(I); }
+  void visitFDiv     (const Operator &I) { printOperatorBody(I); }
+  void visitURem     (const Operator &I) { printOperatorBody(I); }
+  void visitSRem     (const Operator &I) { printOperatorBody(I); }
+  void visitFRem     (const Operator &I) { printOperatorBody(I); }
+  void visitShl      (const Operator &I) { printOperatorBody(I); }
+  void visitLShr     (const Operator &I) { printOperatorBody(I); }
+  void visitAShr     (const Operator &I) { printOperatorBody(I); }
+  void visitAnd      (const Operator &I) { printOperatorBody(I); }
+  void visitOr       (const Operator &I) { printOperatorBody(I); }
+  void visitXor      (const Operator &I) { printOperatorBody(I); }
+  void visitTrunc    (const Operator &I) { printOperatorBody(I); }
+  void visitZExt     (const Operator &I) { printOperatorBody(I); }
+  void visitSExt     (const Operator &I) { printOperatorBody(I); }
+  void visitFPToUI   (const Operator &I) { printOperatorBody(I); }
+  void visitFPToSI   (const Operator &I) { printOperatorBody(I); }
+  void visitUIToFP   (const Operator &I) { printOperatorBody(I); }
+  void visitSIToFP   (const Operator &I) { printOperatorBody(I); }
+  void visitFPTrunc  (const Operator &I) { printOperatorBody(I); }
+  void visitFPExt    (const Operator &I) { printOperatorBody(I); }
+  void visitPtrToInt (const Operator &I) { printOperatorBody(I); }
+  void visitIntToPtr (const Operator &I) { printOperatorBody(I); }
+  void visitBitCast  (const Operator &I) { printOperatorBody(I); }
+
+  // same as above, but don't print the type
+  void visitUnreachable(const Operator &I) { printOperatorBody(I, false); }
+  void visitSelect(const Operator &I)      { printOperatorBody(I, false); }
+
+  // comparisons
+  void visitICmp(const Operator &I) { printCmpBody(I); }
+  void visitFCmp(const Operator &I) { printCmpBody(I); }
+
+
+  // printing methods
+
+  // Print an operator. This method calls the visitOPCODE methods.
+  void printOperator(const Operator &);
+
+  // Print operator bodies
+  void printOperatorBody(const Operator &, bool includeType = true);
+  void printCmpBody(const Operator &);
+
+  void printOperand(const Value *, bool includeType = true);
+  template <class Iterator>
+  void printOperandList(Iterator, Iterator);
+
+  void printModifiers(const Operator &);
   template<class T>
-  void visitInstruction(const T& I);
+  void printAlignment(const T &);
 
-  void visitBinaryOperator(const BinaryOperator &I);
-  void visitCastInst(const CastInst &I);
-  void visitCmpInst(const CmpInst &I);
-  void printInstruction(const Instruction *I);
-  void writeOperand(const Value *Operand, bool PrintType);
+  enum PrefixType {
+    GlobalPrefix,
+    LabelPrefix,
+    LocalPrefix,
+    NoPrefix
+  };
+
+  /// printLLVMName - Turn the specified name into an 'LLVM name', which is either
+  /// prefixed with % (if the string only contains simple characters) or is
+  /// surrounded with ""'s (if it has special chars in it).  Print it out.
+  void printLLVMName(StringRef, PrefixType);
+  void printLLVMName(const Value *);
+  void printLLVMName(const Value *, const Module *);
+
+  void printValue(const Value *, const Module *);
+  void printConstant(const Constant *, const Module *);
+
+  void printType(Type *);
+  void printStructBody(StructType *);
+  void printTypeIdentities();
+
+  // misc methods
+  void incorporateTypes(const Module &);
+
+  const char *getPredicateText(unsigned);
+
+  /// NamedTypes - The named types that are used by the current module.
+  std::vector<StructType*> NamedTypes;
+
+  /// NumberedTypes - The numbered types, along with their value.
+  DenseMap<StructType*, unsigned> NumberedTypes;
 
   XMLIROStream Out;
-  TypePrinting TypePrinter;
   const Module *TheModule;
-  SlotTracker Machine;
+  SlotTracker *Machine;
 };
 
 char AsmXMLWriterPass::ID = 0;
 
-AsmXMLWriterPass::AsmXMLWriterPass(raw_ostream & o)
+AsmXMLWriterPass::AsmXMLWriterPass(raw_ostream &o)
     : ModulePass(ID)
     , m_out(o)
 {}
@@ -171,13 +212,13 @@ bool AsmXMLWriterPass::runOnModule(Module &M) {
   return false;
 }
 
-AsmXMLWriter::AsmXMLWriter(raw_ostream & o, const Module * M)
+AsmXMLWriter::AsmXMLWriter(raw_ostream & o, const Module *M)
     : Out(o)
     , TheModule(M)
-    , Machine(M)
+    , Machine(new SlotTracker(M))
 {}
 
-void AsmXMLWriter::visit(const Module & M) {
+void AsmXMLWriter::visit(const Module &M) {
   Out << "<?xml version=\"1.0\"?>\n";
 
   Out << "<Module>\n";
@@ -200,8 +241,8 @@ void AsmXMLWriter::visit(const Module & M) {
     Out << "</TargetTriple>\n";
   }
 
-  TypePrinter.incorporateTypes(M);
-  TypePrinter.printTypeIdentities(Out);
+  incorporateTypes(M);
+  printTypeIdentities();
 
   // Output all globals.
   Out << "<GlobalVariables><List>\n";
@@ -216,22 +257,22 @@ void AsmXMLWriter::visit(const Module & M) {
   Out << "</Module>\n";
 }
 
-void AsmXMLWriter::visit(const Function & F) {
-    if (F.isDeclaration()) {
-        Out << "<FunctionDecl>";
-    } else {
-        Out << "<FunctionDef>";
-    }
+void AsmXMLWriter::visit(const Function &F) {
+  if (F.isDeclaration()) {
+    Out << "<FunctionDecl>";
+  } else {
+    Out << "<FunctionDef>";
+  }
 
 #if 0
   PrintLinkage(F.getLinkage(), Out);
   PrintVisibility(F.getVisibility(), Out);
 #endif
 
-  Out << "<RetType>";
-  TypePrinter.print(F.getReturnType(), Out);
-  Out << "</RetType>\n";
-  WriteAsOperandInternal(Out, &F, &TypePrinter, &Machine, F.getParent());
+  Out << "<ReturnType>";
+  printType(F.getReturnType());
+  Out << "</ReturnType>\n";
+  printValue(&F, F.getParent());
 
   FunctionType *FT = F.getFunctionType();
   Out << "<Arguments><List>\n";
@@ -242,20 +283,21 @@ void AsmXMLWriter::visit(const Function & F) {
 
   if (!F.isDeclaration()) {
     Out << "<Body><List>";
+    // visit the list of basic blocks
     visit(F.begin(), F.end());
     Out << "</List></Body>";
   }
 
-    if (F.isDeclaration()) {
-        Out << "</FunctionDecl>\n";
-    } else {
-        Out << "</FunctionDef>\n";
-    }
+  if (F.isDeclaration()) {
+    Out << "</FunctionDecl>\n";
+  } else {
+    Out << "</FunctionDef>\n";
+  }
 }
 
-void AsmXMLWriter::visit(const GlobalVariable & GV) {
+void AsmXMLWriter::visit(const GlobalVariable &GV) {
   Out << "<GlobalVariable>";
-  PrintLLVMName(Out, &GV, &TypePrinter, &Machine, GV.getParent());
+  printLLVMName(&GV, GV.getParent());
 
   Out << "<Modifiers><List>";
 
@@ -280,28 +322,27 @@ void AsmXMLWriter::visit(const GlobalVariable & GV) {
   Out << "</List></Modifiers>\n";
 
   Out << "<Type>";
-  TypePrinter.print(GV.getType(), Out);
+  printType(GV.getType());
   Out << "</Type>\n";
 
-  
-  Out << "<List>";
+  Out << "<Initializer>";
   if (GV.hasInitializer()) {
-    writeOperand(GV.getInitializer(), true);
+    printOperand(GV.getInitializer(), true);
   }
-  Out << "</List>\n";
+  Out << "</Initializer>\n";
 
   Out << "</GlobalVariable>\n";
 }
 
-void AsmXMLWriter::visit(const Argument & Arg) {
-  Out << "<Arg><Type>";
-  // Output type...
-  TypePrinter.print(Arg.getType(), Out);
+void AsmXMLWriter::visit(const Argument &Arg) {
+  Out << "<Arg>";
+  Out << "<Type>";
+  printType(Arg.getType());
   Out << "</Type>\n";
 
   // Output name, if available...
   if (!Arg.getParent()->isDeclaration() && Arg.hasName()) {
-    PrintLLVMName(Out, &Arg);
+    printLLVMName(&Arg);
   } else {
     Out << "<NoName/>\n";
   }
@@ -313,9 +354,10 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
   BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
   Out << "<BasicBlock>";
 
+  // ensure all basic blocks have a name
   if (!BB.hasName())
     BBp->setName(Twine("default"));
-  PrintLLVMName(Out, &BB);
+  printLLVMName(&BB);
 
   Out << "<Instructions><List>\n";
   visit(BB.begin(), BB.end());
@@ -323,56 +365,20 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
   Out << "</BasicBlock>\n";
 }
 
-void AsmXMLWriter::printModifiers(const Instruction &I) {
-
-  if (const OverflowingBinaryOperator *OBI = dyn_cast<OverflowingBinaryOperator>(&I)) {
-    if (OBI->hasNoSignedWrap())
-      Out << "<NoSignedWrap/>\n";
-    if (OBI->hasNoUnsignedWrap())
-      Out << "<NoUnsignedWrap/>\n";
-  }
-
-  if (const StoreInst *SI = dyn_cast<StoreInst>(&I)) {
-    printAlignment(Out, *SI);
-  }
-
-  if (const LoadInst *LI = dyn_cast<LoadInst>(&I)) {
-    printAlignment(Out, *LI);
-  }
-
-  if (const AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
-    printAlignment(Out, *AI);
-  }
-
-}
-
 void AsmXMLWriter::visit(const Instruction &I) {
-  switch (I.getOpcode()) {
-    default: llvm_unreachable("Unknown instruction type encountered!");
-      // Build the switch statement using the Instruction.def file...
-#define HANDLE_INST(NUM, OPCODE, CLASS)         \
-      case Instruction::OPCODE: \
-        if (!I.getType()->isVoidTy()) { \
-          Out << "<Assign>\n"; \
-          PrintLLVMName(Out, &I, &TypePrinter, &Machine, I.getParent()->getParent()->getParent()); \
-        } \
-        Out << "<Instruction>\n"; \
-        Out << "<Modifiers><List>\n"; \
-        printModifiers(I); \
-        Out << "</List></Modifiers>\n"; \
-        Out << "<" #OPCODE ">"; \
-        visit##OPCODE(static_cast<const CLASS&>(I)); \
-        Out << "</" #OPCODE ">\n"; \
-        Out << "</Instruction>\n"; \
-        if (!I.getType()->isVoidTy()) { \
-          Out << "</Assign>\n"; \
-        } \
-        break ;
-#include "llvm/Instruction.def"
+  if (!I.getType()->isVoidTy()) {
+    Out << "<Assign>\n";
+    printLLVMName(&I, I.getParent()->getParent()->getParent());
+  }
+  Out << "<Instruction>\n";
+  printOperator(cast<Operator>(I));
+  Out << "</Instruction>\n";
+  if (!I.getType()->isVoidTy()) {
+    Out << "</Assign>\n";
   }
 }
 
-void AsmXMLWriter::visitBr(const BranchInst & BI) {
+void AsmXMLWriter::visitBr(const BranchInst &BI) {
   if (BI.isConditional()) {
     Out << "<Conditional>";
   } else {
@@ -380,32 +386,32 @@ void AsmXMLWriter::visitBr(const BranchInst & BI) {
   }
 
   // TODO excluding types for both branches
-  writeOperand(BI.getOperand(0), false);
+  printOperand(BI.getOperand(0), false);
   if (BI.isConditional()) {
-    writeOperand(BI.getOperand(2), false);
-    writeOperand(BI.getOperand(1), false);
+    printOperand(BI.getOperand(2), false);
+    printOperand(BI.getOperand(1), false);
     Out << "</Conditional>";
   } else {
     Out << "</Unconditional>";
   }
 }
 
-void AsmXMLWriter::visitAlloca(const AllocaInst & AI) {
+void AsmXMLWriter::visitAlloca(const AllocaInst &AI) {
   Out << "<Type>";
-  TypePrinter.print(AI.getType()->getElementType(), Out);
-  Out << "</Type>";
+  printType(AI.getType()->getElementType());
+  Out << "</Type>\n";
   Out << "<Operand>";
-  writeOperand(AI.getArraySize(), true);
+  printOperand(AI.getArraySize(), true);
   Out << "</Operand>";
 }
 
-void AsmXMLWriter::visitCall(const CallInst & CI) {
+void AsmXMLWriter::visitCall(const CallInst &CI) {
   Out << "<Type>";
-  TypePrinter.print(CI.getType(), Out);
+  printType(CI.getType());
   Out << "</Type>\n";
 
   Out << "<Callee>";
-  WriteAsOperandInternal(Out, CI.getCalledValue(), &TypePrinter, &Machine, CI.getParent()->getParent()->getParent());
+  printValue(CI.getCalledValue(), CI.getParent()->getParent()->getParent());
 
   Out << "<Arguments><List>";
   printOperandList(CI.op_begin(), CI.op_begin() + CI.getNumArgOperands());
@@ -413,39 +419,18 @@ void AsmXMLWriter::visitCall(const CallInst & CI) {
   Out << "</Callee>\n";
 }
 
-void AsmXMLWriter::writeOperand(const Value *Operand, bool PrintType) {
-  if (Operand == 0) {
-    Out << "<Type><VoidType/></Type>";
-    Out << "<VoidValue/>";
-    return;
-  }
-  if (PrintType) {
-    Out << "<Type>";
-    TypePrinter.print(Operand->getType(), Out);
-    Out << "</Type>\n";
-  }
-
-  WriteAsOperandInternal(Out, Operand, &TypePrinter, &Machine, TheModule);
-}
-
-void AsmXMLWriter::visitBinaryOperator(const BinaryOperator &I) {
+void AsmXMLWriter::visitStore(const StoreInst &SI) {
   Out << "<Type>";
-  TypePrinter.print(I.getType(), Out);
-  Out << "</Type>\n";
-  visitInstruction(I);
-}
-
-template <class T>
-void AsmXMLWriter::visitInstruction(const T& I) {
-//  InstructionTrait<T>::printTrait(Out, I);
-  printOperandList(I.op_begin(), I.op_end());
-}
-
-void AsmXMLWriter::visitStore(const StoreInst& SI) {
-  Out << "<Type>";
-  TypePrinter.print(SI.getValueOperand()->getType(), Out);
+  printType(SI.getValueOperand()->getType());
   Out << "</Type>\n";
   printOperandList(SI.op_begin(), SI.op_end());
+}
+
+void AsmXMLWriter::visitLoad(const LoadInst &LI) {
+  Out << "<Type>";
+  printType(LI.getPointerOperand()->getType());
+  Out << "</Type>\n";
+  printOperandList(LI.op_begin(), LI.op_end());
 }
 
 void AsmXMLWriter::visitRet(const ReturnInst &I) {
@@ -454,88 +439,148 @@ void AsmXMLWriter::visitRet(const ReturnInst &I) {
   // Out << "</Type>\n";
   // printOperandList(SI.op_begin(), SI.op_end());
   Out << "<Operand>";
-  writeOperand(I.getReturnValue(), true);
+  printOperand(I.getReturnValue(), true);
   Out << "</Operand>";
 }
 
-void AsmXMLWriter::visitLoad(const LoadInst& SI) {
+void AsmXMLWriter::visitGetElementPtr(const GEPOperator &I) {
   Out << "<Type>";
-  TypePrinter.print(SI.getPointerOperand()->getType(), Out);
-  Out << "</Type>\n";
-  printOperandList(SI.op_begin(), SI.op_end());
-}
-
-void AsmXMLWriter::visitGetElementPtr(const GetElementPtrInst &I) {
-  Out << "<Type>";
-  TypePrinter.print(I.getPointerOperandType(), Out);
+  printType(I.getPointerOperandType());
   Out << "</Type>\n";
   Out << "<Operand>";
-  writeOperand(I.getPointerOperand(), true);
+  printOperand(I.getPointerOperand(), true);
   Out << "</Operand>\n";
   Out << "<List>\n";
   printOperandList(I.idx_begin(), I.idx_end());
   Out << "</List>\n";
 }
 
-void AsmXMLWriter::visitCastInst(const CastInst & I) {
+void AsmXMLWriter::visitPHI(const PHINode &PN) {
   Out << "<Type>";
-  TypePrinter.print(I.getType(), Out);
+  printType(PN.getType());
   Out << "</Type>\n";
-  printOperandList(I.op_begin(), I.op_end());
-}
-
-void AsmXMLWriter::visitCmpInst(const CmpInst & CI) {
-  Out << "<Predicate>" ;
-  RawWriter::write(getPredicateText(CI.getPredicate()), Out);
-  Out << "</Predicate>";
-  Out << "<Type>";
-  TypePrinter.print(CI.getOperand(0)->getType(), Out);
-  Out << "</Type>\n";
-  printOperandList(CI.op_begin(), CI.op_end());
-}
-
-void AsmXMLWriter::visitPHI(const PHINode & PN) {
-  TypePrinter.print(PN.getType(), Out);
 
   Out << "<List>";
   for (unsigned op = 0, Eop = PN.getNumIncomingValues(); op < Eop; ++op) {
     Out << "<Edge>";
-    writeOperand(PN.getIncomingValue(op), false);
-    writeOperand(PN.getIncomingBlock(op), false);
+    printOperand(PN.getIncomingValue(op), false);
+    printOperand(PN.getIncomingBlock(op), false);
     Out << "</Edge>\n";
   }
   Out << "</List>";
 }
 
-void AsmXMLWriter::visitSwitch(const SwitchInst & SI) {
+void AsmXMLWriter::visitSwitch(const SwitchInst &SI) {
   // Special case switch instruction to get formatting nice and correct.
   Out << "<Condition>";
-  writeOperand(SI.getCondition(), true);
+  printOperand(SI.getCondition(), true);
   Out << "</Condition>\n";
   Out << "<DefaultDest>";
-  writeOperand(SI.getDefaultDest(), true);
+  printOperand(SI.getDefaultDest(), true);
   Out << "</DefaultDest>\n";
   unsigned NumCases = SI.getNumCases();
   for (unsigned i = 1; i < NumCases; ++i) {
     Out << "<Case>";
     Out << "<Value>";
-    writeOperand(SI.getCaseValue(i), true);
+    printOperand(SI.getCaseValue(i), true);
     Out << "</Value>\n";
     Out << "<Successor>";
-    writeOperand(SI.getSuccessor(i), true);
+    printOperand(SI.getSuccessor(i), true);
     Out << "</Successor>\n";
     Out << "</Case>\n";
   }
 }
 
-void AsmXMLWriter::visitExtractValue(const ExtractValueInst & EVI) {
-  writeOperand(EVI.getOperand(0), true);
-  for (const unsigned *i = EVI.idx_begin(), *e = EVI.idx_end(); i != e; ++i)
-    Out << ", " << *i;
+void AsmXMLWriter::printOperator(const Operator &I) {
+  switch (I.getOpcode()) {
+    default: llvm_unreachable("Unknown instruction type encountered!");
+    // Build the switch statement using the Instruction.def file...
+#define HANDLE_INST(NUM, OPCODE, CLASS)         \
+    case Instruction::OPCODE: \
+      Out << "<Modifiers><List>\n"; \
+      printModifiers(I); \
+      Out << "</List></Modifiers>\n"; \
+      Out << "<" #OPCODE ">"; \
+      visit##OPCODE(cast<const CLASS>(I)); \
+      Out << "</" #OPCODE ">\n"; \
+      break ;
+#include "llvm-xml-ir/Operator.def"
+  }
+}
+
+void AsmXMLWriter::printOperatorBody(const Operator &I, bool includeType) {
+  if (includeType) {
+    Out << "<Type>";
+    printType(I.getType());
+    Out << "</Type>\n";
+  }
+  printOperandList(I.op_begin(), I.op_end());
+}
+
+void AsmXMLWriter::printCmpBody(const Operator &I) {
+  unsigned predicate = 0;
+  if (const CmpInst *CI = dyn_cast<CmpInst>(&I)) {
+    predicate = CI->getPredicate();
+  } else if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(&I)) {
+    predicate = CE->getPredicate();
+  }
+  Out << "<Predicate>" ;
+  RawWriter::write(getPredicateText(predicate), Out);
+  Out << "</Predicate>";
+  Out << "<Type>";
+  printType(I.getOperand(0)->getType());
+  Out << "</Type>\n";
+  printOperandList(I.op_begin(), I.op_end());
+}
+
+void AsmXMLWriter::printOperand(const Value *Operand, bool includeType) {
+  if (Operand == 0) {
+    Out << "<Type><VoidType/></Type>";
+    Out << "<VoidValue/>";
+    return;
+  }
+
+  if (includeType) {
+    Out << "<Type>";
+    printType(Operand->getType());
+    Out << "</Type>\n";
+  }
+
+  printValue(Operand, TheModule);
+}
+
+template <class Iterator>
+void AsmXMLWriter::printOperandList(Iterator Start, Iterator End) {
+  while (Start != End) {
+    Out << "<Operand>";
+    printOperand(*Start++, true);
+    Out << "</Operand>\n";
+  }
+}
+
+void AsmXMLWriter::printModifiers(const Operator &I) {
+  if (const OverflowingBinaryOperator *OBI = dyn_cast<OverflowingBinaryOperator>(&I)) {
+    if (OBI->hasNoSignedWrap())
+      Out << "<NoSignedWrap/>\n";
+    if (OBI->hasNoUnsignedWrap())
+      Out << "<NoUnsignedWrap/>\n";
+  }
+
+  if (const StoreInst *SI = dyn_cast<StoreInst>(&I)) {
+    printAlignment(*SI);
+  }
+
+  if (const LoadInst *LI = dyn_cast<LoadInst>(&I)) {
+    printAlignment(*LI);
+  }
+
+  if (const AllocaInst *AI = dyn_cast<AllocaInst>(&I)) {
+    printAlignment(*AI);
+  }
 }
 
 template <class T>
-void printAlignment(XMLIROStream & Out, const T & I) {
+void AsmXMLWriter::printAlignment(const T &I) {
   if (I.getAlignment()) {
     Out << "<Alignment>";
     RawWriter::write(I.getAlignment(), Out);
@@ -543,20 +588,621 @@ void printAlignment(XMLIROStream & Out, const T & I) {
   }
 }
 
-template <class Iterator>
-void AsmXMLWriter::printOperandList(Iterator Start, Iterator End) {
-//  if (std::distance(Start, End) <= 1) {
-//    writeOperand(*Start++, true);
-//    return;
-//  }
-  while (Start != End) {
-    Out << "<Operand>";
-    writeOperand(*Start++, true);
-    Out << "</Operand>\n";
+/// printLLVMName - Turn the specified name into an 'LLVM name', which is either
+/// prefixed with % (if the string only contains simple characters) or is
+/// surrounded with ""'s (if it has special chars in it).  Print it out.
+void AsmXMLWriter::printLLVMName(StringRef Name, PrefixType Prefix) {
+  assert(!Name.empty() && "Cannot get empty name!");
+  Out << "<Name>";
+
+  std::string name;
+  switch (Prefix) {
+  default: llvm_unreachable("Bad prefix!");
+  case NoPrefix:     break;
+  case GlobalPrefix: name += "@"; break;
+  case LabelPrefix:  break;
+  case LocalPrefix:  name += "%"; break;
   }
+  name += Name.str();
+
+  RawWriter::write(name, Out);
+  Out << "</Name>\n";
 }
 
+/// printLLVMName - Turn the specified name into an 'LLVM name', which is either
+/// prefixed with % (if the string only contains simple characters) or is
+/// surrounded with ""'s (if it has special chars in it).  Print it out.
+void AsmXMLWriter::printLLVMName(const Value *V) {
+  printLLVMName(V->getName(),
+                isa<GlobalValue>(V) ? GlobalPrefix : LocalPrefix);
+}
 
-ModulePass * createAsmXMLWriterPass(raw_ostream & o) {
+void AsmXMLWriter::printLLVMName(const Value *V, const Module *Context) {
+  printValue(V, Context);
+}
+
+void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
+  if (const ConstantInt *CI = dyn_cast<ConstantInt>(CV)) {
+    // if (CI->getType()->isIntegerTy(1)) {
+      // Out << (CI->getZExtValue() ? "true" : "false");
+      // return;
+    // }
+    std::string ival = CI->getValue().toString(10, true);
+    RawWriter::writeRawInt(ival, Out);
+    return;
+  }
+
+  if (const ConstantFP *CFP = dyn_cast<ConstantFP>(CV)) {
+    if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
+        &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {
+      // We would like to output the FP constant value in exponential notation,
+      // but we cannot do this if doing so will lose precision.  Check here to
+      // make sure that we only output it in exponential format if we can parse
+      // the value back and get the same value.
+      //
+      bool ignored;
+      bool isDouble = &CFP->getValueAPF().getSemantics()==&APFloat::IEEEdouble;
+      double Val = isDouble ? CFP->getValueAPF().convertToDouble() :
+                              CFP->getValueAPF().convertToFloat();
+      SmallString<128> StrVal;
+      raw_svector_ostream(StrVal) << Val;
+
+      // Check to make sure that the stringized number is not some string like
+      // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
+      // that the string matches the "[-+]?[0-9]" regex.
+      //
+      if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
+          ((StrVal[0] == '-' || StrVal[0] == '+') &&
+           (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
+        // Reparse stringized version!
+        if (atof(StrVal.c_str()) == Val) {
+          Out << StrVal.str();
+          return;
+        }
+      }
+      // Otherwise we could not reparse it to exactly the same value, so we must
+      // output the string in hexadecimal format!  Note that loading and storing
+      // floating point types changes the bits of NaNs on some hosts, notably
+      // x86, so we must not use these types.
+      assert(sizeof(double) == sizeof(uint64_t) &&
+             "assuming that double is 64 bits!");
+      char Buffer[40];
+      APFloat apf = CFP->getValueAPF();
+      // Floats are represented in ASCII IR as double, convert.
+      if (!isDouble)
+        apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
+                          &ignored);
+      Out << "0x" <<
+              utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
+                            Buffer+40);
+      return;
+    }
+
+    // Some form of long double.  These appear as a magic letter identifying
+    // the type, then a fixed number of hex digits.
+    Out << "0x";
+    if (&CFP->getValueAPF().getSemantics() == &APFloat::x87DoubleExtended) {
+      Out << 'K';
+      // api needed to prevent premature destruction
+      APInt api = CFP->getValueAPF().bitcastToAPInt();
+      const uint64_t* p = api.getRawData();
+      uint64_t word = p[1];
+      int shiftcount=12;
+      int width = api.getBitWidth();
+      for (int j=0; j<width; j+=4, shiftcount-=4) {
+        unsigned int nibble = (word>>shiftcount) & 15;
+        if (nibble < 10)
+          Out << (unsigned char)(nibble + '0');
+        else
+          Out << (unsigned char)(nibble - 10 + 'A');
+        if (shiftcount == 0 && j+4 < width) {
+          word = *p;
+          shiftcount = 64;
+          if (width-j-4 < 64)
+            shiftcount = width-j-4;
+        }
+      }
+      return;
+    } else if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEquad)
+      Out << 'L';
+    else if (&CFP->getValueAPF().getSemantics() == &APFloat::PPCDoubleDouble)
+      Out << 'M';
+    else
+      llvm_unreachable("Unsupported floating point type");
+    // api needed to prevent premature destruction
+    APInt api = CFP->getValueAPF().bitcastToAPInt();
+    const uint64_t* p = api.getRawData();
+    uint64_t word = *p;
+    int shiftcount=60;
+    int width = api.getBitWidth();
+    for (int j=0; j<width; j+=4, shiftcount-=4) {
+      unsigned int nibble = (word>>shiftcount) & 15;
+      if (nibble < 10)
+        Out << (unsigned char)(nibble + '0');
+      else
+        Out << (unsigned char)(nibble - 10 + 'A');
+      if (shiftcount == 0 && j+4 < width) {
+        word = *(++p);
+        shiftcount = 64;
+        if (width-j-4 < 64)
+          shiftcount = width-j-4;
+      }
+    }
+    return;
+  }
+
+  if (isa<ConstantAggregateZero>(CV)) {
+    Out << "<Zeroinitializer/>";
+    return;
+  }
+
+#if 0
+  if (const BlockAddress *BA = dyn_cast<BlockAddress>(CV)) {
+    Out << "blockaddress(";
+    printValue(Out, BA->getFunction(), &TypePrinter, Machine,
+                           Context);
+    Out << ", ";
+    printValue(Out, BA->getBasicBlock(), &TypePrinter, Machine,
+                           Context);
+    Out << ")";
+    return;
+  }
+
+#endif
+
+  if (const ConstantArray *CA = dyn_cast<ConstantArray>(CV)) {
+    // As a special case, print the array as a string if it is an array of
+    // i8 with ConstantInt values.
+    //
+    if (CA->isString()) {
+      Out << "<ConstantString>";
+      //PrintEscapedString(CA->getAsString(), Out);
+      RawWriter::write(CA->getAsString(), Out);
+      Out << "</ConstantString>";
+    } else {                // Cannot output in string format...
+      Out << "<ConstantArray>";
+      Type *ETy = CA->getType()->getElementType();
+      Out << "<ElementType>";
+      printType(ETy);
+      Out << "</ElementType>\n";
+
+      for (unsigned i = 0, e = CA->getNumOperands(); i != e; ++i) {
+        printValue(CA->getOperand(i), Context);
+      }
+      Out << "</ConstantArray>\n";
+    }
+    return;
+  }
+
+#if 0
+  if (const ConstantStruct *CS = dyn_cast<ConstantStruct>(CV)) {
+    if (CS->getType()->isPacked())
+      Out << '<';
+    Out << '{';
+    unsigned N = CS->getNumOperands();
+    if (N) {
+      Out << ' ';
+      TypePrinter.print(CS->getOperand(0)->getType(), Out);
+      Out << ' ';
+
+      printValue(Out, CS->getOperand(0), &TypePrinter, Machine,
+                             Context);
+
+      for (unsigned i = 1; i < N; i++) {
+        Out << ", ";
+        TypePrinter.print(CS->getOperand(i)->getType(), Out);
+        Out << ' ';
+
+        printValue(Out, CS->getOperand(i), &TypePrinter, Machine,
+                               Context);
+      }
+      Out << ' ';
+    }
+
+    Out << '}';
+    if (CS->getType()->isPacked())
+      Out << '>';
+    return;
+  }
+
+  if (const ConstantVector *CP = dyn_cast<ConstantVector>(CV)) {
+    Type *ETy = CP->getType()->getElementType();
+    assert(CP->getNumOperands() > 0 &&
+           "Number of operands for a PackedConst must be > 0");
+    Out << '<';
+    TypePrinter.print(ETy, Out);
+    Out << ' ';
+    printValue(Out, CP->getOperand(0), &TypePrinter, Machine,
+                           Context);
+    for (unsigned i = 1, e = CP->getNumOperands(); i != e; ++i) {
+      Out << ", ";
+      TypePrinter.print(ETy, Out);
+      Out << ' ';
+      printValue(Out, CP->getOperand(i), &TypePrinter, Machine,
+                             Context);
+    }
+    Out << '>';
+    return;
+  }
+#endif
+
+  if (isa<ConstantPointerNull>(CV)) {
+    Out << "<Null/>";
+    return;
+  }
+
+  if (isa<UndefValue>(CV)) {
+    Out << "<Undef/>";
+    return;
+  }
+
+  if (const ConstantExpr *CE = dyn_cast<ConstantExpr>(CV)) {
+    Out << "<ConstantExpr>";
+    printOperator(cast<Operator>(*CE));
+    Out << "</ConstantExpr>";
+    return;
+  }
+
+  assert (0 && "<placeholder or erroneous Constant>");
+}
+
+class XMLTagOutputHelper {
+ public:
+  XMLTagOutputHelper(const char *, XMLIROStream&);
+  ~XMLTagOutputHelper();
+ private:
+  const char * m_tagName;
+  XMLIROStream & m_out;
+};
+
+XMLTagOutputHelper::XMLTagOutputHelper(const char *name, XMLIROStream &Out)
+    : m_tagName(name)
+    , m_out(Out)
+{
+  Out << "<" << m_tagName << ">";
+}
+
+XMLTagOutputHelper::~XMLTagOutputHelper() {
+  m_out << "</" << m_tagName << ">\n";
+}
+
+void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
+
+  XMLTagOutputHelper vhelper("Value", Out);
+
+  if (V->hasName()) {
+    printLLVMName(V);
+    return;
+  }
+
+  const Constant *CV = dyn_cast<Constant>(V);
+  if (CV && !isa<GlobalValue>(CV)) {
+    //assert(TypePrinter && "Constants require TypePrinting!");
+    printConstant(CV, Context);
+    return;
+  }
+
+  XMLTagOutputHelper helper("Name", Out);
+
+#if 0
+  if (const InlineAsm *IA = dyn_cast<InlineAsm>(V)) {
+    Out << "asm ";
+    if (IA->hasSideEffects())
+      Out << "sideeffect ";
+    if (IA->isAlignStack())
+      Out << "alignstack ";
+    Out << '"';
+    PrintEscapedString(IA->getAsmString(), Out);
+    Out << "\", \"";
+    PrintEscapedString(IA->getConstraintString(), Out);
+    Out << '"';
+    return;
+  }
+
+  if (const MDNode *N = dyn_cast<MDNode>(V)) {
+    if (N->isFunctionLocal()) {
+      // Print metadata inline, not via slot reference number.
+      WriteMDNodeBodyInternal(Out, N, TypePrinter, Machine, Context);
+      return;
+    }
+
+    if (!Machine) {
+      if (N->isFunctionLocal())
+        Machine = new SlotTracker(N->getFunction());
+      else
+        Machine = new SlotTracker(Context);
+    }
+    int Slot = Machine->getMetadataSlot(N);
+    if (Slot == -1)
+      Out << "<badref>";
+    else
+      Out << '!' << Slot;
+    return;
+  }
+
+  if (const MDString *MDS = dyn_cast<MDString>(V)) {
+    Out << "!\"";
+    PrintEscapedString(MDS->getString(), Out);
+    Out << '"';
+    return;
+  }
+
+#endif
+
+  if (V->getValueID() == Value::PseudoSourceValueVal ||
+      V->getValueID() == Value::FixedStackPseudoSourceValueVal) {
+    V->print(Out);
+    return;
+  }
+
+  char Prefix = '%';
+  int Slot;
+  // If we have a SlotTracker, use it.
+  if (Machine) {
+    if (const GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
+      Slot = Machine->getGlobalSlot(GV);
+      Prefix = '@';
+    } else {
+      Slot = Machine->getLocalSlot(V);
+
+      // If the local value didn't succeed, then we may be referring to a value
+      // from a different function.  Translate it, as this can happen when using
+      // address of blocks.
+      if (Slot == -1)
+        if ((Machine = createSlotTracker(V))) {
+          Slot = Machine->getLocalSlot(V);
+          delete Machine;
+          Machine = 0;
+        }
+    }
+  } else if ((Machine = createSlotTracker(V))) {
+    // Otherwise, create one to get the # and then destroy it.
+    if (const GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
+      Slot = Machine->getGlobalSlot(GV);
+      Prefix = '@';
+    } else {
+      Slot = Machine->getLocalSlot(V);
+    }
+    delete Machine;
+    Machine = 0;
+  } else {
+    Slot = -1;
+  }
+
+  std::stringstream Name;
+  Name << Prefix << Slot;
+
+  if (Slot != -1)
+    RawWriter::write(Name.str(), Out);
+  else
+    Out << "<badref>";
+}
+
+void AsmXMLWriter::printType(Type *Ty) {
+  switch (Ty->getTypeID()) {
+    case Type::VoidTyID:
+      Out << "<VoidType/>";
+      break;
+    case Type::FloatTyID:
+      Out << "<FloatType/>";
+      break;
+    case Type::DoubleTyID:
+      Out << "<DoubleType/>";
+      break;
+    case Type::X86_FP80TyID:
+      Out << "<X86FP80Type/>";
+      break;
+    case Type::FP128TyID:
+      Out << "<FP128Type/>";
+      break;
+    case Type::PPC_FP128TyID:
+      Out << "<PPCFP128Type/>";
+      break;
+    case Type::LabelTyID:
+      Out << "<LabelType/>";
+      break;
+    case Type::MetadataTyID:
+      Out << "<MetaDataType/>";
+      break;
+    case Type::X86_MMXTyID:
+      Out << "<X86MMXType/>";
+      break;
+    case Type::IntegerTyID:
+      Out << "<IntegerType><Width>";
+      RawWriter::write(cast<IntegerType>(Ty)->getBitWidth(), Out);
+      Out << "</Width></IntegerType>";
+      break;
+
+    case Type::StructTyID: {
+      StructType *STy = cast<StructType>(Ty);
+      if (STy->isLiteral())
+        assert (0 && "unimplemented");
+
+      if (!STy->getName().empty()) {
+        Out << "<NamedType>";
+        printLLVMName(STy->getName(), LocalPrefix);
+        Out << "</NamedType>";
+        break;
+      }
+
+      assert (0 && "unimplemented");
+      //DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
+      //if (I != NumberedTypes.end())
+      //  Out << '%' << I->second;
+      //else  // Not enumerated, print the hex address.
+      //  Out << "%\"type 0x" << STy << '\"';
+    }
+      //assert (0 && "unimplemented");
+#if 0
+ {
+      StructType *STy = cast<StructType>(Ty);
+      if (STy->isLiteral())
+        return printStructBody(STy, Out);
+
+      if (!STy->getName().empty())
+        return printLLVMName(OS, STy->getName(), LocalPrefix);
+
+      DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
+      if (I != NumberedTypes.end())
+        Out << '%' << I->second;
+      else  // Not enumerated, print the hex address.
+        Out << "%\"type 0x" << STy << '\"';
+ }
+#endif
+
+    case Type::FunctionTyID: {
+      FunctionType *FTy = cast<FunctionType>(Ty);
+      Out << "<FunctionType vararg=\""
+          << FTy->isVarArg() << "\">";
+      Out << "<RetType>";
+      printType(FTy->getReturnType());
+      Out << "</RetType>\n";
+      for (FunctionType::param_iterator I = FTy->param_begin(),
+               E = FTy->param_end(); I != E; ++I) {
+        printType(*I);
+      }
+      Out << "</FunctionType>\n";
+      break;
+    }
+
+    case Type::VectorTyID:
+      assert (0 && "unimplemented");
+      /* Not implemented yet */
+      break;
+
+    case Type::PointerTyID: {
+      PointerType *PTy = cast<PointerType>(Ty);
+      Out << "<PointerType>";
+      printType(PTy->getElementType());
+      Out << "</PointerType>\n";
+      break;
+    }
+
+    case Type::ArrayTyID: {
+      Out << "<ArrayType>";
+      ArrayType *ATy = cast<ArrayType>(Ty);
+      printType(ATy->getElementType());
+      RawWriter::write(ATy->getNumElements(), Out);
+      Out << "</ArrayType>\n";
+      break;
+    }
+
+    default:
+      Out << "<unrecognized-type/>";
+      break;
+  }
+}
+void AsmXMLWriter::printStructBody(StructType *STy) {
+  if (STy->isOpaque()) {
+    Out << "<Opaque/>\n";
+    return;
+  }
+
+
+  if (STy->isPacked())
+    Out << "<Packed/>\n";
+
+  Out << "<StructType><Fields><List>\n";
+  for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
+    Out << "<Type>";
+    printType(*I);
+    Out << "</Type>\n";
+  }
+  Out << "</List></Fields></StructType>";
+}
+
+void AsmXMLWriter::printTypeIdentities() {
+  Out << '\n';
+
+  // We know all the numbers that each type is used and we know that it is a
+  // dense assignment.  Convert the map to an index table.
+  std::vector<StructType*> NT(NumberedTypes.size());
+  for (DenseMap<StructType*, unsigned>::iterator I =
+       NumberedTypes.begin(), E = NumberedTypes.end();
+       I != E; ++I) {
+    assert(I->second < NumberedTypes.size() && "Didn't get a dense numbering?");
+    NT[I->second] = I->first;
+  }
+
+  // Emit all numbered types.
+  for (unsigned i = 0, e = NT.size(); i != e; ++i) {
+    Out << '%' << i << " = type ";
+
+    // Make sure we print out at least one level of the type structure, so
+    // that we do not get %2 = type %2
+    printStructBody(NT[i]);
+    Out << '\n';
+  }
+
+  Out << "<Typedefs><List>\n";
+  for (unsigned i = 0, e = NamedTypes.size(); i != e; ++i) {
+    Out << "<Typedef>";
+    printLLVMName(NamedTypes[i]->getName(), LocalPrefix);
+    // Make sure we print out at least one level of the type structure, so
+    // that we do not get %FILE = type %FILE
+    printStructBody(NamedTypes[i]);
+    Out << "</Typedef>\n";
+  }
+  Out << "</List></Typedefs>";
+}
+
+void AsmXMLWriter::incorporateTypes(const Module &M) {
+  M.findUsedStructTypes(NamedTypes);
+
+  // The list of struct types we got back includes all the struct types, split
+  // the unnamed ones out to a numbering and remove the anonymous structs.
+  unsigned NextNumber = 0;
+
+  std::vector<StructType*>::iterator NextToUse = NamedTypes.begin(), I, E;
+  for (I = NamedTypes.begin(), E = NamedTypes.end(); I != E; ++I) {
+    StructType *STy = *I;
+
+    // Ignore anonymous types.
+    if (STy->isLiteral())
+      continue;
+
+    if (STy->getName().empty())
+      NumberedTypes[STy] = NextNumber++;
+    else
+      *NextToUse++ = STy;
+  }
+
+  NamedTypes.erase(NextToUse, NamedTypes.end());
+}
+
+const char *AsmXMLWriter::getPredicateText(unsigned predicate) {
+  const char * pred = "unknown";
+  switch (predicate) {
+  case FCmpInst::FCMP_FALSE: pred = "false"; break;
+  case FCmpInst::FCMP_OEQ:   pred = "oeq"; break;
+  case FCmpInst::FCMP_OGT:   pred = "ogt"; break;
+  case FCmpInst::FCMP_OGE:   pred = "oge"; break;
+  case FCmpInst::FCMP_OLT:   pred = "olt"; break;
+  case FCmpInst::FCMP_OLE:   pred = "ole"; break;
+  case FCmpInst::FCMP_ONE:   pred = "one"; break;
+  case FCmpInst::FCMP_ORD:   pred = "ord"; break;
+  case FCmpInst::FCMP_UNO:   pred = "uno"; break;
+  case FCmpInst::FCMP_UEQ:   pred = "ueq"; break;
+  case FCmpInst::FCMP_UGT:   pred = "ugt"; break;
+  case FCmpInst::FCMP_UGE:   pred = "uge"; break;
+  case FCmpInst::FCMP_ULT:   pred = "ult"; break;
+  case FCmpInst::FCMP_ULE:   pred = "ule"; break;
+  case FCmpInst::FCMP_UNE:   pred = "une"; break;
+  case FCmpInst::FCMP_TRUE:  pred = "true"; break;
+  case ICmpInst::ICMP_EQ:    pred = "eq"; break;
+  case ICmpInst::ICMP_NE:    pred = "ne"; break;
+  case ICmpInst::ICMP_SGT:   pred = "sgt"; break;
+  case ICmpInst::ICMP_SGE:   pred = "sge"; break;
+  case ICmpInst::ICMP_SLT:   pred = "slt"; break;
+  case ICmpInst::ICMP_SLE:   pred = "sle"; break;
+  case ICmpInst::ICMP_UGT:   pred = "ugt"; break;
+  case ICmpInst::ICMP_UGE:   pred = "uge"; break;
+  case ICmpInst::ICMP_ULT:   pred = "ult"; break;
+  case ICmpInst::ICMP_ULE:   pred = "ule"; break;
+  }
+  return pred;
+}
+
+ModulePass * createAsmXMLWriterPass(raw_ostream &o) {
   return new AsmXMLWriterPass(o);
 }

@@ -41,7 +41,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
     syntax LLVM ::= `NoName // used for arguments with no name
 
-    syntax LLVM ::= `RetType "(" K ")"
+    syntax LLVM ::= `ReturnType "(" K ")"
     syntax LLVM ::= `Arguments "(" List{K} ")"
     context Arguments((_:List{K},,HOLE,,_:List{K}))
     syntax LLVM ::= `Body "(" List{K} ")"

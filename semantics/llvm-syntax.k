@@ -20,7 +20,7 @@ module LLVM-SYNTAX is
     // TODO maybe some or none type instead of using list
 
     syntax LLVM ::= `Modifiers "(" List{K} ")"
-    syntax LLVM ::= `Initializer "(" K ")"
+    syntax LLVM ::= `Initializer "(" K "," K ")"
 
     syntax LLVM ::= `Constant
 

@@ -134,25 +134,25 @@ module LLVM-HELPERS is
         [anywhere]
 
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
-    rule isIntegerType(Type(IntegerType(Width(_)))) => true  [anywhere]
+    rule isIntegerType(IntegerType(Width(_))) => true  [anywhere]
     syntax #Bool ::= isPointerType "(" K ")" // predicate
-    rule isPointerType(Type(PointerType(_))) => true  [anywhere]
+    rule isPointerType(PointerType(_)) => true  [anywhere]
     syntax #Bool ::= isArrayType "(" K ")" // predicate
-    rule isArrayType(Type(ArrayType(_, _))) => true  [anywhere]
+    rule isArrayType(ArrayType(_, _)) => true  [anywhere]
     
     // fixme size should depend on architecture
-    rule sizeofInBits(Type(PointerType(_))) => numBytesPerPointer *Nat numBitsPerByte
+    rule sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
         [anywhere]
-    rule sizeofInBits(Type(ArrayType(Type:KResult, Len:#Nat))) => sizeofInBits(Type(Type)) *Nat Len
+    rule sizeofInBits(ArrayType(Type:KResult, Len:#Nat)) => sizeofInBits(Type) *Nat Len
         [anywhere]
     
-    rule sizeofInBits(Type(IntegerType(Width(N:#Nat)))) => N
+    rule sizeofInBits(IntegerType(Width(N:#Nat))) => N
         [anywhere]
     // TODO listK should be Fields (bug in K)
-    rule sizeofInBits(Type(StructType(listK((Type:KResult,,L:List{K})))))
-      => sizeofInBits(Type) +Nat sizeofInBits(Type(StructType(listK(L))))
+    rule sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
+      => sizeofInBits(Type) +Nat sizeofInBits(StructType(listK(L)))
         [anywhere]
-    rule sizeofInBits(Type(StructType(listK(.List{K})))) => 0
+    rule sizeofInBits(StructType(listK(.List{K}))) => 0
         [anywhere]
 
     syntax #Nat ::= sizeof K  // TODO [function]
@@ -161,7 +161,7 @@ module LLVM-HELPERS is
         [anywhere]
 
     syntax K ::= int32
-    macro int32 = Type(IntegerType(Width(32))) // TODO [function]
+    macro int32 = IntegerType(Width(32)) // TODO [function]
 
     syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
@@ -238,7 +238,7 @@ module LLVM-GLOBALS is
     syntax K ::= init "(" K "," K "," K ")" [strict(2)]
     
     rule
-        <k> GlobalVariable(X:Id, Modifiers(L:List{K}), Type(PointerType(Type:KResult)), Init:K)
+        <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(Type:KResult), Init:K)
             => init(X, Alloca(Type, 1), Init:K)
         ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>
@@ -583,12 +583,12 @@ module LLVM-GEP is
             => .
         )
 
-    rule <gepType> Type(Type:KResult) => Type </gepType>
+    // rule <gepType> Type:KResult => Type </gepType>
 
     rule
         <gepType> PointerType(Type:KResult) => Type </gepType>
         <gepIndices> N:#Nat => . ...</gepIndices> 
-        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type(Type)) *Nat N </gepResult>
+        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
 
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
@@ -781,7 +781,7 @@ module LLVM-MEMORY is
         [anywhere]
 
     syntax K ::= innerType "(" K ")"
-    rule innerType(Type(PointerType(K:K))) => Type(K:K)  [anywhere]
+    rule innerType(PointerType(K:K)) => K:K  [anywhere]
 
     syntax K ::= read "(" K "," K ")"
     syntax K ::= readBytes "(" K "," K ")"

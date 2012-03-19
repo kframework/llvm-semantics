@@ -24,7 +24,7 @@ module LLVM-SYNTAX is
 
     syntax LLVM ::= `Constant
 
-    syntax LLVM ::= `Type "(" K ")"         [strict hybrid]
+    // syntax LLVM ::= `Type "(" K ")"         [strict hybrid]
     syntax LLVM ::= `NamedType "(" K ")"
     syntax LLVM ::= `PointerType "(" K ")"  [strict hybrid]
     syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid] // inner type, length
@@ -36,7 +36,7 @@ module LLVM-SYNTAX is
     syntax LLVMValue ::= `VoidType
     
     
-    syntax LLVM ::= `ConstantArray "(" K "," K ")" // element type, arguments
+    syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
     
     syntax LLVM ::= `Switch "(" K "," K "," K "," K ")" [strict(1 2 4)] // type, condition, default dest, list of cases
     syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor

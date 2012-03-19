@@ -264,6 +264,8 @@ module LLVM-BRANCHING is
         <functionName> FunName:Id </functionName>
         <basicBlocks>... Label:Id |-> Body:K ...</basicBlocks>
 
+    // TODO need to add a type to conditional so we can reduce I wrt type, see 20000731-2.ll
+    // TODO or normalize numbers
     rule
         <k> Conditional(1, Label:K, _)
             => Unconditional(Label:K)

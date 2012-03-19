@@ -116,8 +116,8 @@ module LLVM-HELPERS is
     
     // computes the positive remainder, whereas % can returns a negative number
     // TODO maybe should go in pl builtins
-    syntax #Nat ::= K "remNat" K
-    rule (I:#Int remNat N:#Nat) => ((I %Int N) +Int N) %Int N [anywhere]
+    syntax #Nat ::= K "remInt" K
+    rule (I:#Int remInt N:#Nat) => ((I %Int N) +Int N) %Int N [anywhere]
     
     syntax #Nat ::= unsigned "(" K "," K ")" // type, value
     rule
@@ -125,7 +125,7 @@ module LLVM-HELPERS is
         when umin(Type) <=Nat N andBool umax(Type) >=Nat N
         [anywhere]
     rule
-        unsigned(Type:KResult, I:#Int) => I remNat (umax(Type) +Nat 1)
+        unsigned(Type:KResult, I:#Int) => I remInt (umax(Type) +Nat 1)
         when I <Int umin(Type)
         [anywhere]
     rule
@@ -329,7 +329,7 @@ module LLVM-START-AND-STOP is
             <k> I:#Int </k>
         ...</T>
         => <result>...
-            <returnValue> I remNat 256 </returnValue>
+            <returnValue> I remInt 256 </returnValue>
         </result>
 end module
 
@@ -506,10 +506,18 @@ module LLVM-ARITHMETIC is
         <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(signed(Type, I1) /Int signed(Type, I2), Type)
         ...</k>
-    // rule
-        // <k> SRem(Type:KResult, I1:#Int, I2:#Int)
-            // => interpretInt(I1 %Int I2, Type)
-        // ...</k>
+    rule
+        <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
+            => interpretInt(unsigned(Type, I1) /Int unsigned(Type, I2), Type)
+        ...</k>
+    rule
+        <k> SRem(Type:KResult, I1:#Int, I2:#Int)
+            => interpretInt(signed(Type, I1) %Int signed(Type, I2), Type)
+        ...</k>
+    rule
+        <k> URem(Type:KResult, I1:#Int, I2:#Int)
+            => interpretInt(unsigned(Type, I1) %Int unsigned(Type, I2), Type)
+        ...</k>
         
     rule
         <k> Shl(Type:KResult, I:#Int, Len:#Nat)

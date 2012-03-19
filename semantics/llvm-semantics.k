@@ -347,9 +347,9 @@ module LLVM-DECLARATIONS is
     // TODO: hack because hybrids don't seem to be working
     rule
         <k> Fields(L:List{K}) => listK(L) ...</k>
-        when isKResult(L)
+        when 'isKResult(L)
     rule <k> Types(L:List{K}) => listK(L) ...</k>
-        when isKResult(L)
+        when 'isKResult(L)
         
     rule
         <k> FUNCTION => Body:K ...</k>
@@ -406,7 +406,7 @@ module LLVM-CALL-RET is
     
      rule
         <k> Arguments(L:List{K}) => listK(L) ...</k>
-        when isKResult(L)
+        when 'isKResult(L)
     
     rule
         <k> Call(_, Callee(FunName:Id, listK(Args:List{K}))) ~> Tail:K

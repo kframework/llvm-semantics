@@ -40,8 +40,8 @@ module LLVM-SYNTAX is
     
     syntax LLVM ::= `Switch "(" K "," K "," K "," K ")" [strict(1 2 4)] // type, condition, default dest, list of cases
     syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor
-    define isKResult(Case(K:K, _)) => true
-        when isKResult(K:K)
+    define 'isKResult(Case(K:K, _)) => true
+        when 'isKResult(K:K)
     
     
     syntax LLVM ::= `Types "(" List{K} ")"
@@ -74,8 +74,8 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Callee "(" K "," K ")" [strict(2)] // Value/Name, Arguments
     
     // TODO should probably be both arguments (hybrid) for handling function pointers
-    define isKResult(Callee(_, K:K)) => true
-        when isKResult(K:K)
+    define 'isKResult(Callee(_, K:K)) => true
+        when 'isKResult(K:K)
 
     syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict(2 3)]  // Type, Value, Destination

@@ -70,6 +70,8 @@ end module
 module LLVM-HELPERS is
     including LLVM-SYNTAX
 
+    syntax K ::= splitBytes "(" K "," K ")" // value, type
+    
     syntax #Nat ::= numBitsPerByte
     macro numBitsPerByte = 8
     
@@ -626,7 +628,6 @@ module LLVM-MEMORY is
 
     syntax K ::= write "(" K "," K "," K ")" // type, value, location
     syntax K ::= writeBytes "(" List{K} "," K ")" // list of bytes, location
-    syntax K ::= splitBytes "(" K "," K ")" // value, type
     
     syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
@@ -858,6 +859,24 @@ module LLVM-LITERALS is
         <k> ConstantString(S:#String)
             => arrayValue(StringToList{K}(S))
         ...</k>
+
+    rule
+        <k> ConstantArray(Type:KResult, listK(L:List{K}))
+            => createArrayValue(Type, L)
+        ...</k>
+        
+    declare createArrayValue : K List{K} -> K
+    declare createArrayValue' : K List{K} List{K} -> K
+    declare createArrayValue'' : K List{K} K List{K} -> K
+    
+    define createArrayValue(Type:KResult, L:List{K})
+        => createArrayValue'(Type:KResult, L:List{K}, .List{K})
+    define createArrayValue'(Type:KResult, (K:K,, L:List{K}), L':List{K})
+        => createArrayValue''(Type:KResult, L:List{K}, splitBytes(K, Type), L':List{K})
+    define createArrayValue''(Type:KResult, L:List{K}, listK(L'':List{K}), L':List{K})
+        => createArrayValue'(Type:KResult, L:List{K}, (L':List{K},, L'':List{K}))
+    define createArrayValue'(_, .List{K}, L:List{K})
+        => arrayValue(L)
 
     // declare stringToArray : K -> K
     // declare stringToArray' : K K -> K

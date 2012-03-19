@@ -53,6 +53,7 @@ module LLVM-SYNTAX is
 
     syntax LLVM ::= `Assign "(" K "," K ")" [strict(2)] // Name, Instruction
     syntax LLVM ::= `Instruction "(" K "," K ")" // Modifiers, the Instruction
+    syntax LLVM ::= `ConstantExpr "(" K "," K ")" // Modifiers, the operator
     syntax LLVM ::= `Modifiers "(" List{K} ")"
 
     syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements

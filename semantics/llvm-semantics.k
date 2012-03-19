@@ -213,6 +213,10 @@ module LLVM-MISC is
         <currentModifiers> _ => List(L) </currentModifiers>
 
     rule
+        <k> ConstantExpr(Modifiers(L:List{K}), K:K) => K ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+
+    rule
         <k> PHI(_, (Edge(K:K, Name:Id),, _:List{K})) => K:K ...</k>
         <prevBlock> Name </prevBlock>
     rule

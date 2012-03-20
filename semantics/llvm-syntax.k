@@ -71,12 +71,8 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Modifiers "(" List{K} ")"
 
     syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
-    syntax LLVM ::= `Callee "(" K "," K ")" [strict(2)] // Value/Name, Arguments
+    syntax LLVM ::= `Callee "(" K "," K ")" [strict hybrid] // Value/Name, Arguments
     
-    // TODO should probably be both arguments (hybrid) for handling function pointers
-    define 'isKResult(Callee(_, K:K)) => true
-        when 'isKResult(K:K)
-
     syntax LLVM ::= `Load "(" K "," K ")" [strict]
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict]  // Type, Value, Destination
     syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]

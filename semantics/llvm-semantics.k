@@ -387,6 +387,7 @@ module LLVM-DECLARATIONS is
     
     rule
         <k> FUNCTION => . ...</k>
+        <globalRegisters> M:Map => M[funptr(Name)/Name] </globalRegisters>
         (. =>
             <function>...
                 <returnType> RetType </returnType>

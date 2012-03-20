@@ -6,6 +6,7 @@ module LLVM-CONFIGURATION is
 
     syntax K ::= callMain // TODO [semantic]
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
+    syntax #Nat ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
 
     configuration
@@ -374,6 +375,7 @@ module LLVM-DECLARATIONS is
     rule
         <k> FUNCTION => Body:K ...</k>
         <currFunction> _ => Name </currFunction>
+        <globalRegisters> M:Map => M[funptr(Name)/Name] </globalRegisters>
         (. =>
             <function>...
                 <returnType> RetType </returnType>
@@ -385,6 +387,7 @@ module LLVM-DECLARATIONS is
     
     rule
         <k> FUNCTION => . ...</k>
+        <globalRegisters> M:Map => M[funptr(Name)/Name] </globalRegisters>
         (. =>
             <function>...
                 <returnType> RetType </returnType>
@@ -429,7 +432,7 @@ module LLVM-CALL-RET is
         when 'isKResult(L)
     
     rule
-        <k> Call(_, Callee(FunName:Id, listK(Args:List{K}))) ~> Tail:K
+        <k> Call(_, Callee(funptr(FunName:Id), listK(Args:List{K}))) ~> Tail:K
             => bind(Args, Formals)
             ~> Body
         </k>
@@ -901,7 +904,7 @@ module LLVM-STANDARD-LIBRARY is
     // its purpose is to make the actual function definitions nice
     syntax K ::= exit "(" K ")"
     rule
-        <k> Call(_, Callee(Name("@exit"), listK(V:KResult)))
+        <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
             => exit(V)
         ...</k>
 

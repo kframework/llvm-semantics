@@ -4,8 +4,9 @@ module LLVM-SYNTAX is
     syntax KResult ::= LLVMValue
     syntax KResult ::= listK "(" List{K} ")"
 
+    //@ Modules
+    syntax LLVM ::= `Module "(" K "," K "," K "," K "," K "," K ")"
     // ModuleID, TargetLayout, TargetTriple, Typedefs, GlobalVariables, Functions
-    syntax LLVM ::= "Module" "(" K "," K "," K "," K "," K "," K ")"
     // TODO: syntax LLVM ::= Module(K, K, K, K, K)
 
     syntax LLVM ::= `ModuleID "(" #String ")"
@@ -14,17 +15,15 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Typedefs "(" List{K} ")"
     syntax LLVM ::= `GlobalVariables "(" List{K} ")"
     syntax LLVM ::= `Functions "(" List{K} ")"
+    syntax LLVM ::= `Instructions "(" List{K} ")"
 
     syntax LLVM ::= `Typedef "(" K "," K ")"
     syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
-    // TODO maybe some or none type instead of using list
-
-    syntax LLVM ::= `Modifiers "(" List{K} ")"
     syntax LLVM ::= `Initializer "(" K "," K ")"
 
-    syntax LLVM ::= `Constant
-
-    // syntax LLVM ::= `Type "(" K ")"         [strict hybrid]
+    //@ Types
+    syntax LLVM ::= `Types "(" List{K} ")"
+    context Types((_:List{K},,HOLE,,_:List{K}))
     syntax LLVM ::= `NamedType "(" K ")"
     syntax LLVM ::= `PointerType "(" K ")"  [strict hybrid]
     syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid] // inner type, length
@@ -32,28 +31,19 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `FunctionType "(" K "," K ")" [strict hybrid] // return type, argument types
     syntax LLVMValue ::= `VarargType
     syntax LLVMValue ::= `IntegerType "(" K ")"
+    syntax LLVM ::= `Width "(" #Nat ")"
     syntax LLVM ::= `LabelType
     syntax LLVMValue ::= `VoidType
-    
-    
-    syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
-    
-    syntax LLVM ::= `Switch "(" K "," K "," K "," K ")" [strict(1 2 4)] // type, condition, default dest, list of cases
-    syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor
-    define 'isKResult(Case(K:K, _)) => true
-        when 'isKResult(K:K)
-    
-    
-    syntax LLVM ::= `Types "(" List{K} ")"
-    context Types((_:List{K},,HOLE,,_:List{K}))
 
     syntax LLVM ::= `Fields "(" List{K} ")"
     context Fields((_:List{K},,HOLE,,_:List{K}))
 
+    //@ Functions and function declarations
     syntax LLVM ::= `FunctionDef "(" K "," K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments, Body
     syntax LLVM ::= `FunctionDecl "(" K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments
     syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
     syntax LLVM ::= `NoName // used for arguments with no name
+    syntax LLVM ::= `Vararg
 
     syntax LLVM ::= `ReturnType "(" K ")"
     syntax LLVM ::= `Arguments "(" List{K} ")"
@@ -61,52 +51,48 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Body "(" List{K} ")"
 
     syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
-    syntax LLVM ::= `Instructions "(" List{K} ")"
-
-    // context Br(Conditional(HOLE, _, _))
-
     syntax LLVM ::= `Assign "(" K "," K ")" [strict(2)] // Name, Instruction
     syntax LLVM ::= `Instruction "(" K "," K ")" // Modifiers, the Instruction
     syntax LLVM ::= `ConstantExpr "(" K "," K ")" // Modifiers, the operator
+
+    //@ Modifiers
     syntax LLVM ::= `Modifiers "(" List{K} ")"
-
-    syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
-    syntax LLVM ::= `Callee "(" K "," K ")" [strict hybrid] // Value/Name, Arguments
-    
-    syntax LLVM ::= `Load "(" K "," K ")" [strict]
-    syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict]  // Type, Value, Destination
-    syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]
-
-    context GetElementPtr(_, _, (_,,HOLE,,_))
-
-    syntax LLVM ::= `ConstantExpr "(" K "," K "," K "," K ")"
-    syntax LLVM ::= `Opcode "(" K ")"
-
-    syntax LLVM ::= `Unconditional "(" K ")"
-    syntax LLVM ::= `Conditional "(" K "," K "," K ")" [strict(1)]
-
     syntax LLVM ::= `Alignment "(" #Nat ")"
+    syntax LLVM ::= `Constant
+    syntax LLVM ::= `NoSignedWrap
+    syntax LLVM ::= `NoUnsignedWrap
 
-    syntax LLVM ::= `ConstantString "(" #String ")"
-
+    //@ Identifiers, values, and constants
     syntax Id ::= `Name "(" #String ")"
     syntax LLVM ::= Id
     syntax LLVM ::= `Value "(" K ")"
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
-    syntax LLVM ::= `Width "(" #Nat ")"
+    syntax LLVM ::= `ConstantString "(" #String ")"
+    syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
     syntax LLVM ::= `Null
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVM ::= `Zeroinitializer
-    
-    syntax LLVM ::= `Vararg
 
-    syntax LLVM ::= `NoSignedWrap
-    syntax LLVM ::= `NoUnsignedWrap
+    //@ Memory instructions
+    syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
+    syntax LLVM ::= `Load "(" K "," K ")" [strict]
+    syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict]  // Type, Value, Destination
+    syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]
+    context GetElementPtr(_, _, (_,,HOLE,,_))
 
-    syntax LLVM ::= `Edge "(" K "," K ")" // used by PHI
+    //@ Branching/Conditional instructions
+    syntax LLVM ::= `Br "(" K ")"
+    syntax LLVM ::= `Unconditional "(" K ")"
+    syntax LLVM ::= `Conditional "(" K "," K "," K ")" [strict(1)]
+    syntax LLVM ::= `Switch "(" K "," K "," K "," K ")" [strict(1 2 4)] // type, condition, default dest, list of cases
+    syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor
+    define 'isKResult(Case(K:K, _)) => true
+        when 'isKResult(K:K)
+    syntax LLVM ::= `Select "(" K "," K "," K ")" [strict(1)] // condition, true val, false val
     
+    //@ Comparison operations
+    syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op  
     syntax LLVM ::= `Predicate "(" K ")"
-
     syntax LLVM ::= `INotEq "(" K "," K "," K ")" [strict] // type, left op, right op
     syntax LLVM ::= `IEq "(" K "," K "," K ")" [strict]
     syntax LLVM ::= `UGT "(" K "," K "," K ")" [strict]
@@ -120,7 +106,6 @@ module LLVM-SYNTAX is
     
     //@ Terminator Instructions
     syntax LLVM ::= `Ret "(" K ")" [strict]
-    syntax LLVM ::= `Br "(" K ")"
     syntax LLVM ::= `Unreachable
     
     //@ Binary Operations
@@ -150,8 +135,9 @@ module LLVM-SYNTAX is
     
     //@ Other Operations
     syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list
-    syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Kind, Type, Left op, Right op  
+    syntax LLVM ::= `Edge "(" K "," K ")" // used by PHI
+
     syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
-    syntax LLVM ::= `Select "(" K "," K "," K ")" [strict(1)] // condition, true val, false val
+    syntax LLVM ::= `Callee "(" K "," K ")" [strict hybrid] // Value/Name, Arguments
 
 end module

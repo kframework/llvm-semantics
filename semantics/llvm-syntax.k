@@ -77,7 +77,7 @@ module LLVM-SYNTAX is
     define 'isKResult(Callee(_, K:K)) => true
         when 'isKResult(K:K)
 
-    syntax LLVM ::= `Load "(" K "," K ")" [strict(2)]
+    syntax LLVM ::= `Load "(" K "," K ")" [strict]
     syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict]  // Type, Value, Destination
     syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]
 

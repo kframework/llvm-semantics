@@ -904,7 +904,7 @@ module LLVM-STANDARD-LIBRARY is
     // its purpose is to make the actual function definitions nice
     syntax K ::= exit "(" K ")"
     rule
-        <k> Call(_, Callee(Name("@exit"), listK(V:KResult)))
+        <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
             => exit(V)
         ...</k>
 

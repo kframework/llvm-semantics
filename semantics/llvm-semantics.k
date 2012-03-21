@@ -5,7 +5,12 @@ module LLVM-CONFIGURATION is
     syntax KResult ::= arrayValue "(" List{K} ")"
 
     syntax K ::= callMain // TODO [semantic]
+    
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
+    // syntax Loc ::= sym "(" #Int ")"
+    
+    
+    
     syntax #Nat ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
 
@@ -800,10 +805,12 @@ end module
 module LLVM-COMPARISONS is
     including LLVM-INCLUDE
 
-    // TODO FIXME these are wrong unless we apply a modulus or keep canonical
-    // TODO reduce these to within bounds
-    rule INotEq(_, I1:#Int, I2:#Int) => boolToInt(I1:#Int =/=Bool I2:#Int)  [anywhere]
-    rule IEq(_, I1:#Int, I2:#Int) => boolToInt(I1:#Int ==Bool I2:#Int)  [anywhere]
+    rule INotEq(Type:KResult, I1:#Int, I2:#Int) 
+        => boolToInt(unsigned(Type, I1) =/=Bool unsigned(Type, I2)) 
+        [anywhere]
+    rule IEq(Type:KResult, I1:#Int, I2:#Int) 
+        => boolToInt(unsigned(Type, I1) ==Bool unsigned(Type, I2))
+        [anywhere]
     
     rule UGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >Int unsigned(Type, I2:#Int))  [anywhere]
     rule UGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >=Int unsigned(Type, I2:#Int))  [anywhere]
@@ -851,9 +858,48 @@ module LLVM-CONVERSIONS is
         <k> BitCast(_, I:#Int) => I:#Int ...</k>
         
     syntax #Nat ::= intToPtr "(" K "," K ")"
+    syntax #Int ::= ptrToInt "(" K "," K ")"
     // TODO need to normalize here
     rule
         <k> IntToPtr(Type:KResult, I:#Int) => intToPtr(Type, I) ...</k>
+    rule
+        <k> PtrToInt(Type:KResult, N:#Nat) => ptrToInt(Type, N) ...</k>
+        
+    // TODO needs side conditions
+    rule ptrToInt(Type:KResult, intToPtr(Type':KResult, I:#Int)) => I:#Int
+    rule intToPtr(Type:KResult, ptrToInt(Type':KResult, N:#Nat)) => N:#Nat
+
+    rule unsigned(Type:KResult, sym(Base:#Nat) +Nat Offset:#Nat)
+        => ptrToInt(Type, sym(Base:#Nat) +Nat Offset:#Nat)
+    rule signed(Type:KResult, sym(Base:#Nat) +Nat Offset:#Nat) 
+        => ptrToInt(Type, sym(Base:#Nat) +Nat Offset:#Nat)
+    
+    
+    // Chucky's sucky rules
+    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) >Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        => Offset >Int Offset'
+    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) >=Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        => Offset >=Int Offset'
+    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) <Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        => Offset <Int Offset'
+    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) <=Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        => Offset <=Int Offset'
+            
+    
+    // // david's crazy/cool rule
+    // rule ptrToInt(sym(N) + M) => M
+
+    // unsigned(somePtr) => PtrToNat(somePtr)
+    // signed(somePtr) => PtrToInt(somePtr)
+    // UGT(Pointer, sym(5) + 0, sym(5) + 2)
+    
+    // ptr1 > ptr ==> PtrToInt(ptr1) > PtrToInt(ptr2)
+    
+    // IntToPtr(Zext(..., PointerToInt(sym(5))))
+    
+    
+    // PtrToInt(IntToPtr(5)) == 5
+    // IntToPtr(PtrToInt(sym(5) + 6)) == sym(5) + 6
 end module
 
 

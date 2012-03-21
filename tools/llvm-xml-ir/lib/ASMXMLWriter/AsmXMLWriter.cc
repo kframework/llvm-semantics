@@ -76,22 +76,22 @@ class AsmXMLWriter {
   void visit(const Instruction &);
 
   // unimplemented instructions
-  void visitIndirectBr(const IndirectBrInst &)         { assert (0 && "Unimplemented"); }
-  void visitInvoke(const InvokeInst &)                 { assert (0 && "Unimplemented"); }
-  void visitUnwind(const UnwindInst &)                 { assert (0 && "Unimplemented"); }
-  void visitResume(const ResumeInst &)                 { assert (0 && "Unimplemented"); }
-  void visitFence(const FenceInst &)                   { assert (0 && "Unimplemented"); }
-  void visitAtomicCmpXchg(const AtomicCmpXchgInst &)   { assert (0 && "Unimplemented"); }
-  void visitAtomicRMW(const AtomicRMWInst &)           { assert (0 && "Unimplemented"); }
-  void visitExtractElement(const ExtractElementInst &) { assert (0 && "Unimplemented"); }
-  void visitInsertElement(const InsertElementInst &)   { assert (0 && "Unimplemented"); }
-  void visitShuffleVector(const ShuffleVectorInst &)   { assert (0 && "Unimplemented"); }
-  void visitExtractValue(const ExtractValueInst &)     { assert (0 && "Unimplemented"); }
-  void visitInsertValue(const InsertValueInst &)       { assert (0 && "Unimplemented"); }
-  void visitLandingPad(const LandingPadInst &)         { assert (0 && "Unimplemented"); }
-  void visitVAArg(const VAArgInst &)                   { assert (0 && "Unimplemented"); }
-  void visitUserOp1(const Instruction &)               { assert (0 && "Unimplemented"); }
-  void visitUserOp2(const Instruction &)               { assert (0 && "Unimplemented"); }
+  void visitIndirectBr(const IndirectBrInst &)         { assert (0 && "visitIndirectBr Unimplemented"); }
+  void visitInvoke(const InvokeInst &)                 { assert (0 && "visitInvoke Unimplemented"); }
+  void visitUnwind(const UnwindInst &)                 { assert (0 && "visitUnwind Unimplemented"); }
+  void visitResume(const ResumeInst &)                 { assert (0 && "visitResume Unimplemented"); }
+  void visitFence(const FenceInst &)                   { assert (0 && "visitFence Unimplemented"); }
+  void visitAtomicCmpXchg(const AtomicCmpXchgInst &)   { assert (0 && "visitAtomicCmpXchg Unimplemented"); }
+  void visitAtomicRMW(const AtomicRMWInst &)           { assert (0 && "visitAtomicRMW Unimplemented"); }
+  void visitExtractElement(const ExtractElementInst &) { assert (0 && "visitExtractElement Unimplemented"); }
+  void visitInsertElement(const InsertElementInst &)   { assert (0 && "visitInsertElement Unimplemented"); }
+  void visitShuffleVector(const ShuffleVectorInst &)   { assert (0 && "visitShuffleVector Unimplemented"); }
+  void visitExtractValue(const ExtractValueInst &)     { assert (0 && "visitExtractValue Unimplemented"); }
+  void visitInsertValue(const InsertValueInst &)       { assert (0 && "visitInsertValue Unimplemented"); }
+  void visitLandingPad(const LandingPadInst &)         { assert (0 && "visitLandingPad Unimplemented"); }
+  void visitVAArg(const VAArgInst &)                   { assert (0 && "visitVAArg Unimplemented"); }
+  void visitUserOp1(const Instruction &)               { assert (0 && "visitUserOp1 Unimplemented"); }
+  void visitUserOp2(const Instruction &)               { assert (0 && "visitUserOp2 Unimplemented"); }
 
   // instructions with special cases
   void visitRet(const ReturnInst &);
@@ -1013,7 +1013,7 @@ void AsmXMLWriter::printType(Type *Ty) {
     case Type::StructTyID: {
       StructType *STy = cast<StructType>(Ty);
       if (STy->isLiteral())
-        assert (0 && "unimplemented");
+        assert (0 && "struct literal typeID unimplemented");
 
       if (!STy->getName().empty()) {
         Out << "<NamedType>";
@@ -1022,7 +1022,7 @@ void AsmXMLWriter::printType(Type *Ty) {
         break;
       }
 
-      assert (0 && "unimplemented");
+      assert (0 && "misc. structTyID unimplemented");
       //DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
       //if (I != NumberedTypes.end())
       //  Out << '%' << I->second;
@@ -1067,7 +1067,7 @@ void AsmXMLWriter::printType(Type *Ty) {
     }
 
     case Type::VectorTyID:
-      assert (0 && "unimplemented");
+      assert (0 && "Vector TypeId unimplemented");
       /* Not implemented yet */
       break;
 

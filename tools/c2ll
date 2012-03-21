@@ -5,6 +5,6 @@ if [ $? -ne 0 ]; then
     echo "c2ll failed"
     exit 1
 fi
-printf "BEGIN C2LL PROFILE\n$ uname -a\n%s\n$ clang --version\n%s\n$ opt --version\n%s\n$ pwd\n%s\n$ clang -S -emit-llvm $1\n...\n$ sha256sum $BASE.s\n%s\nEND C2LL PROFILE\n" "`uname -a`" "`clang --version`" "`opt --version`" "`pwd`" "`sha256sum $BASE.s`" | sed 's/^/; /' > $BASE.ll
+printf "BEGIN C2LL PROFILE\n$ clang --version\n%s\n$ opt --version\n%s\n$ pwd\n%s\n$ clang -S -emit-llvm $1\n...\n$ sha256sum $BASE.s\n%s\nEND C2LL PROFILE\n" "`clang --version`" "`opt --version`" "`pwd`" "`sha256sum $BASE.s`" | sed 's/^/; /' > $BASE.ll
 cat $BASE.s >> $BASE.ll
 rm -f $BASE.s

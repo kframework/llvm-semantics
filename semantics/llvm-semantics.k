@@ -73,14 +73,19 @@ module LLVM-HELPERS is
 
     syntax K ::= splitBytes "(" K "," K ")" // value, type
     
-    syntax #Nat ::= numBitsPerByte
-    macro numBitsPerByte = 8
+    declare numBitsPerByte : -> #Nat
+    define numBitsPerByte => 8
     
-    syntax #Nat ::= numBytesPerPointer
-    macro numBytesPerPointer = 4
+    declare numBytesPerPointer : -> #Nat
+    define numBytesPerPointer => 4
+    
+    declare byteType : -> K
+    define byteType => IntegerType(Width(numBitsPerByte))
+    
+    declare int32 : -> K
+    define int32 => IntegerType(Width(32))
 
-    syntax #Nat ::= sizeofInBits K  // TODO [function]
-    // TODO [function]
+    declare sizeofInBits : K -> #Nat
 
     // these give the two's complement signed max and min of a type
     declare smax_ : K -> #Nat
@@ -162,9 +167,6 @@ module LLVM-HELPERS is
     rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
         when numBitsPerByte dividesNat sizeofInBits(K:K)
         [anywhere]
-
-    syntax K ::= int32
-    macro int32 = IntegerType(Width(32)) // TODO [function]
 
     syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
@@ -903,16 +905,53 @@ module LLVM-STANDARD-LIBRARY is
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
     syntax K ::= exit "(" K ")"
+    syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
+    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
+    
     rule
         <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
             => exit(V)
         ...</k>
-
+        
+    // TODO accidentally using where instead of when leads to no error message; it just drops the condition
+    
+    rule
+        // TODO why doesn't this work?
+        // <k> Call(_, Callee(funptr(Name(S:#String)), listK(L:List{K})))
+            // => 'memcpy`(_`,_`,_`,_`,_`)(L)
+        <k> Call(_, Callee(funptr(Name(S:#String)), listK(V1:KResult,, V2:KResult,, V3:KResult,, V4:KResult,, V5:KResult)))
+            => memcpy(V1, V2, V3, V4, V5)
+        ...</k>
+        when substrString(S, 0, 13) ==Bool "@llvm.memcpy."
+    rule
+        <k> Call(_, Callee(funptr(Name(S:#String)), listK(V1:KResult,, V2:KResult,, V3:KResult,, V4:KResult,, V5:KResult)))
+            => memset(V1, V2, V3, V4, V5)
+        ...</k>
+        when substrString(S, 0, 13) ==Bool "@llvm.memset."
+        
     // actual library definitions
     rule
         <k> exit(I:#Int) ~> _
             => I:#Int
         ...</k>
+    
+    // memcpy
+    rule
+        <k> memcpy(Dest:#Nat, Src:#Nat, sNat(Len:#Nat), K1:K, K2:K)
+            => Store(byteType, Load(PointerType(byteType), Src), Dest)
+            ~> memcpy(Dest +Nat 1, Src +Nat 1, Len, K1, K2)
+        ...</k>
+    rule
+        <k> memcpy(_, _, 0, _, _) => . ...</k>
+        
+    // memset
+    rule
+        <k> memset(Dest:#Nat, N:#Nat, sNat(Len:#Nat), K1:K, K2:K)
+            => Store(byteType, N, Dest)
+            ~> memset(Dest +Nat 1, N, Len, K1, K2)
+        ...</k>
+    rule
+        <k> memset(_, _, 0, _, _) => . ...</k>
     
 end module
 

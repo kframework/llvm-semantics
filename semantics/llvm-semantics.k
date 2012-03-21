@@ -518,18 +518,22 @@ module LLVM-ARITHMETIC is
         <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(signed(Type, I1) /Int signed(Type, I2), Type)
         ...</k>
+        when I2 =/=Bool 0 // catch undefined
     rule
         <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(unsigned(Type, I1) /Int unsigned(Type, I2), Type)
         ...</k>
+        when I2 =/=Bool 0 // catch undefined
     rule
         <k> SRem(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(signed(Type, I1) %Int signed(Type, I2), Type)
         ...</k>
+        when I2 =/=Bool 0 // catch undefined
     rule
         <k> URem(Type:KResult, I1:#Int, I2:#Int)
             => interpretInt(unsigned(Type, I1) %Int unsigned(Type, I2), Type)
         ...</k>
+        when I2 =/=Bool 0 // catch undefined
         
     rule
         <k> Shl(Type:KResult, I:#Int, Len:#Nat)

@@ -116,13 +116,13 @@ module LLVM-HELPERS is
         // TODO K not compiling this correctly :(
         // signed(Type:KResult, (I:#Int => I +Int umax(I)))
         signed(Type:KResult, I:#Int)
-        => signed(Type:KResult, I +Int umax(Type))
+        => signed(Type:KResult, I +Int (umax(Type) +Nat 1))
         when I <Int smin(Type)
         [anywhere]
     rule
         // signed(Type:KResult, (I:#Int => I -Int umax(I)))
         signed(Type:KResult, I:#Int)
-        => signed(Type:KResult, I -Int umax(Type))
+        => signed(Type:KResult, I -Int (umax(Type) +Nat 1))
         when I >Int smax(Type)
         [anywhere]
         

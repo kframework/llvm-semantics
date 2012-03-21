@@ -808,9 +808,13 @@ module LLVM-COMPARISONS is
     rule INotEq(Type:KResult, I1:#Int, I2:#Int) 
         => boolToInt(unsigned(Type, I1) =/=Bool unsigned(Type, I2)) 
         [anywhere]
+    // syntax K ::= isEqual "(" K "," K ")"
     rule IEq(Type:KResult, I1:#Int, I2:#Int) 
         => boolToInt(unsigned(Type, I1) ==Bool unsigned(Type, I2))
         [anywhere]
+    // rule IEq(Type:KResult, I1:#Int, I2:#Int) 
+        // => isEqual(unsigned(Type, I1), unsigned(Type, I2))       
+        // [anywhere]
     
     rule UGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >Int unsigned(Type, I2:#Int))  [anywhere]
     rule UGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >=Int unsigned(Type, I2:#Int))  [anywhere]

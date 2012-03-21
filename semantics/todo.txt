@@ -3,3 +3,4 @@
 - floats
 - structs constants
 - pointer comparisons
+- zeroinitializer

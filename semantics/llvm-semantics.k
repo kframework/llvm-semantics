@@ -174,6 +174,15 @@ module LLVM-HELPERS is
     rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
         when numBitsPerByte dividesNat sizeofInBits(K:K)
         [anywhere]
+        
+    declare zeroOfType : K -> K
+    define zeroOfType(Type:KResult) => 0
+        when isIntegerType(Type)
+        
+    
+    declare _copiesOf_ : K List{K} -> List{K}
+    define sNat(N:#Nat) copiesOf L:List{K} => L,, (N:#Nat copiesOf L)
+    define 0 copiesOf _ => .List{K}
 
     syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
@@ -650,7 +659,7 @@ module LLVM-MEMORY is
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitPointerBytes' "(" K "," K "," K "," List{K} ")" // value, numbytes, whichByte, accumulator
-    syntax K ::= splitArrayBytes "(" K "," K ")" // value, numBytes
+    syntax K ::= splitArrayBytes "(" K "," K "," K ")" [strict(3)] // value, numBytes, innertype
     syntax K ::= splitStructBytes "(" K "," List{K} ")" // value, field types
     syntax K ::= splitStructBytes' "(" K "," List{K} "," List{K} ")" // value, field types, accumulator
 
@@ -684,33 +693,28 @@ module LLVM-MEMORY is
             => splitIntegerBytes(V, sizeof(Type))
         ...</k>
         when isIntegerType(Type)
-        [anywhere]
     
     rule
         <k> splitBytes(V:KResult, Type:KResult)
             => splitPointerBytes(V, sizeof(Type))
         ...</k>
         when isPointerType(Type)
-        [anywhere]
         
     rule
         <k> splitBytes(V:KResult, Type:KResult)
-            => splitArrayBytes(V, sizeof(Type))
+            => splitArrayBytes(V, sizeof(Type), innerType(Type))
         ...</k>
         when isArrayType(Type)
-        [anywhere]
         
     rule
         <k> splitBytes(V:KResult, StructType(listK(L:List{K})))
             => splitStructBytes(V, L)
         ...</k>
-        [anywhere]
 
     rule
         <k> splitIntegerBytes(V:KResult, NumBytes:#Nat)
             => splitIntegerBytes'(V, NumBytes, .List{K})
         ...</k>
-        [anywhere]
     rule
         <k> splitIntegerBytes'(I:#Int, sNat(NumBytes:#Nat), L:List{K})
             => splitIntegerBytes'(
@@ -720,37 +724,45 @@ module LLVM-MEMORY is
             )
         ...</k>
         where MASK = (2 ^Int numBitsPerByte) -Int 1
-        [anywhere]
+    rule
+        <k> splitIntegerBytes'(Zeroinitializer, sNat(NumBytes:#Nat), L:List{K})
+            => splitIntegerBytes'(Zeroinitializer, NumBytes, (L,, 0))
+        ...</k>
     // TODO: ideally, the parser should canonicalize integer literals to positive
     rule
-        <k> splitIntegerBytes'(I:#Int, 0, L:List{K})
+        <k> splitIntegerBytes'(K:K, 0, L:List{K})
             => listK(L)
         ...</k>
-        when I ==Bool 0 orBool I ==Bool -1
-        [anywhere]
+        when K ==Bool 0 orBool K ==Bool -1 orBool K ==Bool Zeroinitializer
         
     rule
         <k> splitPointerBytes(V:KResult, NumBytes:#Nat)
             => splitPointerBytes'(V, NumBytes, 0, .List{K})
         ...</k>
-        [anywhere]
     rule
         <k> splitPointerBytes'(V:KResult, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
             => splitPointerBytes'(V:KResult, NumBytes, sNat(N:#Nat), (L ,, ptrByte(V, N)))
         ...</k>
-        [anywhere]
     rule
         <k> splitPointerBytes'(V:KResult, 0, _, L:List{K})
             => listK(L)
         ...</k>
-        [anywhere]
         
     rule
-        <k> splitArrayBytes(arrayValue(L:List{K}), NumBytes:#Nat)
+        <k> splitArrayBytes(arrayValue(L:List{K}), NumBytes:#Nat, _)
             => listK(L)
         ...</k>
         when lengthList{K}(L) ==Bool NumBytes
-        [anywhere]
+    
+    rule
+        <k> (.K => splitBytes(Zeroinitializer, Type)) ~> splitArrayBytes(Zeroinitializer, _, Type:KResult) ...</k>
+        
+    rule
+        <k> listK(L:List{K}) ~> splitArrayBytes(Zeroinitializer, NumBytes:#Nat, Type:KResult)
+            => listK(numCopies copiesOf L:List{K})
+        ...</k>
+        when sizeof(Type) dividesInt NumBytes
+        where numCopies = NumBytes /Int sizeof(Type)
         
     // TODO assumes no padding
     // TODO need to heat types
@@ -758,21 +770,22 @@ module LLVM-MEMORY is
         <k> splitStructBytes(V:KResult, L:List{K})
             => splitStructBytes'(V:KResult, L:List{K}, .List{K})
         ...</k>
-        [anywhere]
     rule
         <k> splitStructBytes'(ConstantStruct(K:K, listK((V:KResult,, L'':List{K}))), (Type:KResult,, L:List{K}), L':List{K})
             => splitBytes(V, Type) 
             ~> splitStructBytes'(ConstantStruct(K:K, listK(L'')), L:List{K}, L':List{K})
         ...</k>
-        [anywhere]
+    rule
+        <k> splitStructBytes'(Zeroinitializer, (Type:KResult,, L:List{K}), L':List{K})
+            => splitBytes(Zeroinitializer, Type) 
+            ~> splitStructBytes'(Zeroinitializer, L:List{K}, L':List{K})
+        ...</k>
     rule
         <k> (listK(L:List{K}) => .K) ~> splitStructBytes'(_, _, (_ ,, (.List{K} => L))) ...</k>
-        [anywhere]
     rule
         <k> splitStructBytes'(_, .List{K}, L:List{K})
             => listK(L)
         ...</k>
-        [anywhere]
     
     // crazy stuff to reassemble pointer
     syntax #Nat ::= ptrBytes "(" K "," K "," K ")"
@@ -840,6 +853,7 @@ module LLVM-MEMORY is
 
     syntax K ::= innerType "(" K ")"
     rule innerType(PointerType(K:K)) => K:K  [anywhere]
+    rule innerType(ArrayType(K:K, _)) => K:K  [anywhere]
 
     syntax K ::= read "(" K "," K ")"
     syntax K ::= readBytes "(" K "," K ")"

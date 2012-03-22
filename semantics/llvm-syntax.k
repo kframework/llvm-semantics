@@ -78,6 +78,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
     syntax LLVM ::= `ConstantString "(" #String ")"
     syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
+    syntax LLVM ::= `ConstantStruct "(" K "," K ")" [strict]
     syntax LLVM ::= `Null
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVMValue ::= `Zeroinitializer

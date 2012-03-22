@@ -770,35 +770,27 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
 
 
   if (const ConstantStruct *CS = dyn_cast<ConstantStruct>(CV)) {
-    assert (0 && "Not handling ConstantStruct");
+    // assert (0 && "Not handling ConstantStruct");
+    
+    Out << "<ConstantStruct>\n";
      
-    // if (CS->getType()->isPacked())
-      // Out << '<';
-    // Out << '{';
-    // unsigned N = CS->getNumOperands();
-    // if (N) {
-      // Out << ' ';
-      // TypePrinter.print(CS->getOperand(0)->getType(), Out);
-      // Out << ' ';
-
-      // printValue(Out, CS->getOperand(0), &TypePrinter, Machine,
-                             // Context);
-
-      // for (unsigned i = 1; i < N; i++) {
-        // Out << ", ";
-        // TypePrinter.print(CS->getOperand(i)->getType(), Out);
-        // Out << ' ';
-
-        // printValue(Out, CS->getOperand(i), &TypePrinter, Machine,
-                               // Context);
-      // }
-      // Out << ' ';
-    // }
-
-    // Out << '}';
-    // if (CS->getType()->isPacked())
-      // Out << '>';
-    // return;
+    Out << "<Modifiers><List>\n";
+    if (CS->getType()->isPacked()) {
+      Out << "<Packed/>";
+    }
+    Out << "</List></Modifiers>\n";
+    Out << "<Arguments><List>";
+    unsigned N = CS->getNumOperands();
+    for (unsigned i = 0; i < N; i++) {
+      Out << "<Operand>";
+      printOperand(CS->getOperand(i), true);
+      // TypePrinter.print(CS->getOperand(i)->getType(), Out);
+      // printValue(Out, CS->getOperand(i), &TypePrinter, Machine, Context);
+      Out << "</Operand>";
+    }
+    Out << "</List></Arguments>";
+    Out << "</ConstantStruct>\n";
+    return;
   }
 
   if (const ConstantVector *CP = dyn_cast<ConstantVector>(CV)) {

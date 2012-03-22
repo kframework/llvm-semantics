@@ -956,19 +956,19 @@ end module
 module LLVM-STANDARD-LIBRARY is
     including LLVM-INCLUDE
     
+    // TODO accidentally using where instead of when leads to no error message; it just drops the condition
+    
+    /////////////////////////////////////////////////////////
+    // turning calls to intrinsics into semantic productions
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
     syntax K ::= exit "(" K ")"
-    syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
-    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
-    
     rule
         <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
             => exit(V)
         ...</k>
-        
-    // TODO accidentally using where instead of when leads to no error message; it just drops the condition
-    
+
+    syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
     rule
         // TODO why doesn't this work?
         // <k> Call(_, Callee(funptr(Name(S:#String)), listK(L:List{K})))
@@ -977,12 +977,27 @@ module LLVM-STANDARD-LIBRARY is
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==Bool "@llvm.memcpy."
+
+    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
     rule
         <k> Call(_, Callee(funptr(Name(S:#String)), listK(V1:KResult,, V2:KResult,, V3:KResult,, V4:KResult,, V5:KResult)))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==Bool "@llvm.memset."
+
+    syntax K ::= lifetimeStart "(" K "," K ")"
+    rule
+        <k> Call(_, Callee(funptr(Name("@llvm.lifetime.start")), listK(V1:KResult,, V2:KResult)))
+            => lifetimeStart(V1, V2)
+        ...</k>
         
+    syntax K ::= lifetimeEnd "(" K "," K ")"
+    rule
+        <k> Call(_, Callee(funptr(Name("@llvm.lifetime.end")), listK(V1:KResult,, V2:KResult)))
+            => lifetimeEnd(V1, V2)
+        ...</k>
+
+    /////////////////////////////////////////////////////////
     // actual library definitions
     rule
         <k> exit(I:#Int) ~> _
@@ -1006,6 +1021,16 @@ module LLVM-STANDARD-LIBRARY is
         ...</k>
     rule
         <k> memset(_, _, 0, _, _) => . ...</k>
+        
+    // lifetimeStart
+    // don't need to do anything for positive semantics
+    rule
+        <k> lifetimeStart(_, _) => . ...</k>
+        
+    // lifetimeEnd
+    // don't need to do anything for positive semantics
+    rule
+        <k> lifetimeEnd(_, _) => . ...</k>
     
 end module
 

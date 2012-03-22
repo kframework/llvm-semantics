@@ -1099,10 +1099,12 @@ void AsmXMLWriter::printStructBody(StructType *STy) {
     return;
   }
 
-
-  if (STy->isPacked())
+  Out << "<Modifiers><List>\n";
+  if (STy->isPacked()) {
     Out << "<Packed/>\n";
-
+  }
+  Out << "</List></Modifiers>\n";
+  
   Out << "<StructType><Fields><List>\n";
   for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
     printType(*I);
@@ -1125,12 +1127,13 @@ void AsmXMLWriter::printTypeIdentities() {
 
   // Emit all numbered types.
   for (unsigned i = 0, e = NT.size(); i != e; ++i) {
-    Out << '%' << i << " = type ";
+    assert(0 && "Didn't expect numbered types\n");
+    // Out << '%' << i << " = type ";
 
-    // Make sure we print out at least one level of the type structure, so
-    // that we do not get %2 = type %2
-    printStructBody(NT[i]);
-    Out << '\n';
+    // // Make sure we print out at least one level of the type structure, so
+    // // that we do not get %2 = type %2
+    // printStructBody(NT[i]);
+    // Out << '\n';
   }
 
   Out << "<Typedefs><List>\n";

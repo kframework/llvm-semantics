@@ -363,7 +363,8 @@ module LLVM-DECLARATIONS is
         ...</modules>
 
     rule
-        <k> Typedef(X:Id, UnresolvedType:K) => . ...</k>
+        <k> Typedef(X:Id, Modifiers(L:List{K}), UnresolvedType:K) => . ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
         <currModule> Name:Id </currModule>
         <moduleName> Name </moduleName>
         <typedefs>... . => X |-> UnresolvedType ...</typedefs>

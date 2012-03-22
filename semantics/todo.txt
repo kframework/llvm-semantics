@@ -5,3 +5,4 @@
 - zeroinitializer
 - global variables can reference other globals that haven't been defined yet
 - looks like Typedef can have more than two things in it (strct-pack-1.ll)
+- fixing printing 0x values (regstack-1.ll)

@@ -296,7 +296,7 @@ module LLVM-BRANCHING is
     including LLVM-INCLUDE
 
     rule
-        <k> Unconditional(Label:Id) => Body:K ...</k>
+        <k> Unconditional(Label:Id) => Body:K </k>
         <currFunction> FunName:Id </currFunction>
         <functionName> FunName:Id </functionName>
         <basicBlocks>... Label:Id |-> Body:K ...</basicBlocks>
@@ -306,29 +306,41 @@ module LLVM-BRANCHING is
     rule
         <k> Conditional(1, Label:K, _)
             => Unconditional(Label:K)
-        ...</k>
+        </k>
     rule
         <k> Conditional(0, _, Label:K)
             => Unconditional(Label:K)
-        ...</k>
+        </k>
         
     rule [switch-default]:
         <k> Switch(_, I:#Int, Label:K, listK(.List{K}))
             => Unconditional(Label:K)
-        ...</k>
+        </k>
     rule [switch-hit]:
         <k> Switch(Type:KResult, I:#Int, _, listK((Case(I':#Int, Label:K),, L:List{K})))
             => Unconditional(Label:K)
-        ...</k>
+        </k>
         when unsigned(Type, I) ==Bool unsigned(Type, I')
     rule [switch-miss]:
-        <k> Switch(Type:KResult, I:#Int, _, listK(((Case(I':#Int, Label:K) => .List{K}),, L:List{K}))) ...</k>
+        <k> Switch(
+                Type:KResult, 
+                I:#Int, 
+                _, 
+                listK(((Case(I':#Int, Label:K) => .List{K}),, L:List{K}))
+            )
+        </k>
         when unsigned(Type, I) =/=Bool unsigned(Type, I')
+end module
 
-    rule [select-false]: Select(0, _, K:K) => K
-    rule [select-true]:  Select(I:#Int, K:K, _) => K
+module LLVM-SELECTION is
+    including LLVM-INCLUDE
+    
+    // TODO select needs type in order to normalize
+    rule [select-false]:
+        Select(I:#Int, _, K:K) => K
+    rule [select-true]:
+        Select(I:#Int, K:K, _) => K
         when I =/=Bool 0 // TODO normalize numbers?
-
 end module
 
 module LLVM-START-AND-STOP is
@@ -593,7 +605,9 @@ module LLVM-GEP is
     syntax K ::= gep
 
     rule
-        <k> GetElementPtr(Type:KResult, PtrVal:#Nat, Indices:List{K}) => gep ...</k>
+        <k> GetElementPtr(Type:KResult, PtrVal:#Nat, Indices:List{K}) 
+            => gep 
+        ...</k>
         (. =>
             <gepInfo>...
                 <gepType> Type </gepType>
@@ -1110,6 +1124,7 @@ module LLVM-SEMANTICS is
     including LLVM-MISC
     including LLVM-GLOBALS
     including LLVM-BRANCHING
+    including LLVM-SELECTION
     including LLVM-REGISTERS
     including LLVM-START-AND-STOP
     including LLVM-CALL-RET

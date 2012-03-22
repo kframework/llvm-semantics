@@ -980,19 +980,31 @@ module LLVM-LITERALS is
         <k> ConstantArray(Type:KResult, listK(L:List{K}))
             => createArrayValue(Type, L)
         ...</k>
-        
-    declare createArrayValue : K List{K} -> K
-    declare createArrayValue' : K List{K} List{K} -> K
-    declare createArrayValue'' : K List{K} K List{K} -> K
+       
+    syntax K ::= createArrayValue "(" K "," List{K} ")"
+    syntax K ::= createArrayValue' "(" K "," List{K} "," List{K} ")"
+    syntax K ::= createArrayValue'' "(" K "," List{K} "," K "," List{K} ")" [strict(3)]
     
-    define createArrayValue(Type:KResult, L:List{K})
-        => createArrayValue'(Type:KResult, L:List{K}, .List{K})
-    define createArrayValue'(Type:KResult, (K:K,, L:List{K}), L':List{K})
-        => createArrayValue''(Type:KResult, L:List{K}, splitBytes(K, Type), L':List{K})
-    define createArrayValue''(Type:KResult, L:List{K}, listK(L'':List{K}), L':List{K})
-        => createArrayValue'(Type:KResult, L:List{K}, (L':List{K},, L'':List{K}))
-    define createArrayValue'(_, .List{K}, L:List{K})
-        => arrayValue(L)
+    // declare createArrayValue : K List{K} -> K
+    // declare createArrayValue' : K List{K} List{K} -> K
+    // declare createArrayValue'' : K List{K} K List{K} -> K
+    
+    rule
+        <k> createArrayValue(Type:KResult, L:List{K})
+            => createArrayValue'(Type:KResult, L:List{K}, .List{K})
+        ...</k>
+    rule
+        <k> createArrayValue'(Type:KResult, (K:K,, L:List{K}), L':List{K})
+            => createArrayValue''(Type:KResult, L:List{K}, splitBytes(K, Type), L':List{K})
+        ...</k>
+    rule
+        <k> createArrayValue''(Type:KResult, L:List{K}, listK(L'':List{K}), L':List{K})
+            => createArrayValue'(Type:KResult, L:List{K}, (L':List{K},, L'':List{K}))
+        ...</k>
+    rule
+        <k> createArrayValue'(_, .List{K}, L:List{K})
+            => arrayValue(L)
+        ...</k>
 
     // declare stringToArray : K -> K
     // declare stringToArray' : K K -> K

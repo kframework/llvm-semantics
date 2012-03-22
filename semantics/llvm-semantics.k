@@ -152,6 +152,8 @@ module LLVM-HELPERS is
     rule isPointerType(PointerType(_)) => true  [anywhere]
     syntax #Bool ::= isArrayType "(" K ")" // predicate
     rule isArrayType(ArrayType(_, _)) => true  [anywhere]
+    syntax #Bool ::= isStructType "(" K ")" // predicate
+    rule isStructType(StructType(_)) => true  [anywhere]
     
     // fixme size should depend on architecture
     rule sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
@@ -248,8 +250,8 @@ module LLVM-GLOBALS is
     syntax K ::= init "(" K "," K "," K ")" [strict(2)]
     
     rule
-        <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(Type:KResult), Init:K)
-            => init(X, Alloca(Type, 1), Init:K)
+        <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(TyK:K), Init:K)
+            => init(X, Alloca(TyK, 1), Init:K)
         ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>
         
@@ -642,13 +644,15 @@ module LLVM-MEMORY is
         ...</k>
 
     syntax K ::= write "(" K "," K "," K ")" // type, value, location
-    syntax K ::= writeBytes "(" List{K} "," K ")" // list of bytes, location
+    syntax K ::= writeBytes "(" K "," K ")" [strict(1)] // list of bytes, location
     
     syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitPointerBytes' "(" K "," K "," K "," List{K} ")" // value, numbytes, whichByte, accumulator
     syntax K ::= splitArrayBytes "(" K "," K ")" // value, numBytes
+    syntax K ::= splitStructBytes "(" K "," List{K} ")" // value, field types
+    syntax K ::= splitStructBytes' "(" K "," List{K} "," List{K} ")" // value, field types, accumulator
 
     rule
         <k> write(Type:KResult, V:KResult, Loc:#Nat)
@@ -676,60 +680,98 @@ module LLVM-MEMORY is
     // Type(IntegerType(Width(32)))
     // should generate list with LSBytes first
     rule
-        splitBytes(V:KResult, Type:KResult)
+        <k> splitBytes(V:KResult, Type:KResult)
             => splitIntegerBytes(V, sizeof(Type))
+        ...</k>
         when isIntegerType(Type)
         [anywhere]
     
     rule
-        splitBytes(V:KResult, Type:KResult)
+        <k> splitBytes(V:KResult, Type:KResult)
             => splitPointerBytes(V, sizeof(Type))
+        ...</k>
         when isPointerType(Type)
         [anywhere]
         
     rule
-        splitBytes(V:KResult, Type:KResult)
+        <k> splitBytes(V:KResult, Type:KResult)
             => splitArrayBytes(V, sizeof(Type))
+        ...</k>
         when isArrayType(Type)
+        [anywhere]
+        
+    rule
+        <k> splitBytes(V:KResult, StructType(listK(L:List{K})))
+            => splitStructBytes(V, L)
+        ...</k>
         [anywhere]
 
     rule
-        splitIntegerBytes(V:KResult, NumBytes:#Nat)
+        <k> splitIntegerBytes(V:KResult, NumBytes:#Nat)
             => splitIntegerBytes'(V, NumBytes, .List{K})
+        ...</k>
         [anywhere]
     rule
-        splitIntegerBytes'(I:#Int, sNat(NumBytes:#Nat), L:List{K})
+        <k> splitIntegerBytes'(I:#Int, sNat(NumBytes:#Nat), L:List{K})
             => splitIntegerBytes'(
                 I >>Int numBitsPerByte,
                 NumBytes,
                 (L ,, (I &Int MASK))
             )
+        ...</k>
         where MASK = (2 ^Int numBitsPerByte) -Int 1
         [anywhere]
     // TODO: ideally, the parser should canonicalize integer literals to positive
     rule
-        splitIntegerBytes'(I:#Int, 0, L:List{K})
+        <k> splitIntegerBytes'(I:#Int, 0, L:List{K})
             => listK(L)
+        ...</k>
         when I ==Bool 0 orBool I ==Bool -1
         [anywhere]
         
     rule
-        splitPointerBytes(V:KResult, NumBytes:#Nat)
+        <k> splitPointerBytes(V:KResult, NumBytes:#Nat)
             => splitPointerBytes'(V, NumBytes, 0, .List{K})
+        ...</k>
         [anywhere]
     rule
-        splitPointerBytes'(V:KResult, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
+        <k> splitPointerBytes'(V:KResult, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
             => splitPointerBytes'(V:KResult, NumBytes, sNat(N:#Nat), (L ,, ptrByte(V, N)))
+        ...</k>
         [anywhere]
     rule
-        splitPointerBytes'(V:KResult, 0, _, L:List{K})
+        <k> splitPointerBytes'(V:KResult, 0, _, L:List{K})
             => listK(L)
+        ...</k>
         [anywhere]
         
     rule
-        splitArrayBytes(arrayValue(L:List{K}), NumBytes:#Nat)
+        <k> splitArrayBytes(arrayValue(L:List{K}), NumBytes:#Nat)
             => listK(L)
+        ...</k>
         when lengthList{K}(L) ==Bool NumBytes
+        [anywhere]
+        
+    // TODO assumes no padding
+    // TODO need to heat types
+    rule
+        <k> splitStructBytes(V:KResult, L:List{K})
+            => splitStructBytes'(V:KResult, L:List{K}, .List{K})
+        ...</k>
+        [anywhere]
+    rule
+        <k> splitStructBytes'(ConstantStruct(K:K, listK((V:KResult,, L'':List{K}))), (Type:KResult,, L:List{K}), L':List{K})
+            => splitBytes(V, Type) 
+            ~> splitStructBytes'(ConstantStruct(K:K, listK(L'')), L:List{K}, L':List{K})
+        ...</k>
+        [anywhere]
+    rule
+        <k> (listK(L:List{K}) => .K) ~> splitStructBytes'(_, _, (_ ,, (.List{K} => L))) ...</k>
+        [anywhere]
+    rule
+        <k> splitStructBytes'(_, .List{K}, L:List{K})
+            => listK(L)
+        ...</k>
         [anywhere]
     
     // crazy stuff to reassemble pointer

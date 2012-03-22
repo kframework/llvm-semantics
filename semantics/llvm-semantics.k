@@ -337,7 +337,7 @@ module LLVM-SELECTION is
     
     // TODO select needs type in order to normalize
     rule [select-false]:
-        Select(I:#Int, _, K:K) => K
+        Select(0, _, K:K) => K
     rule [select-true]:
         Select(I:#Int, K:K, _) => K
         when I =/=Bool 0 // TODO normalize numbers?

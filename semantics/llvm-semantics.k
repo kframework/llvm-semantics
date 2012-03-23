@@ -156,22 +156,17 @@ module LLVM-HELPERS is
     rule isStructType(StructType(_)) => true  [anywhere]
     
     // fixme size should depend on architecture
-    rule sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
-        [anywhere]
-    rule sizeofInBits(ArrayType(Type:KResult, Len:#Nat)) => sizeofInBits(Type) *Nat Len
-        [anywhere]
+    define sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
+    define sizeofInBits(ArrayType(Type:KResult, Len:#Nat)) => sizeofInBits(Type) *Nat Len
     
-    rule sizeofInBits(IntegerType(Width(N:#Nat))) => N
-        [anywhere]
+    define sizeofInBits(IntegerType(Width(N:#Nat))) => N
     // TODO listK should be Fields (bug in K)
-    rule sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
+    define sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
       => sizeofInBits(Type) +Nat sizeofInBits(StructType(listK(L)))
-        [anywhere]
-    rule sizeofInBits(StructType(listK(.List{K}))) => 0
-        [anywhere]
+    define sizeofInBits(StructType(listK(.List{K}))) => 0
 
-    syntax #Nat ::= sizeof K  // TODO [function]
-    rule sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
+    declare sizeof : K -> #Nat
+    define sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
         when numBitsPerByte dividesNat sizeofInBits(K:K)
         [anywhere]
         

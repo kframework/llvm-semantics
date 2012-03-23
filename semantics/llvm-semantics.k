@@ -667,6 +667,7 @@ module LLVM-GEP is
         <k> gep => Loc ...</k>
         (
             <gepInfo>...
+                <gepIndices> .K </gepIndices>
                 <gepResult> Loc:#Nat </gepResult>
             ...</gepInfo>
             => .
@@ -674,11 +675,28 @@ module LLVM-GEP is
 
     // rule <gepType> Type:KResult => Type </gepType>
 
+    // TODO this is pretty ugly
+    // these rules make sure the body of a pointer type is a result
+    syntax K ::= typing
+    rule
+        <gepType> (. => typing) ~> PointerType(TyK:K) </gepType>
+        <k> (. => TyK:K) ...</k>
+        when 'isKResult(TyK) =/=Bool true // tricky
+    rule
+        <gepType> (typing => .) ~> PointerType((_ => Type)) </gepType>
+        <k> Type:KResult => . ...</k>
     rule
         <gepType> PointerType(Type:KResult) => Type </gepType>
         <gepIndices> N:#Nat => . ...</gepIndices> 
         <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
 
+    rule
+        <gepType> (. => typing) ~> StructType(listK(TyK:K,,L:List{K})) </gepType>
+        <k> (. => TyK:K) ...</k>
+        when 'isKResult(TyK) =/=Bool true // tricky
+    rule
+        <gepType> (typing => .) ~> StructType(listK((TyK:K => Type),,L:List{K})) </gepType>
+        <k> Type:KResult => . ...</k>
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
         <gepType> StructType(listK((Type:KResult => .List{K}),,L:List{K})) </gepType>

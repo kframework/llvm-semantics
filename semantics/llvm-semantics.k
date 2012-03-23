@@ -257,10 +257,11 @@ end module
 module LLVM-CLEAN-TREE is
     including LLVM-INCLUDE
     
-    rule <k> Operand(Type:KResult, I:#Int) => signed(Type, I) ...</k>
-        when isIntegerType(Type)
+    // rule <k> Operand(Type:KResult, I:#Int) => signed(Type, I) ...</k>
+        // when isIntegerType(Type)
+    // rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
+        // when notBool isIntegerType(Type)
     rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
-        when notBool isIntegerType(Type)
 
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
     rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]
@@ -1003,8 +1004,13 @@ module LLVM-CONVERSIONS is
     including LLVM-INCLUDE
     
     // TODO only handling scalars
-    rule
-        <k> Trunc(Type:KResult, I:#Int) => signed(Type, I) ...</k>
+    // rule
+        // <k> Trunc(Type:KResult, I:#Int) => signed(Type, I) ...</k>
+    // TODO this is very wrong
+    rule 
+        <k> Trunc(Type:KResult, N:#Nat) => N:#Nat %Int BASE ...</k>
+            when isIntegerType(Type)
+            where BASE = (2 ^Int (numBitsPerByte *Int sizeof(Type)))
     
     // TODO only handling scalars
     rule

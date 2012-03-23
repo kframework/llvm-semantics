@@ -689,6 +689,18 @@ module LLVM-GEP is
         <gepType> PointerType(Type:KResult) => Type </gepType>
         <gepIndices> N:#Nat => . ...</gepIndices> 
         <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
+        
+    rule
+        <gepType> (. => typing) ~> ArrayType(TyK:K, _) </gepType>
+        <k> (. => TyK:K) ...</k>
+        when 'isKResult(TyK) =/=Bool true // tricky
+    rule
+        <gepType> (typing => .) ~> ArrayType((_ => Type), _) </gepType>
+        <k> Type:KResult => . ...</k>
+    rule
+        <gepType> ArrayType(Type:KResult, _) => Type </gepType>
+        <gepIndices> N:#Nat => . ...</gepIndices>
+        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
 
     rule
         <gepType> (. => typing) ~> StructType(listK(TyK:K,,L:List{K})) </gepType>

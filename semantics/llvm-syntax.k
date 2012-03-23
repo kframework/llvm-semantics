@@ -100,7 +100,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor
     define 'isKResult(Case(K:K, _)) => true
         when 'isKResult(K:K)
-    syntax LLVM ::= `Select "(" K "," K "," K ")" [strict(1)] // condition, true val, false val
+    syntax LLVM ::= `Select "(" K "," K "," K "," K ")" [strict(1 2)] // condition, true val, false val
     
     //@ Comparison operations
     syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op  

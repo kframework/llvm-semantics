@@ -385,12 +385,13 @@ end module
 module LLVM-SELECTION is
     including LLVM-INCLUDE
     
-    // TODO select needs type in order to normalize
     rule [select-false]:
-        Select(0, _, K:K) => K
+        Select(Type:KResult, I:#Int, _, K:K) => K
+        when unsigned(Type, I) ==Bool 0
     rule [select-true]:
-        Select(I:#Int, K:K, _) => K
-        when I =/=Bool 0 // TODO normalize numbers?
+        Select(Type:KResult, I:#Int, K:K, _) => K
+        when unsigned(Type, I) >Nat 0
+        // when I =/=Bool 0 // TODO normalize numbers?
 end module
 
 module LLVM-START-AND-STOP is

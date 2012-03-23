@@ -651,6 +651,7 @@ module LLVM-GEP is
 
     syntax K ::= gep
 
+    // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
     rule
         <k> GetElementPtr(Type:KResult, PtrVal:#Nat, Indices:List{K}) 
             => gep 

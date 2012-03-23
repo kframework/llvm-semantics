@@ -139,6 +139,11 @@ class AsmXMLWriter {
   // same as above, but don't print the type
   void visitUnreachable(const Operator &I) { printOperatorBody(I, false); }
   void visitSelect(const Operator &I)      { printOperatorBody(I, false); }
+  // TODO might need this
+  // void visitSelect(const Operator &I) {
+    // printType(I.getOperand(0)->getType());
+    // printOperatorBody(I, false); 
+  // }
 
   // comparisons
   void visitICmp(const Operator &I) { printCmpBody(I); }

@@ -1,19 +1,21 @@
-module LLVM-CONFIGURATION is
+module LLVM-SPECIAL is
     including LLVM-SYNTAX
-
+    
+    syntax K ::= callMain // TODO [semantic]
     syntax KResult ::= #Int
     syntax KResult ::= arrayValue "(" List{K} ")"
 
-    syntax K ::= callMain // TODO [semantic]
-    
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
     // syntax Loc ::= sym "(" #Int ")"
-    
-    
-    
     syntax #Nat ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
 
+end module
+
+module LLVM-CONFIGURATION is
+    including LLVM-SYNTAX
+    including LLVM-SPECIAL
+    
     configuration
         <T multiplicity="?">
             <k> $PGM:K ~> callMain </k>
@@ -75,6 +77,7 @@ end module
 
 module LLVM-SETTINGS is
     including LLVM-SYNTAX
+    including LLVM-SPECIAL
     
     declare numBitsPerByte : -> #Nat
     define numBitsPerByte => 8
@@ -97,6 +100,10 @@ module LLVM-HELPERS is
 
     declare sizeofInBits : K -> #Nat
 
+    syntax K ::= innerType "(" K ")"
+    rule innerType(PointerType(K:K)) => K:K  [anywhere]
+    rule innerType(ArrayType(K:K, _)) => K:K  [anywhere]
+    
     // these give the two's complement signed max and min of a type
     declare smax_ : K -> #Nat
     declare smin_ : K -> #Int
@@ -112,11 +119,35 @@ module LLVM-HELPERS is
     syntax #Int ::= signed "(" K "," K ")" // type, value
     
     
-    declare canonicalize : K K -> K
-    define canonicalize(Type:KResult, I:#Int) => unsigned(Type, I)
+    // cannot be a function, has to take place on top of K
+    syntax K ::= canonicalize "(" K "," K ")"
+    syntax K ::= canonicalizeArray "(" K "," List{K} ")" [strict(1)]
+    syntax K ::= canonicalizeArray' "(" K "," List{K} "," List{K} ")"
+    
+    rule 
+        <k> canonicalize(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
         when isIntegerType(Type)
-    define canonicalize(Type:KResult, I:#Int) => I
+    rule <k> canonicalize(Type:KResult, I:#Int) => I ...</k>
         when isPointerType(Type)
+    rule <k> canonicalize(VoidType, VoidValue) => VoidValue ...</k>
+    rule <k> canonicalize(Type:KResult, arrayValue(L:List{K}))
+            => canonicalizeArray(innerType(Type), L)
+        ...</k>
+        when isArrayType(Type)
+    
+    // canonicalizeArray
+    rule <k> canonicalizeArray(Type:KResult, L:List{K})
+            => canonicalizeArray'(Type, L, .List{K})
+        ...</k>
+    rule <k> (.K => canonicalize(Type, V))
+            ~> canonicalizeArray'(Type:KResult, ((V:KResult => .List{K}),, L:List{K}), _)
+        ...</k>
+    rule <k> (V:KResult => .)
+            ~> canonicalizeArray'(Type:KResult, L:List{K}, (_,, (.List{K} => V)))
+        ...</k>
+    rule <k> canonicalizeArray'(Type:KResult, .List{K}, L:List{K})
+            => arrayValue(L)
+        ...</k>
     
     rule
         signed(Type:KResult, I:#Int) => I
@@ -748,11 +779,14 @@ module LLVM-MEMORY is
             => splitIntegerBytes'(Zeroinitializer, NumBytes, (L,, 0))
         ...</k>
     // TODO: ideally, the parser should canonicalize integer literals to positive
+    // TODO BUG no idea why i have to use "MyK" here instead of "K"....
     rule
-        <k> splitIntegerBytes'(K:K, 0, L:List{K})
+        <k> splitIntegerBytes'(MyK:K, 0, L:List{K})
             => listK(L)
         ...</k>
-        when K ==Bool 0 orBool K ==Bool -1 orBool K ==Bool Zeroinitializer
+        when MyK ==Bool 0 
+        orBool MyK ==Bool -1 
+        orBool MyK ==Bool Zeroinitializer
         
     rule
         <k> splitPointerBytes(V:KResult, NumBytes:#Nat)
@@ -869,10 +903,6 @@ module LLVM-MEMORY is
     rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
         => N:#Nat
         [anywhere]
-
-    syntax K ::= innerType "(" K ")"
-    rule innerType(PointerType(K:K)) => K:K  [anywhere]
-    rule innerType(ArrayType(K:K, _)) => K:K  [anywhere]
 
     syntax K ::= read "(" K "," K ")"
     syntax K ::= readBytes "(" K "," K ")"

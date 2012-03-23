@@ -100,6 +100,8 @@ module LLVM-HELPERS is
 
     declare int32 : -> K
     define int32 => IntegerType(Width(32))
+    declare int1 : -> K
+    define int1 => IntegerType(Width(1))
 
     declare sizeofInBits : K -> #Nat
 
@@ -352,16 +354,16 @@ module LLVM-BRANCHING is
         <functionName> FunName:Id </functionName>
         <basicBlocks>... Label:Id |-> Body:K ...</basicBlocks>
 
-    // TODO need to add a type to conditional so we can reduce I wrt type, see 20000731-2.ll
-    // TODO or normalize numbers
     rule
-        <k> Conditional(1, Label:K, _)
+        <k> Conditional(I:#Int, Label:K, _)
             => Unconditional(Label:K)
         </k>
+        when unsigned(int1, I) ==Bool 1
     rule
-        <k> Conditional(0, _, Label:K)
+        <k> Conditional(I:#Int, _, Label:K)
             => Unconditional(Label:K)
         </k>
+        when unsigned(int1, I) ==Bool 0
         
     rule [switch-default]:
         <k> Switch(_, I:#Int, Label:K, listK(.List{K}))
@@ -714,7 +716,7 @@ module LLVM-MEMORY is
     syntax K ::= write "(" K "," K "," K ")" // type, value, location
     syntax K ::= writeBytes "(" K "," K ")" [strict(1)] // list of bytes, location
     
-    syntax K ::= splitIntegerBytes "(" K "," K ")" // value, numBytes
+    syntax K ::= splitIntegerBytes "(" K "," K "," K ")" // value, numBytes, type
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitPointerBytes' "(" K "," K "," K "," List{K} ")" // value, numbytes, whichByte, accumulator
@@ -749,7 +751,7 @@ module LLVM-MEMORY is
     // should generate list with LSBytes first
     rule
         <k> splitBytes(V:KResult, Type:KResult)
-            => splitIntegerBytes(V, sizeof(Type))
+            => splitIntegerBytes(V, sizeof(Type), Type)
         ...</k>
         when isIntegerType(Type)
     
@@ -771,8 +773,12 @@ module LLVM-MEMORY is
         ...</k>
 
     rule
-        <k> splitIntegerBytes(V:KResult, NumBytes:#Nat)
-            => splitIntegerBytes'(V, NumBytes, .List{K})
+        <k> splitIntegerBytes(I:#Int, NumBytes:#Nat, Type:KResult)
+            => splitIntegerBytes'(unsigned(Type, I), NumBytes, .List{K})
+        ...</k>
+    rule
+        <k> splitIntegerBytes(Zeroinitializer, NumBytes:#Nat, _)
+            => splitIntegerBytes'(Zeroinitializer, NumBytes, .List{K})
         ...</k>
     rule
         <k> splitIntegerBytes'(I:#Int, sNat(NumBytes:#Nat), L:List{K})
@@ -793,8 +799,7 @@ module LLVM-MEMORY is
         <k> splitIntegerBytes'(MyK:K, 0, L:List{K})
             => listK(L)
         ...</k>
-        when MyK ==Bool 0 
-        orBool MyK ==Bool -1 
+        when MyK ==Bool 0
         orBool MyK ==Bool Zeroinitializer
         
     rule

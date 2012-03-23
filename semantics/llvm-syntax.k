@@ -75,7 +75,7 @@ module LLVM-SYNTAX is
     syntax Id ::= `Name "(" #String ")"
     syntax LLVM ::= Id
     syntax LLVM ::= `Value "(" K ")"
-    syntax LLVM ::= `Operand "(" K "," K ")" // Type, Value
+    syntax LLVM ::= `Operand "(" K "," K ")" [strict] // Type, Value
     syntax LLVM ::= `ConstantString "(" #String ")"
     syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
     syntax LLVM ::= `ConstantStruct "(" K "," K ")" [strict(2)] // modifiers, arguments

@@ -73,20 +73,25 @@ module LLVM-CONFIGURATION is
 
 end module
 
-module LLVM-HELPERS is
+module LLVM-SETTINGS is
     including LLVM-SYNTAX
-
-    syntax K ::= splitBytes "(" K "," K ")" // value, type
     
     declare numBitsPerByte : -> #Nat
     define numBitsPerByte => 8
     
     declare numBytesPerPointer : -> #Nat
     define numBytesPerPointer => 4
+end module
+
+module LLVM-HELPERS is
+    including LLVM-SYNTAX
+    including LLVM-SETTINGS
     
+    syntax K ::= splitBytes "(" K "," K ")" // value, type
+
     declare byteType : -> K
     define byteType => IntegerType(Width(numBitsPerByte))
-    
+
     declare int32 : -> K
     define int32 => IntegerType(Width(32))
 
@@ -105,7 +110,13 @@ module LLVM-HELPERS is
     
     // should be a K, but builtins can't use K :(
     syntax #Int ::= signed "(" K "," K ")" // type, value
-    // syntax #Nat ::= canonicalize "(" K "," K ")" // type, value
+    
+    
+    declare canonicalize : K K -> K
+    define canonicalize(Type:KResult, I:#Int) => unsigned(Type, I)
+        when isIntegerType(Type)
+    define canonicalize(Type:KResult, I:#Int) => I
+        when isPointerType(Type)
     
     rule
         signed(Type:KResult, I:#Int) => I
@@ -184,6 +195,7 @@ end module
 /* this module gets included by all later modules */
 module LLVM-INCLUDE is
     including LLVM-CONFIGURATION
+    including LLVM-SETTINGS
     including LLVM-HELPERS
 
     syntax K ::= debug // TODO [semantic]
@@ -193,9 +205,8 @@ end module
 /* this module contains rules for cleaning up the AST */
 module LLVM-CLEAN-TREE is
     including LLVM-INCLUDE
-
-    // rule <k> BasicBlock(_, K:K) => K ...</k>
-    rule <k> Operand(_, K:K) => K ...</k>
+    
+    rule <k> Operand(Type:KResult, V:KResult) => canonicalize(Type, V) ...</k>
 
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
     rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]

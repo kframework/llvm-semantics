@@ -9,6 +9,9 @@ module LLVM-SPECIAL is
     // syntax Loc ::= sym "(" #Int ")"
     syntax #Nat ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
+    
+    syntax K ::= debug // TODO [semantic]
+
 
 end module
 
@@ -234,7 +237,7 @@ module LLVM-HELPERS is
     define sNat(N:#Nat) copiesOf L:List{K} => L,, (N:#Nat copiesOf L)
     define 0 copiesOf _ => .List{K}
 
-    syntax K ::= interpretInt "(" K "," K ")" // cannot be function
+    // syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
 
 /* this module gets included by all later modules */
@@ -242,8 +245,6 @@ module LLVM-INCLUDE is
     including LLVM-CONFIGURATION
     including LLVM-SETTINGS
     including LLVM-HELPERS
-
-    syntax K ::= debug // TODO [semantic]
 
 end module
 
@@ -579,61 +580,60 @@ module LLVM-ARITHMETIC is
 
     rule [add]:
         <k> Add(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 +Int I2, Type)
+            => I1 +Int I2
         ...</k>
     rule
         <k> Sub(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 -Int I2, Type)
+            => I1 -Int I2
         ...</k>
     rule
         <k> Mul(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 *Int I2, Type)
+            => I1 *Int I2
         ...</k>
     rule
         <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(signed(Type, I1) /Int signed(Type, I2), Type)
+            => signed(Type, I1) /Int signed(Type, I2)
         ...</k>
-        when I2 =/=Bool 0 // catch undefined
+        when signed(Type, I2) =/=Bool 0 // catch undefined
     rule
         <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(unsigned(Type, I1) /Int unsigned(Type, I2), Type)
+            => unsigned(Type, I1) /Int unsigned(Type, I2)
         ...</k>
-        when I2 =/=Bool 0 // catch undefined
+        when unsigned(Type, I2) =/=Bool 0 // catch undefined
     rule
         <k> SRem(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(signed(Type, I1) %Int signed(Type, I2), Type)
+            => signed(Type, I1) %Int signed(Type, I2)
         ...</k>
-        when I2 =/=Bool 0 // catch undefined
+        when signed(Type, I2) =/=Bool 0 // catch undefined
     rule
         <k> URem(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(unsigned(Type, I1) %Int unsigned(Type, I2), Type)
+            => unsigned(Type, I1) %Int unsigned(Type, I2)
         ...</k>
-        when I2 =/=Bool 0 // catch undefined
+        when unsigned(Type, I2) =/=Bool 0 // catch undefined
         
     rule
         <k> Shl(Type:KResult, I:#Int, Len:#Nat)
-            => interpretInt(I <<Int Len, Type)
+            => I <<Int Len
         ...</k>
-    rule // LShr can only shift in zeroes, so assume nat for now
-    // can probably do like ashr below, but used unsigned()
-        <k> LShr(Type:KResult, N:#Nat, Len:#Nat)
-            => interpretInt(N >>Int Len, Type)
+    rule
+        <k> LShr(Type:KResult, I:#Int, Len:#Nat)
+            => unsigned(Type, I) >>Int Len
         ...</k>
     rule 
         <k> AShr(Type:KResult, I:#Int, Len:#Nat)
-            => interpretInt(signed(Type, I:#Int) >>Int Len, Type)
+            => signed(Type, I:#Int) >>Int Len
         ...</k>
     rule
         <k> Or(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 |Int I2, Type)
+            => I1 |Int I2
         ...</k>
     rule
         <k> And(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 &Int I2, Type)
+            => I1 &Int I2
         ...</k>
     rule
         <k> Xor(Type:KResult, I1:#Int, I2:#Int)
-            => interpretInt(I1 xorInt I2, Type)
+            => I1 xorInt I2
         ...</k>
 
 
@@ -641,12 +641,6 @@ module LLVM-ARITHMETIC is
         // checkNSW(unsign(I1) +Int unsign(I2), Type)
         // ~> checkNUW(sign(I1) +Int sign(I2), Type)
     // before RHS
-
-    // rule interpret(I:#Int, Type:KResult) => ((I %Int MAX) + MAX) %Int
-        // where MAX = 2 ^Int sizeofInBits(Type)
-    rule <k> interpretInt(I:#Int, Type:KResult) => I %Int MAX ...</k>
-        // <modifiers> nsw </modifiers>
-        where MAX = 2 ^Int sizeofInBits(Type)
 
 end module
 

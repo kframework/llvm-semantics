@@ -209,6 +209,9 @@ module LLVM-HELPERS is
 
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
     rule isIntegerType(IntegerType(Width(_))) => true  [anywhere]
+    rule isIntegerType(KLabel:KLabel(_)) => false
+        when KLabel =/=Bool 'IntegerType
+        [anywhere]
     syntax #Bool ::= isPointerType "(" K ")" // predicate
     rule isPointerType(PointerType(_)) => true  [anywhere]
     syntax #Bool ::= isArrayType "(" K ")" // predicate
@@ -254,7 +257,10 @@ end module
 module LLVM-CLEAN-TREE is
     including LLVM-INCLUDE
     
+    rule <k> Operand(Type:KResult, I:#Int) => signed(Type, I) ...</k>
+        when isIntegerType(Type)
     rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
+        when notBool isIntegerType(Type)
 
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
     rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]
@@ -597,6 +603,7 @@ module LLVM-ARITHMETIC is
             => signed(Type, I1) /Int signed(Type, I2)
         ...</k>
         when signed(Type, I2) =/=Bool 0 // catch undefined
+    // TODO should probably wrap this with signed
     rule
         <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
             => unsigned(Type, I1) /Int unsigned(Type, I2)
@@ -996,15 +1003,10 @@ module LLVM-CONVERSIONS is
     including LLVM-INCLUDE
     
     // TODO only handling scalars
-    // TODO only handling positives
     rule
-        <k> Trunc(Type:KResult, N:#Nat) => N:#Nat %Int BASE ...</k>
-        when isIntegerType(Type)
-        where BASE = (2 ^Int (numBitsPerByte *Int sizeof(Type)))
-
+        <k> Trunc(Type:KResult, I:#Int) => signed(Type, I) ...</k>
     
     // TODO only handling scalars
-    // TODO only handling positives
     rule
         <k> ZExt(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
     

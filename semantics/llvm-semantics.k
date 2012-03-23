@@ -120,34 +120,48 @@ module LLVM-HELPERS is
     
     
     // cannot be a function, has to take place on top of K
-    syntax K ::= canonicalize "(" K "," K ")"
-    syntax K ::= canonicalizeArray "(" K "," List{K} ")" [strict(1)]
-    syntax K ::= canonicalizeArray' "(" K "," List{K} "," List{K} ")"
+    // syntax K ::= canonicalize "(" K "," K ")"
+    // syntax K ::= canonicalizeArray "(" K "," List{K} ")" [strict(1)]
+    // syntax K ::= canonicalizeArray' "(" K "," List{K} "," List{K} ")"
+    // syntax K ::= canonicalizeStruct "(" K "," K ")"
+    // syntax K ::= canonicalizeStruct' "(" List{K} "," K "," List{K} ")"
     
-    rule 
-        <k> canonicalize(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
-        when isIntegerType(Type)
-    rule <k> canonicalize(Type:KResult, I:#Int) => I ...</k>
-        when isPointerType(Type)
-    rule <k> canonicalize(VoidType, VoidValue) => VoidValue ...</k>
-    rule <k> canonicalize(Type:KResult, arrayValue(L:List{K}))
-            => canonicalizeArray(innerType(Type), L)
-        ...</k>
-        when isArrayType(Type)
+    // rule 
+        // <k> canonicalize(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
+        // when isIntegerType(Type)
+    // rule <k> canonicalize(Type:KResult, I:#Int) => I ...</k>
+        // when isPointerType(Type)
+    // rule <k> canonicalize(VoidType, VoidValue) => VoidValue ...</k>
+    // rule <k> canonicalize(Type:KResult, arrayValue(L:List{K}))
+            // => canonicalizeArray(innerType(Type), L)
+        // ...</k>
+        // when isArrayType(Type)
+    // // TODO using arguments to heat to listK
+    // rule <k> canonicalize(StructType(L:List{K}), V:KResult)
+            // => canonicalizeStruct(Arguments(L), V)
+        // ...</k>
     
-    // canonicalizeArray
-    rule <k> canonicalizeArray(Type:KResult, L:List{K})
-            => canonicalizeArray'(Type, L, .List{K})
-        ...</k>
-    rule <k> (.K => canonicalize(Type, V))
-            ~> canonicalizeArray'(Type:KResult, ((V:KResult => .List{K}),, L:List{K}), _)
-        ...</k>
-    rule <k> (V:KResult => .)
-            ~> canonicalizeArray'(Type:KResult, L:List{K}, (_,, (.List{K} => V)))
-        ...</k>
-    rule <k> canonicalizeArray'(Type:KResult, .List{K}, L:List{K})
-            => arrayValue(L)
-        ...</k>
+    // // canonicalizeArray
+    // rule <k> canonicalizeArray(Type:KResult, L:List{K})
+            // => canonicalizeArray'(Type, L, .List{K})
+        // ...</k>
+    // rule <k> (.K => canonicalize(Type, V))
+            // ~> canonicalizeArray'(Type:KResult, ((V:KResult => .List{K}),, L:List{K}), _)
+        // ...</k>
+    // rule <k> (V:KResult => .)
+            // ~> canonicalizeArray'(Type:KResult, L:List{K}, (_,, (.List{K} => V)))
+        // ...</k>
+    // rule <k> canonicalizeArray'(Type:KResult, .List{K}, L:List{K})
+            // => arrayValue(L)
+        // ...</k>
+        
+    // // canonicalizeStruct
+    // rule <k> canonicalizeStruct(listK(L:List{K}), V:KResult)
+            // => canonicalizeStruct'(L, V, .List{K})
+        // ...</k>
+    // rule <k> (. => canonicalize(Type, 
+            // canonicalizeStruct'((Type:KResult,, L:List{K}), ConstantStruct(M:K, listK()), L':List{K})
+        // ...</k>
     
     rule
         signed(Type:KResult, I:#Int) => I
@@ -237,7 +251,7 @@ end module
 module LLVM-CLEAN-TREE is
     including LLVM-INCLUDE
     
-    rule <k> Operand(Type:KResult, V:KResult) => canonicalize(Type, V) ...</k>
+    rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
 
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
     rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]

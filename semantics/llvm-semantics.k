@@ -168,7 +168,6 @@ module LLVM-HELPERS is
     declare sizeof : K -> #Nat
     define sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
         when numBitsPerByte dividesNat sizeofInBits(K:K)
-        [anywhere]
         
     declare zeroOfType : K -> K
     define zeroOfType(Type:KResult) => 0

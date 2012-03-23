@@ -47,9 +47,16 @@ module LLVM-SYNTAX is
     //@ Functions and function declarations
     syntax LLVM ::= `FunctionDef "(" K "," K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments, Body
     syntax LLVM ::= `FunctionDecl "(" K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments
-    syntax LLVM ::= `Arg "(" K "," K ")" // Type, Value/Name
+    syntax LLVM ::= `Arg "(" K "," K "," K ")" // Modifiers, Type, Value/Name
     syntax LLVM ::= `NoName // used for arguments with no name
     syntax LLVM ::= `Vararg
+    
+    //@ Argument modifiers
+    syntax LLVM ::= `ByVal
+    syntax LLVM ::= `Nest
+    syntax LLVM ::= `SRet
+    syntax LLVM ::= `NoAlias
+    syntax LLVM ::= `NoCapture
 
     syntax LLVM ::= `ReturnType "(" K ")"
     syntax LLVM ::= `Arguments "(" List{K} ")"

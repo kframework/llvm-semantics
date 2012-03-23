@@ -345,6 +345,25 @@ void AsmXMLWriter::visit(const GlobalVariable &GV) {
 
 void AsmXMLWriter::visit(const Argument &Arg) {
   Out << "<Arg>";
+  
+  Out << "<Modifiers><List>";
+  if (Arg.hasByValAttr()) {
+      Out << "<ByVal/>\n";
+  }
+  if (Arg.hasNestAttr()) {
+      Out << "<Nest/>\n";
+  }
+  if (Arg.hasNoAliasAttr()) {
+      Out << "<NoAlias/>\n";
+  }
+  if (Arg.hasNoCaptureAttr()) {
+      Out << "<NoCapture/>\n";
+  }
+  if (Arg.hasStructRetAttr()) {
+      Out << "<SRet/>\n";
+  }
+  Out << "</List></Modifiers>";
+  
   printType(Arg.getType());
 
   // Output name, if available...

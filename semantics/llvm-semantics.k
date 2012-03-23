@@ -540,7 +540,7 @@ module LLVM-CALL-RET is
         
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
-        <k> bind((Arg:K,, Args:List{K}), (Arg(_, Formal:K),, Formals:List{K}))
+        <k> bind((Arg:K,, Args:List{K}), (Arg(Modifiers(.List{K}), _, Formal:K),, Formals:List{K}))
             => Assign(Formal, Arg)
             ~> bind(Args:List{K}, Formals:List{K})
         ...</k>

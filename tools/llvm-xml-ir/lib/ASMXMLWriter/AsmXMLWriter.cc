@@ -1045,8 +1045,7 @@ void AsmXMLWriter::printType(Type *Ty) {
 
     case Type::FunctionTyID: {
       FunctionType *FTy = cast<FunctionType>(Ty);
-      Out << "<FunctionType vararg=\""
-          << FTy->isVarArg() << "\">";
+      Out << "<FunctionType>";
       Out << "<ReturnType>";
       printType(FTy->getReturnType());
       Out << "</ReturnType>\n";

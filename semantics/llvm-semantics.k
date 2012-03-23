@@ -1134,7 +1134,7 @@ module LLVM-STANDARD-LIBRARY is
     rule
         <k> exit(I:#Int) ~> _
             => I:#Int
-        ...</k>
+        </k>
     
     // memcpy
     rule

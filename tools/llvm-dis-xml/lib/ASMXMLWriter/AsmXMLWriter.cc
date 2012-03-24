@@ -1028,11 +1028,7 @@ void AsmXMLWriter::printType(Type *Ty) {
     case Type::StructTyID: {
       StructType *STy = cast<StructType>(Ty);
       if (STy->isLiteral()) {
-        Out << "<StructType><List>\n";
-        for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
-          printType(*I);
-        }
-        Out << "</List></StructType>";
+        printStructBody(STy);
         break;
       }
 

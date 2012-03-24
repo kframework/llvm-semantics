@@ -1,0 +1,4 @@
+#!/bin/sh
+# The semantics linker uses globaldce to shrink the size of the output
+# so the semantics can handle it.
+llvm-link $* | opt -internalize -globaldce -S

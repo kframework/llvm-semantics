@@ -1027,8 +1027,14 @@ void AsmXMLWriter::printType(Type *Ty) {
 
     case Type::StructTyID: {
       StructType *STy = cast<StructType>(Ty);
-      if (STy->isLiteral())
-        assert (0 && "struct literal typeID unimplemented");
+      if (STy->isLiteral()) {
+        Out << "<StructType><List>\n";
+        for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {
+          printType(*I);
+        }
+        Out << "</List></StructType>";
+        break;
+      }
 
       if (!STy->getName().empty()) {
         Out << "<NamedType>";

@@ -13,7 +13,7 @@ xml:
 	../dist/bin/llvm-dis-xml $(CURRTEST) -o - | xmllint --format -
 
 kast:
-	cat $(CURRTEST) | ../dist/bin/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/bin/xmlToK.pl
+	cat $(CURRTEST) | ../dist/bin/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/bin/xml2k
 
 ll:
 	cat $(CURRTEST)

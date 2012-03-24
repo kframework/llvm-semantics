@@ -36,10 +36,10 @@ void xlate(unsigned char *in, int phase)
     out[0] = in[0] << 2 | in[1] >> 4;
     out[1] = in[1] << 4 | in[2] >> 2;
     out[2] = in[2] << 6 | in[3] >> 0;
-	for (int i = 0; i < nbytes[phase]; i++){
-		putchar(out[i]);
-	}
-	//fwrite(out, nbytes[phase], 1, stdout);
+    for (int i = 0; i < nbytes[phase]; i++){
+        putchar(out[i]);
+    }
+    //fwrite(out, nbytes[phase], 1, stdout);
 }
 
 
@@ -50,24 +50,24 @@ int main()
     char *p;
 
     phase = 0;
-	
-	char* input = "TGl0ZXJhdGVQcm9ncmFtcw==";
-	
+    
+    char* input = "TGl0ZXJhdGVQcm9ncmFtcw==";
+    
     while((c = *input++) != 0) {
-		//putchar(c);
+        //putchar(c);
         if(c == '=')    {
-	    xlate(in,phase); 
-	    break;
-	}
-	p = strchr(b64, c);
-	if(p) {
-	    in[phase] = p - b64;
-	    phase = (phase + 1) % 4;
-	    if(phase == 0)    {
-	        xlate(in,phase); 
-	        in[0]=in[1]=in[2]=in[3]=0;
-	    }
-	}
+        xlate(in,phase); 
+        break;
+    }
+    p = strchr(b64, c);
+    if(p) {
+        in[phase] = p - b64;
+        phase = (phase + 1) % 4;
+        if(phase == 0)    {
+            xlate(in,phase); 
+            in[0]=in[1]=in[2]=in[3]=0;
+        }
+    }
 
     }
     return 0;

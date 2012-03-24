@@ -24,7 +24,7 @@ clang_result = subprocess.Popen(clang_params, stdout=subprocess.PIPE)
 llvm_xml_result = subprocess.Popen(llvm_xml_dis_params, stdin=clang_result.stdout, stdout=subprocess.PIPE)
 
 if use_tidy:
-    tidy_result = subprocess.Popen(tidy_param, stdin=llvm_xml_result.stdout) 
+    tidy_result = subprocess.Popen(tidy_param, stdin=llvm_xml_result.stdout)
     sys.exit(tidy_result.returncode)
 else:
     sys.exit(llvm_xml_result.returncode)

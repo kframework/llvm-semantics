@@ -31,15 +31,15 @@ Retrieved from: http://en.literateprograms.org/Bubble_sort_(C)?oldid=15710
 this function the element_size of the to be sorted elements, we then can exchange the
 array elements character by character. */
 static void swap_fun (void *base, size_t element_size,
-	                  int index1, int index2) {
-	char *pc = base;
-	char tmp;
-	int i;
-	for (i = 0; i < element_size; ++i) {
-		tmp = pc[index1 * element_size + i];
+                      int index1, int index2) {
+    char *pc = base;
+    char tmp;
+    int i;
+    for (i = 0; i < element_size; ++i) {
+        tmp = pc[index1 * element_size + i];
         pc[index1 * element_size + i] = pc[index2*element_size + i];
         pc[index2 * element_size + i] = tmp;
-	}
+    }
 }
 
 
@@ -53,13 +53,13 @@ void bubble_sort(void *base, size_t nmemb, size_t size,
 
   for (i = nmemb -1; i > 0; --i){
     for (j = 0; j < i; ++j) {
-	 /* we have to calculate the offsets, by defintion the size of
-	 char is 1 in C, so we do not have to include  the size of the
-	 elements while doing this address calculations */
+     /* we have to calculate the offsets, by defintion the size of
+     char is 1 in C, so we do not have to include  the size of the
+     elements while doing this address calculations */
       pc_at_i = pc + (i * size);
       pc_at_j = pc + (j * size);
       if (compar (pc_at_i, pc_at_j) <  0) {
-		  swap_fun(base, size, i, j);
+          swap_fun(base, size, i, j);
       }
     }
   }

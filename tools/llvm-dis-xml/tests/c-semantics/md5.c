@@ -525,7 +525,7 @@ int main (void)
       // else if (strcmp (argv[i], "-x") == 0)
         MDTestSuite ();
       // else MDFile (argv[i]);
-	  return 0;
+      return 0;
 }
 
 /*

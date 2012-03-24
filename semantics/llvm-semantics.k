@@ -447,8 +447,8 @@ module LLVM-DECLARATIONS is
         ...</modules>
 
     rule
-        <k> Typedef(X:Id, Modifiers(L:List{K}), UnresolvedType:K) => . ...</k>
-        <currentModifiers> _ => List(L) </currentModifiers>
+        <k> Typedef(X:Id, UnresolvedType:K) => . ...</k>
+        //<currentModifiers> _ => List(L) </currentModifiers> TODO not printing modifiers
         <currModule> Name:Id </currModule>
         <moduleName> Name </moduleName>
         <typedefs>... . => X |-> UnresolvedType ...</typedefs>

@@ -17,7 +17,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Functions "(" List{K} ")"
     syntax LLVM ::= `Instructions "(" List{K} ")"
 
-    syntax LLVM ::= `Typedef "(" K "," K "," K ")" // name, modifiers, type
+    syntax LLVM ::= `Typedef "(" K "," K ")" // name, type TODO: modifiers
     syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax LLVM ::= `Initializer "(" K "," K ")" // type, value
 

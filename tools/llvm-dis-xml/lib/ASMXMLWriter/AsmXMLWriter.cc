@@ -1115,11 +1115,12 @@ void AsmXMLWriter::printStructBody(StructType *STy) {
     return;
   }
 
-  Out << "<Modifiers><List>\n";
-  if (STy->isPacked()) {
-    Out << "<Packed/>\n";
-  }
-  Out << "</List></Modifiers>\n";
+  // TODO printing the modifiers like this causes arity inconsistencies
+  //Out << "<Modifiers><List>\n";
+  //if (STy->isPacked()) {
+  //  Out << "<Packed/>\n";
+  //}
+  //Out << "</List></Modifiers>\n";
   
   Out << "<StructType><Fields><List>\n";
   for (StructType::element_iterator I = STy->element_begin(), E = STy->element_end(); I != E; ++I) {

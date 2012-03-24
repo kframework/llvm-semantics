@@ -348,19 +348,19 @@ void AsmXMLWriter::visit(const Argument &Arg) {
   
   Out << "<Modifiers><List>";
   if (Arg.hasByValAttr()) {
-      Out << "<ByVal/>\n";
+    Out << "<ByVal/>\n";
   }
   if (Arg.hasNestAttr()) {
-      Out << "<Nest/>\n";
+    Out << "<Nest/>\n";
   }
   if (Arg.hasNoAliasAttr()) {
-      Out << "<NoAlias/>\n";
+    Out << "<NoAlias/>\n";
   }
   if (Arg.hasNoCaptureAttr()) {
-      Out << "<NoCapture/>\n";
+    Out << "<NoCapture/>\n";
   }
   if (Arg.hasStructRetAttr()) {
-      Out << "<SRet/>\n";
+    Out << "<SRet/>\n";
   }
   Out << "</List></Modifiers>";
   

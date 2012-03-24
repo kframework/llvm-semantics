@@ -6,7 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 
-#include "llvm-xml-ir/AsmXMLWriter.h"
+#include "llvm-dis-xml/AsmXMLWriter.h"
 
 #include <llvm/LLVMContext.h>
 #include <llvm/Module.h>

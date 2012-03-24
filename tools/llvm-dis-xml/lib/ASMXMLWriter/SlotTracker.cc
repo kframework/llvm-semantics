@@ -6,7 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 
-#include "llvm-xml-ir/SlotTracker.h"
+#include "llvm-dis-xml/SlotTracker.h"
 
 #include <llvm/Module.h>
 #include <llvm/Function.h>

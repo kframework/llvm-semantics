@@ -6,7 +6,7 @@
 //===----------------------------------------------------------------------===//
 
 
-#include "llvm-xml-ir/XMLIROStream.h"
+#include "llvm-dis-xml/XMLIROStream.h"
 
 using namespace llvm;
 

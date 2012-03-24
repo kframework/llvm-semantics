@@ -12,10 +12,10 @@
  * Derived from lib/VMCore/AsmWriter.cpp
  */
 
-#include "llvm-xml-ir/XMLIROStream.h"
-#include "llvm-xml-ir/SlotTracker.h"
-#include "llvm-xml-ir/AsmXMLWriter.h"
-#include "llvm-xml-ir/RawWriter.h"
+#include "llvm-dis-xml/XMLIROStream.h"
+#include "llvm-dis-xml/SlotTracker.h"
+#include "llvm-dis-xml/AsmXMLWriter.h"
+#include "llvm-dis-xml/RawWriter.h"
 
 #include <llvm/Constants.h>
 #include <llvm/Function.h>
@@ -37,7 +37,7 @@ namespace llvm {
 // types now...
 //
 #define HANDLE_INST(NUM, OPCODE, CLASS)   class CLASS;
-#include "llvm-xml-ir/Operator.def"
+#include "llvm-dis-xml/Operator.def"
 }
 
 using namespace llvm;
@@ -527,7 +527,7 @@ void AsmXMLWriter::printOperator(const Operator &I) {
       visit##OPCODE(cast<const CLASS>(I)); \
       Out << "</" #OPCODE ">\n"; \
       break ;
-#include "llvm-xml-ir/Operator.def"
+#include "llvm-dis-xml/Operator.def"
   }
 }
 

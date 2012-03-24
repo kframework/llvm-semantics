@@ -1,7 +1,7 @@
 #ifndef RAW_WRITER_H_
 #define RAW_WRITER_H_
 
-#include "llvm-xml-ir/XMLIROStream.h"
+#include "llvm-dis-xml/XMLIROStream.h"
 #include <llvm/ADT/StringRef.h>
 
 // TODO: the OStream argument should probably come first

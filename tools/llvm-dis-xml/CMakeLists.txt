@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (llvm-xml-ir)
+project (llvm-dis-xml)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/make/Modules)
 
 find_package(LLVM 3.0 REQUIRED)

@@ -1,5 +1,5 @@
-#include "llvm-xml-ir/XMLIROStream.h"
-#include "llvm-xml-ir/RawWriter.h"
+#include "llvm-dis-xml/XMLIROStream.h"
+#include "llvm-dis-xml/RawWriter.h"
 #include "base64encode.h"
 
 #include <llvm/ADT/StringRef.h>

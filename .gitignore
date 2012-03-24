@@ -6,7 +6,7 @@ a.out
 *.stdout
 .k
 dist
-tools/llvm-xml-ir/build
+tools/llvm-dis-xml/build
 
 semantics/*.ll
 semantics/*.s

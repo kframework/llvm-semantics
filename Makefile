@@ -2,10 +2,10 @@
 
 all: dist
 
-tools/llvm-xml-ir/build/tools/llvm-dis-xml: tools/llvm-xml-ir/lib/ASMXMLWriter/*
-	mkdir -p tools/llvm-xml-ir/build
-	cd tools/llvm-xml-ir/build && cmake ..
-	$(MAKE) -C tools/llvm-xml-ir/build
+tools/llvm-dis-xml/build/tools/llvm-dis-xml: tools/llvm-dis-xml/lib/ASMXMLWriter/*
+	mkdir -p tools/llvm-dis-xml/build
+	cd tools/llvm-dis-xml/build && cmake ..
+	$(MAKE) -C tools/llvm-dis-xml/build
 
 check-vars:
 ifeq ($(K_BASE),)
@@ -17,10 +17,10 @@ endif
 
 dist: check-vars dist/dist.done
 
-dist/dist.done: tools/llvm-xml-ir/build/tools/llvm-dis-xml tools/c2ll tools/xmlToK.pl semantics/llvm-compiled.maude
+dist/dist.done: tools/llvm-dis-xml/build/tools/llvm-dis-xml tools/c2ll tools/xmlToK.pl semantics/llvm-compiled.maude
 	rm -rf done
 	mkdir -p dist/bin dist/share
-	cp tools/llvm-xml-ir/build/tools/llvm-dis-xml dist/bin
+	cp tools/llvm-dis-xml/build/tools/llvm-dis-xml dist/bin
 	cp tools/c2ll dist/bin
 	cp tools/xmlToK.pl dist/bin
 	cp tools/llvm-semantics-link dist/bin
@@ -41,5 +41,5 @@ regression: dist
 
 clean:
 	rm -rf dist
-	rm -rf tools/llvm-xml-ir/build
+	rm -rf tools/llvm-dis-xml/build
 	$(MAKE) -C semantics clean

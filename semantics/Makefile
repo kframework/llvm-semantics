@@ -6,6 +6,9 @@ llvm-compiled.maude: llvm.k llvm-syntax.k llvm-semantics.k
 test: llvm-compiled.maude $(CURRTEST)
 	$(K_BASE)/core/krun $(CURRTEST)
 
+linked:
+	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o -
+
 xml:
 	../dist/bin/llvm-dis-xml $(CURRTEST) -o - | xmllint --format -
 

@@ -23,8 +23,10 @@ dist/dist.done: tools/llvm-xml-ir/build/tools/llvm-dis-xml tools/c2ll tools/xmlT
 	cp tools/llvm-xml-ir/build/tools/llvm-dis-xml dist/bin
 	cp tools/c2ll dist/bin
 	cp tools/xmlToK.pl dist/bin
+	cp tools/llvm-semantics-link dist/bin
 	cp semantics/llvm-compiled.maude dist/share
 	cp semantics/llvm.desk dist/share
+	cp stdlib/libc.ll dist/share
 	touch dist/dist.done
 
 semantics/llvm-compiled.maude: semantics/*.k

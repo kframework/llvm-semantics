@@ -28,6 +28,7 @@ use constant KLIST_SEPARATOR => ",, ";
 # my $ltl = "";
 
 my %arityMap = ();
+my $multipleArities = 0;
 
 # might want to return, say, "'$name"
 sub nameToLabel {
@@ -37,6 +38,7 @@ sub nameToLabel {
 	if (exists($arityMap{$name})) {
 		if ($arityMap{$name} != $length) {
 			print STDERR "WARNING: Detected label with multiple arities: label \"$name\" has arities $arityMap{$name} and $length\n";
+			$multipleArities = 1;
 		}
 	} else {
 		$arityMap{$name} = $length;
@@ -107,6 +109,10 @@ $reader->read;
 
 my $tu = xmlToK($reader);
 print "$tu\n";
+if ($multipleArities) {
+	print STDERR "ERROR: Found multiple arities.  Failing...\n";
+	exit (1);
+}
 
 # if (! ($reader->name eq "TranslationUnit")) {
 	# die "XML: Expected first entry to be 'TranslationUnit'.";

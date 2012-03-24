@@ -7,10 +7,10 @@ test: llvm-compiled.maude $(CURRTEST)
 	$(K_BASE)/core/krun $(CURRTEST)
 
 xml:
-	../dist/llvm-dis-xml $(CURRTEST) -o - | xmllint --format -
+	../dist/bin/llvm-dis-xml $(CURRTEST) -o - | xmllint --format -
 
 kast:
-	cat $(CURRTEST) | ../dist/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/xmlToK.pl
+	cat $(CURRTEST) | ../dist/bin/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/bin/xmlToK.pl
 
 ll:
 	cat $(CURRTEST)

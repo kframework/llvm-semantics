@@ -1053,24 +1053,30 @@ module LLVM-CONVERSIONS is
         <k> PtrToInt(Type:KResult, N:#Nat) => ptrToInt(Type, N) ...</k>
         
     // TODO needs side conditions
-    rule ptrToInt(Type:KResult, intToPtr(Type':KResult, I:#Int)) => I:#Int
-    rule intToPtr(Type:KResult, ptrToInt(Type':KResult, N:#Nat)) => N:#Nat
+    rule ptrToInt(Type:KResult, intToPtr(Type':KResult, I:#Int)) => I:#Int [anywhere]
+    rule intToPtr(Type:KResult, ptrToInt(Type':KResult, N:#Nat)) => N:#Nat [anywhere]
 
-    rule unsigned(Type:KResult, sym(Base:#Nat) +Nat Offset:#Nat)
-        => ptrToInt(Type, sym(Base:#Nat) +Nat Offset:#Nat)
-    rule signed(Type:KResult, sym(Base:#Nat) +Nat Offset:#Nat) 
-        => ptrToInt(Type, sym(Base:#Nat) +Nat Offset:#Nat)
-    
+    rule unsigned(Type:KResult, sym(I:#Int) +Nat Offset:#Nat)
+        => ptrToInt(Type, sym(I:#Int) +Nat Offset:#Nat)
+        [anywhere]
+    rule signed(Type:KResult, sym(I:#Int) +Nat Offset:#Nat) 
+        => ptrToInt(Type, sym(I:#Int) +Nat Offset:#Nat)
+        [anywhere]
     
     // Chucky's sucky rules
-    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) >Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+    // definitely misses problems with null
+    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) >Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
         => Offset >Int Offset'
-    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) >=Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        [anywhere]
+    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) >=Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
         => Offset >=Int Offset'
-    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) <Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        [anywhere]
+    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) <Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
         => Offset <Int Offset'
-    rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) <=Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
+        [anywhere]
+    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) <=Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
         => Offset <=Int Offset'
+        [anywhere]
     
     // // david's crazy/cool rule
     // rule ptrToInt(sym(N) + M) => M

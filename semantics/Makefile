@@ -10,7 +10,7 @@ linked:
 	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o -
 
 xml:
-	../dist/bin/llvm-dis-xml $(CURRTEST) -o - | xmllint --format -
+	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | xmllint --format -
 
 kast:
 	cat $(CURRTEST) | ../dist/bin/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/bin/xml2k

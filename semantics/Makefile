@@ -13,7 +13,7 @@ xml:
 	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | xmllint --format -
 
 kast:
-	cat $(CURRTEST) | ../dist/bin/llvm-dis-xml $(CURRTEST) -o - | perl ../dist/bin/xml2k
+	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | perl ../dist/bin/xml2k
 
 ll:
 	cat $(CURRTEST)

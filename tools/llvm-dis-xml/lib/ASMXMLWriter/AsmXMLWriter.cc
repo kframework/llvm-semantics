@@ -675,102 +675,103 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
   }
 
   if (const ConstantFP *CFP = dyn_cast<ConstantFP>(CV)) {
-    if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
-        &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {
-      // We would like to output the FP constant value in exponential notation,
-      // but we cannot do this if doing so will lose precision.  Check here to
-      // make sure that we only output it in exponential format if we can parse
-      // the value back and get the same value.
-      //
-      bool ignored;
-      bool isDouble = &CFP->getValueAPF().getSemantics()==&APFloat::IEEEdouble;
-      double Val = isDouble ? CFP->getValueAPF().convertToDouble() :
-                              CFP->getValueAPF().convertToFloat();
-      SmallString<128> StrVal;
-      raw_svector_ostream(StrVal) << Val;
+    assert(0 && "Not handling Floating values");
+    // if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
+        // &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {
+      // // We would like to output the FP constant value in exponential notation,
+      // // but we cannot do this if doing so will lose precision.  Check here to
+      // // make sure that we only output it in exponential format if we can parse
+      // // the value back and get the same value.
+      // //
+      // bool ignored;
+      // bool isDouble = &CFP->getValueAPF().getSemantics()==&APFloat::IEEEdouble;
+      // double Val = isDouble ? CFP->getValueAPF().convertToDouble() :
+                              // CFP->getValueAPF().convertToFloat();
+      // SmallString<128> StrVal;
+      // raw_svector_ostream(StrVal) << Val;
 
-      // Check to make sure that the stringized number is not some string like
-      // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
-      // that the string matches the "[-+]?[0-9]" regex.
-      //
-      if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
-          ((StrVal[0] == '-' || StrVal[0] == '+') &&
-           (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
-        // Reparse stringized version!
-        if (atof(StrVal.c_str()) == Val) {
-          Out << StrVal.str();
-          return;
-        }
-      }
-      // Otherwise we could not reparse it to exactly the same value, so we must
-      // output the string in hexadecimal format!  Note that loading and storing
-      // floating point types changes the bits of NaNs on some hosts, notably
-      // x86, so we must not use these types.
-      assert(sizeof(double) == sizeof(uint64_t) &&
-             "assuming that double is 64 bits!");
-      char Buffer[40];
-      APFloat apf = CFP->getValueAPF();
-      // Floats are represented in ASCII IR as double, convert.
-      if (!isDouble)
-        apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
-                          &ignored);
-      Out << "0x" <<
-              utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
-                            Buffer+40);
-      return;
-    }
+      // // Check to make sure that the stringized number is not some string like
+      // // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
+      // // that the string matches the "[-+]?[0-9]" regex.
+      // //
+      // if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
+          // ((StrVal[0] == '-' || StrVal[0] == '+') &&
+           // (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
+        // // Reparse stringized version!
+        // if (atof(StrVal.c_str()) == Val) {
+          // Out << StrVal.str();
+          // return;
+        // }
+      // }
+      // // Otherwise we could not reparse it to exactly the same value, so we must
+      // // output the string in hexadecimal format!  Note that loading and storing
+      // // floating point types changes the bits of NaNs on some hosts, notably
+      // // x86, so we must not use these types.
+      // assert(sizeof(double) == sizeof(uint64_t) &&
+             // "assuming that double is 64 bits!");
+      // char Buffer[40];
+      // APFloat apf = CFP->getValueAPF();
+      // // Floats are represented in ASCII IR as double, convert.
+      // if (!isDouble)
+        // apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
+                          // &ignored);
+      // Out << "0x" <<
+              // utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
+                            // Buffer+40);
+      // return;
+    // }
 
-    // Some form of long double.  These appear as a magic letter identifying
-    // the type, then a fixed number of hex digits.
-    Out << "0x";
-    if (&CFP->getValueAPF().getSemantics() == &APFloat::x87DoubleExtended) {
-      Out << 'K';
-      // api needed to prevent premature destruction
-      APInt api = CFP->getValueAPF().bitcastToAPInt();
-      const uint64_t* p = api.getRawData();
-      uint64_t word = p[1];
-      int shiftcount=12;
-      int width = api.getBitWidth();
-      for (int j=0; j<width; j+=4, shiftcount-=4) {
-        unsigned int nibble = (word>>shiftcount) & 15;
-        if (nibble < 10)
-          Out << (unsigned char)(nibble + '0');
-        else
-          Out << (unsigned char)(nibble - 10 + 'A');
-        if (shiftcount == 0 && j+4 < width) {
-          word = *p;
-          shiftcount = 64;
-          if (width-j-4 < 64)
-            shiftcount = width-j-4;
-        }
-      }
-      return;
-    } else if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEquad)
-      Out << 'L';
-    else if (&CFP->getValueAPF().getSemantics() == &APFloat::PPCDoubleDouble)
-      Out << 'M';
-    else
-      llvm_unreachable("Unsupported floating point type");
-    // api needed to prevent premature destruction
-    APInt api = CFP->getValueAPF().bitcastToAPInt();
-    const uint64_t* p = api.getRawData();
-    uint64_t word = *p;
-    int shiftcount=60;
-    int width = api.getBitWidth();
-    for (int j=0; j<width; j+=4, shiftcount-=4) {
-      unsigned int nibble = (word>>shiftcount) & 15;
-      if (nibble < 10)
-        Out << (unsigned char)(nibble + '0');
-      else
-        Out << (unsigned char)(nibble - 10 + 'A');
-      if (shiftcount == 0 && j+4 < width) {
-        word = *(++p);
-        shiftcount = 64;
-        if (width-j-4 < 64)
-          shiftcount = width-j-4;
-      }
-    }
-    return;
+    // // Some form of long double.  These appear as a magic letter identifying
+    // // the type, then a fixed number of hex digits.
+    // Out << "0x";
+    // if (&CFP->getValueAPF().getSemantics() == &APFloat::x87DoubleExtended) {
+      // Out << 'K';
+      // // api needed to prevent premature destruction
+      // APInt api = CFP->getValueAPF().bitcastToAPInt();
+      // const uint64_t* p = api.getRawData();
+      // uint64_t word = p[1];
+      // int shiftcount=12;
+      // int width = api.getBitWidth();
+      // for (int j=0; j<width; j+=4, shiftcount-=4) {
+        // unsigned int nibble = (word>>shiftcount) & 15;
+        // if (nibble < 10)
+          // Out << (unsigned char)(nibble + '0');
+        // else
+          // Out << (unsigned char)(nibble - 10 + 'A');
+        // if (shiftcount == 0 && j+4 < width) {
+          // word = *p;
+          // shiftcount = 64;
+          // if (width-j-4 < 64)
+            // shiftcount = width-j-4;
+        // }
+      // }
+      // return;
+    // } else if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEquad)
+      // Out << 'L';
+    // else if (&CFP->getValueAPF().getSemantics() == &APFloat::PPCDoubleDouble)
+      // Out << 'M';
+    // else
+      // llvm_unreachable("Unsupported floating point type");
+    // // api needed to prevent premature destruction
+    // APInt api = CFP->getValueAPF().bitcastToAPInt();
+    // const uint64_t* p = api.getRawData();
+    // uint64_t word = *p;
+    // int shiftcount=60;
+    // int width = api.getBitWidth();
+    // for (int j=0; j<width; j+=4, shiftcount-=4) {
+      // unsigned int nibble = (word>>shiftcount) & 15;
+      // if (nibble < 10)
+        // Out << (unsigned char)(nibble + '0');
+      // else
+        // Out << (unsigned char)(nibble - 10 + 'A');
+      // if (shiftcount == 0 && j+4 < width) {
+        // word = *(++p);
+        // shiftcount = 64;
+        // if (width-j-4 < 64)
+          // shiftcount = width-j-4;
+      // }
+    // }
+    // return;
   }
 
   if (isa<ConstantAggregateZero>(CV)) {

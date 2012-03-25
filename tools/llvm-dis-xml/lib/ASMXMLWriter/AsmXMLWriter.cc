@@ -69,6 +69,8 @@ class AsmXMLWriter {
       visit(*Start++);
   }
 
+  int getSlotAndPrefix(const Value*, char*);
+  
   void visit(const GlobalVariable &);
   void visit(const Function &);
   void visit(const BasicBlock &);
@@ -381,8 +383,29 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
   Out << "<BasicBlock>";
 
   // ensure all basic blocks have a name
-  if (!BB.hasName())
-    BBp->setName(Twine("default"));
+  if (!BB.hasName()) {
+    std::stringstream Name;
+    // char Prefix;
+    // int Slot = getSlotAndPrefix(&BB, &Prefix);
+    // Name << Slot;
+    Name << "Default";
+  
+    // if (Slot != -1)
+    //   RawWriter::write(Name.str(), Out);
+     // // If the local value didn't succeed, then we may be referring to a value
+      // // from a different function.  Translate it, as this can happen when using
+      // // address of blocks.
+      // if (Slot == -1)
+        // if ((Machine = createSlotTracker(&BB))) {
+          // Slot = Machine->getLocalSlot(&BB);
+          // delete Machine;
+          // Machine = 0;
+        // }
+    // std::stringstream Name;
+    // Name << "%" << Slot;
+    BBp->setName(Twine(Name.str()));
+    // BBp->setName(Twine("Default"));
+  }
   printLLVMName(&BB);
 
   Out << "<Instructions><List>\n";
@@ -947,13 +970,25 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
     return;
   }
 
-  char Prefix = '%';
+  char Prefix;
+  int Slot = getSlotAndPrefix(V, &Prefix);
+  std::stringstream Name;
+  Name << Prefix << Slot;
+  
+  if (Slot != -1)
+    RawWriter::write(Name.str(), Out);
+  else
+    Out << "<badref>";
+}
+
+int AsmXMLWriter::getSlotAndPrefix(const Value *V, char* Prefix){
+  *Prefix = '%';
   int Slot;
   // If we have a SlotTracker, use it.
   if (Machine) {
     if (const GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
       Slot = Machine->getGlobalSlot(GV);
-      Prefix = '@';
+      *Prefix = '@';
     } else {
       Slot = Machine->getLocalSlot(V);
 
@@ -971,7 +1006,7 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
     // Otherwise, create one to get the # and then destroy it.
     if (const GlobalValue *GV = dyn_cast<GlobalValue>(V)) {
       Slot = Machine->getGlobalSlot(GV);
-      Prefix = '@';
+      *Prefix = '@';
     } else {
       Slot = Machine->getLocalSlot(V);
     }
@@ -981,13 +1016,7 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
     Slot = -1;
   }
 
-  std::stringstream Name;
-  Name << Prefix << Slot;
-
-  if (Slot != -1)
-    RawWriter::write(Name.str(), Out);
-  else
-    Out << "<badref>";
+  return Slot;
 }
 
 void AsmXMLWriter::printType(Type *Ty) {

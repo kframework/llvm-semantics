@@ -108,6 +108,11 @@ module LLVM-HELPERS is
     define int1 => IntegerType(Width(1))
 
     declare sizeofInBits : K -> #Nat
+    
+    
+    syntax K ::= isLocation "(" K ")"
+    rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
+    rule isLocation(sym(_:#Int) +Nat _:#Nat) => true [anywhere]
 
     syntax K ::= innerType "(" K ")"
     rule innerType(PointerType(K:K)) => K:K  [anywhere]
@@ -691,6 +696,7 @@ module LLVM-GEP is
                 <gepIndices> List{K}ToK(Indices) </gepIndices>
             ...</gepInfo>
         )
+        when isLocation(PtrVal) // to stop computation early
 
     rule
         <k> gep => Loc ...</k>
@@ -863,7 +869,7 @@ module LLVM-MEMORY is
         orBool MyK ==Bool Zeroinitializer
     
     rule
-        <k> splitPointerBytes((Zeroinitializer => 0), _) ...</k>
+        <k> splitPointerBytes((Zeroinitializer => Null), _) ...</k>
     rule
         <k> splitPointerBytes(Loc:#Nat, NumBytes:#Nat)
             => splitPointerBytes'(Loc:#Nat, NumBytes, 0, .List{K})
@@ -939,18 +945,14 @@ module LLVM-MEMORY is
         
 
     rule
-        <k> Load(Type:KResult, Loc:#Nat)
-            => read(Type:KResult, Loc:#Nat)
+        <k> Load(PointerType(TyK:K), Loc:#Nat)
+            => read(TyK:K, Loc:#Nat)
         ...</k>
         when isLocation(Loc) // for stopping computation early
-        
-    syntax K ::= isLocation "(" K ")"
-    rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
-    rule isLocation(sym(_:#Int) +Nat _:#Nat) => true [anywhere]
 
     rule
         <k> read(Type:KResult, Loc:#Nat)
-            => interpretBytes(readBytes(sizeof(innerType(Type:KResult)), Loc:#Nat), Type:KResult)
+            => interpretBytes(readBytes(sizeof(Type:KResult), Loc:#Nat), Type:KResult)
         ...</k>
 
     rule
@@ -971,9 +973,15 @@ module LLVM-MEMORY is
         ...</k>
 
     rule
-        <k> interpretBytes(K:KResult, Type:KResult)
-            => interpretIntBytes(K:KResult, sizeof(innerType(Type)), 0)
+        <k> interpretBytes(V:KResult, Type:KResult)
+            => interpretIntBytes(V:KResult, sizeof(Type), 0)
         ...</k>
+        when isIntegerType(Type)
+    rule
+        <k> interpretBytes(V:KResult, Type:KResult)
+            => interpretPointerBytes(V:KResult, sizeof(Type), 0)
+        ...</k>
+        when isPointerType(Type)
 
     rule
         <k> interpretIntBytes(listK((L:List{K},, N:#Nat)), sNat(Len:#Nat), N':#Nat)
@@ -984,12 +992,25 @@ module LLVM-MEMORY is
     rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
         => N:#Nat
         [anywhere]
+        
+    rule
+        <k> interpretPointerBytes(listK((L:List{K},, ptrByte(Loc:#Nat, N:#Nat))), sNat(Len:#Nat), N':#Nat)
+            => interpretPointerBytes(listK(L:List{K}), Len:#Nat, RESULT)
+        ...</k>
+        when isLocation(Loc)
+        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:#Nat, N:#Nat)
+        
+    rule interpretPointerBytes(listK(.List{K}), 0, Loc:#Nat)
+        => Loc:#Nat
+        when isLocation(Loc)
+        [anywhere]
 
-    syntax K ::= read "(" K "," K ")"
+    syntax K ::= read "(" K "," K ")" [strict(1)]
     syntax K ::= readBytes "(" K "," K ")"
     syntax K ::= readBytes' "(" K "," K "," List{K} ")"
     syntax K ::= interpretBytes "(" K "," K ")" [strict(1)]
     syntax K ::= interpretIntBytes "(" K "," K "," K ")"
+    syntax K ::= interpretPointerBytes "(" K "," K "," K ")"
 
 end module
 
@@ -1167,10 +1188,10 @@ module LLVM-STANDARD-LIBRARY is
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
     syntax K ::= exit "(" K ")"
-    // rule
-        // <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
-            // => exit(V)
-        // ...</k>
+    rule
+        <k> Call(_, Callee(funptr(Name("@_Exit")), listK(V:KResult)))
+            => exit(V)
+        ...</k>
         
     // syntax K ::= musl-stdioClose "(" K ")"
     // rule

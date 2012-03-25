@@ -1,7 +1,6 @@
 module LLVM-SPECIAL is
     including LLVM-SYNTAX
     
-    syntax K ::= callMain // TODO [semantic]
     syntax KResult ::= #Int
     syntax KResult ::= arrayValue "(" List{K} ")"
 
@@ -19,9 +18,13 @@ module LLVM-CONFIGURATION is
     including LLVM-SYNTAX
     including LLVM-SPECIAL
     
+    
+    syntax K ::= callMain // TODO [semantic]
+    syntax K ::= initGlobals // TODO [semantic]
+    
     configuration
         <T multiplicity="?">
-            <k> $PGM:K ~> callMain </k>
+            <k> $PGM:K ~> initGlobals ~> callMain </k>
             <callStack> .List </callStack>
             <control>
                 <currBlock> Name("Initial") </currBlock>
@@ -38,6 +41,7 @@ module LLVM-CONFIGURATION is
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
+                    <savedGlobals> .K </savedGlobals>
                     <globalRegisters> .Map </globalRegisters>
                     <functions>
                         <function multiplicity="*">
@@ -316,19 +320,35 @@ end module
 module LLVM-GLOBALS is
     including LLVM-INCLUDE
 
-    syntax K ::= init "(" K "," K "," K ")" [strict(2)]
+    syntax K ::= preInit "(" K "," K "," K ")" [strict(2)]
+    // syntax K ::= init "(" K "," K "," K ")" [strict(2)]
     
-    rule
+    // rule
+        // <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(TyK:K), Init:K)
+            // => init(X, Alloca(TyK, 1), Init:K)
+        // ...</k>
+        // <currentModifiers> _ => List(L) </currentModifiers>
+        
+    // rule
+        // <k> init(X:Id, Loc:#Nat, Initializer(TK:K, K:K))
+            // => Store(TK:K, K:K, Loc)
+        // ...</k>
+        // <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
+        
+     rule
         <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(TyK:K), Init:K)
-            => init(X, Alloca(TyK, 1), Init:K)
+            => preInit(X, Alloca(TyK:K, 1), Init:K)
         ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>
         
     rule
-        <k> init(X:Id, Loc:#Nat, Initializer(TK:K, K:K))
-            => Store(TK:K, K:K, Loc)
-        ...</k>
+        <k> preInit(X:Id, Loc:#Nat, Initializer(TK:K, K:K)) => . ...</k>
+        <savedGlobals>... . => Store(TK:K, K:K, Loc) </savedGlobals>
         <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
+        
+    rule <k> initGlobals => K:K ...</k>
+        <savedGlobals> K:K => . </savedGlobals>
+        
 end module
 
 module LLVM-REGISTERS is
@@ -735,7 +755,7 @@ module LLVM-MEMORY is
 
     syntax #Nat ::= nextSym #Nat
     macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
-
+    
     rule
         <k> Alloca(Type:KResult, N:#Nat) => Loc +Nat 0 ...</k>
         <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
@@ -1051,7 +1071,6 @@ module LLVM-CONVERSIONS is
         => Offset <Int Offset'
     rule ptrToInt(_, sym(Base:#Nat) +Nat Offset:#Nat) <=Int ptrToInt(_, sym(Base:#Nat) +Nat Offset':#Nat)
         => Offset <=Int Offset'
-            
     
     // // david's crazy/cool rule
     // rule ptrToInt(sym(N) + M) => M
@@ -1134,10 +1153,16 @@ module LLVM-STANDARD-LIBRARY is
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
     syntax K ::= exit "(" K ")"
-    rule
-        <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
-            => exit(V)
-        ...</k>
+    // rule
+        // <k> Call(_, Callee(funptr(Name("@exit")), listK(V:KResult)))
+            // => exit(V)
+        // ...</k>
+        
+    // syntax K ::= musl-stdioClose "(" K ")"
+    // rule
+        // <k> Call(_, Callee(funptr(Name("@__stdio_close")), listK(V:KResult)))
+            // => musl-stdioClose(V)
+        // ...</k> 
 
     syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
     rule

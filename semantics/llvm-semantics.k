@@ -298,7 +298,7 @@ module LLVM-MISC is
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule
-        <k> Null => sym(-1) +Nat 0 ...</k>
+        Null => sym(-1) +Nat 0 [anywhere]
     
     rule
         <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
@@ -835,6 +835,7 @@ module LLVM-MEMORY is
         <k> splitIntegerBytes(I:#Int, NumBytes:#Nat, Type:KResult)
             => splitIntegerBytes'(unsigned(Type, I), NumBytes, .List{K})
         ...</k>
+    // TODO can possibly rewrite Zeroinitializer to 0 here, and only have one case
     rule
         <k> splitIntegerBytes(Zeroinitializer, NumBytes:#Nat, _)
             => splitIntegerBytes'(Zeroinitializer, NumBytes, .List{K})
@@ -860,17 +861,19 @@ module LLVM-MEMORY is
         ...</k>
         when MyK ==Bool 0
         orBool MyK ==Bool Zeroinitializer
-        
+    
     rule
-        <k> splitPointerBytes(V:KResult, NumBytes:#Nat)
-            => splitPointerBytes'(V, NumBytes, 0, .List{K})
+        <k> splitPointerBytes((Zeroinitializer => 0), _) ...</k>
+    rule
+        <k> splitPointerBytes(Loc:#Nat, NumBytes:#Nat)
+            => splitPointerBytes'(Loc:#Nat, NumBytes, 0, .List{K})
         ...</k>
     rule
-        <k> splitPointerBytes'(V:KResult, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
-            => splitPointerBytes'(V:KResult, NumBytes, sNat(N:#Nat), (L ,, ptrByte(V, N)))
+        <k> splitPointerBytes'(Loc:#Nat, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
+            => splitPointerBytes'(Loc:#Nat, NumBytes, sNat(N:#Nat), (L ,, ptrByte(Loc:#Nat, N)))
         ...</k>
     rule
-        <k> splitPointerBytes'(V:KResult, 0, _, L:List{K})
+        <k> splitPointerBytes'(Loc:#Nat, 0, _, L:List{K})
             => listK(L)
         ...</k>
         
@@ -939,6 +942,11 @@ module LLVM-MEMORY is
         <k> Load(Type:KResult, Loc:#Nat)
             => read(Type:KResult, Loc:#Nat)
         ...</k>
+        when isLocation(Loc) // for stopping computation early
+        
+    syntax K ::= isLocation "(" K ")"
+    rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
+    rule isLocation(sym(_:#Int) +Nat _:#Nat) => true [anywhere]
 
     rule
         <k> read(Type:KResult, Loc:#Nat)

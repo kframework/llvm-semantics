@@ -69,18 +69,18 @@ class AsmXMLWriter {
       visit(*Start++);
   }
 
-    template<class Iterator>
-    void setNames(Iterator Start, Iterator End) {
-        while (Start != End) {
-            setName(*Start++);
-        }
-    }
-    void setName(const BasicBlock& BB) {
-        BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
-        if (!BB.hasName()) {
-            BBp->setName(Twine("Block"));
-        }
-    }
+    // template<class Iterator>
+    // void setNames(Iterator Start, Iterator End) {
+        // while (Start != End) {
+            // setName(*Start++);
+        // }
+    // }
+    // void setName(const BasicBlock& BB) {
+        // BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
+        // if (!BB.hasName()) {
+            // BBp->setName(Twine("Block"));
+        // }
+    // }
 
   int getSlotAndPrefix(const Value*, char*);
   
@@ -310,7 +310,7 @@ void AsmXMLWriter::visit(const Function &F) {
   if (!F.isDeclaration()) {
     Out << "<Body><List>";
     // visit the list of basic blocks
-    setNames(F.begin(), F.end());
+    // setNames(F.begin(), F.end());
     visit(F.begin(), F.end());
     Out << "</List></Body>";
   }
@@ -398,9 +398,17 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
 
   // ensure all basic blocks have a name
   if (!BB.hasName()) {
-    assert(0 && "Didn't expect block without name here");
+    // assert(0 && "Didn't expect block without name here");
+    char Prefix;
+    int Slot = getSlotAndPrefix(&BB, &Prefix);
+    std::stringstream Name;
+    Name << Prefix << Slot;
+    Out << "<Name>";
+    RawWriter::write(Name.str(), Out);
+    Out << "</Name>";
+  } else {
+    printLLVMName(&BB);
   }
-  printLLVMName(&BB);
 
   Out << "<Instructions><List>\n";
   visit(BB.begin(), BB.end());

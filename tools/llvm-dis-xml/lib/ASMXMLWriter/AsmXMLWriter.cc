@@ -921,50 +921,51 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
 
   XMLTagOutputHelper helper("Name", Out);
 
-#if 0
+
   if (const InlineAsm *IA = dyn_cast<InlineAsm>(V)) {
-    Out << "asm ";
-    if (IA->hasSideEffects())
-      Out << "sideeffect ";
-    if (IA->isAlignStack())
-      Out << "alignstack ";
-    Out << '"';
-    PrintEscapedString(IA->getAsmString(), Out);
-    Out << "\", \"";
-    PrintEscapedString(IA->getConstraintString(), Out);
-    Out << '"';
-    return;
+    assert(0 && "not handling raw assembly");
+    // Out << "asm ";
+    // if (IA->hasSideEffects())
+      // Out << "sideeffect ";
+    // if (IA->isAlignStack())
+      // Out << "alignstack ";
+    // Out << '"';
+    // PrintEscapedString(IA->getAsmString(), Out);
+    // Out << "\", \"";
+    // PrintEscapedString(IA->getConstraintString(), Out);
+    // Out << '"';
+    // return;
   }
 
   if (const MDNode *N = dyn_cast<MDNode>(V)) {
-    if (N->isFunctionLocal()) {
-      // Print metadata inline, not via slot reference number.
-      WriteMDNodeBodyInternal(Out, N, TypePrinter, Machine, Context);
-      return;
-    }
+    assert(0 && "Not handling MDNode");
+    // if (N->isFunctionLocal()) {
+      // // Print metadata inline, not via slot reference number.
+      // WriteMDNodeBodyInternal(Out, N, TypePrinter, Machine, Context);
+      // return;
+    // }
 
-    if (!Machine) {
-      if (N->isFunctionLocal())
-        Machine = new SlotTracker(N->getFunction());
-      else
-        Machine = new SlotTracker(Context);
-    }
-    int Slot = Machine->getMetadataSlot(N);
-    if (Slot == -1)
-      Out << "<badref>";
-    else
-      Out << '!' << Slot;
-    return;
+    // if (!Machine) {
+      // if (N->isFunctionLocal())
+        // Machine = new SlotTracker(N->getFunction());
+      // else
+        // Machine = new SlotTracker(Context);
+    // }
+    // int Slot = Machine->getMetadataSlot(N);
+    // if (Slot == -1)
+      // Out << "<badref>";
+    // else
+      // Out << '!' << Slot;
+    // return;
   }
 
   if (const MDString *MDS = dyn_cast<MDString>(V)) {
-    Out << "!\"";
-    PrintEscapedString(MDS->getString(), Out);
-    Out << '"';
-    return;
+    assert(0 && "Not handling MDString");
+    // Out << "!\"";
+    // PrintEscapedString(MDS->getString(), Out);
+    // Out << '"';
+    // return;
   }
-
-#endif
 
   if (V->getValueID() == Value::PseudoSourceValueVal ||
       V->getValueID() == Value::FixedStackPseudoSourceValueVal) {
@@ -980,7 +981,7 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
   if (Slot != -1)
     RawWriter::write(Name.str(), Out);
   else
-    Out << "<badref>";
+    Out << "<badref/>";
 }
 
 int AsmXMLWriter::getSlotAndPrefix(const Value *V, char* Prefix){

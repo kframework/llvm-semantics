@@ -113,6 +113,7 @@ module LLVM-HELPERS is
     syntax K ::= isLocation "(" K ")"
     rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
     rule isLocation(sym(_:#Int) +Nat _:#Nat) => true [anywhere]
+    rule isLocation(funptr(_)) => true [anywhere]
 
     syntax K ::= innerType "(" K ")"
     rule innerType(PointerType(K:K)) => K:K  [anywhere]

@@ -69,6 +69,19 @@ class AsmXMLWriter {
       visit(*Start++);
   }
 
+    template<class Iterator>
+    void setNames(Iterator Start, Iterator End) {
+        while (Start != End) {
+            setName(*Start++);
+        }
+    }
+    void setName(const BasicBlock& BB) {
+        BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
+        if (!BB.hasName()) {
+            BBp->setName(Twine("Block"));
+        }
+    }
+
   int getSlotAndPrefix(const Value*, char*);
   
   void visit(const GlobalVariable &);
@@ -297,6 +310,7 @@ void AsmXMLWriter::visit(const Function &F) {
   if (!F.isDeclaration()) {
     Out << "<Body><List>";
     // visit the list of basic blocks
+    setNames(F.begin(), F.end());
     visit(F.begin(), F.end());
     Out << "</List></Body>";
   }
@@ -379,32 +393,12 @@ void AsmXMLWriter::visit(const Argument &Arg) {
 }
 
 void AsmXMLWriter::visit(const BasicBlock &BB) {
-  BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
+  // BasicBlock *BBp = const_cast<BasicBlock*>(&BB);
   Out << "<BasicBlock>";
 
   // ensure all basic blocks have a name
   if (!BB.hasName()) {
-    std::stringstream Name;
-    // char Prefix;
-    // int Slot = getSlotAndPrefix(&BB, &Prefix);
-    // Name << Slot;
-    Name << "Default";
-  
-    // if (Slot != -1)
-    //   RawWriter::write(Name.str(), Out);
-     // // If the local value didn't succeed, then we may be referring to a value
-      // // from a different function.  Translate it, as this can happen when using
-      // // address of blocks.
-      // if (Slot == -1)
-        // if ((Machine = createSlotTracker(&BB))) {
-          // Slot = Machine->getLocalSlot(&BB);
-          // delete Machine;
-          // Machine = 0;
-        // }
-    // std::stringstream Name;
-    // Name << "%" << Slot;
-    BBp->setName(Twine(Name.str()));
-    // BBp->setName(Twine("Default"));
+    assert(0 && "Didn't expect block without name here");
   }
   printLLVMName(&BB);
 

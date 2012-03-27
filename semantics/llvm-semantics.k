@@ -602,61 +602,61 @@ module LLVM-ARITHMETIC is
 
     rule [add]:
         <k> Add(Type:KResult, I1:#Int, I2:#Int)
-            => I1 +Int I2
+            => signed(Type, I1 +Int I2)
         ...</k>
     rule
         <k> Sub(Type:KResult, I1:#Int, I2:#Int)
-            => I1 -Int I2
+            => signed(Type, I1 -Int I2)
         ...</k>
     rule
         <k> Mul(Type:KResult, I1:#Int, I2:#Int)
-            => I1 *Int I2
+            => signed(Type, I1 *Int I2)
         ...</k>
     rule
         <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
-            => signed(Type, I1) /Int signed(Type, I2)
+            => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))
         ...</k>
         when signed(Type, I2) =/=Bool 0 // catch undefined
     // TODO should probably wrap this with signed
     rule
         <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
-            => unsigned(Type, I1) /Int unsigned(Type, I2)
+            => signed(Type, (unsigned(Type, I1) /Int unsigned(Type, I2)))
         ...</k>
         when unsigned(Type, I2) =/=Bool 0 // catch undefined
     rule
         <k> SRem(Type:KResult, I1:#Int, I2:#Int)
-            => signed(Type, I1) %Int signed(Type, I2)
+            => signed(Type, (signed(Type, I1) %Int signed(Type, I2)))
         ...</k>
         when signed(Type, I2) =/=Bool 0 // catch undefined
     rule
         <k> URem(Type:KResult, I1:#Int, I2:#Int)
-            => unsigned(Type, I1) %Int unsigned(Type, I2)
+            => signed(Type, (unsigned(Type, I1) %Int unsigned(Type, I2)))
         ...</k>
         when unsigned(Type, I2) =/=Bool 0 // catch undefined
         
     rule
         <k> Shl(Type:KResult, I:#Int, Len:#Nat)
-            => I <<Int Len
+            => signed(Type, I <<Int Len)
         ...</k>
     rule
         <k> LShr(Type:KResult, I:#Int, Len:#Nat)
-            => unsigned(Type, I) >>Int Len
+            => signed(Type, unsigned(Type, I) >>Int Len)
         ...</k>
     rule 
         <k> AShr(Type:KResult, I:#Int, Len:#Nat)
-            => signed(Type, I:#Int) >>Int Len
+            => signed(Type, signed(Type, I:#Int) >>Int Len)
         ...</k>
     rule
         <k> Or(Type:KResult, I1:#Int, I2:#Int)
-            => I1 |Int I2
+            => signed(Type, I1 |Int I2)
         ...</k>
     rule
         <k> And(Type:KResult, I1:#Int, I2:#Int)
-            => I1 &Int I2
+            => signed(Type, I1 &Int I2)
         ...</k>
     rule
         <k> Xor(Type:KResult, I1:#Int, I2:#Int)
-            => I1 xorInt I2
+            => signed(Type, I1 xorInt I2)
         ...</k>
 
 

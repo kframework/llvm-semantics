@@ -1076,9 +1076,14 @@ module LLVM-CONVERSIONS is
     rule signed(Type:KResult, sym(I:#Int) +Nat Offset:#Nat) 
         => ptrToInt(Type, sym(I:#Int) +Nat Offset:#Nat)
         [anywhere]
+    rule unsigned(_, ptrToInt(Type:KResult, I:#Int))
+        => ptrToInt(Type, I)
+    rule signed(_, ptrToInt(Type:KResult, I:#Int))
+        => ptrToInt(Type, I)
     
     // Chucky's sucky rules
     // definitely misses problems with null
+    // TODO assumes types are same and are big enough
     rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) >Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
         => Offset >Int Offset'
         [anywhere]
@@ -1091,6 +1096,10 @@ module LLVM-CONVERSIONS is
     rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) <=Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
         => Offset <=Int Offset'
         [anywhere]
+    rule ptrToInt(Type:KResult, sym(I:#Int) +Nat Offset:#Nat) -Int ptrToInt(Type:KResult, sym(I:#Int) +Nat Offset':#Nat)
+        => signed(Type, Offset -Int Offset')
+        [anywhere]
+    
     
     // // david's crazy/cool rule
     // rule ptrToInt(sym(N) + M) => M

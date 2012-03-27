@@ -133,68 +133,35 @@ module LLVM-HELPERS is
     // should be a K, but builtins can't use K :(
     syntax #Int ::= signed "(" K "," K ")" // type, value
     
-    
-    // cannot be a function, has to take place on top of K
-    // syntax K ::= canonicalize "(" K "," K ")"
-    // syntax K ::= canonicalizeArray "(" K "," List{K} ")" [strict(1)]
-    // syntax K ::= canonicalizeArray' "(" K "," List{K} "," List{K} ")"
-    // syntax K ::= canonicalizeStruct "(" K "," K ")"
-    // syntax K ::= canonicalizeStruct' "(" List{K} "," K "," List{K} ")"
-    
-    // rule 
-        // <k> canonicalize(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
-        // when isIntegerType(Type)
-    // rule <k> canonicalize(Type:KResult, I:#Int) => I ...</k>
-        // when isPointerType(Type)
-    // rule <k> canonicalize(VoidType, VoidValue) => VoidValue ...</k>
-    // rule <k> canonicalize(Type:KResult, arrayValue(L:List{K}))
-            // => canonicalizeArray(innerType(Type), L)
-        // ...</k>
-        // when isArrayType(Type)
-    // // TODO using arguments to heat to listK
-    // rule <k> canonicalize(StructType(L:List{K}), V:KResult)
-            // => canonicalizeStruct(Arguments(L), V)
-        // ...</k>
-    
-    // // canonicalizeArray
-    // rule <k> canonicalizeArray(Type:KResult, L:List{K})
-            // => canonicalizeArray'(Type, L, .List{K})
-        // ...</k>
-    // rule <k> (.K => canonicalize(Type, V))
-            // ~> canonicalizeArray'(Type:KResult, ((V:KResult => .List{K}),, L:List{K}), _)
-        // ...</k>
-    // rule <k> (V:KResult => .)
-            // ~> canonicalizeArray'(Type:KResult, L:List{K}, (_,, (.List{K} => V)))
-        // ...</k>
-    // rule <k> canonicalizeArray'(Type:KResult, .List{K}, L:List{K})
-            // => arrayValue(L)
-        // ...</k>
-        
-    // // canonicalizeStruct
-    // rule <k> canonicalizeStruct(listK(L:List{K}), V:KResult)
-            // => canonicalizeStruct'(L, V, .List{K})
-        // ...</k>
-    // rule <k> (. => canonicalize(Type, 
-            // canonicalizeStruct'((Type:KResult,, L:List{K}), ConstantStruct(M:K, listK()), L':List{K})
-        // ...</k>
-    
+    // case when in bounds
     rule
         signed(Type:KResult, I:#Int) => I
         when smin(Type) <=Int I andBool smax(Type) >=Int I
         [anywhere]
-    // TODO these could be sped up
+
+    // this reduces it to be close
     rule
-        // TODO K not compiling this correctly :(
-        // signed(Type:KResult, (I:#Int => I +Int umax(I)))
         signed(Type:KResult, I:#Int)
-        => signed(Type:KResult, I +Int (umax(Type) +Nat 1))
-        when I <Int smin(Type)
+            => signed(Type:KResult, I %Int (umax(Type) +Nat 1))
+        when I >Int umax(Type) // note umax here
+        [anywhere]
+    // this picks up any extra distance
+    rule
+        signed(Type:KResult, I:#Int)
+            => I -Int (umax(Type) +Nat 1)
+        when I >Int smax(Type) andBool I <=Int umax(Type)
+        [anywhere]
+    
+    // same as above
+    rule
+        signed(Type:KResult, I:#Int)
+            => signed(Type:KResult, I %Int (umax(Type) +Nat 1))
+        when I <Int -Int umax(Type)
         [anywhere]
     rule
-        // signed(Type:KResult, (I:#Int => I -Int umax(I)))
         signed(Type:KResult, I:#Int)
-        => signed(Type:KResult, I -Int (umax(Type) +Nat 1))
-        when I >Int smax(Type)
+            => I +Int (umax(Type) +Nat 1)
+        when I <Int smin(Type) andBool I >=Int -Int umax(Type)
         [anywhere]
         
     

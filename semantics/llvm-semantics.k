@@ -26,6 +26,8 @@ module LLVM-CONFIGURATION is
         <T multiplicity="?">
             <k> $PGM:K ~> initGlobals ~> callMain </k>
             <callStack> .List </callStack>
+            <nextLoc> sym(0) </nextLoc>
+            @latex("\\kBR")
             <control>
                 <currBlock> Name("Initial") </currBlock>
                 <prevBlock> Name("Initial") </prevBlock>
@@ -35,6 +37,7 @@ module LLVM-CONFIGURATION is
                 // TODO: this should eventually be a Set
                 <currentModifiers> .List </currentModifiers>
             </control>
+            @latex("\\kBR")
             <modules>
                 <module multiplicity="*">
                     <moduleName> Name("") </moduleName>
@@ -43,6 +46,7 @@ module LLVM-CONFIGURATION is
                     <typedefs> .Map </typedefs>
                     <savedGlobals> .K </savedGlobals>
                     <globalRegisters> .Map </globalRegisters>
+                    @latex("\\kBR")
                     <functions>
                         <function multiplicity="*">
                             <functionName> Name("") </functionName>
@@ -52,6 +56,7 @@ module LLVM-CONFIGURATION is
                             <initialBasicBlock> .K </initialBasicBlock>
                         </function>
                     </functions>
+                    @latex("\\kBR")
                     <typeInfos>
                         <typeInfo multiplicity="*">
                             <typeName> Name("") </typeName>
@@ -60,6 +65,7 @@ module LLVM-CONFIGURATION is
                     </typeInfos>
                 </module>
             </modules>
+            @latex("\\kBR")
             <memory>
                 <object multiplicity="*">
                     <type> .K </type>
@@ -68,7 +74,7 @@ module LLVM-CONFIGURATION is
                     <bytes> .Map </bytes>
                 </object>
             </memory>
-            <nextLoc> sym(0) </nextLoc>
+            @latex("\\kBR")
             // auxiliary cells:
             <gepInfo multiplicity="?">
                 <gepType> .K </gepType>
@@ -76,6 +82,7 @@ module LLVM-CONFIGURATION is
                 <gepIndices> .K </gepIndices>
             </gepInfo>
         </T>
+        @latex("\\kBR")
         <result multiplicity="?">
             <returnValue> -1 </returnValue>
         </result>
@@ -869,14 +876,15 @@ module LLVM-MEMORY is
         
     // TODO assumes no padding
     // TODO need to heat types
+    // TODO BUG L'' causes latex to fail (generates L ' ')
     rule
         <k> splitStructBytes(V:KResult, L:List{K})
             => splitStructBytes'(V:KResult, L:List{K}, .List{K})
         ...</k>
     rule
-        <k> splitStructBytes'(ConstantStruct(K:K, listK((V:KResult,, L'':List{K}))), (Type:KResult,, L:List{K}), L':List{K})
+        <k> splitStructBytes'(ConstantStruct(K:K, listK((V:KResult,, Fields:List{K}))), (Type:KResult,, L:List{K}), L':List{K})
             => splitBytes(V, Type) 
-            ~> splitStructBytes'(ConstantStruct(K:K, listK(L'')), L:List{K}, L':List{K})
+            ~> splitStructBytes'(ConstantStruct(K:K, listK(Fields)), L:List{K}, L':List{K})
         ...</k>
     rule
         <k> splitStructBytes'(Zeroinitializer, (Type:KResult,, L:List{K}), L':List{K})
@@ -1108,11 +1116,7 @@ module LLVM-LITERALS is
     syntax K ::= createArrayValue "(" K "," List{K} ")"
     syntax K ::= createArrayValue' "(" K "," List{K} "," List{K} ")"
     syntax K ::= createArrayValue'' "(" K "," List{K} "," K "," List{K} ")" [strict(3)]
-    
-    // declare createArrayValue : K List{K} -> K
-    // declare createArrayValue' : K List{K} List{K} -> K
-    // declare createArrayValue'' : K List{K} K List{K} -> K
-    
+
     rule
         <k> createArrayValue(Type:KResult, L:List{K})
             => createArrayValue'(Type:KResult, L:List{K}, .List{K})
@@ -1122,8 +1126,8 @@ module LLVM-LITERALS is
             => createArrayValue''(Type:KResult, L:List{K}, splitBytes(K, Type), L':List{K})
         ...</k>
     rule
-        <k> createArrayValue''(Type:KResult, L:List{K}, listK(L'':List{K}), L':List{K})
-            => createArrayValue'(Type:KResult, L:List{K}, (L':List{K},, L'':List{K}))
+        <k> createArrayValue''(Type:KResult, L:List{K}, listK(Bytes:List{K}), L':List{K})
+            => createArrayValue'(Type:KResult, L:List{K}, (L':List{K},, Bytes:List{K}))
         ...</k>
     rule
         <k> createArrayValue'(_, .List{K}, L:List{K})

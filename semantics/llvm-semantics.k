@@ -114,6 +114,9 @@ module LLVM-HELPERS is
 
     declare sizeofInBits : K -> #Nat
     
+    syntax #Nat ::= intToPtr "(" K "," K ")"
+    syntax #Int ::= ptrToInt "(" K "," K ")"
+    syntax K ::= read "(" K "," K ")" [strict(1)]
     
     syntax K ::= isLocation "(" K ")"
     rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
@@ -993,7 +996,6 @@ module LLVM-MEMORY is
         when isLocation(Loc)
         [anywhere]
 
-    syntax K ::= read "(" K "," K ")" [strict(1)]
     syntax K ::= readBytes "(" K "," K ")"
     syntax K ::= readBytes' "(" K "," K "," List{K} ")"
     syntax K ::= interpretBytes "(" K "," K ")" [strict(1)]
@@ -1057,8 +1059,6 @@ module LLVM-CONVERSIONS is
     rule
         <k> BitCast(_, I:#Int) => I:#Int ...</k>
         
-    syntax #Nat ::= intToPtr "(" K "," K ")"
-    syntax #Int ::= ptrToInt "(" K "," K ")"
     // TODO need to normalize here
     rule
         <k> IntToPtr(Type:KResult, I:#Int) => intToPtr(Type, I) ...</k>

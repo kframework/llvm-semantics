@@ -109,10 +109,8 @@ module LLVM-HELPERS is
     declare byteType : -> K
     define byteType => IntegerType(Width(numBitsPerByte))
 
-    declare int32 : -> K
-    define int32 => IntegerType(Width(32))
-    declare int1 : -> K
-    define int1 => IntegerType(Width(1))
+    declare i : K -> K
+    define i(N:#Nat) => IntegerType(Width(N))
 
     declare sizeofInBits : K -> #Nat
     
@@ -378,12 +376,12 @@ module LLVM-BRANCHING is
         <k> Conditional(I:#Int, Label:K, _)
             => Unconditional(Label:K)
         </k>
-        when unsigned(int1, I) ==Bool 1
+        when unsigned(i(1), I) ==Bool 1
     rule
         <k> Conditional(I:#Int, _, Label:K)
             => Unconditional(Label:K)
         </k>
-        when unsigned(int1, I) ==Bool 0
+        when unsigned(i(1), I) ==Bool 0
         
     rule [switch-default]:
         <k> Switch(_, I:#Int, Label:K, listK(.List{K}))
@@ -420,13 +418,13 @@ end module
 module LLVM-START-AND-STOP is
     including LLVM-INCLUDE
 
-    rule <k> callMain => Call(int32, Callee(Value(Name("@main")), Arguments(.List{K}))) </k>
+    rule <k> callMain => Call(i(32), Callee(Value(Name("@main")), Arguments(.List{K}))) </k>
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 0
     
     // TODO need to allocate char** etc for command line arguments
-    rule <k> callMain => Call(int32, Callee(Value(Name("@main")), Arguments((0,, 0)))) </k>
+    rule <k> callMain => Call(i(32), Callee(Value(Name("@main")), Arguments((0,, 0)))) </k>
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 2

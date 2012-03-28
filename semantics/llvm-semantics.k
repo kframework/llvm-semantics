@@ -225,8 +225,8 @@ module LLVM-HELPERS is
     define sizeofInBits(StructType(listK(.List{K}))) => 0
 
     declare sizeof : K -> #Nat
-    define sizeof(K:K) => sizeofInBits(K:K) /Nat numBitsPerByte
-        when numBitsPerByte dividesNat sizeofInBits(K:K)
+    define sizeof(Type:KResult) => sizeofInBits(Type) /Nat numBitsPerByte
+        when numBitsPerByte dividesNat sizeofInBits(Type)
         
     declare zeroOfType : K -> K
     define zeroOfType(Type:KResult) => 0

@@ -7,16 +7,16 @@ test: llvm-compiled.maude $(CURRTEST)
 	$(K_BASE)/core/krun $(CURRTEST)
 
 linked:
-	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o -
+	@../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o -
 
 xml:
-	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | xmllint --format -
+	@../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | xmllint --format -
 
 kast:
-	../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | perl ../dist/bin/xml2k
+	@../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o - | ../dist/bin/llvm-dis-xml -o - | perl ../dist/bin/xml2k
 
 ll:
-	cat $(CURRTEST)
+	@cat $(CURRTEST)
 
 clean:
 	rm -f llvm-compiled.maude

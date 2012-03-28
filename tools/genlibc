@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+MUSLDIR=/home/david/src/musl
+CURRDIR=`pwd`
+WORKDIR=$CURRDIR/genlibc-tmp
+mkdir -p $WORKDIR
+
+cd $MUSLDIR
+# TODO
+CC=~/bin/myclang.sh make -j3 2>/dev/null >/dev/null || true
+cp lib/libc.a $WORKDIR
+cd $WORKDIR
+ar -x libc.a
+rm libc.a
+grep -l " asm " * | xargs rm -v
+llvm-link *.o -S > libc.ll
+mv libc.ll $CURRDIR
+rm -rf $WORKDIR
+wc -c $CURRDIR/libc.ll
+
+STDLIBDIR="$CURRDIR/../stdlib"
+mv -v $CURRDIR/libc.ll $STDLIBDIR

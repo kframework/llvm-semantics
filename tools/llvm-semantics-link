@@ -1,4 +1,4 @@
 #!/bin/sh
 # The semantics linker uses globaldce to shrink the size of the output
 # so the semantics can handle it.
-llvm-link $* | opt -internalize -globaldce -S
+llvm-link "$@" | opt -S -internalize -internalize-public-api-list="main,__libc_start_main_0_,__libc_start_main_2,__libc_start_main_3" -globaldce

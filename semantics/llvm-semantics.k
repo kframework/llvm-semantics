@@ -583,6 +583,7 @@ module LLVM-CALL-RET is
     // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
     syntax K ::= clearVoid
     
+    // TODO rename Tail
     rule
         <k> Ret(V:KResult) ~> _ => V ~> clearVoid ~> Tail </k>
         <callStack> frame(Tail:K, C:Bag) => . ...</callStack>

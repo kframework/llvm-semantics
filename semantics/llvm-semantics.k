@@ -453,7 +453,6 @@ module LLVM-START-AND-STOP is
         <functionName> Name("@__libc_start_main_0") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         //when lengthList{K}(L) ==Bool 0
-*/
 
 /*
     // TODO need to allocate char** etc for command line arguments
@@ -461,6 +460,7 @@ module LLVM-START-AND-STOP is
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 2
+*/
 
 
     rule [terminate-exit]:

@@ -1,7 +1,7 @@
 module LLVM-SPECIAL is
     including LLVM-SYNTAX
     
-    syntax KResult ::= #Int
+    syntax KResult ::= #Int | #String
     syntax KResult ::= arrayValue "(" List{K} ")"
 
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
@@ -81,6 +81,7 @@ module LLVM-CONFIGURATION is
                 <gepResult> 0 </gepResult>
                 <gepIndices> .K </gepIndices>
             </gepInfo>
+            <output stream="stdout"> .List </output>
         </T>
         @latex("\\kBR")
         <result multiplicity="?">
@@ -89,9 +90,24 @@ module LLVM-CONFIGURATION is
 
 end module
 
+module LLVM-SYSCALLS is
+    including LLVM-SYNTAX
+
+    syntax KLabel ::= 'ioctl
+    syntax KLabel ::= 'write
+    syntax KLabel ::= 'exit-group
+
+    declare syscallHandler : K -> KLabel
+    define syscallHandler(4) => 'write
+    define syscallHandler(54) => 'ioctl
+    define syscallHandler(248) => 'exit-group
+
+end module
+
 module LLVM-SETTINGS is
     including LLVM-SYNTAX
     including LLVM-SPECIAL
+    including LLVM-SYSCALLS
     
     declare numBitsPerByte : -> #Nat
     define numBitsPerByte => 8
@@ -421,24 +437,48 @@ end module
 module LLVM-START-AND-STOP is
     including LLVM-INCLUDE
 
-    rule <k> callMain => Call(i(32), Callee(Value(Name("@main")), Arguments(.List{K}))) </k>
-        <functionName> Name("@main") </functionName>
+    rule
+        <k> callMain
+            => Call(i(32), Callee(Value(Name("@__libc_start_main_0")),
+                Arguments((
+                    funptr(Name("@main")),, // address of main
+                    0,, // argc
+                    Alloca(i(8), 8),, // argv
+                    Null,, // init
+                    Null,, // fini
+                    Null // ldso_fini
+                ))
+            ))
+        </k>
+        <functionName> Name("@__libc_start_main_0") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
-        when lengthList{K}(L) ==Bool 0
-    
+        //when lengthList{K}(L) ==Bool 0
+*/
+
+/*
     // TODO need to allocate char** etc for command line arguments
     rule <k> callMain => Call(i(32), Callee(Value(Name("@main")), Arguments((0,, 0)))) </k>
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 2
 
-    rule [terminate]:
+
+    rule [terminate-exit]:
         <T>...
-            <k> I:#Int </k>
+            <k> I:#Int => Call(VoidType, Callee(Value(Name("@exit")), Arguments(I))) </k>
         ...</T>
-        => <result>...
+
+    // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL
+    rule
+        <T>...
+            <k> 'exit-group(I:#Int,,_) ...</k>
+            <output> #ostream(1) #buffer(.) </output>
+        ...</T>
+        =>
+        <result>...
             <returnValue> I remInt 256 </returnValue>
-        </result>
+        ...</result>
+
 end module
 
 module LLVM-DECLARATIONS is
@@ -1169,18 +1209,20 @@ end module
 
 module LLVM-STANDARD-LIBRARY is
     including LLVM-INCLUDE
-    
+
     // TODO accidentally using where instead of when leads to no error message; it just drops the condition
     
     /////////////////////////////////////////////////////////
     // turning calls to intrinsics into semantic productions
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
+    /*
     syntax K ::= exit "(" K ")"
     rule
         <k> Call(_, Callee(funptr(Name("@_Exit")), listK(V:KResult)))
             => exit(V)
         ...</k>
+    */
         
     // syntax K ::= musl-stdioClose "(" K ")"
     // rule
@@ -1219,11 +1261,7 @@ module LLVM-STANDARD-LIBRARY is
 
     /////////////////////////////////////////////////////////
     // actual library definitions
-    rule
-        <k> exit(I:#Int) ~> _
-            => I:#Int
-        </k>
-    
+
     // memcpy
     rule
         <k> memcpy(Dest:#Nat, Src:#Nat, sNat(Len:#Nat), K1:K, K2:K)
@@ -1254,6 +1292,53 @@ module LLVM-STANDARD-LIBRARY is
     
 end module
 
+module LLVM-SYSCALL-IMPL is
+    including LLVM-INCLUDE
+
+
+    rule
+        <k> Call(_, Callee(funptr(Name("@__syscall")), listK(N:#Nat,,L:List{K})))
+            => (syscallHandler(N))(L)
+        ...</k>
+
+    rule <k> 'ioctl(_) => 0 ...</k>
+
+    syntax K ::= printString "(" K ")" [strict]
+    syntax K ::= readString "(" K "," K ")"
+    syntax K ::= readString' "(" K "," K "," K ")"
+
+    rule
+        <k> 'write(FileDesc:#Int,, ptrToInt(_, Loc:#Nat),, Len:#Nat,, _)
+            => printString(readString(Loc, Len))
+        ...</k>
+
+    rule
+        <k> readString(Loc:#Nat, Len:#Nat)
+            => readString'(Loc, Len, "")
+        ...</k>
+
+    rule
+        <k> (. => read(i(8), Loc))
+            ~> readString'(Loc:#Nat, sNat(_), _)
+        ...</k>
+
+    rule <k> readString'(_, 0, S:#String) => S ...</k>
+
+    rule
+        <k> (I:#Int => .)
+            ~> readString'(
+                (Loc:#Nat => Loc +Nat 1),
+                (sNat(N:#Nat) => N),
+                (S:#String => NEWSTRING)
+            )
+        ...</k>
+        where NEWSTRING = S +String charString(unsigned(i(8), I))
+
+    rule <k> printString(S:#String) => lengthString(S) ...</k>
+         <output>... . => ListItem(S) </output>
+
+end module
+
 module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
@@ -1273,4 +1358,5 @@ module LLVM-SEMANTICS is
     including LLVM-CONVERSIONS
     including LLVM-LITERALS
     including LLVM-STANDARD-LIBRARY
+    including LLVM-SYSCALL-IMPL
 end module

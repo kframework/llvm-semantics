@@ -450,17 +450,29 @@ module LLVM-START-AND-STOP is
                 ))
             ))
         </k>
-        <functionName> Name("@__libc_start_main_0") </functionName>
+        <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
-        //when lengthList{K}(L) ==Bool 0
+        when lengthList{K}(L) ==Bool 0
 
-/*
-    // TODO need to allocate char** etc for command line arguments
-    rule <k> callMain => Call(i(32), Callee(Value(Name("@main")), Arguments((0,, 0)))) </k>
+    // TODO need to initialize argc and argv properly
+    rule
+        <k> callMain
+            => Call(i(32), Callee(Value(Name("@__libc_start_main_2")),
+                Arguments((
+                    funptr(Name("@main")),, // address of main
+                    0,, // argc
+                    Alloca(i(8), 8),, // argv
+                    Null,, // init
+                    Null,, // fini
+                    Null // ldso_fini
+                ))
+            ))
+        </k>
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 2
-*/
+
+    // TODO need to handle 3-argument main
 
 
     rule [terminate-exit]:

@@ -1,8 +1,12 @@
 - varargs (how to pass them, etc)
 - floats
+- vectors
+- modifiers on everything
+- pass by value
 - structs constants
-- pointer comparisons
-- zeroinitializer
-- global variables can reference other globals that haven't been defined yet
 - looks like Typedef can have more than two things in it (strct-pack-1.ll)
 - fixing printing 0x values (regstack-1.ll)
+- aliases
+- numbered types
+- unimplimented stuff in parser
+

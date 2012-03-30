@@ -96,10 +96,12 @@ module LLVM-SYSCALLS is
     syntax KLabel ::= 'ioctl
     syntax KLabel ::= 'write
     syntax KLabel ::= 'exit-group
+    syntax KLabel ::= 'rt-sigprocmask
 
     declare syscallHandler : K -> KLabel
     define syscallHandler(4) => 'write
     define syscallHandler(54) => 'ioctl
+    define syscallHandler(175) => 'rt-sigprocmask
     define syscallHandler(248) => 'exit-group
 
 end module
@@ -133,6 +135,7 @@ module LLVM-HELPERS is
     syntax #Nat ::= intToPtr "(" K "," K ")"
     syntax #Int ::= ptrToInt "(" K "," K ")"
     syntax K ::= read "(" K "," K ")" [strict(1)]
+    syntax K ::= write "(" K "," K "," K ")" [strict] // type, value, location
     
     syntax K ::= isLocation "(" K ")"
     rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
@@ -461,7 +464,8 @@ module LLVM-START-AND-STOP is
                 Arguments((
                     funptr(Name("@main")),, // address of main
                     0,, // argc
-                    Alloca(i(8), 8),, // argv
+                        Alloca(i(8), ARGVSIZE) 
+                        ~> writeAndReturn(ArrayType(PTRTYPE, 30), Zeroinitializer),, // argv
                     Null,, // init
                     Null,, // fini
                     Null // ldso_fini
@@ -471,6 +475,16 @@ module LLVM-START-AND-STOP is
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 2
+        where PTRTYPE = PointerType(i(8))
+        and ARGVSIZE = sizeof(PTRTYPE) *Int 30
+        
+    syntax K ::= writeAndReturn "(" K "," K ")"
+    
+    rule
+        <k> Loc:#Nat ~> writeAndReturn(K1:K, K2:K)
+            => write(K1:K, K2:K, Loc:#Nat)
+            ~> Loc:#Nat
+        ...</k>
 
     // TODO need to handle 3-argument main
 
@@ -820,7 +834,6 @@ module LLVM-MEMORY is
             => write(Type:KResult, V:KResult, Loc:#Nat)
         ...</k>
 
-    syntax K ::= write "(" K "," K "," K ")" // type, value, location
     syntax K ::= writeBytes "(" K "," K ")" [strict(1)] // list of bytes, location
     
     syntax K ::= splitIntegerBytes "(" K "," K "," K ")" // value, numBytes, type
@@ -1034,6 +1047,7 @@ module LLVM-MEMORY is
 
     rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
         => N:#Nat
+        when N:#Nat >=Int 0
         [anywhere]
         
     rule
@@ -1085,7 +1099,7 @@ module LLVM-COMPARISONS is
         
         // [anywhere]
 
-    syntax #Int ::= boolToInt "(" K ")"
+    syntax K ::= boolToInt "(" K ")"
     rule boolToInt(true) => 1   [anywhere]
     rule boolToInt(false) => 0  [anywhere]
 
@@ -1314,6 +1328,7 @@ module LLVM-SYSCALL-IMPL is
         ...</k>
 
     rule <k> 'ioctl(_) => 0 ...</k>
+    rule <k> 'rt-sigprocmask(_) => 0 ...</k>
 
     syntax K ::= printString "(" K ")" [strict]
     syntax K ::= readString "(" K "," K ")"

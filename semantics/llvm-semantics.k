@@ -136,6 +136,7 @@ module LLVM-HELPERS is
     syntax #Int ::= ptrToInt "(" K "," K ")"
     syntax K ::= read "(" K "," K ")" [strict(1)]
     syntax K ::= write "(" K "," K "," K ")" [strict] // type, value, location
+    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
     
     syntax K ::= isLocation "(" K ")"
     rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
@@ -458,14 +459,16 @@ module LLVM-START-AND-STOP is
         when lengthList{K}(L) ==Bool 0
 
     // TODO need to initialize argc and argv properly
+    // TODO kind of crap
     rule
         <k> callMain
             => Call(i(32), Callee(Value(Name("@__libc_start_main_2")),
                 Arguments((
                     funptr(Name("@main")),, // address of main
                     0,, // argc
-                        Alloca(i(8), ARGVSIZE) 
-                        ~> writeAndReturn(ArrayType(PTRTYPE, 30), Zeroinitializer),, // argv
+                    (
+                        initEnvStructures(Alloca(i(8), ARGVSIZE))
+                    ),,
                     Null,, // init
                     Null,, // fini
                     Null // ldso_fini
@@ -476,15 +479,43 @@ module LLVM-START-AND-STOP is
         <formalParameters> Arguments(L:List{K}) </formalParameters>
         when lengthList{K}(L) ==Bool 2
         where PTRTYPE = PointerType(i(8))
-        and ARGVSIZE = sizeof(PTRTYPE) *Int 30
-        
-    syntax K ::= writeAndReturn "(" K "," K ")"
+        and ARGVSIZE = (sizeof(PTRTYPE) *Int 3) +Int (sizeof(i(64)) *Int 38)
     
-    rule
-        <k> Loc:#Nat ~> writeAndReturn(K1:K, K2:K)
-            => write(K1:K, K2:K, Loc:#Nat)
-            ~> Loc:#Nat
+    syntax K ::= initEnvStructures "(" K ")" [strict]
+    syntax K ::= initEnvStructures' "(" K ")"
+    
+    rule // argv & envp
+        <k> initEnvStructures(Loc:#Nat)
+            => write(ARRAYTYPE, Zeroinitializer, Loc)
+            ~> initEnvStructures'(Loc +Nat sizeof(ARRAYTYPE))
+            ~> Loc
         ...</k>
+        where ARRAYTYPE = ArrayType(PointerType(i(8)), 3)
+    rule
+        <k> initEnvStructures'(Loc:#Nat)
+            => memset(Loc, 0, 37, .K, .K) // auxv
+        ...</k>
+    
+
+    
+    // // TODO replace with real freezers when we have syntax
+    // syntax K ::= fakeFreezerAndJumpValue
+    
+    // rule
+        // <k> V:KResult 
+            // ~> fakeFreezerAndJumpValue 
+            // ~> KLabel:KLabel(HOLE,, L:List{K})
+            // => KLabel:KLabel(V,, L)
+            // ~> V
+        // ...</k>      
+        
+    // syntax K ::= writeAndReturn "(" K "," K ")"
+    
+    // rule
+        // <k> Loc:#Nat ~> writeAndReturn(K1:K, K2:K)
+            // => write(K1:K, K2:K, Loc:#Nat)
+            // ~> Loc:#Nat
+        // ...</k>
 
     // TODO need to handle 3-argument main
 
@@ -1266,7 +1297,6 @@ module LLVM-STANDARD-LIBRARY is
         ...</k>
         when substrString(S, 0, 13) ==Bool "@llvm.memcpy."
 
-    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
     rule
         <k> Call(_, Callee(funptr(Name(S:#String)), listK(V1:KResult,, V2:KResult,, V3:KResult,, V4:KResult,, V5:KResult)))
             => memset(V1, V2, V3, V4, V5)

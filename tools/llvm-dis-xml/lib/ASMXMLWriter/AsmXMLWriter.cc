@@ -198,6 +198,7 @@ class AsmXMLWriter {
   void printValue(const Value *, const Module *);
   void printConstant(const Constant *, const Module *);
 
+  void printAlias(const GlobalAlias *GA);
   void printType(Type *);
   void printStructBody(StructType *);
   void printTypeIdentities();
@@ -274,6 +275,26 @@ void AsmXMLWriter::visit(const Module &M) {
   Out << "<GlobalVariables><List>\n";
   visit(M.global_begin(), M.global_end());
   Out << "</List></GlobalVariables>\n";
+  
+  // Output all aliases.
+  // if (!M->alias_empty()) Out << "\n";
+  for (Module::const_alias_iterator I = M.alias_begin(), E = M.alias_end(); I != E; ++I) {
+    printAlias(I);
+  }
+
+    // // Output named metadata.
+  // if (!M->named_metadata_empty()) Out << '\n';
+ 
+   // for (Module::const_named_metadata_iterator I = M->named_metadata_begin(),
+       // E = M->named_metadata_end(); I != E; ++I)
+    // printNamedMDNode(I);
+
+  // // Output metadata.
+  // if (!Machine.mdn_empty()) {
+    // Out << '\n';
+    // writeAllMDNodes();
+  // }
+
 
   // Output all of the functions.
   Out << "<Functions><List>\n";
@@ -282,6 +303,38 @@ void AsmXMLWriter::visit(const Module &M) {
 
   Out << "</Module>\n";
 }
+
+void AsmXMLWriter::printAlias(const GlobalAlias *GA) {
+  assert(0 && "No aliases");
+  // if (GA->isMaterializable())
+    // Out << "; Materializable\n";
+
+  // // Don't crash when dumping partially built GA
+  // if (!GA->hasName())
+    // Out << "<<nameless>> = ";
+  // else {
+    // PrintLLVMName(Out, GA);
+    // Out << " = ";
+  // }
+  // PrintVisibility(GA->getVisibility(), Out);
+
+  // Out << "alias ";
+
+  // PrintLinkage(GA->getLinkage(), Out);
+
+  // const Constant *Aliasee = GA->getAliasee();
+
+  // if (Aliasee == 0) {
+    // TypePrinter.print(GA->getType(), Out);
+    // Out << " <<NULL ALIASEE>>";
+  // } else {
+    // writeOperand(Aliasee, !isa<ConstantExpr>(Aliasee));
+  // }
+
+  // printInfoComment(*GA);
+  // Out << '\n';
+}
+
 
 void AsmXMLWriter::visit(const Function &F) {
   if (F.isDeclaration()) {

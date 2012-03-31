@@ -9,4 +9,6 @@
 - aliases
 - numbered types
 - unimplimented stuff in parser
-
+- consider renaming types
+- blocks not being set correctly
+- maybe comparisons at top of K

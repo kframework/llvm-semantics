@@ -5,8 +5,8 @@ module LLVM-SYNTAX is
     syntax KResult ::= listK "(" List{K} ")"
 
     //@ Modules
-    syntax LLVM ::= `Module "(" K "," K "," K "," K "," K "," K ")"
-    // ModuleID, TargetLayout, TargetTriple, Typedefs, GlobalVariables, Functions
+    syntax LLVM ::= `Module "(" K "," K "," K "," K "," K "," K "," K ")"
+    // ModuleID, TargetLayout, TargetTriple, Typedefs, GlobalVariables, Aliases, Functions
     // TODO: syntax LLVM ::= Module(K, K, K, K, K)
 
     syntax LLVM ::= `ModuleID "(" #String ")"
@@ -21,6 +21,8 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax LLVM ::= `Initializer "(" K "," K ")" // type, value
 
+    syntax LLVM ::= `Alias "(" K "," K ")"
+    
     //@ Types
     syntax LLVM ::= `Types "(" List{K} ")"
     context Types((_:List{K},,HOLE,,_:List{K}))

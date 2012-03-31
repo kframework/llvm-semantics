@@ -379,8 +379,8 @@ module LLVM-REGISTERS is
         where X = Name(S:#String)
         
     rule [lookup-global-register]:
-        <k> X => V ...</k>
-        <globalRegisters>... X |-> V:KResult ...</globalRegisters>
+        <k> X => K ...</k>
+        <globalRegisters>... X |-> K:K ...</globalRegisters>
         when substrString(S, 0, 1) ==Bool "@"
         where X = Name(S:#String)
 
@@ -540,11 +540,16 @@ end module
 
 module LLVM-DECLARATIONS is
     including LLVM-INCLUDE
+    
+    rule
+        <k> Alias(Name:Id, K:K) => . ...</k>
+        <globalRegisters> Map:Map => Map[K/Name] </globalRegisters>
 
     rule
-        <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K, Functions:K)
+        <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
             => Typedefs
             ~> GlobalVars
+            ~> Aliases
             ~> Functions
         ...</k>
         <currModule> _ => Name </currModule>

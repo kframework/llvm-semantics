@@ -305,31 +305,36 @@ void AsmXMLWriter::visit(const Module &M) {
 }
 
 void AsmXMLWriter::printAlias(const GlobalAlias *GA) {
-  assert(0 && "No aliases");
-  // if (GA->isMaterializable())
+  // assert(0 && "No aliases");
+  if (GA->isMaterializable()) {
+    assert(0 && "No Materializable");
     // Out << "; Materializable\n";
+  }
 
-  // // Don't crash when dumping partially built GA
-  // if (!GA->hasName())
+  Out << "<Alias>\n";
+  // Don't crash when dumping partially built GA
+  if (!GA->hasName())
+    assert(0 && "Alias with no name");
     // Out << "<<nameless>> = ";
-  // else {
-    // PrintLLVMName(Out, GA);
-    // Out << " = ";
-  // }
+  else {
+    printLLVMName(GA);
+  }
   // PrintVisibility(GA->getVisibility(), Out);
-
   // Out << "alias ";
-
   // PrintLinkage(GA->getLinkage(), Out);
 
-  // const Constant *Aliasee = GA->getAliasee();
+  const Constant *Aliasee = GA->getAliasee();
 
-  // if (Aliasee == 0) {
+  if (Aliasee == 0) {
+    assert(0 && "Alias with null aliasee");
     // TypePrinter.print(GA->getType(), Out);
     // Out << " <<NULL ALIASEE>>";
-  // } else {
-    // writeOperand(Aliasee, !isa<ConstantExpr>(Aliasee));
-  // }
+  } else {
+    Out << "<Operand>";
+    printOperand(Aliasee, !isa<ConstantExpr>(Aliasee));
+    Out << "</Operand>";
+  }
+  Out << "</Alias>\n";
 
   // printInfoComment(*GA);
   // Out << '\n';

@@ -2,9 +2,11 @@
 # edited to support multiple nested result directories
 
 if [ $# -ne 2 ]; then
-    echo "Usage: `basename $0` <indir> <outdir>"
+    echo "Usage: `basename $0` <indir> <pathless-outdir>"
+	echo "Example: lli-gen-results.sh general results"
     exit 1
 fi
+
 for dir in `find $1 -type d`; do
 	[ "$2" = `basename $dir` ] && continue
 	echo "$dir:"
@@ -19,7 +21,9 @@ for dir in `find $1 -type d`; do
 		[ $ret -eq 1 ] && continue # skip if lli had a problem
 		newfilename=`basename $file`
 		newfile="$outdir/$newfilename.out"
-		echo "<result>" > $newfile
+		# echo $newfile
+		echo -n "$out" > $newfile
+		echo "<result>" >> $newfile
 		echo "  <returnValue>" >> $newfile
 		echo "    $ret" >> $newfile
 		echo "  </returnValue>" >> $newfile

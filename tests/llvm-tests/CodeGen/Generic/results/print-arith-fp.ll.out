@@ -1,4 +1,16 @@
-<result>
+a = 2.000000
+b = 5.000000
+a + b = 7.000000
+a - b = -3.000000
+a * b = 10.000000
+b / a = 2.500000
+b % a = 1.000000
+a < b = 1
+a <= b = 1
+a > b = 0
+a >= b = 0
+a == b = 0
+a != b = 1<result>
   <returnValue>
     0
   </returnValue>

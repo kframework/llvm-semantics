@@ -1,4 +1,10 @@
-<result>
+a = 2.000000
+a = 2
+a = 2
+a = 2
+a = 2
+b = 2
+b = 2.000000<result>
   <returnValue>
     0
   </returnValue>

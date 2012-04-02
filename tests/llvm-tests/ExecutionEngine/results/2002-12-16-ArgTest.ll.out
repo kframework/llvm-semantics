@@ -1,4 +1,5 @@
-<result>
+argc: 1
+llvm-tests/ExecutionEngine/2002-12-16-ArgTest.ll<result>
   <returnValue>
     0
   </returnValue>

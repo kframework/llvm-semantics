@@ -1,4 +1,15 @@
-<result>
+VOLATILE:   8 bits in chars.
+VOLATILE:  32 bits in ints.
+VOLATILE:  16 bits in shorts.
+VOLATILE:  64 bits in longs.
+VOLATILE:  32 bits in unsigneds.
+VOLATILE:  32 bits in floats.
+VOLATILE:  64 bits in doubles.
+VOLATILE: 0.000000 is the least number that can be added to 1. (float).
+VOLATILE: 0.000000 is the least number that can be added to 1. (double).
+Section s26     returned 0.
+
+No errors detected.<result>
   <returnValue>
     0
   </returnValue>

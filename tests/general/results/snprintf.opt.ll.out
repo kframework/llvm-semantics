@@ -1,4 +1,10 @@
-<result>
+16: foo
+16: foo
+16: 35,
+16: 35, ffffffdd,
+16: 35, ffffffdd, 2
+16: 35, ffffffdd, 2B
+16: 35, ffffffdd, 2B<result>
   <returnValue>
     0
   </returnValue>

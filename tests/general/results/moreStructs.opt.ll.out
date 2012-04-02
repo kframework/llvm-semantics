@@ -1,4 +1,13 @@
-<result>
+in f():
+b.x = 0
+b.y = 1
+2
+0
+1
+in main():
+2
+0
+1<result>
   <returnValue>
     0
   </returnValue>

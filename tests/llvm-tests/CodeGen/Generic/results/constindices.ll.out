@@ -1,4 +1,7 @@
-<result>
+sqrt(2) = 1.4142
+exp(1) = 2.7183
+pi = 3.1415
+five = 5<result>
   <returnValue>
     0
   </returnValue>

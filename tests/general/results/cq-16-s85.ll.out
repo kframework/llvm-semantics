@@ -1,4 +1,15 @@
-<result>
+VOLATILE: char alignment: 1
+VOLATILE: short alignment: 2
+VOLATILE: int alignment: 4
+VOLATILE: long alignment: 8
+VOLATILE: unsigned alignment: 4
+VOLATILE: float alignment: 4
+VOLATILE: double alignment: 8
+VOLATILE: Sign extension in fields
+VOLATILE: Be especially careful with 1-bit fields!
+Section s85     returned 0.
+
+No errors detected.<result>
   <returnValue>
     0
   </returnValue>

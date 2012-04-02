@@ -1,4 +1,29 @@
-<result>
+creating new node 0
+creating new node 1
+creating new node 2
+creating new node 3
+creating new node 4
+Setting left child of 0 to 1
+Setting right child of 0 to 2
+Setting left child of 1 to 3
+Setting right child of 1 to 3
+Setting left child of 2 to 1
+Setting right child of 2 to 0
+Setting left child of 3 to 2
+Setting right child of 3 to 4
+Setting left child of 4 to 4
+Setting right child of 4 to 0
+0:m=0:l=1:r=2
+1:m=0:l=3:r=3
+3:m=0:l=2:r=4
+2:m=0:l=1:r=0
+4:m=0:l=4:r=0
+Now running Schorr-Waite...
+0:m=1:l=1:r=2
+1:m=1:l=3:r=3
+3:m=1:l=2:r=4
+2:m=1:l=1:r=0
+4:m=1:l=4:r=0<result>
   <returnValue>
     0
   </returnValue>

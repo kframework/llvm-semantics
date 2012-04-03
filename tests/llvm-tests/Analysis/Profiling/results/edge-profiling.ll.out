@@ -1,7 +1,8 @@
 argc <= 1
 argc <= 1
 argc <= 1
-hello world<result>
+hello world
+<result>
   <returnValue>
     0
   </returnValue>

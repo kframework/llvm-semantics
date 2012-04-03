@@ -32,7 +32,8 @@ qents==15
 1, 10
 1, 12
 1, 14
-0, 0<result>
+0, 0
+<result>
   <returnValue>
     0
   </returnValue>

@@ -9,7 +9,8 @@ VOLATILE: Sign extension in fields
 VOLATILE: Be especially careful with 1-bit fields!
 Section s85     returned 0.
 
-No errors detected.<result>
+No errors detected.
+<result>
   <returnValue>
     0
   </returnValue>

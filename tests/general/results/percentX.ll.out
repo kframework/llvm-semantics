@@ -513,7 +513,8 @@ FD
 FE
 FF
 100
-101<result>
+101
+<result>
   <returnValue>
     0
   </returnValue>

@@ -6,7 +6,8 @@ i % (unsigned int) u = 44
 i % bit.u = -13
 bit.i % bit.u = -13
 i % (unsigned int) bit.u = 44
-bit.i % (unsigned int) bit.u = 44<result>
+bit.i % (unsigned int) bit.u = 44
+<result>
   <returnValue>
     0
   </returnValue>

@@ -9,7 +9,8 @@ VOLATILE: 0.000000 is the least number that can be added to 1. (float).
 VOLATILE: 0.000000 is the least number that can be added to 1. (double).
 Section s26     returned 0.
 
-No errors detected.<result>
+No errors detected.
+<result>
   <returnValue>
     0
   </returnValue>

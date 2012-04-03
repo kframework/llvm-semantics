@@ -11,7 +11,8 @@ in foo
 data = Hello World
 setjmp returned 42
 in handler
-data freed<result>
+data freed
+<result>
   <returnValue>
     0
   </returnValue>

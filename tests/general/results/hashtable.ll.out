@@ -4,7 +4,8 @@ Spain: Madrid
 After remove:
 Spain: -
 After resize:
-Italy: Rome<result>
+Italy: Rome
+<result>
   <returnValue>
     0
   </returnValue>

@@ -4,7 +4,8 @@ n is now 3
 5 should be 6
 n is now 4
 sizeof(int[n]) = 16
-n is now 5<result>
+n is now 5
+<result>
   <returnValue>
     0
   </returnValue>

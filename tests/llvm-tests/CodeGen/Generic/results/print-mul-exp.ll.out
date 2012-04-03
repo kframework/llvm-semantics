@@ -18,7 +18,8 @@ a * 15 = 30
 a * 16 = 32
 a * 17 = 34
 a * 18 = 36
-a * 19 = 38<result>
+a * 19 = 38
+<result>
   <returnValue>
     0
   </returnValue>

@@ -32,7 +32,8 @@ a << 28 = 536870912
 a << 29 = 1073741824
 a << 30 = -2147483648
 a << 31 = 0
-a << 32 = 2<result>
+a << 32 = 2
+<result>
   <returnValue>
     0
   </returnValue>

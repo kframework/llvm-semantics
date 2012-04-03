@@ -29,7 +29,8 @@ inside switch, going to break
 Broke
 The count is 5.
 This is many.
-Broke<result>
+Broke
+<result>
   <returnValue>
     0
   </returnValue>

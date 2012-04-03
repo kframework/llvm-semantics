@@ -256,7 +256,8 @@ a * 252 = 504
 a * 253 = 506
 a * 254 = 508
 a * 255 = 510
-a * 256 = 512<result>
+a * 256 = 512
+<result>
   <returnValue>
     0
   </returnValue>

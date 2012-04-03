@@ -1,4 +1,5 @@
-hello world<result>
+hello world
+<result>
   <returnValue>
     255
   </returnValue>

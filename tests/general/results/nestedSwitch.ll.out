@@ -2,7 +2,8 @@ default
 one
 two
 three
-sneaky four<result>
+sneaky four
+<result>
   <returnValue>
     0
   </returnValue>

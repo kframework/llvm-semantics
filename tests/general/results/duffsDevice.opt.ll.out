@@ -98,7 +98,8 @@
 97: src=195, dest=195
 98: src=197, dest=197
 99: src=199, dest=199
-100: src=201, dest=201<result>
+100: src=201, dest=201
+<result>
   <returnValue>
     0
   </returnValue>

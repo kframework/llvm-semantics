@@ -9,7 +9,8 @@ finished sixteens
 ok
 finished partial
 finished just big partial
-finished big partial<result>
+finished big partial
+<result>
   <returnValue>
     0
   </returnValue>

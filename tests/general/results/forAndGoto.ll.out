@@ -1,6 +1,7 @@
 one
 two
-sneaky four<result>
+sneaky four
+<result>
   <returnValue>
     0
   </returnValue>

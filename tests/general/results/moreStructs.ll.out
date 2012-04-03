@@ -7,7 +7,8 @@ b.y = 1
 in main():
 2
 0
-1<result>
+1
+<result>
   <returnValue>
     0
   </returnValue>

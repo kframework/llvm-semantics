@@ -99,7 +99,8 @@ int main(void)
             printf("%c", progdata[i]);  /* Print character. */
     }
     return 0;
-}<result>
+}
+<result>
   <returnValue>
     0
   </returnValue>

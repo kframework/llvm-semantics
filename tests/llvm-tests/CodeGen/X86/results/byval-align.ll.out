@@ -1,5 +1,6 @@
-ptr = 0x7ffff0f077c0<result>
+ptr = 0x7fff19eef380
+<result>
   <returnValue>
-    192
+    128
   </returnValue>
 </result>

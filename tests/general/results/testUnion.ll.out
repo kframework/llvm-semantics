@@ -3,7 +3,8 @@ This S has type INTS.
 This S has type FLOATS.
 31415, -31415
 This S has type DOUBLE.
-15707<result>
+15707
+<result>
   <returnValue>
     0
   </returnValue>

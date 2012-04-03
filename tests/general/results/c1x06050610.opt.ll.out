@@ -1,7 +1,8 @@
 p == &a[0]
 p != &a[1]
 a[1][2] == 11
-n == 0<result>
+n == 0
+<result>
   <returnValue>
     0
   </returnValue>

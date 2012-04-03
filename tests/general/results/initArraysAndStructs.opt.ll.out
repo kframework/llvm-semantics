@@ -1,5 +1,6 @@
 [4].a=5, [4].b=6, [5].a=6, [5].b=8
-sizeof(s)/sizeof(s[0]) = 6<result>
+sizeof(s)/sizeof(s[0]) = 6
+<result>
   <returnValue>
     0
   </returnValue>

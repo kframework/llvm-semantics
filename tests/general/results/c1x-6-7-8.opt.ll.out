@@ -91,7 +91,8 @@ a1[15]=8
 a1[16]=6
 a1[17]=4
 a1[18]=2
-a1[19]=0<result>
+a1[19]=0
+<result>
   <returnValue>
     0
   </returnValue>

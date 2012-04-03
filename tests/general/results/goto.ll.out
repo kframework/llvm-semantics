@@ -19,7 +19,8 @@ The test number is 4.
 myswitch: 1
 5, 4, 3, 2, 1,
 another: 0
-1, 2, 3, 4, 5, last: 0<result>
+1, 2, 3, 4, 5, last: 0
+<result>
   <returnValue>
     0
   </returnValue>

@@ -255,7 +255,8 @@
 376
 377
 400
-401<result>
+401
+<result>
   <returnValue>
     0
   </returnValue>

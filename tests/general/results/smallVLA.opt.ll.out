@@ -2,7 +2,8 @@
 012
 01234
 0123456
-012345678<result>
+012345678
+<result>
   <returnValue>
     0
   </returnValue>

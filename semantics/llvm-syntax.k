@@ -91,6 +91,7 @@ module LLVM-SYNTAX is
     define 'isKResult(ConstantStruct(_, K)) => true
         when 'isKResult(K:K)
     syntax LLVM ::= `Null
+    syntax LLVM ::= `Undef
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVMValue ::= `Zeroinitializer
 

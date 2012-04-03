@@ -82,6 +82,8 @@ class AsmXMLWriter {
         // }
     // }
 
+  void printNumberAsName(char prefix, int number);
+  
   int getSlotAndPrefix(const Value*, char*);
   
   void visit(const GlobalVariable &);
@@ -225,6 +227,14 @@ AsmXMLWriterPass::AsmXMLWriterPass(raw_ostream &o)
     : ModulePass(ID)
     , m_out(o)
 {}
+
+void AsmXMLWriter::printNumberAsName(char prefix, int number){
+    std::stringstream Name;
+    Name << prefix << number;
+    Out << "<Name>";
+    RawWriter::write(Name.str(), Out);
+    Out << "</Name>";
+}
 
 bool AsmXMLWriterPass::runOnModule(Module &M) {
   AsmXMLWriter writer(m_out, &M);
@@ -459,11 +469,7 @@ void AsmXMLWriter::visit(const BasicBlock &BB) {
     // assert(0 && "Didn't expect block without name here");
     char Prefix;
     int Slot = getSlotAndPrefix(&BB, &Prefix);
-    std::stringstream Name;
-    Name << Prefix << Slot;
-    Out << "<Name>";
-    RawWriter::write(Name.str(), Out);
-    Out << "</Name>";
+    printNumberAsName(Prefix, Slot);
   } else {
     printLLVMName(&BB);
   }
@@ -691,6 +697,7 @@ void AsmXMLWriter::printAlignment(const T &I) {
 /// printLLVMName - Turn the specified name into an 'LLVM name', which is either
 /// prefixed with % (if the string only contains simple characters) or is
 /// surrounded with ""'s (if it has special chars in it).  Print it out.
+// TODO could be improved to use printNumberAsName
 void AsmXMLWriter::printLLVMName(StringRef Name, PrefixType Prefix) {
   assert(!Name.empty() && "Cannot get empty name!");
   Out << "<Name>";
@@ -1130,30 +1137,21 @@ void AsmXMLWriter::printType(Type *Ty) {
         break;
       }
 
-      assert (0 && "misc. structTyID unimplemented");
-      //DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
-      //if (I != NumberedTypes.end())
-      //  Out << '%' << I->second;
-      //else  // Not enumerated, print the hex address.
-      //  Out << "%\"type 0x" << STy << '\"';
+      
+      DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
+      // assert (0 && "misc. structTyID unimplemented");
+      if (I != NumberedTypes.end()) {
+        Out << "<NamedType>";
+        printNumberAsName('%', I->second);
+        Out << "</NamedType>";
+       // Out << '%' << I->second;
+      } else { // Not enumerated, print the hex address.
+        assert (0 && "Not handling non-enumerated structTyIds");
+       // Out << "%\"type 0x" << STy << '\"';
+      }
+      break;
     }
       //assert (0 && "unimplemented");
-#if 0
- {
-      StructType *STy = cast<StructType>(Ty);
-      if (STy->isLiteral())
-        return printStructBody(STy, Out);
-
-      if (!STy->getName().empty())
-        return printLLVMName(OS, STy->getName(), LocalPrefix);
-
-      DenseMap<StructType*, unsigned>::iterator I = NumberedTypes.find(STy);
-      if (I != NumberedTypes.end())
-        Out << '%' << I->second;
-      else  // Not enumerated, print the hex address.
-        Out << "%\"type 0x" << STy << '\"';
- }
-#endif
 
     case Type::FunctionTyID: {
       FunctionType *FTy = cast<FunctionType>(Ty);
@@ -1233,18 +1231,20 @@ void AsmXMLWriter::printTypeIdentities() {
     NT[I->second] = I->first;
   }
 
+  Out << "<Typedefs><List>\n";
   // Emit all numbered types.
   for (unsigned i = 0, e = NT.size(); i != e; ++i) {
-    assert(0 && "Didn't expect numbered types\n");
+    Out << "<Typedef>";
     // Out << '%' << i << " = type ";
+    
+    printNumberAsName('%', i);
 
-    // // Make sure we print out at least one level of the type structure, so
-    // // that we do not get %2 = type %2
-    // printStructBody(NT[i]);
-    // Out << '\n';
+    // Make sure we print out at least one level of the type structure, so
+    // that we do not get %2 = type %2
+    printStructBody(NT[i]);
+    Out << "</Typedef>";
   }
 
-  Out << "<Typedefs><List>\n";
   for (unsigned i = 0, e = NamedTypes.size(); i != e; ++i) {
     Out << "<Typedef>";
     printLLVMName(NamedTypes[i]->getName(), LocalPrefix);

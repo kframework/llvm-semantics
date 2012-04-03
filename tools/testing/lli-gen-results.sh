@@ -15,14 +15,14 @@ for dir in `find $1 -type d`; do
 	for file in $dir/*.ll; do
 		echo "$file"
 		grep '@main' $file > /dev/null || continue # skip if no main
-		out=`timeout 2 lli "$file"`
+		timeout 2 lli "$file" > out.junk.tmp
 		ret=$?
 		[ $ret -eq 124 ] && continue # skip if timed out
 		[ $ret -eq 1 ] && continue # skip if lli had a problem
 		newfilename=`basename $file`
 		newfile="$outdir/$newfilename.out"
 		# echo $newfile
-		echo -n "$out" > $newfile
+		mv -f out.junk.tmp $newfile
 		echo "<result>" >> $newfile
 		echo "  <returnValue>" >> $newfile
 		echo "    $ret" >> $newfile

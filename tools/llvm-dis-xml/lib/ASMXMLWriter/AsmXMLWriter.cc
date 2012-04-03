@@ -740,6 +740,24 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
   }
 
   if (const ConstantFP *CFP = dyn_cast<ConstantFP>(CV)) {
+    const APFloat f = CFP->getValueAPF();
+    if (f.isNaN()) {
+        Out << "<NaN/>";
+        return;
+    } else if (f.isPosZero()) {
+        Out << "<PositiveZero/>";
+        return;
+    } else if (f.isPosZero()) {
+        Out << "<NegativeZero/>";
+        return;
+    } else if (f.isInfinity() && !f.isNegative()) {
+        Out << "<PositiveInfinity/>";
+        return;
+    } else if (f.isInfinity() && f.isNegative()) {
+        Out << "<NegativeInfinity/>";
+        return;
+    }
+  
     assert(0 && "Not handling Floating values");
     // if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
         // &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {

@@ -92,6 +92,11 @@ module LLVM-SYNTAX is
         when 'isKResult(K:K)
     syntax LLVM ::= `Null
     syntax LLVM ::= `Undef
+    syntax LLVM ::= `NaN
+    syntax LLVM ::= `PositiveZero
+    syntax LLVM ::= `NegativeZero
+    syntax LLVM ::= `PositiveInfinity
+    syntax LLVM ::= `NegativeInfinity
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVMValue ::= `Zeroinitializer
 

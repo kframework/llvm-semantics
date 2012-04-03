@@ -4,6 +4,10 @@ a.out
 *.diff
 *.stderr
 *.stdout
+*.log
+*.aux
+*.mrk
+*.tmp
 .k
 dist
 tools/llvm-dis-xml/build
@@ -13,4 +17,5 @@ semantics/*.s
 semantics/*.c
 semantics/*.kast
 semantics/*.xml
+semantics/*.out
 semantics/llvm-compiled.maude

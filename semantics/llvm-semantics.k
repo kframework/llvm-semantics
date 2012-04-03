@@ -93,16 +93,25 @@ end module
 module LLVM-SYSCALLS is
     including LLVM-SYNTAX
 
-    syntax KLabel ::= 'ioctl
-    syntax KLabel ::= 'write
-    syntax KLabel ::= 'exit-group
-    syntax KLabel ::= 'rt-sigprocmask
-
     declare syscallHandler : K -> KLabel
-    define syscallHandler(4) => 'write
-    define syscallHandler(54) => 'ioctl
-    define syscallHandler(175) => 'rt-sigprocmask
-    define syscallHandler(248) => 'exit-group
+    
+    syntax KLabel ::= 'sys-write
+    define syscallHandler(4) => 'sys-write
+    
+    syntax KLabel ::= 'sys-getpid
+    define syscallHandler(20) => 'sys-getpid
+    
+    syntax KLabel ::= 'sys-ioctl
+    define syscallHandler(54) => 'sys-ioctl
+    
+    syntax KLabel ::= 'sys-rt-sigprocmask
+    define syscallHandler(175) => 'sys-rt-sigprocmask
+    
+    syntax KLabel ::= 'sys-gettid
+    define syscallHandler(224) => 'sys-gettid
+    
+    syntax KLabel ::= 'sys-exit-group
+    define syscallHandler(248) => 'sys-exit-group
 
 end module
 
@@ -528,7 +537,7 @@ module LLVM-START-AND-STOP is
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL
     rule
         <T>...
-            <k> 'exit-group(I:#Int,,_) ...</k>
+            <k> 'sys-exit-group(I:#Int,,_) ...</k>
             <output> #ostream(1) #buffer(.) </output>
         ...</T>
         =>
@@ -1362,15 +1371,16 @@ module LLVM-SYSCALL-IMPL is
             => (syscallHandler(N))(L)
         ...</k>
 
-    rule <k> 'ioctl(_) => 0 ...</k>
-    rule <k> 'rt-sigprocmask(_) => 0 ...</k>
+    rule <k> 'sys-ioctl(_) => 0 ...</k>
+    rule <k> 'sys-rt-sigprocmask(_) => 0 ...</k>
+    rule <k> 'sys-gettid(_) => 0 ...</k>
 
     syntax K ::= printString "(" K ")" [strict]
     syntax K ::= readString "(" K "," K ")"
     syntax K ::= readString' "(" K "," K "," K ")"
 
     rule
-        <k> 'write(FileDesc:#Int,, ptrToInt(_, Loc:#Nat),, Len:#Nat,, _)
+        <k> 'sys-write(FileDesc:#Int,, ptrToInt(_, Loc:#Nat),, Len:#Nat,, _)
             => printString(readString(Loc, Len))
         ...</k>
 

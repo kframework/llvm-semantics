@@ -1,0 +1,9 @@
+p == &a[0]
+p == &a[1]
+a[1][2] == 99
+n == 1
+<result>
+  <returnValue>
+    0
+  </returnValue>
+</result>

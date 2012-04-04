@@ -1,0 +1,9 @@
+Inside bar 37
+returning from bar == 37
+Inside bar 927
+returning from bar == 927
+<result>
+  <returnValue>
+    0
+  </returnValue>
+</result>

@@ -1,0 +1,22 @@
+string abc
+string def
+int -123
+char a
+int 123
+int 6
+int 7
+int 8
+int 9
+string 10 args done!
+double 10000
+double 20000
+int 32764
+long long 12345677823423
+DWord { 18, a }
+QuadWord { 19, 200000 }
+LargeS { 21, 220000, 0x1, 23 }
+<result>
+  <returnValue>
+    0
+  </returnValue>
+</result>

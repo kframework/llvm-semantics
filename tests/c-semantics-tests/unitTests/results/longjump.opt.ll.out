@@ -1,0 +1,18 @@
+after jump
+calling f
+in f
+after jump
+error code = 5
+xxx
+second
+test2
+setjmp returned 0
+in foo
+data = Hello World
+setjmp returned 42
+in handler
+<result>
+  <returnValue>
+    0
+  </returnValue>
+</result>

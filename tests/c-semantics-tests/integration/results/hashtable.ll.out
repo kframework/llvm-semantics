@@ -1,0 +1,12 @@
+After insert:
+Italy: Rome
+Spain: Madrid
+After remove:
+Spain: -
+After resize:
+Italy: Rome
+<result>
+  <returnValue>
+    0
+  </returnValue>
+</result>

@@ -1,0 +1,63 @@
+#!/bin/bash
+
+if [ $# -ne 2 ]; then
+    echo "Usage: `basename $0` <c-tests-dir> <outdir>"
+    exit 1
+fi
+
+SOURCE=$1
+TARGET=$2
+SUITES="unitTests integration gcc-torture lcc-tests clight-tests-unit cil llvm-regression llvm-unit mustPass shouldPass"
+
+LLVM_AS="/home/david/src/llvm-build/bin/llvm-as"
+LLVM_ANALYZE="/home/david/src/llvm-build/bin/llvm-bcanalyzer"
+CLANG="/home/david/src/llvm-build/bin/clang"
+CLANGFLAGS="-w -S -emit-llvm"
+
+RUN_CLANG="$CLANG $CLANGFLAGS"
+RUN_CLANG_OPT="$RUN_CLANG -O3"
+
+failedtests="$TARGET/failed-tests.txt"
+echo "" > $failedtests
+tmpbc=$TARGET/tmp.bc
+
+failcount=0
+successcount=0
+
+for suite in $SUITES; do
+    mkdir -p $TARGET/$suite
+    for file in $SOURCE/$suite/*.c; do
+        [[ "$file" =~ .*-link[0-9]+\.c ]] && continue
+        BASE=`basename $file .c`
+        newfile=$TARGET/$suite/$BASE.ll
+        $RUN_CLANG $file -o $newfile 2>/dev/null >/dev/null
+        if [ $? -ne 0 ]; then
+            echo "$file" >> $failedtests
+            echo -e "\e[91mFailed to compile $file\e[0m"
+            let failcount++
+        else
+            echo "Created $newfile"
+            let successcount++
+        fi
+        newoptfile=$TARGET/$suite/$BASE.opt.ll
+        $RUN_CLANG_OPT $file -o $newoptfile 2>/dev/null >/dev/null
+        if [ $? -ne 0 ]; then
+            echo "$file-optimized" >> $failedtests
+            echo -e "\e[91mFailed to compile $file (optimized)\e[0m"
+            let failcount++
+            continue
+        else
+            echo "Created $newoptfile"
+            let successcount++
+        fi
+        # TODO: attempt at removing empty tests
+        # $LLVM_AS $newoptfile -o $tmpbc
+        # $LLVM_ANALYZE $tmpbc 2>&1 | grep -q "1        10  100\.00  INST_RET"
+        # if [ $? -eq 0 ]; then
+        #    echo "EMPTY FILE DETECTED $newoptfile"
+        # fi
+    done
+done
+
+echo "Success: $successcount"
+echo "Failed: $failcount"

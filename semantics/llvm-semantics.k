@@ -760,11 +760,11 @@ module LLVM-GEP is
     // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
     rule
         <k> GetElementPtr(Type:KResult, PtrVal:#Nat, Indices:List{K})
-            => gep
+            => Type ~> gep
         ...</k>
         (. =>
             <gepInfo>...
-                <gepType> Type </gepType>
+                // <gepType> Type </gepType>
                 <gepResult> PtrVal </gepResult>
                 <gepIndices> List{K}ToK(Indices) </gepIndices>
             ...</gepInfo>
@@ -772,7 +772,7 @@ module LLVM-GEP is
         when isLocation(PtrVal) // to stop computation early
 
     rule
-        <k> gep => Loc ...</k>
+        <k> _:KResult ~> gep => Loc ...</k>
         (
             <gepInfo>...
                 <gepIndices> .K </gepIndices>
@@ -786,45 +786,25 @@ module LLVM-GEP is
     // TODO this is pretty ugly
     // these rules make sure the body of a pointer type is a result
     syntax K ::= typing
+    context PointerType(HOLE) ~> gep
     rule
-        <gepType> (. => typing) ~> PointerType(TyK:K) </gepType>
-        <k> (. => TyK:K) ...</k>
-        when 'isKResult(TyK) =/=Bool true // tricky
-    rule
-        <gepType> (typing => .) ~> PointerType((_ => Type)) </gepType>
-        <k> Type:KResult => . ...</k>
-    rule
-        <gepType> PointerType(Type:KResult) => Type </gepType>
+        <k> PointerType(Type:KResult) => Type ...</k>
         <gepIndices> I:#Int => . ...</gepIndices>
         <gepResult> PtrVal:#Nat => PtrVal +Int sizeof(Type) *Int I </gepResult>
 
     rule
-        <gepType> (. => typing) ~> ArrayType(TyK:K, _) </gepType>
-        <k> (. => TyK:K) ...</k>
-        when 'isKResult(TyK) =/=Bool true // tricky
-    rule
-        <gepType> (typing => .) ~> ArrayType((_ => Type), _) </gepType>
-        <k> Type:KResult => . ...</k>
-    rule
-        <gepType> ArrayType(Type:KResult, _) => Type </gepType>
+        <k> ArrayType(Type:KResult, _) => Type ...</k>
         <gepIndices> N:#Nat => . ...</gepIndices>
         <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
 
-    rule
-        <gepType> (. => typing) ~> StructType(listK(TyK:K,,L:List{K})) </gepType>
-        <k> (. => TyK:K) ...</k>
-        when 'isKResult(TyK) =/=Bool true // tricky
-    rule
-        <gepType> (typing => .) ~> StructType(listK((TyK:K => Type),,L:List{K})) </gepType>
-        <k> Type:KResult => . ...</k>
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
-        <gepType> StructType(listK((Type:KResult => .List{K}),,L:List{K})) </gepType>
+        <k> StructType(listK((Type:KResult => .List{K}),,L:List{K})) ...</k>
         <gepIndices> sNat(N:#Nat) => N ...</gepIndices>
         <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) </gepResult>
 
     rule
-        <gepType> StructType(listK(Type:KResult,,L:List{K})) => Type </gepType>
+        <k> StructType(listK(Type:KResult,,L:List{K})) => Type ...</k>
         <gepIndices> 0 => . ...</gepIndices>
 
 end module

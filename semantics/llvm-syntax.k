@@ -22,7 +22,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Initializer "(" K "," K ")" // type, value
 
     syntax LLVM ::= `Alias "(" K "," K ")"
-    
+
     //@ Types
     syntax LLVM ::= `Types "(" List{K} ")"
     context Types((_:List{K},,HOLE,,_:List{K}))
@@ -52,7 +52,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Arg "(" K "," K "," K ")" // Modifiers, Type, Value/Name
     syntax LLVM ::= `NoName // used for arguments with no name
     syntax LLVM ::= `Vararg
-    
+
     //@ Argument modifiers
     syntax LLVM ::= `ByVal
     syntax LLVM ::= `Nest
@@ -71,7 +71,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `ConstantExpr "(" K "," K ")" // Modifiers, the operator
 
     syntax LLVM ::= `Opaque
-    
+
     //@ Modifiers
     syntax LLVM ::= `Modifiers "(" List{K} ")"
     syntax LLVM ::= `Alignment "(" #Nat ")"
@@ -116,9 +116,9 @@ module LLVM-SYNTAX is
     define 'isKResult(Case(K:K, _)) => true
         when 'isKResult(K:K)
     syntax LLVM ::= `Select "(" K "," K "," K "," K ")" [strict(1 2)] // condition, true val, false val
-    
+
     //@ Comparison operations
-    syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op  
+    syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op
     syntax LLVM ::= `Predicate "(" K ")"
     syntax LLVM ::= `INotEq "(" K "," K "," K ")" [strict] // type, left op, right op
     syntax LLVM ::= `IEq "(" K "," K "," K ")" [strict]
@@ -130,11 +130,11 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `SGE "(" K "," K "," K ")" [strict]
     syntax LLVM ::= `SLT "(" K "," K "," K ")" [strict]
     syntax LLVM ::= `SLE "(" K "," K "," K ")" [strict]
-    
+
     //@ Terminator Instructions
     syntax LLVM ::= `Ret "(" K ")" [strict]
     syntax LLVM ::= `Unreachable
-    
+
     //@ Binary Operations
     syntax LLVM ::= `Add "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `Sub "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
@@ -143,7 +143,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `SDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `URem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `SRem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    
+
     //@ Bitwise Binary Operations
     syntax LLVM ::= `Shl "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `LShr "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
@@ -159,7 +159,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `BitCast "(" K "," K ")" [strict] // type, op
     syntax LLVM ::= `IntToPtr "(" K "," K ")" [strict] // type, op
     syntax LLVM ::= `PtrToInt "(" K "," K ")" [strict] // type, op
-    
+
     //@ Other Operations
     syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list
     syntax LLVM ::= `Edge "(" K "," K ")" // used by PHI

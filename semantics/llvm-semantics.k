@@ -134,6 +134,8 @@ module LLVM-HELPERS is
     
     syntax K ::= splitBytes "(" K "," K ")" // value, type
 
+    syntax #Nat ::= wvalist "(" List "," K ")"
+
     declare byteType : -> K
     define byteType => IntegerType(Width(numBitsPerByte))
 
@@ -714,10 +716,23 @@ module LLVM-VARIADICS is
     including LLVM-INCLUDE
 
     syntax K ::= valist "(" List{K} "," K ")"
+    syntax K ::= vaArg "(" K "," K "," K ")" [strict]
 
     rule
-        <k> VAArg(Type:KResult, _) => K ...</k>
-        <valist> ListItem(K:K) => . ...</valist>
+        <k> VAArg(Type:KResult, Loc:#Nat) => vaArg(Type, Loc, read(i(numBitsPerByte), Loc)) ...</k>
+
+    rule
+        <k> vaArg(Type, Loc:#Nat, wvalist((ListItem(K:K) VAList:List), _))
+            => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc)
+            ~> K
+        ...</k>
+    
+    // TODO a really sketchy rule:
+    rule 
+        0 |Nat wvalist(VAList:List, Loc:#Nat)
+            => wvalist(VAList:List, Loc:#Nat)
+        [anywhere]
+
 
 end module
 
@@ -978,6 +993,11 @@ module LLVM-MEMORY is
         ...</k>
         when MyK ==Bool 0
         orBool MyK ==Bool Zeroinitializer
+
+    rule
+        <k> splitIntegerBytes(wvalist(VAList:List, Loc:#Nat), 1, _)
+            => listK(wvalist(VAList:List, Loc:#Nat))
+        ...</k>
     
     rule
         <k> splitPointerBytes((Zeroinitializer => Null), _) ...</k>
@@ -1104,6 +1124,10 @@ module LLVM-MEMORY is
     rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
         => N:#Nat
         when N:#Nat >=Int 0
+        [anywhere]
+
+    rule interpretIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat))
+        => wvalist(VAList:List, Loc:#Nat)
         [anywhere]
         
     rule
@@ -1340,9 +1364,16 @@ module LLVM-STANDARD-LIBRARY is
             => lifetimeEnd(V1, V2)
         ...</k>
 
+    syntax K ::= vaStart "(" K ")"
     rule
-        <k> Call(_, Callee(funptr(Name("@llvm.va_start")), _))
-            => .
+        <k> Call(_, Callee(funptr(Name("@llvm.va_start")), listK(V1:KResult)))
+            => vaStart(V1)
+        ...</k>
+
+    syntax K ::= vaCopy "(" K "," K ")"
+    rule
+        <k> Call(_, Callee(funptr(Name("@llvm.va_copy")), listK(V1:KResult,, V2:KResult)))
+            => vaCopy(V1, V2)
         ...</k>
 
     rule
@@ -1380,7 +1411,16 @@ module LLVM-STANDARD-LIBRARY is
     // don't need to do anything for positive semantics
     rule
         <k> lifetimeEnd(_, _) => . ...</k>
-    
+
+    rule
+        <k> vaStart(Loc:#Nat) => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc) ...</k>
+        <valist> VAList:List </valist>
+
+    rule
+        <k> vaCopy(Loc1:#Nat, Loc2:#Nat)
+            => write(i(numBitsPerByte), read(i(numBitsPerByte), Loc2), Loc1)
+        ...</k>
+
 end module
 
 module LLVM-SYSCALL-IMPL is

@@ -5,7 +5,6 @@ module LLVM-SPECIAL is
     syntax KResult ::= arrayValue "(" List{K} ")"
 
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
-    // syntax Loc ::= sym "(" #Int ")"
     syntax #Nat ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
 
@@ -179,19 +178,6 @@ module LLVM-HELPERS is
         when smin(Type) <=Int I andBool smax(Type) >=Int I
         [anywhere]
 
-    // // old, slow signed()
-    // rule
-        // signed(Type:KResult, I:#Int)
-            // => signed(Type:KResult, I -Int (umax(Type) +Nat 1))
-        // when I >Int smax(Type)
-        // [anywhere]
-    // rule
-        // signed(Type:KResult, I:#Int)
-            // => signed(Type:KResult, I +Int (umax(Type) +Nat 1))
-        // when I <Int smax(Type)
-        // [anywhere]
-
-    // these are much much faster
     // this reduces it to be close
     rule
         signed(Type:KResult, I:#Int)
@@ -278,8 +264,6 @@ module LLVM-HELPERS is
     define I:#Int +Int (Offset:#Nat +Nat sym(Base:#Nat))
         => (absInt(I +Int Offset)) +Nat sym(Base)
         when I <Int 0 andBool I +Int Offset >=Int 0
-
-    // syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
 
 /* this module gets included by all later modules */
@@ -308,21 +292,20 @@ module LLVM-CLEAN-TREE is
     rule ModuleID(S:#String) => Name(S)               [anywhere]
     rule Value(K:K) => K                              [anywhere]
     rule Br(K:K) => K:K                               [anywhere]
+    rule ReturnType(K:K) => K [anywhere]
 
-    rule ICmp(Predicate("ne"), TyK:K, K1:K, K2:K) => INotEq(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("ne"), TyK:K, K1:K, K2:K) => INotEq(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate(Str:#String), TyK:K, K1:K, K2:K) => IEq(TyK:K, K1:K, K2:K)
         when Str ==Bool "e" +String "q" // TODO avoiding bug in kompile
-        [anywhere]
-    rule ICmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("ule"), TyK:K, K1:K, K2:K) => ULE(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("sgt"), TyK:K, K1:K, K2:K) => SGT(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("sge"), TyK:K, K1:K, K2:K) => SGE(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K) [anywhere]
-    rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K) [anywhere]
+    rule ICmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("ule"), TyK:K, K1:K, K2:K) => ULE(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("sgt"), TyK:K, K1:K, K2:K) => SGT(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("sge"), TyK:K, K1:K, K2:K) => SGE(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K)
+    rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K)
 
-    rule ReturnType(K:K) => K [anywhere]
 end module
 
 
@@ -354,19 +337,6 @@ module LLVM-GLOBALS is
     including LLVM-INCLUDE
 
     syntax K ::= preInit "(" K "," K "," K ")" [strict(2)]
-    // syntax K ::= init "(" K "," K "," K ")" [strict(2)]
-
-    // rule
-        // <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(TyK:K), Init:K)
-            // => init(X, Alloca(TyK, 1), Init:K)
-        // ...</k>
-        // <currentModifiers> _ => List(L) </currentModifiers>
-
-    // rule
-        // <k> init(X:Id, Loc:#Nat, Initializer(TK:K, K:K))
-            // => Store(TK:K, K:K, Loc)
-        // ...</k>
-        // <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
 
      rule
         <k> GlobalVariable(X:Id, Modifiers(L:List{K}), PointerType(TyK:K), Init:K)
@@ -514,30 +484,6 @@ module LLVM-START-AND-STOP is
         <k> initEnvStructures'(Loc:#Nat)
             => memset(Loc, 0, 37, .K, .K) // auxv
         ...</k>
-
-
-
-    // // TODO replace with real freezers when we have syntax
-    // syntax K ::= fakeFreezerAndJumpValue
-
-    // rule
-        // <k> V:KResult
-            // ~> fakeFreezerAndJumpValue
-            // ~> KLabel:KLabel(HOLE,, L:List{K})
-            // => KLabel:KLabel(V,, L)
-            // ~> V
-        // ...</k>
-
-    // syntax K ::= writeAndReturn "(" K "," K ")"
-
-    // rule
-        // <k> Loc:#Nat ~> writeAndReturn(K1:K, K2:K)
-            // => write(K1:K, K2:K, Loc:#Nat)
-            // ~> Loc:#Nat
-        // ...</k>
-
-    // TODO need to handle 3-argument main
-
 
     rule [terminate-exit]:
         <T>...
@@ -1153,35 +1099,23 @@ end module
 module LLVM-COMPARISONS is
     including LLVM-INCLUDE
 
+    // all of these take place only at the top of K
     rule INotEq(Type:KResult, I1:#Int, I2:#Int)
         => boolToInt(unsigned(Type, I1) =/=Bool unsigned(Type, I2))
-        [anywhere]
-    // syntax K ::= isEqual "(" K "," K ")"
     rule IEq(Type:KResult, I1:#Int, I2:#Int)
         => boolToInt(unsigned(Type, I1) ==Bool unsigned(Type, I2))
-        [anywhere]
-    // rule IEq(Type:KResult, I1:#Int, I2:#Int)
-        // => isEqual(unsigned(Type, I1), unsigned(Type, I2))
-        // [anywhere]
-
-    rule UGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >Int unsigned(Type, I2:#Int))  [anywhere]
-    rule UGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >=Int unsigned(Type, I2:#Int))  [anywhere]
-    rule ULT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) <Int unsigned(Type, I2:#Int))  [anywhere]
-    rule ULE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) <=Int unsigned(Type, I2:#Int))  [anywhere]
-    rule SGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >Int signed(Type, I2:#Int))  [anywhere]
-    rule SGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))  [anywhere]
-    rule SLT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) <Int signed(Type, I2:#Int))  [anywhere]
-    rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))  [anywhere]
-
-    // rule canonicalize(Type:KResult, I:#Int) => ((I:#Int %Int BASE) +Int BASE) %Int BASE
-        // when isIntegerType(Type)
-        // where BASE = (2 ^Int sizeofInBits(Type))
-
-        // [anywhere]
+    rule UGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >Int unsigned(Type, I2:#Int))
+    rule UGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >=Int unsigned(Type, I2:#Int))
+    rule ULT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) <Int unsigned(Type, I2:#Int))
+    rule ULE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) <=Int unsigned(Type, I2:#Int))
+    rule SGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >Int signed(Type, I2:#Int))
+    rule SGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
+    rule SLT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) <Int signed(Type, I2:#Int))
+    rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
 
     syntax K ::= boolToInt "(" K ")"
-    rule boolToInt(true) => 1   [anywhere]
-    rule boolToInt(false) => 0  [anywhere]
+    rule boolToInt(true) => 1
+    rule boolToInt(false) => 0
 
 end module
 
@@ -1226,7 +1160,6 @@ module LLVM-CONVERSIONS is
     rule signed(_, ptrToInt(Type:KResult, I:#Int))
         => ptrToInt(Type, I)
 
-    // Chucky's sucky rules
     // definitely misses problems with null
     // TODO assumes types are same and are big enough
     rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) >Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
@@ -1245,21 +1178,6 @@ module LLVM-CONVERSIONS is
         => signed(Type, Offset -Int Offset')
         [anywhere]
 
-
-    // // david's crazy/cool rule
-    // rule ptrToInt(sym(N) + M) => M
-
-    // unsigned(somePtr) => PtrToNat(somePtr)
-    // signed(somePtr) => PtrToInt(somePtr)
-    // UGT(Pointer, sym(5) + 0, sym(5) + 2)
-
-    // ptr1 > ptr ==> PtrToInt(ptr1) > PtrToInt(ptr2)
-
-    // IntToPtr(Zext(..., PointerToInt(sym(5))))
-
-
-    // PtrToInt(IntToPtr(5)) == 5
-    // IntToPtr(PtrToInt(sym(5) + 6)) == sym(5) + 6
 end module
 
 
@@ -1297,20 +1215,6 @@ module LLVM-LITERALS is
             => arrayValue(L)
         ...</k>
 
-    // declare stringToArray : K -> K
-    // declare stringToArray' : K K -> K
-
-    // define
-        // stringToArray(S:#String)
-            // => arrayValue( StringToListstringToArray'(S:#String, .List{K})
-    // define
-        // stringToArray'("", L:List{K})
-            // => listK(L)
-    // define
-        // stringToArray'(S:#String, L:List{K})
-            // => stringToArray'(tail(S:#String), (L:List{K},, head(S)))
-
-
 end module
 
 module LLVM-STANDARD-LIBRARY is
@@ -1322,19 +1226,6 @@ module LLVM-STANDARD-LIBRARY is
     // turning calls to intrinsics into semantic productions
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
-    /*
-    syntax K ::= exit "(" K ")"
-    rule
-        <k> Call(_, Callee(funptr(Name("@_Exit")), listK(V:KResult)))
-            => exit(V)
-        ...</k>
-    */
-
-    // syntax K ::= musl-stdioClose "(" K ")"
-    // rule
-        // <k> Call(_, Callee(funptr(Name("@__stdio_close")), listK(V:KResult)))
-            // => musl-stdioClose(V)
-        // ...</k>
 
     syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
     rule
@@ -1425,7 +1316,6 @@ end module
 
 module LLVM-SYSCALL-IMPL is
     including LLVM-INCLUDE
-
 
     rule
         <k> Call(_, Callee(funptr(Name("@__syscall")), listK(N:#Nat,,L:List{K})))

@@ -40,4 +40,4 @@ declare i32 @printf(i8* nocapture, ...) nounwind
 !0 = metadata !{metadata !"_Bool", metadata !1}
 !1 = metadata !{metadata !"omnipotent char", metadata !2}
 !2 = metadata !{metadata !"Simple C/C++ TBAA", null}
-!3 = metadata !{i8 0, i8 2}                       
+!3 = metadata !{i8 0, i8 2}

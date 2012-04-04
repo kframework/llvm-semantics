@@ -33,6 +33,7 @@ module LLVM-CONFIGURATION is
                 <prevBlock> Name("Initial") </prevBlock>
                 <currModule> Name("Initial") </currModule>
                 <currFunction> Name("Initial") </currFunction>
+                <valist> .List </valist>
                 <registers> .Map </registers>
                 // TODO: this should eventually be a Set
                 <currentModifiers> .List </currentModifiers>
@@ -678,21 +679,13 @@ module LLVM-CALL-RET is
         ...</k>
     rule
         <k> bind(.List{K}, .List{K}) => . ...</k>
-    // rule
-        // <k> bind(Args:List{K}, Vararg) => bindVariadic(Args) ...</k>
-    
-    // syntax K ::= bindVariadic "(" List{K} ")"
-    // syntax K ::= bindVariadic' "(" List{K} "," K ")"
-    // syntax Id ::= variadic "(" K "," K ")"
-    // rule
-        // <k> bindVariadic(Args:List{K}) => bindVariadic'(Args, 0) ...</k>
-    // rule
-        // <k> bindVariadic'((Arg:K,, Args:List{K}), Loc:#Nat, N:#Nat)
-            // => Assign(variadic(N), Arg)
-            // ~> bindVariadic'(Args:List{K}, sNat(N))
-        // ...</k>
-    // rule
-        // <k> bindVariadic'(.List{K}, _) => . ...</k>
+
+    rule
+        <k> bind(((Arg:K => .List{K}),, _:List{K}), Vararg) ...</k>
+        <valist>... . => ListItem(Arg) </valist>
+
+    rule
+        <k> bind(.List{K}, Vararg) => . ...</k>
 
     // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
     syntax K ::= clearVoid
@@ -708,6 +701,17 @@ module LLVM-CALL-RET is
     rule
         <k> V:KResult ~> clearVoid => V ...</k>
         when V =/=Bool VoidValue
+end module
+
+module LLVM-VARIADICS is
+    including LLVM-INCLUDE
+
+    syntax K ::= valist "(" List{K} "," K ")"
+
+    rule
+        <k> VAArg(Type:KResult, _) => K ...</k>
+        <valist> ListItem(K:K) => . ...</valist>
+
 end module
 
 module LLVM-ARITHMETIC is
@@ -1329,6 +1333,16 @@ module LLVM-STANDARD-LIBRARY is
             => lifetimeEnd(V1, V2)
         ...</k>
 
+    rule
+        <k> Call(_, Callee(funptr(Name("@llvm.va_start")), _))
+            => .
+        ...</k>
+
+    rule
+        <k> Call(_, Callee(funptr(Name("@llvm.va_end")), _))
+            => .
+        ...</k>
+
     /////////////////////////////////////////////////////////
     // actual library definitions
 
@@ -1422,6 +1436,7 @@ module LLVM-SEMANTICS is
     including LLVM-REGISTERS
     including LLVM-START-AND-STOP
     including LLVM-CALL-RET
+    including LLVM-VARIADICS
     including LLVM-DECLARATIONS
     including LLVM-ARITHMETIC
     including LLVM-GEP

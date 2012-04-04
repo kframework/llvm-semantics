@@ -167,4 +167,6 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
     syntax LLVM ::= `Callee "(" K "," K ")" [strict hybrid] // Value/Name, Arguments
 
+    syntax LLVM ::= `VAArg "(" K "," K ")" [strict] // result type, va_list
+
 end module

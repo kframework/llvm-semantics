@@ -106,7 +106,6 @@ class AsmXMLWriter {
   void visitExtractValue(const ExtractValueInst &)     { assert (0 && "visitExtractValue Unimplemented"); }
   void visitInsertValue(const InsertValueInst &)       { assert (0 && "visitInsertValue Unimplemented"); }
   void visitLandingPad(const LandingPadInst &)         { assert (0 && "visitLandingPad Unimplemented"); }
-  void visitVAArg(const VAArgInst &)                   { assert (0 && "visitVAArg Unimplemented"); }
   void visitUserOp1(const Instruction &)               { assert (0 && "visitUserOp1 Unimplemented"); }
   void visitUserOp2(const Instruction &)               { assert (0 && "visitUserOp2 Unimplemented"); }
 
@@ -152,6 +151,7 @@ class AsmXMLWriter {
   void visitPtrToInt (const Operator &I) { printOperatorBody(I); }
   void visitIntToPtr (const Operator &I) { printOperatorBody(I); }
   void visitBitCast  (const Operator &I) { printOperatorBody(I); }
+  void visitVAArg    (const Operator &I) { printOperatorBody(I); }
 
   // same as above, but don't print the type
   void visitUnreachable(const Operator &I) { printOperatorBody(I, false); }

@@ -1,8 +1,8 @@
-TEST_DIRECTORIES = general gcc-torture
+TEST_DIRECTORIES = $(shell find c-semantics-tests -type d)
 TEST_TARGETS = $(foreach dir,  $(TEST_DIRECTORIES), $(dir)/results/krun-results.xml)
 
 # regression tests
-REGRESSION_DIRECTORIES = regression/general regression/gcc-torture $(shell find regression/llvm-tests -type d)
+REGRESSION_DIRECTORIES = $(shell find regression/c-semantics-tests -type d) $(shell find regression/llvm-tests -type d)
 REGRESSION_TARGETS = $(foreach dir,  $(REGRESSION_DIRECTORIES), $(dir)/results/krun-results.xml)
 
 # regression tests

@@ -270,6 +270,13 @@ module LLVM-HELPERS is
     define sNat(N:#Nat) copiesOf L:List{K} => L,, (N:#Nat copiesOf L)
     define 0 copiesOf _ => .List{K}
 
+    define N:#Nat +Int (Offset:#Nat +Nat sym(Base:#Nat))
+        => (N +Nat Offset) +Nat sym(Base)
+
+    define I:#Int +Int (Offset:#Nat +Nat sym(Base:#Nat))
+        => (absInt(I +Int Offset)) +Nat sym(Base)
+        when I <Int 0 andBool I +Int Offset >=Int 0
+
     // syntax K ::= interpretInt "(" K "," K ")" // cannot be function
 end module
 
@@ -827,8 +834,8 @@ module LLVM-GEP is
         <k> Type:KResult => . ...</k>
     rule
         <gepType> PointerType(Type:KResult) => Type </gepType>
-        <gepIndices> N:#Nat => . ...</gepIndices> 
-        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
+        <gepIndices> I:#Int => . ...</gepIndices>
+        <gepResult> PtrVal:#Nat => PtrVal +Int sizeof(Type) *Int I </gepResult>
         
     rule
         <gepType> (. => typing) ~> ArrayType(TyK:K, _) </gepType>

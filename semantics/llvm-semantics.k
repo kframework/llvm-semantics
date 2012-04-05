@@ -36,6 +36,7 @@ module LLVM-CONFIGURATION is
                 <registers> .Map </registers>
                 // TODO: this should eventually be a Set
                 <currentModifiers> .List </currentModifiers>
+                <localMemory> .List </localMemory>
             </control>
             @latex("\\kBR")
             <modules>
@@ -647,10 +648,22 @@ module LLVM-CALL-RET is
 
     // TODO rename Tail
     rule
-        <k> Ret(V:KResult) ~> _ => V ~> clearVoid ~> Tail </k>
+        <k> Ret(V:KResult) ~> _ 
+            => clearLocalMemory(Locals)
+            ~> V ~> clearVoid 
+            ~> Tail
+        </k>
         <callStack> frame(Tail:K, C:Bag) => . ...</callStack>
-        <control> _ => C </control>
-
+        <control> <localMemory> Locals:List </localMemory> _ => C </control>
+    
+    syntax K ::= clearLocalMemory "(" List ")"
+    rule
+        <k> clearLocalMemory((ListItem(Loc:#Nat) => .) _) ...</k>
+        (<object>... <basePtr> Loc </basePtr> ...</object> => .)
+        
+    rule
+        <k> clearLocalMemory(.) => . ...</k>
+    
     rule
         <k> VoidValue ~> clearVoid => . ...</k>
     rule
@@ -818,6 +831,7 @@ module LLVM-MEMORY is
     rule
         <k> Alloca(Type:KResult, N:#Nat) => Loc +Nat 0 ...</k>
         <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
+        <localMemory>... . => ListItem(Loc) </localMemory>
         (. =>
             <object>...
                 <type> Type </type>

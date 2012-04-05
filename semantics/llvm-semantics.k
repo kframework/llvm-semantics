@@ -23,34 +23,34 @@ module LLVM-CONFIGURATION is
 
     configuration
         <T multiplicity="?">
-            <k> $PGM:K ~> initGlobals ~> callMain </k>
+            <k color="LightGreen"> $PGM:K ~> initGlobals ~> callMain </k>
             <callStack> .List </callStack>
-            <nextLoc> sym(0) </nextLoc>
+            <nextLoc color="gray"> sym(0) </nextLoc>
             @latex("\\kBR")
             <control>
-                <currBlock> Name("Initial") </currBlock>
-                <prevBlock> Name("Initial") </prevBlock>
-                <currModule> Name("Initial") </currModule>
-                <currFunction> Name("Initial") </currFunction>
+                <currBlock color="WildStrawberry"> Name("Initial") </currBlock>
+                <prevBlock color="WildStrawberry"> Name("Initial") </prevBlock>
+                <currModule color="WildStrawberry"> Name("Initial") </currModule>
+                <currFunction color="WildStrawberry"> Name("Initial") </currFunction>
                 <valist> .List </valist>
-                <registers> .Map </registers>
+                <registers color="teal"> .Map </registers>
                 // TODO: this should eventually be a Set
-                <currentModifiers> .List </currentModifiers>
+                <currentModifiers color="WildStrawberry"> .List </currentModifiers>
                 <localMemory> .List </localMemory>
             </control>
             @latex("\\kBR")
-            <modules>
-                <module multiplicity="*">
-                    <moduleName> Name("") </moduleName>
+            <modules color="teal">
+                <module multiplicity="*" color="LightSkyBlue">
+                    <moduleName color="orange"> Name("") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
                     <savedGlobals> .K </savedGlobals>
-                    <globalRegisters> .Map </globalRegisters>
+                    <globalRegisters color="teal"> .Map </globalRegisters>
                     @latex("\\kBR")
-                    <functions>
-                        <function multiplicity="*">
-                            <functionName> Name("") </functionName>
+                    <functions color="teal">
+                        <function multiplicity="*" color="LightSkyBlue">
+                            <functionName color="orange"> Name("") </functionName>
                             <returnType> .K </returnType>
                             <formalParameters> .K </formalParameters>
                             <basicBlocks> .Map </basicBlocks>
@@ -58,19 +58,19 @@ module LLVM-CONFIGURATION is
                         </function>
                     </functions>
                     @latex("\\kBR")
-                    <typeInfos>
-                        <typeInfo multiplicity="*">
-                            <typeName> Name("") </typeName>
+                    <typeInfos color="teal">
+                        <typeInfo multiplicity="*" color="LightSkyBlue">
+                            <typeName color="orange"> Name("") </typeName>
                             <offsets> .Map </offsets>
                         </typeInfo>
                     </typeInfos>
                 </module>
             </modules>
             @latex("\\kBR")
-            <memory>
-                <object multiplicity="*">
+            <memory color="teal">
+                <object multiplicity="*" color="LightSkyBlue">
+                    <basePtr color="orange"> -1 </basePtr>
                     <type> .K </type>
-                    <basePtr> -1 </basePtr>
                     <size> 0 </size>
                     <bytes> .Map </bytes>
                 </object>
@@ -91,35 +91,9 @@ module LLVM-CONFIGURATION is
 
 end module
 
-module LLVM-SYSCALLS is
-    including LLVM-SYNTAX
-
-    declare syscallHandler : K -> KLabel
-
-    syntax KLabel ::= 'sys-write
-    define syscallHandler(4) => 'sys-write
-
-    syntax KLabel ::= 'sys-getpid
-    define syscallHandler(20) => 'sys-getpid
-
-    syntax KLabel ::= 'sys-ioctl
-    define syscallHandler(54) => 'sys-ioctl
-
-    syntax KLabel ::= 'sys-rt-sigprocmask
-    define syscallHandler(175) => 'sys-rt-sigprocmask
-
-    syntax KLabel ::= 'sys-gettid
-    define syscallHandler(224) => 'sys-gettid
-
-    syntax KLabel ::= 'sys-exit-group
-    define syscallHandler(248) => 'sys-exit-group
-
-end module
-
 module LLVM-SETTINGS is
     including LLVM-SYNTAX
     including LLVM-SPECIAL
-    including LLVM-SYSCALLS
 
     declare numBitsPerByte : -> #Nat
     define numBitsPerByte => 8
@@ -132,14 +106,19 @@ module LLVM-HELPERS is
     including LLVM-SYNTAX
     including LLVM-SETTINGS
 
+    // TODO many possible errors will slip by with this, but lots of stuff will work
+    rule
+        Null => sym(-1) +Nat 0 [anywhere]
+        
     syntax K ::= splitBytes "(" K "," K ")" // value, type
+    syntax K ::= joinBytes "(" K "," K ")" [strict(1)]
 
     syntax #Nat ::= wvalist "(" List "," K ")"
 
     declare byteType : -> K
     define byteType => IntegerType(Width(numBitsPerByte))
 
-    declare i : K -> K
+    declare i : K -> K [latex "i({#1})"]
     define i(N:#Nat) => IntegerType(Width(N))
 
     declare sizeofInBits : K -> #Nat
@@ -148,7 +127,6 @@ module LLVM-HELPERS is
     syntax #Int ::= ptrToInt "(" K "," K ")"
     syntax K ::= read "(" K "," K ")" [strict(1)]
     syntax K ::= write "(" K "," K "," K ")" [strict] // type, value, location
-    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
 
     syntax K ::= isLocation "(" K ")"
     rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
@@ -267,11 +245,51 @@ module LLVM-HELPERS is
         when I <Int 0 andBool I +Int Offset >=Int 0
 end module
 
+module LLVM-STANDARD-LIBRARY-SYNTAX is
+    including LLVM-SYNTAX
+    
+    syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
+    syntax K ::= memset "(" K "," K "," K "," K "," K ")"
+    
+    syntax K ::= lifetimeStart "(" K "," K ")"
+    syntax K ::= lifetimeEnd "(" K "," K ")"
+    
+    syntax K ::= vaStart "(" K ")"
+    syntax K ::= vaCopy "(" K "," K ")"
+end module
+
+module LLVM-SYSCALLS-SYNTAX is
+    including LLVM-SYNTAX
+
+    declare syscallHandler : K -> KLabel
+
+    syntax KLabel ::= 'sys-write
+    define syscallHandler(4) => 'sys-write
+
+    syntax KLabel ::= 'sys-getpid
+    define syscallHandler(20) => 'sys-getpid
+
+    syntax KLabel ::= 'sys-ioctl
+    define syscallHandler(54) => 'sys-ioctl
+
+    syntax KLabel ::= 'sys-rt-sigprocmask
+    define syscallHandler(175) => 'sys-rt-sigprocmask
+
+    syntax KLabel ::= 'sys-gettid
+    define syscallHandler(224) => 'sys-gettid
+
+    syntax KLabel ::= 'sys-exit-group
+    define syscallHandler(248) => 'sys-exit-group
+
+end module
+
 /* this module gets included by all later modules */
 module LLVM-INCLUDE is
     including LLVM-CONFIGURATION
     including LLVM-SETTINGS
     including LLVM-HELPERS
+    including LLVM-STANDARD-LIBRARY-SYNTAX
+    including LLVM-SYSCALLS-SYNTAX
 
 end module
 
@@ -307,16 +325,6 @@ module LLVM-CLEAN-TREE is
     rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K)
 
-end module
-
-
-module LLVM-MISC is
-    including LLVM-INCLUDE
-
-    // TODO many possible errors will slip by with this, but lots of stuff will work
-    rule
-        Null => sym(-1) +Nat 0 [anywhere]
-
     rule
         <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>
@@ -324,14 +332,6 @@ module LLVM-MISC is
     rule
         <k> ConstantExpr(Modifiers(L:List{K}), K:K) => K ...</k>
         <currentModifiers> _ => List(L) </currentModifiers>
-
-    rule
-        <k> PHI(_, (Edge(K:K, Name:Id),, _:List{K})) => K:K ...</k>
-        <prevBlock> Name </prevBlock>
-    rule
-        <k> PHI(_, ((Edge(K:K, Name:Id) => .List{K}),, _:List{K})) ...</k>
-        <prevBlock> Name':Id </prevBlock>
-        when Name =/=Bool Name'
 end module
 
 module LLVM-GLOBALS is
@@ -416,6 +416,18 @@ module LLVM-BRANCHING is
         when unsigned(Type, I) =/=Bool unsigned(Type, I')
 end module
 
+module LLVM-PHI is
+    including LLVM-INCLUDE
+    
+    rule
+        <k> PHI(_, (Edge(K:K, Name:Id),, _:List{K})) => K:K ...</k>
+        <prevBlock> Name </prevBlock>
+    rule
+        <k> PHI(_, ((Edge(K:K, Name:Id) => .List{K}),, _:List{K})) ...</k>
+        <prevBlock> Name':Id </prevBlock>
+        when Name =/=Bool Name'
+end module
+
 module LLVM-SELECTION is
     including LLVM-INCLUDE
 
@@ -449,7 +461,7 @@ module LLVM-START-AND-STOP is
         when lengthList{K}(L) ==Bool 0
 
     // TODO need to initialize argc and argv properly
-    // TODO kind of crap
+    // TODO need to make nicer
     rule
         <k> callMain
             => Call(i(32), Callee(Value(Name("@__libc_start_main_2")),
@@ -598,34 +610,54 @@ module LLVM-CALL-RET is
     including LLVM-INCLUDE
 
     syntax ListItem ::= frame "(" K "," Bag ")"
-    syntax K ::= "bind" "(" List{K} "," List{K} ")"
+    syntax K ::= bind "(" List{K} "," List{K} ")"
 
-
-     rule
+    rule
         <k> Arguments(L:List{K}) => listK(L) ...</k>
         when 'isKResult(L)
 
+    // TODO: rename tail
+    // grabbing argument names
+    // figuring out right function body (grab first bb)
+    // add frame to call stack
+    // replacing control cell with new cell
+    
+    // pushframe/popframe
+    // 
+    // TODO would like to use ACTUAL control cell sitting on top of the stack, but can't have cells in lists and use context transformers
+    // TODO would like to use ACTUAL control cell sitting on top of the stack, but can't have cells in lists and use context transformers
+    // TODO bind term to variable even if term has inner rewrites
+    // TODO ... on RHS to reset cell
+    // TODO assuming single module
+
     rule
         <k> Call(_, Callee(funptr(FunName:Id), listK(Args:List{K}))) ~> Tail:K
-            => bind(Args, Formals)
+            => contextSwitch(FunName, Tail)
+            ~> bind(Args, Formals)
             ~> Body
         </k>
+        @latex("\\kBR")
+        <module>...
+            <functionName> FunName </functionName>
+            <formalParameters> Arguments(Formals:List{K}) </formalParameters>
+            <initialBasicBlock> IBBName:Id </initialBasicBlock>
+            <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
+        ...</module>
+        [large]
+    
+    syntax K ::= contextSwitch "(" K "," K ")"
+
+    rule
+        <k> contextSwitch(FunName, Tail) => . ...</k>
         (<control>
-            C:Bag
-            <currModule> Name:Id </currModule>
-            <currFunction> FunName':Id </currFunction>
+            C:Bag 
         </control> =>
         <control>...
-            <currModule> Name </currModule>
             <currFunction> FunName:Id </currFunction>
         ...</control>)
-        <callStack> . => frame(Tail, (C <currModule> Name </currModule> <currFunction> FunName':Id </currFunction>)) ...</callStack>
-        <moduleName> Name </moduleName>
-        <functionName> FunName </functionName>
-        <formalParameters> Arguments(Formals:List{K}) </formalParameters>
-        <initialBasicBlock> IBBName:Id </initialBasicBlock>
-        <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
-        //<functions>... FunName |-> Function(_, FunName:Id, _, Body:K) ...</functions>
+        <callStack> . => frame(Tail, C) ...</callStack>
+
+        
 
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
@@ -822,31 +854,9 @@ module LLVM-GEP is
 
 end module
 
-module LLVM-MEMORY is
+module LLVM-HELPERS-SPLIT-BYTES is
     including LLVM-INCLUDE
-
-    syntax #Nat ::= nextSym #Nat
-    macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
-
-    rule
-        <k> Alloca(Type:KResult, N:#Nat) => Loc +Nat 0 ...</k>
-        <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
-        <localMemory>... . => ListItem(Loc) </localMemory>
-        (. =>
-            <object>...
-                <type> Type </type>
-                <basePtr> Loc </basePtr>
-                <size> sizeof(Type) *Nat N </size>
-            ...</object>
-        )
-
-    rule
-        <k> Store(Type:KResult, V:KResult, Loc:#Nat)
-            => write(Type:KResult, V:KResult, Loc:#Nat)
-        ...</k>
-
-    syntax K ::= writeBytes "(" K "," K ")" [strict(1)] // list of bytes, location
-
+    
     syntax K ::= splitIntegerBytes "(" K "," K "," K ")" // value, numBytes, type
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
@@ -855,28 +865,6 @@ module LLVM-MEMORY is
     syntax K ::= splitStructBytes "(" K "," List{K} ")" // value, field types
     syntax K ::= splitStructBytes' "(" K "," List{K} "," List{K} ")" // value, field types, accumulator
 
-    rule
-        <k> write(Type:KResult, V:KResult, Loc:#Nat)
-            => writeBytes(splitBytes(V, Type), Loc)
-        ...</k>
-    // rule
-        // <k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
-        // <basePtr> Base:#Nat </basePtr>
-        // <bytes> M:Map => M:Map[unknownByte / Offset:#Nat] </bytes>
-        // when notBool Offset in keys(M:Map)
-
-    rule
-        <k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
-            => writeBytes(listK(L:List{K}), Base:#Nat +Nat sNat(Offset:#Nat))
-        ...</k>
-        <basePtr> Base:#Nat </basePtr>
-        <bytes> M:Map => M:Map[N:#Nat / Offset:#Nat] </bytes>
-        // <size> Len:#Nat </size>
-        // when Offset < Len
-        // i guess
-
-    rule
-        <k> writeBytes(listK(.List{K}), _) => . ...</k>
 
     // Type(IntegerType(Width(32)))
     // should generate list with LSBytes first
@@ -994,6 +982,53 @@ module LLVM-MEMORY is
             => listK(L)
         ...</k>
 
+end module
+
+module LLVM-HELPERS-JOIN-BYTES is
+    including LLVM-INCLUDE
+
+    syntax K ::= joinIntBytes "(" K "," K "," K ")"
+    syntax K ::= joinPointerBytes "(" K "," K "," K ")"
+
+    rule
+        <k> joinBytes(V:KResult, Type:KResult)
+            => joinIntBytes(V:KResult, sizeof(Type), 0)
+        ...</k>
+        when isIntegerType(Type)
+
+    rule
+        <k> joinBytes(V:KResult, Type:KResult)
+            => joinPointerBytes(V:KResult, sizeof(Type), 0)
+        ...</k>
+        when isPointerType(Type)
+
+    rule
+        <k> joinIntBytes(listK((L:List{K},, N:#Nat)), sNat(Len:#Nat), N':#Nat)
+            => joinIntBytes(listK(L:List{K}), Len:#Nat, RESULT)
+        ...</k>
+        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat N:#Nat
+
+    rule joinIntBytes(listK(.List{K}), 0, N:#Nat)
+        => N:#Nat
+        when N:#Nat >=Int 0
+        [anywhere]
+
+    rule joinIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat))
+        => wvalist(VAList:List, Loc:#Nat)
+        [anywhere]
+
+    rule
+        <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:#Nat, N:#Nat))), sNat(Len:#Nat), N':#Nat)
+            => joinPointerBytes(listK(L:List{K}), Len:#Nat, RESULT)
+        ...</k>
+        when isLocation(Loc)
+        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:#Nat, N:#Nat)
+
+    rule joinPointerBytes(listK(.List{K}), 0, Loc:#Nat)
+        => Loc:#Nat
+        when isLocation(Loc)
+        [anywhere]
+
     // crazy stuff to reassemble pointer
     syntax #Nat ::= ptrBytes "(" K "," K "," K ")"
     rule
@@ -1014,7 +1049,56 @@ module LLVM-MEMORY is
             => V
         where N ==Bool (numBytesPerPointer -Int 1)
         [anywhere]
+        
+end module
 
+module LLVM-MEMORY is
+    including LLVM-INCLUDE
+
+    syntax #Nat ::= nextSym #Nat
+    macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
+
+    rule
+        <k> Alloca(Type:KResult, N:#Nat) => Loc +Nat 0 ...</k>
+        (. =>
+            <object>...
+                <basePtr> Loc </basePtr>
+                <type> Type </type>
+                <size> sizeof(Type) *Nat N </size>
+            ...</object>
+        )
+        <localMemory>... . => ListItem(Loc) </localMemory>
+        <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
+
+    rule
+        <k> Store(Type:KResult, V:KResult, Loc:#Nat)
+            => write(Type:KResult, V:KResult, Loc:#Nat)
+        ...</k>
+
+    syntax K ::= writeBytes "(" K "," K ")" [strict(1)] // list of bytes, location
+
+    rule
+        <k> write(Type:KResult, V:KResult, Loc:#Nat)
+            => writeBytes(splitBytes(V, Type), Loc)
+        ...</k>
+    // rule
+        // <k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
+        // <basePtr> Base:#Nat </basePtr>
+        // <bytes> M:Map => M:Map[unknownByte / Offset:#Nat] </bytes>
+        // when notBool Offset in keys(M:Map)
+
+    rule
+        <k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
+            => writeBytes(listK(L:List{K}), Base:#Nat +Nat sNat(Offset:#Nat))
+        ...</k>
+        <basePtr> Base:#Nat </basePtr>
+        <bytes> M:Map => M:Map[N:#Nat / Offset:#Nat] </bytes>
+        // <size> Len:#Nat </size>
+        // when Offset < Len
+        // i guess
+
+    rule
+        <k> writeBytes(listK(.List{K}), _) => . ...</k>
 
     rule
         <k> Load(PointerType(TyK:K), Loc:#Nat)
@@ -1024,7 +1108,7 @@ module LLVM-MEMORY is
 
     rule
         <k> read(Type:KResult, Loc:#Nat)
-            => interpretBytes(readBytes(sizeof(Type:KResult), Loc:#Nat), Type:KResult)
+            => joinBytes(readBytes(sizeof(Type:KResult), Loc:#Nat), Type:KResult)
         ...</k>
 
     rule
@@ -1044,49 +1128,9 @@ module LLVM-MEMORY is
             => listK(L)
         ...</k>
 
-    rule
-        <k> interpretBytes(V:KResult, Type:KResult)
-            => interpretIntBytes(V:KResult, sizeof(Type), 0)
-        ...</k>
-        when isIntegerType(Type)
-    rule
-        <k> interpretBytes(V:KResult, Type:KResult)
-            => interpretPointerBytes(V:KResult, sizeof(Type), 0)
-        ...</k>
-        when isPointerType(Type)
-
-    rule
-        <k> interpretIntBytes(listK((L:List{K},, N:#Nat)), sNat(Len:#Nat), N':#Nat)
-            => interpretIntBytes(listK(L:List{K}), Len:#Nat, RESULT)
-        ...</k>
-        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat N:#Nat
-
-    rule interpretIntBytes(listK(.List{K}), 0, N:#Nat)
-        => N:#Nat
-        when N:#Nat >=Int 0
-        [anywhere]
-
-    rule interpretIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat))
-        => wvalist(VAList:List, Loc:#Nat)
-        [anywhere]
-
-    rule
-        <k> interpretPointerBytes(listK((L:List{K},, ptrByte(Loc:#Nat, N:#Nat))), sNat(Len:#Nat), N':#Nat)
-            => interpretPointerBytes(listK(L:List{K}), Len:#Nat, RESULT)
-        ...</k>
-        when isLocation(Loc)
-        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:#Nat, N:#Nat)
-
-    rule interpretPointerBytes(listK(.List{K}), 0, Loc:#Nat)
-        => Loc:#Nat
-        when isLocation(Loc)
-        [anywhere]
-
     syntax K ::= readBytes "(" K "," K ")"
     syntax K ::= readBytes' "(" K "," K "," List{K} ")"
-    syntax K ::= interpretBytes "(" K "," K ")" [strict(1)]
-    syntax K ::= interpretIntBytes "(" K "," K "," K ")"
-    syntax K ::= interpretPointerBytes "(" K "," K "," K ")"
+
 
 end module
 
@@ -1211,17 +1255,14 @@ module LLVM-LITERALS is
 
 end module
 
-module LLVM-STANDARD-LIBRARY is
+module LLVM-STANDARD-LIBRARY-PREPROCESS is
     including LLVM-INCLUDE
-
-    // TODO accidentally using where instead of when leads to no error message; it just drops the condition
 
     /////////////////////////////////////////////////////////
     // turning calls to intrinsics into semantic productions
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
 
-    syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
     rule
         // TODO why doesn't this work?
         // <k> Call(_, Callee(funptr(Name(S:#String)), listK(L:List{K})))
@@ -1236,26 +1277,22 @@ module LLVM-STANDARD-LIBRARY is
             => memset(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==Bool "@llvm.memset."
-
-    syntax K ::= lifetimeStart "(" K "," K ")"
+    
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.lifetime.start")), listK(V1:KResult,, V2:KResult)))
             => lifetimeStart(V1, V2)
         ...</k>
-
-    syntax K ::= lifetimeEnd "(" K "," K ")"
+    
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.lifetime.end")), listK(V1:KResult,, V2:KResult)))
             => lifetimeEnd(V1, V2)
         ...</k>
-
-    syntax K ::= vaStart "(" K ")"
+    
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.va_start")), listK(V1:KResult)))
             => vaStart(V1)
         ...</k>
-
-    syntax K ::= vaCopy "(" K "," K ")"
+    
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.va_copy")), listK(V1:KResult,, V2:KResult)))
             => vaCopy(V1, V2)
@@ -1265,9 +1302,10 @@ module LLVM-STANDARD-LIBRARY is
         <k> Call(_, Callee(funptr(Name("@llvm.va_end")), _))
             => .
         ...</k>
+end module
 
-    /////////////////////////////////////////////////////////
-    // actual library definitions
+module LLVM-STANDARD-LIBRARY is
+    including LLVM-INCLUDE
 
     // memcpy
     rule
@@ -1297,6 +1335,7 @@ module LLVM-STANDARD-LIBRARY is
     rule
         <k> lifetimeEnd(_, _) => . ...</k>
 
+    //@ Variadic intrinsics
     rule
         <k> vaStart(Loc:#Nat) => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc) ...</k>
         <valist> VAList:List </valist>
@@ -1308,13 +1347,17 @@ module LLVM-STANDARD-LIBRARY is
 
 end module
 
-module LLVM-SYSCALL-IMPL is
+module LLVM-SYSCALLS-PREPROCESS is
     including LLVM-INCLUDE
-
+    
     rule
         <k> Call(_, Callee(funptr(Name("@__syscall")), listK(N:#Nat,,L:List{K})))
             => (syscallHandler(N))(L)
         ...</k>
+end module
+
+module LLVM-SYSCALLS is
+    including LLVM-INCLUDE
 
     rule <k> 'sys-ioctl(_) => 0 ...</k>
     rule <k> 'sys-rt-sigprocmask(_) => 0 ...</k>
@@ -1359,10 +1402,13 @@ end module
 module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
+    including LLVM-HELPERS-SPLIT-BYTES
+    including LLVM-HELPERS-JOIN-BYTES
+
     including LLVM-CLEAN-TREE
-    including LLVM-MISC
     including LLVM-GLOBALS
     including LLVM-BRANCHING
+    including LLVM-PHI
     including LLVM-SELECTION
     including LLVM-REGISTERS
     including LLVM-START-AND-STOP
@@ -1375,6 +1421,13 @@ module LLVM-SEMANTICS is
     including LLVM-COMPARISONS
     including LLVM-CONVERSIONS
     including LLVM-LITERALS
+    including LLVM-STANDARD-LIBRARY-PREPROCESS
     including LLVM-STANDARD-LIBRARY
-    including LLVM-SYSCALL-IMPL
+    including LLVM-SYSCALLS-PREPROCESS
+    including LLVM-SYSCALLS
 end module
+
+///////////////////////
+// bugs in K
+
+// TODO accidentally using where instead of when leads to no error message; it just drops the condition

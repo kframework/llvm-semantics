@@ -2,7 +2,7 @@ module LLVM-SYNTAX is
     including K
 
     syntax KResult ::= LLVMValue
-    syntax KResult ::= listK "(" List{K} ")"
+    syntax KResult ::= listK "(" List{K} ")"  [latex "{#1}"]
 
     //@ Modules
     syntax LLVM ::= `Module "(" K "," K "," K "," K "," K "," K "," K ")"
@@ -27,9 +27,10 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `Types "(" List{K} ")"
     context Types((_:List{K},,HOLE,,_:List{K}))
     syntax LLVM ::= `NamedType "(" K ")"
-    syntax LLVMValue ::= `PointerType "(" K ")"
-    syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid] // inner type, length
-    syntax LLVM ::= `StructType "(" K ")" [strict hybrid]
+    syntax LLVMValue ::= `PointerType "(" K ")" [latex "{#1}*"]
+    syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid latex "\lbrack
+{#2} \times {#1}\rbrack"] // inner type, length
+    syntax LLVM ::= `StructType "(" K ")" [strict hybrid latex "\{{#1}\}"]
     syntax LLVM ::= `FunctionType "(" K "," K ")" [strict hybrid] // return type, argument types
     syntax LLVMValue ::= `VarargType
     syntax LLVMValue ::= `IntegerType "(" K ")"

@@ -98,8 +98,11 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `NegativeZero
     syntax LLVM ::= `PositiveInfinity
     syntax LLVM ::= `NegativeInfinity
+    syntax LLVM ::= `Float "(" #String ")"
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVMValue ::= `Zeroinitializer
+    //@ Aggregate instructions
+    syntax LLVM ::= `ExtractValue "(" K "," K ")" // TODO
 
     //@ Memory instructions
     syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
@@ -120,6 +123,7 @@ module LLVM-SYNTAX is
 
     //@ Comparison operations
     syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op
+    syntax LLVM ::= `FCmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op
     syntax LLVM ::= `Predicate "(" K ")"
     syntax LLVM ::= `INotEq "(" K "," K "," K ")" [strict] // type, left op, right op
     syntax LLVM ::= `IEq "(" K "," K "," K ")" [strict]
@@ -145,6 +149,13 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `URem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `SRem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
 
+    //@ Floating-point Binary Operations
+    syntax LLVM ::= `FAdd "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= `FSub "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= `FMul "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= `FDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= `FRem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+
     //@ Bitwise Binary Operations
     syntax LLVM ::= `Shl "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
     syntax LLVM ::= `LShr "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
@@ -160,6 +171,12 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `BitCast "(" K "," K ")" [strict] // type, op
     syntax LLVM ::= `IntToPtr "(" K "," K ")" [strict] // type, op
     syntax LLVM ::= `PtrToInt "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `FPToSI "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `FPToUI "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `SIToFP "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `UIToFP "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `FPTrunc "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= `FPExt "(" K "," K ")" [strict] // type, op
 
     //@ Other Operations
     syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list

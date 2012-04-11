@@ -103,7 +103,6 @@ class AsmXMLWriter {
   void visitExtractElement(const ExtractElementInst &) { assert (0 && "visitExtractElement Unimplemented"); }
   void visitInsertElement(const InsertElementInst &)   { assert (0 && "visitInsertElement Unimplemented"); }
   void visitShuffleVector(const ShuffleVectorInst &)   { assert (0 && "visitShuffleVector Unimplemented"); }
-  void visitExtractValue(const ExtractValueInst &)     { assert (0 && "visitExtractValue Unimplemented"); }
   void visitInsertValue(const InsertValueInst &)       { assert (0 && "visitInsertValue Unimplemented"); }
   void visitLandingPad(const LandingPadInst &)         { assert (0 && "visitLandingPad Unimplemented"); }
   void visitUserOp1(const Instruction &)               { assert (0 && "visitUserOp1 Unimplemented"); }
@@ -152,6 +151,7 @@ class AsmXMLWriter {
   void visitIntToPtr (const Operator &I) { printOperatorBody(I); }
   void visitBitCast  (const Operator &I) { printOperatorBody(I); }
   void visitVAArg    (const Operator &I) { printOperatorBody(I); }
+  void visitExtractValue (const Operator &I) { printOperatorBody(I); }
 
   // same as above, but don't print the type
   void visitUnreachable(const Operator &I) { printOperatorBody(I, false); }
@@ -757,52 +757,55 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
         Out << "<NegativeInfinity/>";
         return;
     }
-  
-    assert(0 && "Not handling Floating values");
-    // if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
-        // &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {
-      // // We would like to output the FP constant value in exponential notation,
-      // // but we cannot do this if doing so will lose precision.  Check here to
-      // // make sure that we only output it in exponential format if we can parse
-      // // the value back and get the same value.
-      // //
-      // bool ignored;
-      // bool isDouble = &CFP->getValueAPF().getSemantics()==&APFloat::IEEEdouble;
-      // double Val = isDouble ? CFP->getValueAPF().convertToDouble() :
-                              // CFP->getValueAPF().convertToFloat();
-      // SmallString<128> StrVal;
-      // raw_svector_ostream(StrVal) << Val;
 
-      // // Check to make sure that the stringized number is not some string like
-      // // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
-      // // that the string matches the "[-+]?[0-9]" regex.
-      // //
-      // if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
-          // ((StrVal[0] == '-' || StrVal[0] == '+') &&
-           // (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
-        // // Reparse stringized version!
-        // if (atof(StrVal.c_str()) == Val) {
-          // Out << StrVal.str();
-          // return;
-        // }
-      // }
-      // // Otherwise we could not reparse it to exactly the same value, so we must
-      // // output the string in hexadecimal format!  Note that loading and storing
-      // // floating point types changes the bits of NaNs on some hosts, notably
-      // // x86, so we must not use these types.
-      // assert(sizeof(double) == sizeof(uint64_t) &&
-             // "assuming that double is 64 bits!");
-      // char Buffer[40];
-      // APFloat apf = CFP->getValueAPF();
-      // // Floats are represented in ASCII IR as double, convert.
-      // if (!isDouble)
-        // apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
-                          // &ignored);
-      // Out << "0x" <<
-              // utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
-                            // Buffer+40);
-      // return;
-    // }
+    if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
+        &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {
+      // We would like to output the FP constant value in exponential notation,
+      // but we cannot do this if doing so will lose precision.  Check here to
+      // make sure that we only output it in exponential format if we can parse
+      // the value back and get the same value.
+      //
+      bool ignored;
+      bool isDouble = &CFP->getValueAPF().getSemantics()==&APFloat::IEEEdouble;
+      double Val = isDouble ? CFP->getValueAPF().convertToDouble() :
+                              CFP->getValueAPF().convertToFloat();
+      SmallString<128> StrVal;
+      raw_svector_ostream(StrVal) << Val;
+      RawWriter::write(StrVal.str(), Out);
+      return;
+
+      // Check to make sure that the stringized number is not some string like
+      // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
+      // that the string matches the "[-+]?[0-9]" regex.
+      //
+      if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
+          ((StrVal[0] == '-' || StrVal[0] == '+') &&
+           (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
+        // Reparse stringized version!
+        if (atof(StrVal.c_str()) == Val) {
+          RawWriter::write(StrVal.str(), Out);
+          return;
+        }
+      }
+      // Otherwise we could not reparse it to exactly the same value, so we must
+      // output the string in hexadecimal format!  Note that loading and storing
+      // floating point types changes the bits of NaNs on some hosts, notably
+      // x86, so we must not use these types.
+      assert(0 && "Not handling hexadecimal floating values");
+      assert(sizeof(double) == sizeof(uint64_t) &&
+             "assuming that double is 64 bits!");
+      char Buffer[40];
+      APFloat apf = CFP->getValueAPF();
+      // Floats are represented in ASCII IR as double, convert.
+      if (!isDouble)
+        apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
+                          &ignored);
+      Out << "0x" <<
+              utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
+                            Buffer+40);
+      return;
+    }
+    assert(0 && "Not handling other floating values");
 
     // // Some form of long double.  These appear as a magic letter identifying
     // // the type, then a fixed number of hex digits.

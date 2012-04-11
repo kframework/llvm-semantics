@@ -170,7 +170,7 @@ HANDLE_OTHER_INST(53, VAArg  , Operator   )  // vaarg instruction
 HANDLE_OTHER_INST(54, ExtractElement, ExtractElementInst)// extract from vector
 HANDLE_OTHER_INST(55, InsertElement, InsertElementInst)  // insert into vector
 HANDLE_OTHER_INST(56, ShuffleVector, ShuffleVectorInst)  // shuffle two vectors.
-HANDLE_OTHER_INST(57, ExtractValue, ExtractValueInst)// extract from aggregate
+HANDLE_OTHER_INST(57, ExtractValue, Operator)// extract from aggregate
 HANDLE_OTHER_INST(58, InsertValue, InsertValueInst)  // insert into aggregate
 HANDLE_OTHER_INST(59, LandingPad, LandingPadInst)  // Landing pad instruction.
   LAST_OTHER_INST(59)

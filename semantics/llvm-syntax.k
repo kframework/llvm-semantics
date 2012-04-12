@@ -93,14 +93,15 @@ module LLVM-SYNTAX is
         when 'isKResult(K:K)
     syntax LLVM ::= `Null
     syntax LLVM ::= `Undef
-    syntax LLVM ::= `NaN
-    syntax LLVM ::= `PositiveZero
-    syntax LLVM ::= `NegativeZero
-    syntax LLVM ::= `PositiveInfinity
-    syntax LLVM ::= `NegativeInfinity
+    syntax LLVMValue ::= `NaN
+    syntax LLVMValue ::= `PositiveZero
+    syntax LLVMValue ::= `NegativeZero
+    syntax LLVMValue ::= `PositiveInfinity
+    syntax LLVMValue ::= `NegativeInfinity
     syntax LLVM ::= `Float "(" #String ")"
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVMValue ::= `Zeroinitializer
+
     //@ Aggregate instructions
     syntax LLVM ::= `ExtractValue "(" K "," K ")" // TODO
 

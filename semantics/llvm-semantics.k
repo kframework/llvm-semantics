@@ -1,12 +1,13 @@
 module LLVM-SPECIAL is
     including LLVM-SYNTAX
 
-    syntax KResult ::= #Int | #String
+    syntax KResult ::= #Int | #String | #Float
     syntax KResult ::= arrayValue "(" List{K} ")"
 
     syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
     syntax #Nat ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
+    syntax #Nat ::= floatByte "(" K "," K "," K ")" // float, type, byte number
 
     syntax K ::= debug // TODO [semantic]
 
@@ -207,6 +208,9 @@ module LLVM-HELPERS is
     rule isIntegerType(KLabel:KLabel(_)) => false
         when KLabel =/=Bool 'IntegerType
         [anywhere]
+    syntax #Bool ::= isFloatType "(" K ")" // predicate
+    rule isFloatType(FloatType) => true
+    rule isFloatType(DoubleType) => true [anywhere]
     syntax #Bool ::= isPointerType "(" K ")" // predicate
     rule isPointerType(PointerType(_)) => true  [anywhere]
     syntax #Bool ::= isArrayType "(" K ")" // predicate
@@ -219,6 +223,8 @@ module LLVM-HELPERS is
     define sizeofInBits(ArrayType(Type:KResult, Len:#Nat)) => sizeofInBits(Type) *Nat Len
 
     define sizeofInBits(IntegerType(Width(N:#Nat))) => N
+    define sizeofInBits(FloatType) => 32
+    define sizeofInBits(DoubleType) => 64
     // TODO listK should be Fields (bug in K)
     define sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
       => sizeofInBits(Type) +Nat sizeofInBits(StructType(listK(L)))
@@ -243,6 +249,7 @@ module LLVM-HELPERS is
     define I:#Int +Int (Offset:#Nat +Nat sym(Base:#Nat))
         => (absInt(I +Int Offset)) +Nat sym(Base)
         when I <Int 0 andBool I +Int Offset >=Int 0
+
 end module
 
 module LLVM-STANDARD-LIBRARY-SYNTAX is
@@ -800,6 +807,26 @@ module LLVM-ARITHMETIC is
 
 end module
 
+module LLVM-FLOATING-POINT-ARITHMETIC is
+    including LLVM-INCLUDE
+
+    rule
+        <k> FAdd(Type:KResult, F1:#Float, F2:#Float)
+            => F1 +Float F2
+        ...</k>
+
+    rule
+        <k> FSub(Type:KResult, F1:#Float, F2:#Float)
+            => F1 -Float F2
+        ...</k>
+
+    rule
+        <k> FMul(Type:KResult, F1:#Float, F2:#Float)
+            => F1 *Float F2
+        ...</k>
+
+end module
+
 module LLVM-GEP is
     including LLVM-INCLUDE
 
@@ -862,6 +889,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
     
     syntax K ::= splitIntegerBytes "(" K "," K "," K ")" // value, numBytes, type
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
+    syntax K ::= splitFloatBytes "(" K "," K "," K "," List{K} ")" // value, type, numBytes, accumulator
     syntax K ::= splitPointerBytes "(" K "," K ")" // value, numBytes
     syntax K ::= splitPointerBytes' "(" K "," K "," K "," List{K} ")" // value, numbytes, whichByte, accumulator
     syntax K ::= splitArrayBytes "(" K "," K "," K ")" [strict(3)] // value, numBytes, innertype
@@ -876,6 +904,12 @@ module LLVM-HELPERS-SPLIT-BYTES is
             => splitIntegerBytes(V, sizeof(Type), Type)
         ...</k>
         when isIntegerType(Type)
+
+    rule
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitFloatBytes(V, Type, sizeof(Type), .List{K})
+        ...</k>
+        when isFloatType(Type)
 
     rule
         <k> splitBytes(V:KResult, Type:KResult)
@@ -928,6 +962,20 @@ module LLVM-HELPERS-SPLIT-BYTES is
     rule
         <k> splitIntegerBytes(wvalist(VAList:List, Loc:#Nat), 1, _)
             => listK(wvalist(VAList:List, Loc:#Nat))
+        ...</k>
+
+    rule
+        <k> splitFloatBytes(V:KResult, Type:KResult, 0, L:List{K})
+            => listK(L)
+        ...</k>
+
+    rule
+        <k> splitFloatBytes(
+                V:KResult,
+                Type:KResult,
+                sNat(NumBytes:#Nat) => NumBytes,
+                L:List{K} => floatByte(V, Type, NumBytes) ,, L
+            )
         ...</k>
 
     rule
@@ -991,6 +1039,7 @@ module LLVM-HELPERS-JOIN-BYTES is
     including LLVM-INCLUDE
 
     syntax K ::= joinIntBytes "(" K "," K "," K ")"
+    syntax K ::= joinFloatBytes "(" K "," K "," K ")"
     syntax K ::= joinPointerBytes "(" K "," K "," K ")"
 
     rule
@@ -998,6 +1047,12 @@ module LLVM-HELPERS-JOIN-BYTES is
             => joinIntBytes(V:KResult, sizeof(Type), 0)
         ...</k>
         when isIntegerType(Type)
+
+    rule
+        <k> joinBytes(V:KResult, Type:KResult)
+            => joinFloatBytes(V:KResult, sizeof(Type), 0)
+        ...</k>
+        when isFloatType(Type)
 
     rule
         <k> joinBytes(V:KResult, Type:KResult)
@@ -1019,6 +1074,12 @@ module LLVM-HELPERS-JOIN-BYTES is
     rule joinIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat))
         => wvalist(VAList:List, Loc:#Nat)
         [anywhere]
+
+    // TODO BAD
+    rule
+        <k> joinFloatBytes(listK(floatByte(F:#Float, _, _),, _), _, _)
+            => F
+        ...</k>
 
     rule
         <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:#Nat, N:#Nat))), sNat(Len:#Nat), N':#Nat)
@@ -1219,11 +1280,16 @@ module LLVM-CONVERSIONS is
         => signed(Type, Offset -Int Offset')
         [anywhere]
 
+    rule
+        <k> FPToSI(Type:KResult, F:#Float) => signed(Type, Float2Int(F)) ...</k>
+
 end module
 
 
 module LLVM-LITERALS is
     including LLVM-INCLUDE
+
+    rule Float(S:#String) => String2Float(S)
 
     rule
         <k> ConstantString(S:#String)
@@ -1422,6 +1488,7 @@ module LLVM-SEMANTICS is
     including LLVM-VARIADICS
     including LLVM-DECLARATIONS
     including LLVM-ARITHMETIC
+    including LLVM-FLOATING-POINT-ARITHMETIC
     including LLVM-GEP
     including LLVM-MEMORY
     including LLVM-COMPARISONS

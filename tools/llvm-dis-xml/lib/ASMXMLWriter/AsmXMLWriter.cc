@@ -771,7 +771,11 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
                               CFP->getValueAPF().convertToFloat();
       SmallString<128> StrVal;
       raw_svector_ostream(StrVal) << Val;
+
+      // TODO bypassing checks below
+      Out << "<Float>";
       RawWriter::write(StrVal.str(), Out);
+      Out << "</Float>\n";
       return;
 
       // Check to make sure that the stringized number is not some string like

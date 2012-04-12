@@ -1363,6 +1363,9 @@ module LLVM-SYSCALLS is
     rule <k> 'sys-rt-sigprocmask(_) => 0 ...</k>
     rule <k> 'sys-gettid(_) => 0 ...</k>
 
+    // TODO krun should provide this value
+    rule <k> 'sys-getpid(_) => 10000 ...</k>
+
     syntax K ::= printString "(" K ")" [strict]
     syntax K ::= readString "(" K "," K ")"
     syntax K ::= readString' "(" K "," K "," K ")"

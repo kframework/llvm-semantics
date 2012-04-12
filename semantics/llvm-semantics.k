@@ -281,6 +281,9 @@ module LLVM-SYSCALLS-SYNTAX is
     syntax KLabel ::= 'sys-exit-group
     define syscallHandler(248) => 'sys-exit-group
 
+    syntax KLabel ::= 'sys-tgkill
+    define syscallHandler(268) => 'sys-tgkill
+
 end module
 
 /* this module gets included by all later modules */

@@ -1,12 +1,24 @@
-- varargs (how to pass them, etc)
 - floats
+    - primitive operations working
+    - unable to bitcast floats
+- varargs
+    - `printf` is working
+    - submit vararg patch to clang
+- aliases
+    - We might be done with this.
+- standard library
+    - create repo for modified musl
+    - add back printf float support
+- memory
+    - simplify memory model (symByte idea)
+    - handle arbitrary-width integers (iN)
+        - `gcc-torture/20001111-1.opt.ll`: stuck on sizeof i1
 - vectors
 - modifiers on everything
 - pass by value
 - structs constants
 - looks like Typedef can have more than two things in it (strct-pack-1.ll)
 - fixing printing 0x values (regstack-1.ll)
-- aliases
 - numbered types
 - unimplimented stuff in parser
 - consider renaming types

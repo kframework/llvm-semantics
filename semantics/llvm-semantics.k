@@ -431,6 +431,7 @@ module LLVM-BRANCHING is
 end module
 
 module LLVM-PHI is
+	// TODO possibly preprocess PHI
     including LLVM-INCLUDE
     
     rule

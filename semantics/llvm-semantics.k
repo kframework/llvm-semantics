@@ -25,26 +25,45 @@ module LLVM-CONFIGURATION is
     configuration
         <T multiplicity="?">
             <k color="LightGreen"> $PGM:K ~> initGlobals ~> callMain </k>
-            <callStack> .List </callStack>
+            <callStack color="Goldenrod"> .List </callStack>
             <nextLoc color="gray"> sym(0) </nextLoc>
             @latex("\\kBR")
-            <control>
-                <currBlock color="WildStrawberry"> Name("Initial") </currBlock>
-                <prevBlock color="WildStrawberry"> Name("Initial") </prevBlock>
-                <currModule color="WildStrawberry"> Name("Initial") </currModule>
-                <currFunction color="WildStrawberry"> Name("Initial") </currFunction>
+            <memory color="teal">
+                <object multiplicity="*" color="LightSkyBlue">
+                    <basePtr color="orange"> -1 </basePtr>
+                    <type> .K </type>
+                    <size> 0 </size>
+                    <bytes> .Map </bytes>
+                </object>
+            </memory>
+            @latex("\\kBR")
+            <control color="LightGoldenrod">
+                <currBlock color="Orchid"> Name("Initial") </currBlock>
+                <prevBlock color="Orchid"> Name("Initial") </prevBlock>
+                <currModule color="Orchid"> Name("Initial") </currModule>
+                <currFunction color="Orchid"> Name("Initial") </currFunction>
+                @latex("\\kBR")
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
                 // TODO: this should eventually be a Set
-                <currentModifiers color="WildStrawberry"> .List </currentModifiers>
+                <currentModifiers color="Orchid"> .List </currentModifiers>
                 <localMemory> .List </localMemory>
             </control>
+            @latex("\\kBR")
+            // auxiliary cells:
+            <gepInfo multiplicity="?" color="red">
+                <gepType> .K </gepType>
+                <gepResult> 0 </gepResult>
+                <gepIndices> .K </gepIndices>
+            </gepInfo>
+            <output stream="stdout" color="DodgerBlue"> .List </output>
             @latex("\\kBR")
             <modules color="teal">
                 <module multiplicity="*" color="LightSkyBlue">
                     <moduleName color="orange"> Name("") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
+                    @latex("\\kBR")
                     <typedefs> .Map </typedefs>
                     <savedGlobals> .K </savedGlobals>
                     <globalRegisters color="teal"> .Map </globalRegisters>
@@ -54,6 +73,7 @@ module LLVM-CONFIGURATION is
                             <functionName color="orange"> Name("") </functionName>
                             <returnType> .K </returnType>
                             <formalParameters> .K </formalParameters>
+                            @latex("\\kBR")
                             <basicBlocks> .Map </basicBlocks>
                             <initialBasicBlock> .K </initialBasicBlock>
                         </function>
@@ -68,25 +88,9 @@ module LLVM-CONFIGURATION is
                 </module>
             </modules>
             @latex("\\kBR")
-            <memory color="teal">
-                <object multiplicity="*" color="LightSkyBlue">
-                    <basePtr color="orange"> -1 </basePtr>
-                    <type> .K </type>
-                    <size> 0 </size>
-                    <bytes> .Map </bytes>
-                </object>
-            </memory>
-            @latex("\\kBR")
-            // auxiliary cells:
-            <gepInfo multiplicity="?">
-                <gepType> .K </gepType>
-                <gepResult> 0 </gepResult>
-                <gepIndices> .K </gepIndices>
-            </gepInfo>
-            <output stream="stdout"> .List </output>
         </T>
         @latex("\\kBR")
-        <result multiplicity="?">
+        <result multiplicity="?" color="DodgerBlue">
             <returnValue> -1 </returnValue>
         </result>
 

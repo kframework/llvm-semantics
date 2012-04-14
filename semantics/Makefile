@@ -12,13 +12,13 @@ testq: llvm-compiled.maude $(CURRTEST)
 	$(K_BASE)/core/krun --output-mode=none $(CURRTEST)
 
 pdf: llvm.k llvm-syntax.k llvm-semantics.k
-	$(K_BASE)/core/kompile -pdf $(PDF_MODULES) llvm
+	$(K_BASE)/core/kompile -topmatter latex/topmatter.tex -pdf $(PDF_MODULES) llvm
 
 png: llvm.k llvm-syntax.k llvm-semantics.k
-	$(K_BASE)/core/kompile -png $(PDF_MODULES) llvm
+	$(K_BASE)/core/kompile -topmatter latex/topmatter.tex -png $(PDF_MODULES) llvm
 
 latex: llvm.k llvm-syntax.k llvm-semantics.k
-	$(K_BASE)/core/kompile -latex $(PDF_MODULES) llvm
+	$(K_BASE)/core/kompile -topmatter latex/topmatter.tex -latex $(PDF_MODULES) llvm
 
 linked:
 	@../dist/bin/llvm-semantics-link ../dist/share/libc.ll $(CURRTEST) -o -

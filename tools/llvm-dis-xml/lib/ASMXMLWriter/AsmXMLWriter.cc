@@ -1148,9 +1148,9 @@ void AsmXMLWriter::printType(Type *Ty) {
       Out << "<X86MMXType/>";
       break;
     case Type::IntegerTyID:
-      Out << "<IntegerType><Width>";
+      Out << "<IntegerType>";
       RawWriter::write(cast<IntegerType>(Ty)->getBitWidth(), Out);
-      Out << "</Width></IntegerType>";
+      Out << "</IntegerType>";
       break;
 
     case Type::StructTyID: {

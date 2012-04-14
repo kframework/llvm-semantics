@@ -34,7 +34,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `FunctionType "(" K "," K ")" [strict hybrid] // return type, argument types
     syntax LLVMValue ::= `VarargType
     syntax LLVMValue ::= `IntegerType "(" K ")"
-    syntax LLVM ::= `Width "(" #Nat ")"
+    // syntax LLVM ::= `Width "(" #Nat ")"
     syntax LLVM ::= `LabelType
     syntax LLVMValue ::= `VoidType
     syntax LLVMValue ::= `FloatType

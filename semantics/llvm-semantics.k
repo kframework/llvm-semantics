@@ -121,10 +121,10 @@ module LLVM-HELPERS is
     syntax #Nat ::= wvalist "(" List "," K ")"
 
     declare byteType : -> K
-    define byteType => IntegerType(Width(numBitsPerByte))
+    define byteType => IntegerType(numBitsPerByte)
 
     declare i : K -> K [latex "i({#1})"]
-    define i(N:#Nat) => IntegerType(Width(N))
+    define i(N:#Nat) => IntegerType(N)
 
     declare sizeofInBits : K -> #Nat
 
@@ -208,7 +208,7 @@ module LLVM-HELPERS is
         [anywhere]
 
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
-    rule isIntegerType(IntegerType(Width(_))) => true  [anywhere]
+    rule isIntegerType(IntegerType(_)) => true  [anywhere]
     rule isIntegerType(KLabel:KLabel(_)) => false
         when KLabel =/=Bool 'IntegerType
         [anywhere]
@@ -226,7 +226,7 @@ module LLVM-HELPERS is
     define sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
     define sizeofInBits(ArrayType(Type:KResult, Len:#Nat)) => sizeofInBits(Type) *Nat Len
 
-    define sizeofInBits(IntegerType(Width(N:#Nat))) => N
+    define sizeofInBits(IntegerType(N:#Nat)) => N
     define sizeofInBits(FloatType) => 32
     define sizeofInBits(DoubleType) => 64
     // TODO listK should be Fields (bug in K)
@@ -902,7 +902,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
     syntax K ::= splitStructBytes' "(" K "," List{K} "," List{K} ")" // value, field types, accumulator
 
 
-    // Type(IntegerType(Width(32)))
+    // Type(IntegerType(32))
     // should generate list with LSBytes first
     rule
         <k> splitBytes(V:KResult, Type:KResult)

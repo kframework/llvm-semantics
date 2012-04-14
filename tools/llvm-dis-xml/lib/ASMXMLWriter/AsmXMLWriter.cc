@@ -869,7 +869,8 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
     return;
   }
 
-  if (const BlockAddress *BA = dyn_cast<BlockAddress>(CV)) {
+  //if (const BlockAddress *BA = dyn_cast<BlockAddress>(CV)) {
+  if (dyn_cast<BlockAddress>(CV)) {
     assert (0 && "Not handling BlockAddress");
     
     // Out << "blockaddress(";
@@ -932,7 +933,8 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
     return;
   }
 
-  if (const ConstantVector *CP = dyn_cast<ConstantVector>(CV)) {
+  // if (const ConstantVector *CP = dyn_cast<ConstantVector>(CV)) {
+  if (dyn_cast<ConstantVector>(CV)) {
     assert (0 && "Not handling ConstantVector");
     
     // Type *ETy = CP->getType()->getElementType();
@@ -1013,7 +1015,8 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
   XMLTagOutputHelper helper("Name", Out);
 
 
-  if (const InlineAsm *IA = dyn_cast<InlineAsm>(V)) {
+  // if (const InlineAsm *IA = dyn_cast<InlineAsm>(V)) {
+  if (dyn_cast<InlineAsm>(V)) {
     assert(0 && "not handling raw assembly");
     // Out << "asm ";
     // if (IA->hasSideEffects())
@@ -1028,7 +1031,8 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
     // return;
   }
 
-  if (const MDNode *N = dyn_cast<MDNode>(V)) {
+  // if (const MDNode *N = dyn_cast<MDNode>(V)) {
+  if (dyn_cast<MDNode>(V)) {
     assert(0 && "Not handling MDNode");
     // if (N->isFunctionLocal()) {
       // // Print metadata inline, not via slot reference number.
@@ -1050,7 +1054,8 @@ void AsmXMLWriter::printValue(const Value *V, const Module *Context) {
     // return;
   }
 
-  if (const MDString *MDS = dyn_cast<MDString>(V)) {
+  // if (const MDString *MDS = dyn_cast<MDString>(V)) {
+  if (dyn_cast<MDString>(V)) {
     assert(0 && "Not handling MDString");
     // Out << "!\"";
     // PrintEscapedString(MDS->getString(), Out);

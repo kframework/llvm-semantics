@@ -13,6 +13,7 @@
     - simplify memory model (symByte idea)
     - handle arbitrary-width integers (iN)
         - `gcc-torture/20001111-1.opt.ll`: stuck on sizeof i1
+- alignment
 - vectors
 - modifiers on everything
 - pass by value
@@ -22,5 +23,4 @@
 - numbered types
 - unimplimented stuff in parser
 - consider renaming types
-- blocks not being set correctly
-- maybe comparisons at top of K
+

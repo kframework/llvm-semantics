@@ -23,4 +23,4 @@
 - numbered types
 - unimplimented stuff in parser
 - consider renaming types
-
+- hudson "histogram" of top of K cell to identify problems

@@ -26,7 +26,8 @@ module LLVM-CONFIGURATION is
         <T multiplicity="?">
             <k color="LightGreen"> $PGM:K ~> initGlobals ~> callMain </k>
             <callStack color="Goldenrod"> .List </callStack>
-            <nextLoc color="gray"> sym(0) </nextLoc>
+            <nextLoc color="gray"> sym(1) </nextLoc>
+            <brk> sym(0) +Nat 0 </brk>
             @latex("\\kBR")
             <memory color="teal">
                 <object multiplicity="*" color="LightSkyBlue">
@@ -279,6 +280,9 @@ module LLVM-SYSCALLS-SYNTAX is
 
     syntax KLabel ::= 'sys-getpid
     define syscallHandler(20) => 'sys-getpid
+
+    syntax KLabel ::= 'sys-brk
+    define syscallHandler(45) => 'sys-brk
 
     syntax KLabel ::= 'sys-ioctl
     define syscallHandler(54) => 'sys-ioctl
@@ -1436,6 +1440,12 @@ module LLVM-SYSCALLS is
     rule <k> 'sys-ioctl(_) => 0 ...</k>
     rule <k> 'sys-rt-sigprocmask(_) => 0 ...</k>
     rule <k> 'sys-gettid(_) => 0 ...</k>
+
+    rule
+        <k> 'sys-brk(ptrToInt(_,Loc:#Nat),,_) => Brk ...</k>
+        <brk> Brk:#Nat </brk>
+        when Loc ==Bool Null
+
 
     // TODO krun should provide this value
     rule <k> 'sys-getpid(_) => 10000 ...</k>

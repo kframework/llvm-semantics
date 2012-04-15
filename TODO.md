@@ -14,6 +14,9 @@
     - simplify memory model (symByte idea) (c-semantics-tests/unitTests/moreStructs.ll)
     - handle arbitrary-width integers (iN)
         - `gcc-torture/20001111-1.opt.ll`: stuck on sizeof i1
+- interesting errors
+	- c-semantics-tests/cil/test7.ll (prints 7 instead of -7)
+	- c-semantics-tests/unitTests/bitfields.ll (hits bug cases)
 - alignment
 - vectors
 - modifiers on everything

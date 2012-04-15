@@ -1,6 +1,7 @@
 - floats
     - primitive operations working
     - unable to bitcast floats
+	- some floats still not printed (lcc-tests.c-semantics-tests/lcc-tests/cvt.ll)
 - varargs
     - `printf` is working
     - submit vararg patch to clang
@@ -10,7 +11,7 @@
     - create repo for modified musl
     - add back printf float support
 - memory
-    - simplify memory model (symByte idea)
+    - simplify memory model (symByte idea) (c-semantics-tests/unitTests/moreStructs.ll)
     - handle arbitrary-width integers (iN)
         - `gcc-torture/20001111-1.opt.ll`: stuck on sizeof i1
 - alignment

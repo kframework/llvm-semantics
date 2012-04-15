@@ -6,7 +6,7 @@ llvm-compiled.maude: llvm.k llvm-syntax.k llvm-semantics.k
 	$(K_BASE)/core/kompile -u llvm
 
 test: llvm-compiled.maude $(CURRTEST)
-	$(K_BASE)/core/krun $(CURRTEST)
+	@$(K_BASE)/core/krun $(CURRTEST)
 
 testq: llvm-compiled.maude $(CURRTEST)
 	$(K_BASE)/core/krun --output-mode=none $(CURRTEST)

@@ -29,15 +29,6 @@ module LLVM-CONFIGURATION is
             <nextLoc color="gray"> sym(1) </nextLoc>
             <brk> sym(0) +Nat 0 </brk>
             @latex("\\kBR")
-            <memory color="teal">
-                <object multiplicity="*" color="LightSkyBlue">
-                    <basePtr color="orange"> -1 </basePtr>
-                    <type> .K </type>
-                    <size> 0 </size>
-                    <bytes> .Map </bytes>
-                </object>
-            </memory>
-            @latex("\\kBR")
             <control color="LightGoldenrod">
                 <currBlock color="Orchid"> Name("Initial") </currBlock>
                 <prevBlock color="Orchid"> Name("Initial") </prevBlock>
@@ -51,6 +42,14 @@ module LLVM-CONFIGURATION is
                 <localMemory> .List </localMemory>
             </control>
             @latex("\\kBR")
+            <memory color="teal">
+                <object multiplicity="*" color="LightSkyBlue">
+                    <basePtr color="orange"> -1 </basePtr>
+                    <type> .K </type>
+                    <size> 0 </size>
+                    <bytes> .Map </bytes>
+                </object>
+            </memory>
             // auxiliary cells:
             <gepInfo multiplicity="?" color="red">
                 <gepType> .K </gepType>

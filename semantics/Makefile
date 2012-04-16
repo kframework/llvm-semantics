@@ -1,6 +1,6 @@
 CURRTEST ?= ../tests/gcc-torture/20000113-1.ll
 IGNORED_MODULES = "LLVM-STANDARD-LIBRARY-PREPROCESS\|LLVM-SYSCALLS-SYNTAX\|LLVM-SYSCALLS-PREPROCESS\|LLVM-CLEAN-TREE\|LLVM-HELPERS\|LLVM-START-AND-STOP\|LLVM-HELPERS-SPLIT-BYTES\|LLVM-HELPERS-JOIN-BYTES\|LLVM-SEMANTICS"
-PDF_MODULES = `sed -n 's/module \(.*\) is/\1/p' llvm-semantics.k | grep -v $(IGNORED_MODULES)`
+PDF_MODULES = LLVM-SYNTAX `sed -n 's/module \(.*\) is/\1/p' llvm-semantics.k | grep -v $(IGNORED_MODULES)`
 
 llvm-compiled.maude: llvm.k llvm-syntax.k llvm-semantics.k
 	$(K_BASE)/core/kompile -u llvm

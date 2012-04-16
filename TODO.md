@@ -1,7 +1,8 @@
 - floats
     - primitive operations working
     - unable to bitcast floats
-	- some floats still not printed (lcc-tests.c-semantics-tests/lcc-tests/cvt.ll)
+	- some floats still not printed (lcc-tests.c-semantics-tests/lcc-tests/cvt.ll, regstack-1.ll)
+	- positive zero needs to be a #float (c-semantics-tests/cil/test11.ll)
 - varargs
     - `printf` is working
     - submit vararg patch to clang
@@ -17,14 +18,32 @@
 - interesting errors
 	- c-semantics-tests/cil/test7.ll (prints 7 instead of -7)
 	- c-semantics-tests/unitTests/bitfields.ll (hits bug cases)
+- rely on argc to be nonzero (c-semantics-tests/cil/test15.ll)
+- unimplimented stuff in parser
+	- Not handling non-enumerated structTyIds
+	- Not handling BlockAddress
+	- Not handling ConstantVector
+	- <placeholder or erroneous Constant>
+	- Vector TypeId unimplemented
+	- visitIndirectBr Unimplemented 
+	- visitInvoke Unimplemented
+	- visitUnwind Unimplemented
+	- visitResume Unimplemented
+	- visitFence Unimplemented
+	- visitAtomicCmpXchg Unimplemented
+	- visitAtomicRMW Unimplemented
+	- visitExtractElement Unimplemented
+	- visitInsertElement Unimplemented
+	- visitShuffleVector Unimplemented
+	- visitInsertValue Unimplemented
+	- visitLandingPad Unimplemented 
+	- visitUserOp1 Unimplemented
+	- visitUserOp2 Unimplemented
 - alignment
 - vectors
 - modifiers on everything
 - pass by value
 - structs constants
 - looks like Typedef can have more than two things in it (strct-pack-1.ll)
-- fixing printing 0x values (regstack-1.ll)
-- numbered types
-- unimplimented stuff in parser
 - consider renaming types
 - hudson "histogram" of top of K cell to identify problems

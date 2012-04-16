@@ -778,36 +778,36 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
       Out << "</Float>\n";
       return;
 
-      // Check to make sure that the stringized number is not some string like
-      // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
-      // that the string matches the "[-+]?[0-9]" regex.
-      //
-      if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
-          ((StrVal[0] == '-' || StrVal[0] == '+') &&
-           (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
-        // Reparse stringized version!
-        if (atof(StrVal.c_str()) == Val) {
-          RawWriter::write(StrVal.str(), Out);
-          return;
-        }
-      }
-      // Otherwise we could not reparse it to exactly the same value, so we must
-      // output the string in hexadecimal format!  Note that loading and storing
-      // floating point types changes the bits of NaNs on some hosts, notably
-      // x86, so we must not use these types.
-      assert(0 && "Not handling hexadecimal floating values");
-      assert(sizeof(double) == sizeof(uint64_t) &&
-             "assuming that double is 64 bits!");
-      char Buffer[40];
-      APFloat apf = CFP->getValueAPF();
-      // Floats are represented in ASCII IR as double, convert.
-      if (!isDouble)
-        apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
-                          &ignored);
-      Out << "0x" <<
-              utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
-                            Buffer+40);
-      return;
+      // // Check to make sure that the stringized number is not some string like
+      // // "Inf" or NaN, that atof will accept, but the lexer will not.  Check
+      // // that the string matches the "[-+]?[0-9]" regex.
+      // //
+      // if ((StrVal[0] >= '0' && StrVal[0] <= '9') ||
+          // ((StrVal[0] == '-' || StrVal[0] == '+') &&
+           // (StrVal[1] >= '0' && StrVal[1] <= '9'))) {
+        // // Reparse stringized version!
+        // if (atof(StrVal.c_str()) == Val) {
+          // RawWriter::write(StrVal.str(), Out);
+          // return;
+        // }
+      // }
+      // // Otherwise we could not reparse it to exactly the same value, so we must
+      // // output the string in hexadecimal format!  Note that loading and storing
+      // // floating point types changes the bits of NaNs on some hosts, notably
+      // // x86, so we must not use these types.
+      // assert(0 && "Not handling hexadecimal floating values");
+      // assert(sizeof(double) == sizeof(uint64_t) &&
+             // "assuming that double is 64 bits!");
+      // char Buffer[40];
+      // APFloat apf = CFP->getValueAPF();
+      // // Floats are represented in ASCII IR as double, convert.
+      // if (!isDouble)
+        // apf.convert(APFloat::IEEEdouble, APFloat::rmNearestTiesToEven,
+                          // &ignored);
+      // Out << "0x" <<
+              // utohex_buffer(uint64_t(apf.bitcastToAPInt().getZExtValue()),
+                            // Buffer+40);
+      // return;
     }
     assert(0 && "Not handling other floating values");
 

@@ -323,6 +323,7 @@ module LLVM-CLEAN-TREE is
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
     rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]
     rule Typedefs(L:List{K}) => List{K}ToK(L)         [anywhere]
+	rule <k> Aliases(L:List{K}) => List{K}ToK(L) ...</k>
     //rule Body(L:List{K}) => List{K}ToK(L)
     rule Instructions(L:List{K}) => List{K}ToK(L)     [anywhere]
     rule ModuleID(S:#String) => Name(S)               [anywhere]
@@ -1485,6 +1486,20 @@ module LLVM-SYSCALLS is
 
 end module
 
+module LLVM-INTERNAL-TESTING-FUNCTIONS is
+	// do not include this module when printing
+	// TODO add to makefile's grep to look for line like above when excluding modules
+    including LLVM-INCLUDE
+
+    rule
+        <k> Call(_, Callee(funptr(Name(S:#String)), listK(I:#Int)))
+            => .
+        ...</k>
+		<output>... . => ListItem(Int2String(I) +String "\n") </output>
+        when substrString(S, 0, 14) ==Bool "@__fsl.print.i"
+		andBool (I >=Int 0 orBool I <=Int 0) // real integer
+end module
+
 module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
@@ -1512,6 +1527,8 @@ module LLVM-SEMANTICS is
     including LLVM-STANDARD-LIBRARY
     including LLVM-SYSCALLS-PREPROCESS
     including LLVM-SYSCALLS
+	
+	including LLVM-INTERNAL-TESTING-FUNCTIONS
 end module
 
 ///////////////////////

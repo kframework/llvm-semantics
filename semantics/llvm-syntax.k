@@ -21,6 +21,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax LLVM ::= `Initializer "(" K "," K ")" // type, value
 
+	syntax LLVM ::= `Aliases "(" List{K} ")"
     syntax LLVM ::= `Alias "(" K "," K ")"
 
     //@ Types

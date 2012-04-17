@@ -139,7 +139,7 @@ class AsmXMLWriter {
   void visitOr       (const Operator &I) { printOperatorBody(I); }
   void visitXor      (const Operator &I) { printOperatorBody(I); }
   void visitTrunc    (const Operator &I) { printOperatorBody(I); }
-  void visitZExt     (const Operator &I) { printOperatorBody(I); }
+  // void visitZExt     (const Operator &I) { printOperatorBody(I); }
   void visitSExt     (const Operator &I) { printOperatorBody(I); }
   void visitFPToUI   (const Operator &I) { printOperatorBody(I); }
   void visitFPToSI   (const Operator &I) { printOperatorBody(I); }
@@ -153,6 +153,12 @@ class AsmXMLWriter {
   void visitVAArg    (const Operator &I) { printOperatorBody(I); }
   void visitExtractValue (const Operator &I) { printOperatorBody(I); }
 
+  void visitZExt     (const Operator &I) {
+    //printType(I.getType());
+	printType(I.getOperand(0)->getType());
+    printOperandList(I.op_begin(), I.op_end());
+  }
+  
   // same as above, but don't print the type
   void visitUnreachable(const Operator &I) { printOperatorBody(I, false); }
   // void visitSelect(const Operator &I)      { printOperatorBody(I, false); }

@@ -1239,7 +1239,6 @@ module LLVM-CONVERSIONS is
     // TODO only handling scalars
     rule
         <k> ZExt(Type:KResult, I:#Int) => unsigned(Type, I) ...</k>
-
     // TODO only handling scalars
     rule
         <k> SExt(Type:KResult, I:#Int) => I ...</k>

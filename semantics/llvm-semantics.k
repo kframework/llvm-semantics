@@ -766,7 +766,6 @@ module LLVM-ARITHMETIC is
             => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))
         ...</k>
         when signed(Type, I2) =/=Bool 0 // catch undefined
-    // TODO should probably wrap this with signed
     rule
         <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
             => signed(Type, (unsigned(Type, I1) /Int unsigned(Type, I2)))
@@ -1047,13 +1046,13 @@ end module
 module LLVM-HELPERS-JOIN-BYTES is
     including LLVM-INCLUDE
 
-    syntax K ::= joinIntBytes "(" K "," K "," K ")"
+    syntax K ::= joinIntBytes "(" K "," K "," K "," K ")"
     syntax K ::= joinFloatBytes "(" K "," K "," K ")"
     syntax K ::= joinPointerBytes "(" K "," K "," K ")"
 
     rule
         <k> joinBytes(V:KResult, Type:KResult)
-            => joinIntBytes(V:KResult, sizeof(Type), 0)
+            => joinIntBytes(V:KResult, sizeof(Type), 0, Type)
         ...</k>
         when isIntegerType(Type)
 
@@ -1070,17 +1069,17 @@ module LLVM-HELPERS-JOIN-BYTES is
         when isPointerType(Type)
 
     rule
-        <k> joinIntBytes(listK((L:List{K},, N:#Nat)), sNat(Len:#Nat), N':#Nat)
-            => joinIntBytes(listK(L:List{K}), Len:#Nat, RESULT)
+        <k> joinIntBytes(listK((L:List{K},, N:#Nat)), sNat(Len:#Nat), N':#Nat, Type:KResult)
+            => joinIntBytes(listK(L:List{K}), Len:#Nat, RESULT, Type:KResult)
         ...</k>
         where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat N:#Nat
 
-    rule joinIntBytes(listK(.List{K}), 0, N:#Nat)
-        => N:#Nat
+    rule joinIntBytes(listK(.List{K}), 0, N:#Nat, Type:KResult)
+        => signed(Type, N:#Nat)
         when N:#Nat >=Int 0
         [anywhere]
 
-    rule joinIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat))
+    rule joinIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat), Type:KResult)
         => wvalist(VAList:List, Loc:#Nat)
         [anywhere]
 

@@ -288,10 +288,11 @@ void AsmXMLWriter::visit(const Module &M) {
   
   // Output all aliases.
   // if (!M->alias_empty()) Out << "\n";
+  Out << "<Aliases><List>";
   for (Module::const_alias_iterator I = M.alias_begin(), E = M.alias_end(); I != E; ++I) {
     printAlias(I);
   }
-
+  Out << "</List></Aliases>";
     // // Output named metadata.
   // if (!M->named_metadata_empty()) Out << '\n';
  
@@ -765,7 +766,7 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
       // make sure that we only output it in exponential format if we can parse
       // the value back and get the same value.
       //
-      bool ignored;
+      // bool ignored;
       bool isDouble = &CFP->getValueAPF().getSemantics()==&APFloat::IEEEdouble;
       double Val = isDouble ? CFP->getValueAPF().convertToDouble() :
                               CFP->getValueAPF().convertToFloat();

@@ -1,4 +1,4 @@
-TEST_DIRECTORIES = $(shell find c-semantics-tests -type d)
+TEST_DIRECTORIES = handwritten $(shell find c-semantics-tests -type d)
 TEST_TARGETS = $(foreach dir,  $(TEST_DIRECTORIES), $(dir)/results/krun-results.xml)
 
 # regression tests

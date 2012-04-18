@@ -342,6 +342,23 @@ module LLVM-CLEAN-TREE is
     rule ICmp(Predicate("sge"), TyK:K, K1:K, K2:K) => SGE(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K)
+	
+	rule FCmp(Predicate("false"), _, _, _) => 1
+	rule FCmp(Predicate("oeq"), TyK:K, K1:K, K2:K) => OEQ(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ogt"), TyK:K, K1:K, K2:K) => OGT(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("oge"), TyK:K, K1:K, K2:K) => OGE(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("olt"), TyK:K, K1:K, K2:K) => OLT(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ole"), TyK:K, K1:K, K2:K) => OLE(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("one"), TyK:K, K1:K, K2:K) => ONE(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ono"), TyK:K, K1:K, K2:K) => ONO(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ueq"), TyK:K, K1:K, K2:K) => UEQ(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("ule"), TyK:K, K1:K, K2:K) => ULE(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("une"), TyK:K, K1:K, K2:K) => UNE(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("uno"), TyK:K, K1:K, K2:K) => UNO(TyK:K, K1:K, K2:K)
+	rule FCmp(Predicate("true"), _, _, _) => 1
 
     rule
         <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
@@ -1222,6 +1239,36 @@ module LLVM-COMPARISONS is
     rule SGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
     rule SLT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) <Int signed(Type, I2:#Int))
     rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
+	
+	// TODO not handling QNAN
+	rule OEQ(Type:KResult, F1:#Float, F2:#Float) 
+		=> boolToInt(F1:#Float ==Bool F2:#Float)
+	rule OGT(Type:KResult, F1:#Float, F2:#Float) 
+		=> boolToInt(F1:#Float >Float F2:#Float)	
+	rule OGE(Type:KResult, F1:#Float, F2:#Float)
+		=> boolToInt(F1:#Float >=Float F2:#Float)
+	rule OLT(Type:KResult, F1:#Float, F2:#Float)
+		=> boolToInt(F1:#Float <Float F2:#Float)
+	rule OLE(Type:KResult, F1:#Float, F2:#Float)
+		=> boolToInt(F1:#Float <=Float F2:#Float)
+	rule ONE(Type:KResult, F1:#Float, F2:#Float) 
+		=> boolToInt(F1:#Float =/=Bool F2:#Float)
+	// rule ORD(Type:KResult, F1:#Float, F2:#Float) 
+		// => // if both are not QNAN
+	rule UEQ(Type:KResult, F1:#Float, F2:#Float) 
+		=> boolToInt(F1:#Float ==Bool F2:#Float)
+	rule UGT(Type:KResult, F1:#Float, F2:#Float) 
+		=> boolToInt(F1:#Float >Float F2:#Float)	
+	rule UGE(Type:KResult, F1:#Float, F2:#Float)
+		=> boolToInt(F1:#Float >=Float F2:#Float)
+	rule ULT(Type:KResult, F1:#Float, F2:#Float)
+		=> boolToInt(F1:#Float <Float F2:#Float)
+	rule ULE(Type:KResult, F1:#Float, F2:#Float)
+		=> boolToInt(F1:#Float <=Float F2:#Float)
+	rule UNE(Type:KResult, F1:#Float, F2:#Float) 
+		=> boolToInt(F1:#Float =/=Bool F2:#Float)
+	// rule UNO(Type:KResult, F1:#Float, F2:#Float) 
+		// => if either is QNAN
 
     syntax K ::= boolToInt "(" K ")"
     rule boolToInt(true) => 1

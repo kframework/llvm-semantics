@@ -213,8 +213,13 @@ module LLVM-HELPERS is
         when KLabel =/=Bool 'IntegerType
         [anywhere]
     syntax #Bool ::= isFloatType "(" K ")" // predicate
-    rule isFloatType(FloatType) => true
+    rule isFloatType(FloatType) => true [anywhere]
     rule isFloatType(DoubleType) => true [anywhere]
+    rule isFloatType(X86FP80Type) => true [anywhere]
+    rule isFloatType(FP128Type) => true [anywhere]
+    rule isFloatType(PPCFP128Type) => true [anywhere]
+    rule isFloatType(X86MMXType) => true [anywhere]
+
     syntax #Bool ::= isPointerType "(" K ")" // predicate
     rule isPointerType(PointerType(_)) => true  [anywhere]
     syntax #Bool ::= isArrayType "(" K ")" // predicate

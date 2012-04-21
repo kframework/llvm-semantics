@@ -234,6 +234,7 @@ module LLVM-HELPERS is
     define sizeofInBits(IntegerType(N:#Nat)) => N
     define sizeofInBits(FloatType) => 32
     define sizeofInBits(DoubleType) => 64
+    define sizeofInBits(X86FP80Type) => 80
     // TODO listK should be Fields (bug in K)
     define sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
       => sizeofInBits(Type) +Nat sizeofInBits(StructType(listK(L)))

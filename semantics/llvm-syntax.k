@@ -40,10 +40,10 @@ module LLVM-SYNTAX is
     syntax LLVMValue ::= `VoidType
     syntax LLVMValue ::= `FloatType
     syntax LLVMValue ::= `DoubleType
-    syntax LLVM ::= `X86FP80Type
-    syntax LLVM ::= `FP128Type
-    syntax LLVM ::= `PPCFP128Type
-    syntax LLVM ::= `X86MMXType
+    syntax LLVMValue ::= `X86FP80Type
+    syntax LLVMValue ::= `FP128Type
+    syntax LLVMValue ::= `PPCFP128Type
+    syntax LLVMValue ::= `X86MMXType
 
     syntax LLVM ::= `Fields "(" List{K} ")"
     context Fields((_:List{K},,HOLE,,_:List{K}))

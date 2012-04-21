@@ -765,6 +765,13 @@ void AsmXMLWriter::printConstant(const Constant *CV, const Module *Context) {
         return;
     }
 
+    SmallString<128> Str;
+    f.toString(Str, 0, 0);
+    Out << "<Float>";
+    RawWriter::write(Str.str(), Out);
+    Out << "</Float>\n";
+    return;
+
     if (&CFP->getValueAPF().getSemantics() == &APFloat::IEEEdouble ||
         &CFP->getValueAPF().getSemantics() == &APFloat::IEEEsingle) {
       // We would like to output the FP constant value in exponential notation,

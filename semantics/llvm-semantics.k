@@ -1357,6 +1357,8 @@ module LLVM-LITERALS is
     including LLVM-INCLUDE
 
     rule Float(S:#String) => String2Float(S)
+        when String2Float(S) >=Float String2Float(S)
+        // TODO when 'isFloat(String2Float(S))
 
     rule
         <k> ConstantString(S:#String)

@@ -1335,7 +1335,14 @@ module LLVM-CONVERSIONS is
         [anywhere]
 
     rule
-        <k> FPToSI(Type:KResult, F:#Float) => signed(Type, Float2Int(F)) ...</k>
+        <k> FPToSI(Type:KResult, F:#Float)
+            => signed(Type, Float2Int(F))
+        ...</k>
+
+    rule
+        <k> FPToUI(Type:KResult, F:#Float)
+            => unsigned(Type, Float2Int(F))
+        ...</k>
 
 end module
 

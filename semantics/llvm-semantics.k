@@ -142,7 +142,7 @@ module LLVM-HELPERS is
 
     declare sizeofInBits : K -> #Nat
 
-    syntax #Nat ::= intToPtr "(" K "," K ")"
+    syntax Loc ::= intToPtr "(" K "," K ")"
     syntax #Int ::= ptrToInt "(" K "," K ")"
     syntax K ::= read "(" K "," K ")" [strict(1)]
     syntax K ::= write "(" K "," K "," K ")" [strict] // type, value, location

@@ -3,9 +3,10 @@ module LLVM-SPECIAL is
 
     syntax KResult ::= #Int | #String | #Float
     syntax KResult ::= arrayValue "(" List{K} ")"
+	syntax KResult ::= Loc
 
-    syntax #Nat ::= sym "(" #Int ")"    // TODO [semantic]
-    syntax #Nat ::= funptr "(" K ")"
+    syntax Loc ::= loc "(" #Int "," #Int ")"    // TODO [semantic]
+    syntax Loc ::= funptr "(" K ")"
     syntax #Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
     syntax #Nat ::= floatByte "(" K "," K "," K ")" // float, type, byte number
 
@@ -26,8 +27,8 @@ module LLVM-CONFIGURATION is
         <T multiplicity="?">
             <k color="LightGreen"> $PGM:K ~> initGlobals ~> callMain </k>
             <callStack color="Goldenrod"> .List </callStack>
-            <nextLoc color="gray"> sym(1) </nextLoc>
-            <brk> sym(0) +Nat 0 </brk>
+            <nextLoc color="gray"> loc(1, 0) </nextLoc>
+            <brk> loc(0, 0) </brk>
             @latex("\\kBR")
             <control color="LightGoldenrod">
                 <currBlock color="Orchid"> Name("Initial") </currBlock>
@@ -113,8 +114,21 @@ module LLVM-HELPERS is
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule
-        Null => sym(-1) +Nat 0 [anywhere]
-        
+        Null => loc(-1, 0) [anywhere]
+		
+	declare base : Loc -> #Int
+	define
+		base(loc(Base:#Int, _)) => Base:#Int
+	declare offset : Loc -> #Int
+	define
+		offset(loc(_, Offset:#Int)) => Offset:#Int
+	declare _+_ : Loc #Int -> Loc
+	// TODO not checking for null
+	define
+		loc(Base:#Int, Offset:#Int) + Offset':#Int
+			=> loc(Base:#Int, Offset:#Int +Int Offset':#Int)
+			
+		
     syntax K ::= splitBytes "(" K "," K ")" // value, type
     syntax K ::= joinBytes "(" K "," K ")" [strict(1)]
 
@@ -132,11 +146,6 @@ module LLVM-HELPERS is
     syntax #Int ::= ptrToInt "(" K "," K ")"
     syntax K ::= read "(" K "," K ")" [strict(1)]
     syntax K ::= write "(" K "," K "," K ")" [strict] // type, value, location
-
-    syntax K ::= isLocation "(" K ")"
-    rule isLocation(sym(_:#Int) +Int _:#Int) => true [anywhere]
-    rule isLocation(sym(_:#Int) +Nat _:#Nat) => true [anywhere]
-    rule isLocation(funptr(_)) => true [anywhere]
 
     syntax K ::= innerType "(" K ")"
     rule innerType(PointerType(K:K)) => K:K  [anywhere]
@@ -253,12 +262,12 @@ module LLVM-HELPERS is
     define sNat(N:#Nat) copiesOf L:List{K} => L,, (N:#Nat copiesOf L)
     define 0 copiesOf _ => .List{K}
 
-    define N:#Nat +Int (Offset:#Nat +Nat sym(Base:#Nat))
-        => (N +Nat Offset) +Nat sym(Base)
+    // define N:#Nat +Int (Offset:#Nat +Nat sym(Base:#Nat))
+        // => (N +Nat Offset) +Nat sym(Base)
 
-    define I:#Int +Int (Offset:#Nat +Nat sym(Base:#Nat))
-        => (absInt(I +Int Offset)) +Nat sym(Base)
-        when I <Int 0 andBool I +Int Offset >=Int 0
+    // define I:#Int +Int (Offset:#Nat +Nat sym(Base:#Nat))
+        // => (absInt(I +Int Offset)) +Nat sym(Base)
+        // when I <Int 0 andBool I +Int Offset >=Int 0
 
 end module
 
@@ -387,7 +396,7 @@ module LLVM-GLOBALS is
         <currentModifiers> _ => List(L) </currentModifiers>
 
     rule
-        <k> preInit(X:Id, Loc:#Nat, Initializer(TK:K, K:K)) => . ...</k>
+        <k> preInit(X:Id, Loc:Loc, Initializer(TK:K, K:K)) => . ...</k>
         <savedGlobals>... . => Store(TK:K, K:K, Loc) </savedGlobals>
         <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
 
@@ -529,14 +538,14 @@ module LLVM-START-AND-STOP is
     syntax K ::= initEnvStructures' "(" K ")"
 
     rule // argv & envp
-        <k> initEnvStructures(Loc:#Nat)
+        <k> initEnvStructures(Loc:Loc)
             => write(ARRAYTYPE, Zeroinitializer, Loc)
-            ~> initEnvStructures'(Loc +Nat sizeof(ARRAYTYPE))
+            ~> initEnvStructures'(Loc + sizeof(ARRAYTYPE))
             ~> Loc
         ...</k>
         where ARRAYTYPE = ArrayType(PointerType(i(8)), 3)
     rule
-        <k> initEnvStructures'(Loc:#Nat)
+        <k> initEnvStructures'(Loc:Loc)
             => memset(Loc, 0, 37, .K, .K) // auxv
         ...</k>
 
@@ -732,8 +741,8 @@ module LLVM-CALL-RET is
     
     syntax K ::= clearLocalMemory "(" List ")"
     rule
-        <k> clearLocalMemory((ListItem(Loc:#Nat) => .) _) ...</k>
-        (<object>... <basePtr> Loc </basePtr> ...</object> => .)
+        <k> clearLocalMemory((ListItem(Base:#Int) => .) _) ...</k>
+        (<object>... <basePtr> Base:#Int </basePtr> ...</object> => .)
         
     rule
         <k> clearLocalMemory(.) => . ...</k>
@@ -752,18 +761,18 @@ module LLVM-VARIADICS is
     syntax K ::= vaArg "(" K "," K "," K ")" [strict]
 
     rule
-        <k> VAArg(Type:KResult, Loc:#Nat) => vaArg(Type, Loc, read(i(numBitsPerByte), Loc)) ...</k>
+        <k> VAArg(Type:KResult, Loc:Loc) => vaArg(Type, Loc, read(i(numBitsPerByte), Loc)) ...</k>
 
     rule
-        <k> vaArg(Type, Loc:#Nat, wvalist((ListItem(K:K) VAList:List), _))
+        <k> vaArg(Type, Loc:Loc, wvalist((ListItem(K:K) VAList:List), _))
             => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc)
             ~> K
         ...</k>
 
     // TODO a really sketchy rule:
     rule
-        0 |Nat wvalist(VAList:List, Loc:#Nat)
-            => wvalist(VAList:List, Loc:#Nat)
+        0 |Nat wvalist(VAList:List, Loc:Loc)
+            => wvalist(VAList:List, Loc:Loc)
         [anywhere]
 
 
@@ -865,7 +874,7 @@ module LLVM-GEP is
 
     // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
     rule
-        <k> GetElementPtr(Type:KResult, PtrVal:#Nat, Indices:List{K})
+        <k> GetElementPtr(Type:KResult, PtrVal:Loc, Indices:List{K})
             => Type ~> gep
         ...</k>
         (. =>
@@ -875,14 +884,13 @@ module LLVM-GEP is
                 <gepIndices> List{K}ToK(Indices) </gepIndices>
             ...</gepInfo>
         )
-        when isLocation(PtrVal) // to stop computation early
 
     rule
         <k> _:KResult ~> gep => Loc ...</k>
         (
             <gepInfo>...
                 <gepIndices> .K </gepIndices>
-                <gepResult> Loc:#Nat </gepResult>
+                <gepResult> Loc:Loc </gepResult>
             ...</gepInfo>
             => .
         )
@@ -896,18 +904,18 @@ module LLVM-GEP is
     rule
         <k> PointerType(Type:KResult) => Type ...</k>
         <gepIndices> I:#Int => . ...</gepIndices>
-        <gepResult> PtrVal:#Nat => PtrVal +Int sizeof(Type) *Int I </gepResult>
+        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
 
     rule
         <k> ArrayType(Type:KResult, _) => Type ...</k>
         <gepIndices> N:#Nat => . ...</gepIndices>
-        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) *Nat N </gepResult>
+        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Nat N) </gepResult>
 
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
         <k> StructType(listK((Type:KResult => .List{K}),,L:List{K})) ...</k>
         <gepIndices> sNat(N:#Nat) => N ...</gepIndices>
-        <gepResult> PtrVal:#Nat => PtrVal +Nat sizeof(Type) </gepResult>
+        <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
 
     rule
         <k> StructType(listK(Type:KResult,,L:List{K})) => Type ...</k>
@@ -963,6 +971,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
         <k> splitIntegerBytes(I:#Int, NumBytes:#Nat, Type:KResult)
             => splitIntegerBytes'(unsigned(Type, I), NumBytes, .List{K})
         ...</k>
+		when I:#Int >=Int 0 orBool I:#Int <=Int 0 // trying to avoid this case unless real int
     // TODO can possibly rewrite Zeroinitializer to 0 here, and only have one case
     rule
         <k> splitIntegerBytes(Zeroinitializer, NumBytes:#Nat, _)
@@ -991,8 +1000,8 @@ module LLVM-HELPERS-SPLIT-BYTES is
         orBool MyK ==Bool Zeroinitializer
 
     rule
-        <k> splitIntegerBytes(wvalist(VAList:List, Loc:#Nat), 1, _)
-            => listK(wvalist(VAList:List, Loc:#Nat))
+        <k> splitIntegerBytes(wvalist(VAList:List, Loc:Loc), 1, _)
+            => listK(wvalist(VAList:List, Loc:Loc))
         ...</k>
 
     rule
@@ -1012,15 +1021,15 @@ module LLVM-HELPERS-SPLIT-BYTES is
     rule
         <k> splitPointerBytes((Zeroinitializer => Null), _) ...</k>
     rule
-        <k> splitPointerBytes(Loc:#Nat, NumBytes:#Nat)
-            => splitPointerBytes'(Loc:#Nat, NumBytes, 0, .List{K})
+        <k> splitPointerBytes(Loc:Loc, NumBytes:#Nat)
+            => splitPointerBytes'(Loc:Loc, NumBytes, 0, .List{K})
         ...</k>
     rule
-        <k> splitPointerBytes'(Loc:#Nat, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
-            => splitPointerBytes'(Loc:#Nat, NumBytes, sNat(N:#Nat), (L ,, ptrByte(Loc:#Nat, N)))
+        <k> splitPointerBytes'(Loc:Loc, sNat(NumBytes:#Nat), N:#Nat, L:List{K})
+            => splitPointerBytes'(Loc:Loc, NumBytes, sNat(N:#Nat), (L ,, ptrByte(Loc:Loc, N)))
         ...</k>
     rule
-        <k> splitPointerBytes'(Loc:#Nat, 0, _, L:List{K})
+        <k> splitPointerBytes'(Loc:Loc, 0, _, L:List{K})
             => listK(L)
         ...</k>
 
@@ -1102,8 +1111,8 @@ module LLVM-HELPERS-JOIN-BYTES is
         when N:#Nat >=Int 0
         [anywhere]
 
-    rule joinIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:#Nat), Type:KResult)
-        => wvalist(VAList:List, Loc:#Nat)
+    rule joinIntBytes(listK(.List{K}), 0, wvalist(VAList:List, Loc:Loc), Type:KResult)
+        => wvalist(VAList:List, Loc:Loc)
         [anywhere]
 
     // TODO BAD
@@ -1113,15 +1122,13 @@ module LLVM-HELPERS-JOIN-BYTES is
         ...</k>
 
     rule
-        <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:#Nat, N:#Nat))), sNat(Len:#Nat), N':#Nat)
+        <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:Loc, N:#Nat))), sNat(Len:#Nat), N':#Nat)
             => joinPointerBytes(listK(L:List{K}), Len:#Nat, RESULT)
         ...</k>
-        when isLocation(Loc)
-        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:#Nat, N:#Nat)
+        where RESULT = (N':#Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:Loc, N:#Nat)
 
-    rule joinPointerBytes(listK(.List{K}), 0, Loc:#Nat)
-        => Loc:#Nat
-        when isLocation(Loc)
+    rule joinPointerBytes(listK(.List{K}), 0, Loc:Loc)
+        => Loc:Loc
         [anywhere]
 
     // crazy stuff to reassemble pointer
@@ -1150,30 +1157,30 @@ end module
 module LLVM-MEMORY is
     including LLVM-INCLUDE
 
-    syntax #Nat ::= nextSym #Nat
-    macro nextSym(sym(N:#Nat)) = sym(N +Nat 1)
+    syntax K ::= nextSym Loc
+    macro nextSym loc(N:#Nat, 0) = loc(N:#Nat +Int 1, 0)
 
     rule
-        <k> Alloca(Type:KResult, N:#Nat) => Loc +Nat 0 ...</k>
+        <k> Alloca(Type:KResult, N:#Nat) => Loc ...</k>
         (. =>
             <object>...
-                <basePtr> Loc </basePtr>
+                <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
                 <size> sizeof(Type) *Nat N </size>
             ...</object>
         )
-        <localMemory>... . => ListItem(Loc) </localMemory>
-        <nextLoc> Loc:#Nat => nextSym Loc </nextLoc>
+        <localMemory>... . => ListItem(base(Loc)) </localMemory>
+        <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
 
     rule
-        <k> Store(Type:KResult, V:KResult, Loc:#Nat)
-            => write(Type:KResult, V:KResult, Loc:#Nat)
+        <k> Store(Type:KResult, V:KResult, Loc:Loc)
+            => write(Type:KResult, V:KResult, Loc:Loc)
         ...</k>
 
     syntax K ::= writeBytes "(" K "," K ")" [strict(1)] // list of bytes, location
 
     rule
-        <k> write(Type:KResult, V:KResult, Loc:#Nat)
+        <k> write(Type:KResult, V:KResult, Loc:Loc)
             => writeBytes(splitBytes(V, Type), Loc)
         ...</k>
     // rule
@@ -1182,9 +1189,10 @@ module LLVM-MEMORY is
         // <bytes> M:Map => M:Map[unknownByte / Offset:#Nat] </bytes>
         // when notBool Offset in keys(M:Map)
 
+	// TODO similar problem as sNat; want to match through a deconstructor
     rule
-        <k> writeBytes(listK((N:#Nat,, L:List{K})), Base:#Nat +Nat Offset:#Nat)
-            => writeBytes(listK(L:List{K}), Base:#Nat +Nat sNat(Offset:#Nat))
+        <k> writeBytes(listK((N:#Nat,, L:List{K})), loc(Base:#Nat, Offset:#Nat))
+            => writeBytes(listK(L:List{K}), loc(Base:#Nat, Offset:#Nat) + 1)
         ...</k>
         <basePtr> Base:#Nat </basePtr>
         <bytes> M:Map => M:Map[N:#Nat / Offset:#Nat] </bytes>
@@ -1196,24 +1204,23 @@ module LLVM-MEMORY is
         <k> writeBytes(listK(.List{K}), _) => . ...</k>
 
     rule
-        <k> Load(PointerType(TyK:K), Loc:#Nat)
-            => read(TyK:K, Loc:#Nat)
-        ...</k>
-        when isLocation(Loc) // for stopping computation early
-
-    rule
-        <k> read(Type:KResult, Loc:#Nat)
-            => joinBytes(readBytes(sizeof(Type:KResult), Loc:#Nat), Type:KResult)
+        <k> Load(PointerType(TyK:K), Loc:Loc)
+            => read(TyK:K, Loc:Loc)
         ...</k>
 
     rule
-        <k> readBytes(Len:#Nat, Loc:#Nat)
-            => readBytes'(Len:#Nat, Loc:#Nat, .List{K})
+        <k> read(Type:KResult, Loc:Loc)
+            => joinBytes(readBytes(sizeof(Type:KResult), Loc:Loc), Type:KResult)
         ...</k>
 
     rule
-        <k> readBytes'(sNat(Len:#Nat), Base:#Nat +Nat Offset:#Nat, L:List{K})
-            => readBytes'(Len:#Nat, Base:#Nat +Nat sNat(Offset:#Nat), (L:List{K} ,, V:KResult))
+        <k> readBytes(Len:#Nat, Loc:Loc)
+            => readBytes'(Len:#Nat, Loc:Loc, .List{K})
+        ...</k>
+
+    rule
+        <k> readBytes'(sNat(Len:#Nat), loc(Base:#Nat, Offset:#Nat), L:List{K})
+            => readBytes'(Len:#Nat, loc(Base:#Nat, Offset:#Nat) + 1, (L:List{K} ,, V:KResult))
         ...</k>
         <basePtr> Base:#Nat </basePtr>
         <bytes>... Offset |-> V:KResult ...</bytes>
@@ -1232,6 +1239,8 @@ end module
 module LLVM-COMPARISONS is
     including LLVM-INCLUDE
 
+	
+	
     // all of these take place only at the top of K
     rule INotEq(Type:KResult, I1:#Int, I2:#Int)
         => boolToInt(unsigned(Type, I1) =/=Bool unsigned(Type, I2))
@@ -1245,6 +1254,19 @@ module LLVM-COMPARISONS is
     rule SGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
     rule SLT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) <Int signed(Type, I2:#Int))
     rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
+	
+	rule INotEq(Type:KResult, Loc1:Loc, Loc2:Loc)
+        => boolToInt(unsigned(Type, Loc1:Loc) =/=Bool unsigned(Type, Loc2:Loc))
+    rule IEq(Type:KResult, Loc1:Loc, Loc2:Loc)
+        => boolToInt(unsigned(Type, Loc1:Loc) ==Bool unsigned(Type, Loc2:Loc))
+    rule UGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >Int unsigned(Type, Loc2:Loc))
+    rule UGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >=Int unsigned(Type, Loc2:Loc))
+    rule ULT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <Int unsigned(Type, Loc2:Loc))
+    rule ULE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <=Int unsigned(Type, Loc2:Loc))
+    rule SGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >Int signed(Type, Loc2:Loc))
+    rule SGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
+    rule SLT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) <Int signed(Type, Loc2:Loc))
+    rule SLE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
 	
 	// TODO not handling QNAN
 	rule OEQ(Type:KResult, F1:#Float, F2:#Float) 
@@ -1300,43 +1322,45 @@ module LLVM-CONVERSIONS is
     // TODO need to normalize here
     rule
         <k> BitCast(_, I:#Int) => I:#Int ...</k>
+	rule
+        <k> BitCast(_, Loc:Loc) => Loc:Loc ...</k>
 
     // TODO need to normalize here
     rule
-        <k> IntToPtr(Type:KResult, I:#Int) => intToPtr(Type, I) ...</k>
+        <k> IntToPtr(Type:KResult, K:K) => intToPtr(Type, K:K) ...</k>
     rule
-        <k> PtrToInt(Type:KResult, N:#Nat) => ptrToInt(Type, N) ...</k>
+        <k> PtrToInt(Type:KResult, K:K) => ptrToInt(Type, K:K) ...</k>
 
     // TODO needs side conditions
-    rule ptrToInt(Type:KResult, intToPtr(Type':KResult, I:#Int)) => I:#Int [anywhere]
-    rule intToPtr(Type:KResult, ptrToInt(Type':KResult, N:#Nat)) => N:#Nat [anywhere]
+    rule ptrToInt(Type:KResult, intToPtr(Type':KResult, K:K)) => K:K [anywhere]
+    rule intToPtr(Type:KResult, ptrToInt(Type':KResult, K:K)) => K:K [anywhere]
 
-    rule unsigned(Type:KResult, sym(I:#Int) +Nat Offset:#Nat)
-        => ptrToInt(Type, sym(I:#Int) +Nat Offset:#Nat)
+    rule unsigned(Type:KResult, Loc:Loc)
+        => ptrToInt(Type, Loc:Loc)
         [anywhere]
-    rule signed(Type:KResult, sym(I:#Int) +Nat Offset:#Nat)
-        => ptrToInt(Type, sym(I:#Int) +Nat Offset:#Nat)
+    rule signed(Type:KResult, Loc:Loc)
+        => ptrToInt(Type, Loc:Loc)
         [anywhere]
-    rule unsigned(_, ptrToInt(Type:KResult, I:#Int))
-        => ptrToInt(Type, I)
-    rule signed(_, ptrToInt(Type:KResult, I:#Int))
-        => ptrToInt(Type, I)
+    rule unsigned(_, ptrToInt(Type:KResult, K:K))
+        => ptrToInt(Type, K:K)
+    rule signed(_, ptrToInt(Type:KResult, K:K))
+        => ptrToInt(Type, K:K)
 
     // definitely misses problems with null
     // TODO assumes types are same and are big enough
-    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) >Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
+    rule ptrToInt(_, loc(I:#Int, Offset:#Nat)) >Int ptrToInt(_, loc(I:#Int, Offset':#Nat))
         => Offset >Int Offset'
         [anywhere]
-    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) >=Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
+    rule ptrToInt(_, loc(I:#Int, Offset:#Nat)) >=Int ptrToInt(_, loc(I:#Int, Offset':#Nat))
         => Offset >=Int Offset'
         [anywhere]
-    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) <Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
+    rule ptrToInt(_, loc(I:#Int, Offset:#Nat)) <Int ptrToInt(_, loc(I:#Int, Offset':#Nat))
         => Offset <Int Offset'
         [anywhere]
-    rule ptrToInt(_, sym(I:#Int) +Nat Offset:#Nat) <=Int ptrToInt(_, sym(I:#Int) +Nat Offset':#Nat)
+    rule ptrToInt(_, loc(I:#Int, Offset:#Nat)) <=Int ptrToInt(_, loc(I:#Int, Offset':#Nat))
         => Offset <=Int Offset'
         [anywhere]
-    rule ptrToInt(Type:KResult, sym(I:#Int) +Nat Offset:#Nat) -Int ptrToInt(Type:KResult, sym(I:#Int) +Nat Offset':#Nat)
+    rule ptrToInt(Type:KResult, loc(I:#Int, Offset:#Nat)) -Int ptrToInt(Type:KResult, loc(I:#Int, Offset':#Nat))
         => signed(Type, Offset -Int Offset')
         [anywhere]
 
@@ -1447,18 +1471,18 @@ module LLVM-STANDARD-LIBRARY is
 
     // memcpy
     rule
-        <k> memcpy(Dest:#Nat, Src:#Nat, sNat(Len:#Nat), K1:K, K2:K)
+        <k> memcpy(Dest:Loc, Src:Loc, sNat(Len:#Nat), K1:K, K2:K)
             => Store(byteType, Load(PointerType(byteType), Src), Dest)
-            ~> memcpy(Dest +Nat 1, Src +Nat 1, Len, K1, K2)
+            ~> memcpy(Dest + 1, Src + 1, Len, K1, K2)
         ...</k>
     rule
         <k> memcpy(_, _, 0, _, _) => . ...</k>
 
     // memset
     rule
-        <k> memset(Dest:#Nat, N:#Nat, sNat(Len:#Nat), K1:K, K2:K)
+        <k> memset(Dest:Loc, N:#Nat, sNat(Len:#Nat), K1:K, K2:K)
             => Store(byteType, N, Dest)
-            ~> memset(Dest +Nat 1, N, Len, K1, K2)
+            ~> memset(Dest + 1, N, Len, K1, K2)
         ...</k>
     rule
         <k> memset(_, _, 0, _, _) => . ...</k>
@@ -1475,11 +1499,11 @@ module LLVM-STANDARD-LIBRARY is
 
     //@ Variadic intrinsics
     rule
-        <k> vaStart(Loc:#Nat) => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc) ...</k>
+        <k> vaStart(Loc:Loc) => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc) ...</k>
         <valist> VAList:List </valist>
 
     rule
-        <k> vaCopy(Loc1:#Nat, Loc2:#Nat)
+        <k> vaCopy(Loc1:Loc, Loc2:Loc)
             => write(i(numBitsPerByte), read(i(numBitsPerByte), Loc2), Loc1)
         ...</k>
 
@@ -1502,7 +1526,7 @@ module LLVM-SYSCALLS is
     rule <k> 'sys-gettid(_) => 0 ...</k>
 
     rule
-        <k> 'sys-brk(ptrToInt(_,Loc:#Nat),,_) => Brk ...</k>
+        <k> 'sys-brk(ptrToInt(_,Loc:Loc),,_) => Brk ...</k>
         <brk> Brk:#Nat </brk>
         when Loc ==Bool Null
 
@@ -1515,18 +1539,18 @@ module LLVM-SYSCALLS is
     syntax K ::= readString' "(" K "," K "," K ")"
 
     rule
-        <k> 'sys-write(FileDesc:#Int,, ptrToInt(_, Loc:#Nat),, Len:#Nat,, _)
+        <k> 'sys-write(FileDesc:#Int,, ptrToInt(_, Loc:Loc),, Len:#Nat,, _)
             => printString(readString(Loc, Len))
         ...</k>
 
     rule
-        <k> readString(Loc:#Nat, Len:#Nat)
+        <k> readString(Loc:Loc, Len:#Nat)
             => readString'(Loc, Len, "")
         ...</k>
 
     rule
         <k> (. => read(i(8), Loc))
-            ~> readString'(Loc:#Nat, sNat(_), _)
+            ~> readString'(Loc:Loc, sNat(_), _)
         ...</k>
 
     rule <k> readString'(_, 0, S:#String) => S ...</k>
@@ -1534,7 +1558,7 @@ module LLVM-SYSCALLS is
     rule
         <k> (I:#Int => .)
             ~> readString'(
-                (Loc:#Nat => Loc +Nat 1),
+                (Loc:Loc => Loc + 1),
                 (sNat(N:#Nat) => N),
                 (S:#String => NEWSTRING)
             )

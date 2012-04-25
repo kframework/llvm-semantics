@@ -219,7 +219,7 @@ module LLVM-HELPERS is
     syntax #Bool ::= isIntegerType "(" K ")" // predicate
     rule isIntegerType(IntegerType(_)) => true  [anywhere]
     rule isIntegerType(KLabel:KLabel(_)) => false
-        when KLabel =/=Bool 'IntegerType
+        when KLabel =/=KLabel 'IntegerType
         [anywhere]
     syntax #Bool ::= isFloatType "(" K ")" // predicate
     rule isFloatType(FloatType) => true [anywhere]
@@ -348,7 +348,7 @@ module LLVM-CLEAN-TREE is
 
     rule ICmp(Predicate("ne"), TyK:K, K1:K, K2:K) => INotEq(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate(Str:#String), TyK:K, K1:K, K2:K) => IEq(TyK:K, K1:K, K2:K)
-        when Str ==Bool "e" +String "q" // TODO avoiding bug in kompile
+        when Str ==String "e" +String "q" // TODO avoiding bug in kompile
     rule ICmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K)
@@ -415,13 +415,13 @@ module LLVM-REGISTERS is
     rule [lookup-register]:
         <k> X => V ...</k>
         <registers>... X |-> V:KResult ...</registers>
-        when substrString(S, 0, 1) ==Bool "%"
+        when substrString(S, 0, 1) ==String "%"
         where X = Name(S:#String)
 
     rule [lookup-global-register]:
         <k> X => K ...</k>
         <globalRegisters>... X |-> K:K ...</globalRegisters>
-        when substrString(S, 0, 1) ==Bool "@"
+        when substrString(S, 0, 1) ==String "@"
         where X = Name(S:#String)
 
 end module
@@ -439,12 +439,12 @@ module LLVM-BRANCHING is
         <k> Conditional(I:#Int, Label:K, _)
             => Unconditional(Label:K)
         </k>
-        when unsigned(i(1), I) ==Bool 1
+        when unsigned(i(1), I) ==Int 1
     rule
         <k> Conditional(I:#Int, _, Label:K)
             => Unconditional(Label:K)
         </k>
-        when unsigned(i(1), I) ==Bool 0
+        when unsigned(i(1), I) ==Int 0
 
     rule [switch-default]:
         <k> Switch(_, I:#Int, Label:K, listK(.List{K}))
@@ -454,7 +454,7 @@ module LLVM-BRANCHING is
         <k> Switch(Type:KResult, I:#Int, _, listK((Case(I':#Int, Label:K),, L:List{K})))
             => Unconditional(Label:K)
         </k>
-        when unsigned(Type, I) ==Bool unsigned(Type, I')
+        when unsigned(Type, I) ==Int unsigned(Type, I')
     rule [switch-miss]:
         <k> Switch(
                 Type:KResult,
@@ -463,7 +463,7 @@ module LLVM-BRANCHING is
                 listK(((Case(I':#Int, Label:K) => .List{K}),, L:List{K}))
             )
         </k>
-        when unsigned(Type, I) =/=Bool unsigned(Type, I')
+        when unsigned(Type, I) =/=Int unsigned(Type, I')
 end module
 
 module LLVM-PHI is
@@ -476,7 +476,7 @@ module LLVM-PHI is
     rule
         <k> PHI(_, ((Edge(K:K, Name:Id) => .List{K}),, _:List{K})) ...</k>
         <prevBlock> Name':Id </prevBlock>
-        when Name =/=Bool Name'
+        when Name =/=K Name'
 end module
 
 module LLVM-SELECTION is
@@ -484,11 +484,10 @@ module LLVM-SELECTION is
 
     rule [select-false]:
         Select(Type:KResult, I:#Int, _, K:K) => K
-        when unsigned(Type, I) ==Bool 0
+        when unsigned(Type, I) ==Int 0
     rule [select-true]:
         Select(Type:KResult, I:#Int, K:K, _) => K
         when unsigned(Type, I) >Nat 0
-        // when I =/=Bool 0 // TODO normalize numbers?
 end module
 
 module LLVM-START-AND-STOP is
@@ -509,7 +508,7 @@ module LLVM-START-AND-STOP is
         </k>
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
-        when lengthList{K}(L) ==Bool 0
+        when lengthList{K}(L) ==Int 0
 
     // TODO need to initialize argc and argv properly
     // TODO need to make nicer
@@ -530,7 +529,7 @@ module LLVM-START-AND-STOP is
         </k>
         <functionName> Name("@main") </functionName>
         <formalParameters> Arguments(L:List{K}) </formalParameters>
-        when lengthList{K}(L) ==Bool 2
+        when lengthList{K}(L) ==Int 2
         where PTRTYPE = PointerType(i(8))
         and ARGVSIZE = (sizeof(PTRTYPE) *Int 3) +Int (sizeof(i(64)) *Int 38)
 
@@ -751,7 +750,7 @@ module LLVM-CALL-RET is
         <k> VoidValue ~> clearVoid => . ...</k>
     rule
         <k> V:KResult ~> clearVoid => V ...</k>
-        when V =/=Bool VoidValue
+        when V =/=K VoidValue
 end module
 
 module LLVM-VARIADICS is
@@ -797,22 +796,22 @@ module LLVM-ARITHMETIC is
         <k> SDiv(Type:KResult, I1:#Int, I2:#Int)
             => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))
         ...</k>
-        when signed(Type, I2) =/=Bool 0 // catch undefined
+        when signed(Type, I2) =/=Int 0 // catch undefined
     rule
         <k> UDiv(Type:KResult, I1:#Int, I2:#Int)
             => signed(Type, (unsigned(Type, I1) /Int unsigned(Type, I2)))
         ...</k>
-        when unsigned(Type, I2) =/=Bool 0 // catch undefined
+        when unsigned(Type, I2) =/=Int 0 // catch undefined
     rule
         <k> SRem(Type:KResult, I1:#Int, I2:#Int)
             => signed(Type, (signed(Type, I1) %Int signed(Type, I2)))
         ...</k>
-        when signed(Type, I2) =/=Bool 0 // catch undefined
+        when signed(Type, I2) =/=Int 0 // catch undefined
     rule
         <k> URem(Type:KResult, I1:#Int, I2:#Int)
             => signed(Type, (unsigned(Type, I1) %Int unsigned(Type, I2)))
         ...</k>
-        when unsigned(Type, I2) =/=Bool 0 // catch undefined
+        when unsigned(Type, I2) =/=Int 0 // catch undefined
 
     rule
         <k> Shl(Type:KResult, I:#Int, Len:#Nat)
@@ -996,8 +995,8 @@ module LLVM-HELPERS-SPLIT-BYTES is
         <k> splitIntegerBytes'(MyK:K, 0, L:List{K})
             => listK(L)
         ...</k>
-        when MyK ==Bool 0
-        orBool MyK ==Bool Zeroinitializer
+        when MyK ==K 0
+        orBool MyK ==K Zeroinitializer
 
     rule
         <k> splitIntegerBytes(wvalist(VAList:List, Loc:Loc), 1, _)
@@ -1037,7 +1036,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
         <k> splitArrayBytes(arrayValue(L:List{K}), NumBytes:#Nat, _)
             => listK(L)
         ...</k>
-        when lengthList{K}(L) ==Bool NumBytes
+        when lengthList{K}(L) ==Int NumBytes
 
     rule
         <k> (.K => splitBytes(Zeroinitializer, Type)) ~> splitArrayBytes(Zeroinitializer, _, Type:KResult) ...</k>
@@ -1140,7 +1139,7 @@ module LLVM-HELPERS-JOIN-BYTES is
     rule
         (ptrByte(V:KResult, sNat(N:#Nat)) <<Nat Len:#Nat) |Nat ptrByte(V:KResult, N:#Nat)
             => ptrBytes(V:KResult, N:#Nat, sNat(N:#Nat))
-        when Len ==Bool numBitsPerByte
+        when Len ==Int numBitsPerByte
         [anywhere]
     rule
         (ptrBytes(V:KResult, sNat(N:#Nat), N':#Nat) <<Nat Len:#Nat) |Nat ptrByte(V:KResult, N:#Nat)
@@ -1149,7 +1148,7 @@ module LLVM-HELPERS-JOIN-BYTES is
     rule
         ptrBytes(V:KResult, 0, N:#Nat)
             => V
-        where N ==Bool (numBytesPerPointer -Int 1)
+        where N ==Int (numBytesPerPointer -Int 1)
         [anywhere]
         
 end module
@@ -1243,9 +1242,9 @@ module LLVM-COMPARISONS is
 	
     // all of these take place only at the top of K
     rule INotEq(Type:KResult, I1:#Int, I2:#Int)
-        => boolToInt(unsigned(Type, I1) =/=Bool unsigned(Type, I2))
+        => boolToInt(unsigned(Type, I1) =/=Int unsigned(Type, I2))
     rule IEq(Type:KResult, I1:#Int, I2:#Int)
-        => boolToInt(unsigned(Type, I1) ==Bool unsigned(Type, I2))
+        => boolToInt(unsigned(Type, I1) ==Int unsigned(Type, I2))
     rule UGT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >Int unsigned(Type, I2:#Int))
     rule UGE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) >=Int unsigned(Type, I2:#Int))
     rule ULT(Type:KResult, I1:#Int, I2:#Int) => boolToInt(unsigned(Type, I1:#Int) <Int unsigned(Type, I2:#Int))
@@ -1256,9 +1255,9 @@ module LLVM-COMPARISONS is
     rule SLE(Type:KResult, I1:#Int, I2:#Int) => boolToInt(signed(Type, I1:#Int) >=Int signed(Type, I2:#Int))
 	
 	rule INotEq(Type:KResult, Loc1:Loc, Loc2:Loc)
-        => boolToInt(unsigned(Type, Loc1:Loc) =/=Bool unsigned(Type, Loc2:Loc))
+        => boolToInt(unsigned(Type, Loc1:Loc) =/=K unsigned(Type, Loc2:Loc))
     rule IEq(Type:KResult, Loc1:Loc, Loc2:Loc)
-        => boolToInt(unsigned(Type, Loc1:Loc) ==Bool unsigned(Type, Loc2:Loc))
+        => boolToInt(unsigned(Type, Loc1:Loc) ==K unsigned(Type, Loc2:Loc))
     rule UGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >Int unsigned(Type, Loc2:Loc))
     rule UGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >=Int unsigned(Type, Loc2:Loc))
     rule ULT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <Int unsigned(Type, Loc2:Loc))
@@ -1270,7 +1269,7 @@ module LLVM-COMPARISONS is
 	
 	// TODO not handling QNAN
 	rule OEQ(Type:KResult, F1:#Float, F2:#Float) 
-		=> boolToInt(F1:#Float ==Bool F2:#Float)
+		=> boolToInt(F1:#Float ==Float F2:#Float)
 	rule OGT(Type:KResult, F1:#Float, F2:#Float) 
 		=> boolToInt(F1:#Float >Float F2:#Float)	
 	rule OGE(Type:KResult, F1:#Float, F2:#Float)
@@ -1280,11 +1279,11 @@ module LLVM-COMPARISONS is
 	rule OLE(Type:KResult, F1:#Float, F2:#Float)
 		=> boolToInt(F1:#Float <=Float F2:#Float)
 	rule ONE(Type:KResult, F1:#Float, F2:#Float) 
-		=> boolToInt(F1:#Float =/=Bool F2:#Float)
+		=> boolToInt(F1:#Float =/=Float F2:#Float)
 	// rule ORD(Type:KResult, F1:#Float, F2:#Float) 
 		// => // if both are not QNAN
 	rule UEQ(Type:KResult, F1:#Float, F2:#Float) 
-		=> boolToInt(F1:#Float ==Bool F2:#Float)
+		=> boolToInt(F1:#Float ==Float F2:#Float)
 	rule UGT(Type:KResult, F1:#Float, F2:#Float) 
 		=> boolToInt(F1:#Float >Float F2:#Float)	
 	rule UGE(Type:KResult, F1:#Float, F2:#Float)
@@ -1294,7 +1293,7 @@ module LLVM-COMPARISONS is
 	rule ULE(Type:KResult, F1:#Float, F2:#Float)
 		=> boolToInt(F1:#Float <=Float F2:#Float)
 	rule UNE(Type:KResult, F1:#Float, F2:#Float) 
-		=> boolToInt(F1:#Float =/=Bool F2:#Float)
+		=> boolToInt(F1:#Float =/=Float F2:#Float)
 	// rule UNO(Type:KResult, F1:#Float, F2:#Float) 
 		// => if either is QNAN
 
@@ -1317,7 +1316,7 @@ module LLVM-CONVERSIONS is
     // TODO only handling scalars
     rule
         <k> SExt(Type:KResult, I:#Int) => I ...</k>
-        when signed(Type, I) ==Bool I // sanity check since this isn't supposed to change values and I is supposed to have been canonicalized
+        when signed(Type, I) ==Int I // sanity check since this isn't supposed to change values and I is supposed to have been canonicalized
 
     // TODO need to normalize here
     rule
@@ -1432,13 +1431,13 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS is
         <k> Call(_, Callee(funptr(Name(S:#String)), listK(V1:KResult,, V2:KResult,, V3:KResult,, V4:KResult,, V5:KResult)))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
-        when substrString(S, 0, 13) ==Bool "@llvm.memcpy."
+        when substrString(S, 0, 13) ==String "@llvm.memcpy."
 
     rule
         <k> Call(_, Callee(funptr(Name(S:#String)), listK(V1:KResult,, V2:KResult,, V3:KResult,, V4:KResult,, V5:KResult)))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
-        when substrString(S, 0, 13) ==Bool "@llvm.memset."
+        when substrString(S, 0, 13) ==String "@llvm.memset."
     
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.lifetime.start")), listK(V1:KResult,, V2:KResult)))
@@ -1528,7 +1527,7 @@ module LLVM-SYSCALLS is
     rule
         <k> 'sys-brk(ptrToInt(_,Loc:Loc),,_) => Brk ...</k>
         <brk> Brk:#Nat </brk>
-        when Loc ==Bool Null
+        when Loc ==K Null
 
 
     // TODO krun should provide this value
@@ -1580,7 +1579,7 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS is
             => .
         ...</k>
 		<output>... . => ListItem(Int2String(I) +String "\n") </output>
-        when substrString(S, 0, 14) ==Bool "@__fsl.print.i"
+        when substrString(S, 0, 14) ==String "@__fsl.print.i"
 		andBool (I >=Int 0 orBool I <=Int 0) // real integer
 end module
 

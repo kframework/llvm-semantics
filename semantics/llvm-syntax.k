@@ -9,9 +9,9 @@ module LLVM-SYNTAX is
     // ModuleID, TargetLayout, TargetTriple, Typedefs, GlobalVariables, Aliases, Functions
     // TODO: syntax LLVM ::= Module(K, K, K, K, K)
 
-    syntax LLVM ::= `ModuleID "(" #String ")"
-    syntax LLVM ::= `TargetLayout "(" #String ")"
-    syntax LLVM ::= `TargetTriple "(" #String ")"
+    syntax LLVM ::= `ModuleID "(" String ")"
+    syntax LLVM ::= `TargetLayout "(" String ")"
+    syntax LLVM ::= `TargetTriple "(" String ")"
     syntax LLVM ::= `Typedefs "(" List{K} ")"
     syntax LLVM ::= `GlobalVariables "(" List{K} ")"
     syntax LLVM ::= `Functions "(" List{K} ")"
@@ -35,7 +35,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `FunctionType "(" K "," K ")" [strict hybrid] // return type, argument types
     syntax LLVMValue ::= `VarargType
     syntax LLVMValue ::= `IntegerType "(" K ")"
-    // syntax LLVM ::= `Width "(" #Nat ")"
+    // syntax LLVM ::= `Width "(" Nat ")"
     syntax LLVM ::= `LabelType
     syntax LLVMValue ::= `VoidType
     syntax LLVMValue ::= `FloatType
@@ -76,18 +76,18 @@ module LLVM-SYNTAX is
 
     //@ Modifiers
     syntax LLVM ::= `Modifiers "(" List{K} ")"
-    syntax LLVM ::= `Alignment "(" #Nat ")"
+    syntax LLVM ::= `Alignment "(" Nat ")"
     syntax LLVM ::= `Constant
     syntax LLVM ::= `NoSignedWrap
     syntax LLVM ::= `NoUnsignedWrap
     syntax LLVM ::= `Packed
 
     //@ Identifiers, values, and constants
-    syntax Id ::= `Name "(" #String ")"
+    syntax Id ::= `Name "(" String ")"
     syntax LLVM ::= Id
     syntax LLVM ::= `Value "(" K ")"
     syntax LLVM ::= `Operand "(" K "," K ")" [strict] // Type, Value
-    syntax LLVM ::= `ConstantString "(" #String ")"
+    syntax LLVM ::= `ConstantString "(" String ")"
     syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
     syntax LLVM ::= `ConstantStruct "(" K "," K ")" [strict(2)] // modifiers, arguments
     define 'isKResult(ConstantStruct(_, K)) => true
@@ -99,7 +99,7 @@ module LLVM-SYNTAX is
     syntax LLVMValue ::= `NegativeZero
     syntax LLVMValue ::= `PositiveInfinity
     syntax LLVMValue ::= `NegativeInfinity
-    syntax LLVM ::= `Float "(" #String ")"
+    syntax LLVM ::= `Float "(" String ")"
     syntax LLVMValue ::= `VoidValue // for returning from void functions
     syntax LLVMValue ::= `Zeroinitializer
 

@@ -1,6 +1,4 @@
 module LLVM-SYNTAX is
-    including K
-
     syntax KResult ::= LLVMValue
     syntax KResult ::= listK "(" List{K} ")"  [latex "{#1}"]
 
@@ -76,7 +74,7 @@ module LLVM-SYNTAX is
 
     //@ Modifiers
     syntax LLVM ::= `Modifiers "(" List{K} ")"
-    syntax LLVM ::= `Alignment "(" Nat ")"
+    syntax LLVM ::= `Alignment "(" Int ")"
     syntax LLVM ::= `Constant
     syntax LLVM ::= `NoSignedWrap
     syntax LLVM ::= `NoUnsignedWrap

@@ -11,7 +11,7 @@ module LLVM-SPECIAL is
     syntax Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
     syntax Nat ::= floatByte "(" K "," K "," K ")" // float, type, byte number
 	define 'isInt(ptrByte(_, _)) => true
-	define 'isInt(floatByte(_, _)) => true
+	define 'isInt(floatByte(_, _, _)) => true
 	
     syntax K ::= debug // TODO [semantic]
 

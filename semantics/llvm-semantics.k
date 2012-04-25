@@ -114,7 +114,15 @@ end module
 module LLVM-HELPERS is
     including LLVM-SYNTAX
     including LLVM-SETTINGS
-
+	
+	declare StringToList{K}_ : String -> List{K}
+	define StringToList{K}("") => .List{K}
+	define
+		StringToList{K}(S:String)
+			=> asciiString(substrString(S:String, 0, 1))
+			,, StringToList{K}(substrString(S:String, 1, lengthString(S:String)))
+		when S:String =/=String ""
+	
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule
         Null => loc(-1, 0) [anywhere]
@@ -204,7 +212,7 @@ module LLVM-HELPERS is
 	declare unsigned : K K -> Nat // type, value
     define
         unsigned(Type:KResult, N:Nat) => N
-        when umin(Type) <=Int N andBool umax(Type) >=Nat N
+        when umin(Type) <=Int N andBool umax(Type) >=Int N
     define
         unsigned(Type:KResult, I:Int) => I remInt (umax(Type) +Int 1)
         when I <Int umin(Type)
@@ -249,7 +257,7 @@ module LLVM-HELPERS is
 
     declare sizeof : K -> Nat
     define sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
-        when numBitsPerByte dividesNat sizeofInBits(Type)
+        when numBitsPerByte dividesInt sizeofInBits(Type)
 
     declare zeroOfType : K -> K
     define zeroOfType(Type:KResult) => 0

@@ -204,13 +204,13 @@ module LLVM-HELPERS is
 	declare unsigned : K K -> Nat // type, value
     define
         unsigned(Type:KResult, N:Nat) => N
-        when umin(Type) <=Nat N andBool umax(Type) >=Nat N
+        when umin(Type) <=Int N andBool umax(Type) >=Nat N
     define
         unsigned(Type:KResult, I:Int) => I remInt (umax(Type) +Int 1)
         when I <Int umin(Type)
     define
         unsigned(Type:KResult, N:Nat) => N %Int (umax(Type) +Int 1)
-        when N >Nat umax(Type)
+        when N >Int umax(Type)
 
 	declare isIntegerType : K -> Bool
     define isIntegerType(IntegerType(_)) => true
@@ -235,8 +235,8 @@ module LLVM-HELPERS is
     define isStructType(StructType(_)) => true
 	
     // fixme size should depend on architecture
-    define sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
-    define sizeofInBits(ArrayType(Type:KResult, Len:Nat)) => sizeofInBits(Type) *Nat Len
+    define sizeofInBits(PointerType(_)) => numBytesPerPointer *Int numBitsPerByte
+    define sizeofInBits(ArrayType(Type:KResult, Len:Nat)) => sizeofInBits(Type) *Int Len
 
     define sizeofInBits(IntegerType(N:Nat)) => N
     define sizeofInBits(FloatType) => 32
@@ -486,7 +486,7 @@ module LLVM-SELECTION is
         when unsigned(Type, I) ==Int 0
     rule [select-true]:
         Select(Type:KResult, I:Int, K:K, _) => K
-        when unsigned(Type, I) >Nat 0
+        when unsigned(Type, I) >Int 0
 end module
 
 module LLVM-START-AND-STOP is
@@ -907,7 +907,7 @@ module LLVM-GEP is
     rule
         <k> ArrayType(Type:KResult, _) => Type ...</k>
         <gepIndices> N:Nat => . ...</gepIndices>
-        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Nat N) </gepResult>
+        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int N) </gepResult>
 
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
@@ -1174,7 +1174,7 @@ module LLVM-MEMORY is
             <object>...
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
-                <size> sizeof(Type) *Nat N </size>
+                <size> sizeof(Type) *Int N </size>
             ...</object>
         )
         <localMemory>... . => ListItem(base(Loc)) </localMemory>

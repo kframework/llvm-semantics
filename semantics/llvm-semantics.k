@@ -167,7 +167,7 @@ module LLVM-HELPERS is
     declare smax_ : K -> Nat
     declare smin_ : K -> Int
     define smax Type:KResult => (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
-    define smin Type:KResult => --Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
+    define smin Type:KResult => 0 -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
 
     declare umax_ : K -> Nat
     declare umin_ : K -> Nat
@@ -175,7 +175,9 @@ module LLVM-HELPERS is
     define umin Type:KResult => 0
 
     // should be a K, but builtins can't use K :(
-	declare signed : K K -> Nat // type, value
+	// declare signed : K K -> Nat // type, value
+	syntax Nat ::= signed "(" K "," K ")"
+	define 'isInt(signed(_, _)) => true
 
     // case when in bounds
     define
@@ -197,11 +199,11 @@ module LLVM-HELPERS is
     define
         signed(Type:KResult, I:Int)
             => signed(Type:KResult, I %Int (umax(Type) +Int 1))
-        when I <Int --Int umax(Type)
+        when I <Int 0 -Int umax(Type)
     define
         signed(Type:KResult, I:Int)
             => I +Int (umax(Type) +Int 1)
-        when I <Int smin(Type) andBool I >=Int --Int umax(Type)
+        when I <Int smin(Type) andBool I >=Int 0 -Int umax(Type)
 
 
     // computes the positive remainder, whereas % can returns a negative number
@@ -209,7 +211,10 @@ module LLVM-HELPERS is
     declare _remInt_ : K K -> Nat
     define (I:Int remInt N:Nat) => ((I %Int N) +Int N) %Int N
 
-	declare unsigned : K K -> Nat // type, value
+	// declare unsigned : K K -> Nat // type, value
+	syntax Nat ::= unsigned "(" K "," K ")"
+	define 'isInt(unsigned(_, _)) => true
+	
     define
         unsigned(Type:KResult, N:Nat) => N
         when umin(Type) <=Int N andBool umax(Type) >=Int N
@@ -1259,10 +1264,11 @@ module LLVM-COMPARISONS is
 	
 	
     // all of these take place only at the top of K
+	// TODO these break with ==Int or =/=Int
     rule INotEq(Type:KResult, I1:Int, I2:Int)
-        => boolToInt(unsigned(Type, I1) =/=Int unsigned(Type, I2))
+        => boolToInt(unsigned(Type, I1) =/=K unsigned(Type, I2))
     rule IEq(Type:KResult, I1:Int, I2:Int)
-        => boolToInt(unsigned(Type, I1) ==Int unsigned(Type, I2))
+        => boolToInt(unsigned(Type, I1) ==K unsigned(Type, I2))
     rule UGT(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) >Int unsigned(Type, I2:Int))
     rule UGE(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) >=Int unsigned(Type, I2:Int))
     rule ULT(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) <Int unsigned(Type, I2:Int))

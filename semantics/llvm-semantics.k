@@ -159,7 +159,7 @@ module LLVM-HELPERS is
     declare smax_ : K -> Nat
     declare smin_ : K -> Int
     define smax Type:KResult => (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
-    define smin Type:KResult => -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
+    define smin Type:KResult => --Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
 
     declare umax_ : K -> Nat
     declare umin_ : K -> Nat
@@ -189,11 +189,11 @@ module LLVM-HELPERS is
     define
         signed(Type:KResult, I:Int)
             => signed(Type:KResult, I %Int (umax(Type) +Int 1))
-        when I <Int -Int umax(Type)
+        when I <Int --Int umax(Type)
     define
         signed(Type:KResult, I:Int)
             => I +Int (umax(Type) +Int 1)
-        when I <Int smin(Type) andBool I >=Int -Int umax(Type)
+        when I <Int smin(Type) andBool I >=Int --Int umax(Type)
 
 
     // computes the positive remainder, whereas % can returns a negative number

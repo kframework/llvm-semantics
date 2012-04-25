@@ -259,7 +259,8 @@ module LLVM-HELPERS is
 
 
     declare _copiesOf_ : K List{K} -> List{K}
-    define sNat(N:Nat) copiesOf L:List{K} => L,, (N:Nat copiesOf L)
+    define N:Nat copiesOf L:List{K} => L,, (N:Nat -Int 1 copiesOf L)
+		when N:Nat >Int 0
     define 0 copiesOf _ => .List{K}
 
     // define N:Nat +Int (Offset:Nat +Nat sym(Base:Nat))
@@ -913,8 +914,9 @@ module LLVM-GEP is
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
         <k> StructType(listK((Type:KResult => .List{K}),,L:List{K})) ...</k>
-        <gepIndices> sNat(N:Nat) => N ...</gepIndices>
+        <gepIndices> N:Nat => N -Int 1 ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
+		when N:Nat >Int 0
 
     rule
         <k> StructType(listK(Type:KResult,,L:List{K})) => Type ...</k>
@@ -977,18 +979,20 @@ module LLVM-HELPERS-SPLIT-BYTES is
             => splitIntegerBytes'(Zeroinitializer, NumBytes, .List{K})
         ...</k>
     rule
-        <k> splitIntegerBytes'(I:Int, sNat(NumBytes:Nat), L:List{K})
+        <k> splitIntegerBytes'(I:Int, NumBytes:Nat, L:List{K})
             => splitIntegerBytes'(
                 I >>Int numBitsPerByte,
-                NumBytes,
+                NumBytes -Int 1,
                 (L ,, (I &Int MASK))
             )
         ...</k>
+		when NumBytes >Int 0
         where MASK = (2 ^Int numBitsPerByte) -Int 1
     rule
-        <k> splitIntegerBytes'(Zeroinitializer, sNat(NumBytes:Nat), L:List{K})
-            => splitIntegerBytes'(Zeroinitializer, NumBytes, (L,, 0))
+        <k> splitIntegerBytes'(Zeroinitializer, NumBytes:Nat, L:List{K})
+            => splitIntegerBytes'(Zeroinitializer, NumBytes -Int 1, (L,, 0))
         ...</k>
+		when NumBytes >Int 0
     // TODO: ideally, the parser should canonicalize integer literals to positive
     // TODO BUG no idea why i have to use "MyK" here instead of "K"....
     rule
@@ -1012,10 +1016,11 @@ module LLVM-HELPERS-SPLIT-BYTES is
         <k> splitFloatBytes(
                 V:KResult,
                 Type:KResult,
-                sNat(NumBytes:Nat) => NumBytes,
-                L:List{K} => floatByte(V, Type, NumBytes) ,, L
+                NumBytes:Nat => NumBytes -Int 1,
+                L:List{K} => floatByte(V, Type, NumBytes -Int 1) ,, L
             )
         ...</k>
+		when NumBytes >Int 0
 
     rule
         <k> splitPointerBytes((Zeroinitializer => Null), _) ...</k>
@@ -1024,9 +1029,10 @@ module LLVM-HELPERS-SPLIT-BYTES is
             => splitPointerBytes'(Loc:Loc, NumBytes, 0, .List{K})
         ...</k>
     rule
-        <k> splitPointerBytes'(Loc:Loc, sNat(NumBytes:Nat), N:Nat, L:List{K})
-            => splitPointerBytes'(Loc:Loc, NumBytes, sNat(N:Nat), (L ,, ptrByte(Loc:Loc, N)))
+        <k> splitPointerBytes'(Loc:Loc, NumBytes:Nat, N:Nat, L:List{K})
+            => splitPointerBytes'(Loc:Loc, NumBytes -Int 1, N:Nat +Int 1, (L ,, ptrByte(Loc:Loc, N)))
         ...</k>
+		when NumBytes >Int 0
     rule
         <k> splitPointerBytes'(Loc:Loc, 0, _, L:List{K})
             => listK(L)
@@ -1100,9 +1106,10 @@ module LLVM-HELPERS-JOIN-BYTES is
         when isPointerType(Type)
 
     rule
-        <k> joinIntBytes(listK((L:List{K},, N:Nat)), sNat(Len:Nat), N':Nat, Type:KResult)
-            => joinIntBytes(listK(L:List{K}), Len:Nat, RESULT, Type:KResult)
+        <k> joinIntBytes(listK((L:List{K},, N:Nat)), Len:Nat, N':Nat, Type:KResult)
+            => joinIntBytes(listK(L:List{K}), Len:Nat -Int 1, RESULT, Type:KResult)
         ...</k>
+		when Len:Nat >Int 0
         where RESULT = (N':Nat <<Nat numBitsPerByte) |Nat N:Nat
 
     rule joinIntBytes(listK(.List{K}), 0, N:Nat, Type:KResult)
@@ -1121,9 +1128,10 @@ module LLVM-HELPERS-JOIN-BYTES is
         ...</k>
 
     rule
-        <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:Loc, N:Nat))), sNat(Len:Nat), N':Nat)
-            => joinPointerBytes(listK(L:List{K}), Len:Nat, RESULT)
+        <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:Loc, N:Nat))), Len:Nat, N':Nat)
+            => joinPointerBytes(listK(L:List{K}), Len:Nat -Int 1, RESULT)
         ...</k>
+		when Len:Nat >Int 0
         where RESULT = (N':Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:Loc, N:Nat)
 
     rule joinPointerBytes(listK(.List{K}), 0, Loc:Loc)
@@ -1137,13 +1145,15 @@ module LLVM-HELPERS-JOIN-BYTES is
             => ptrByte(V:KResult, N:Nat)
         [anywhere]
     rule
-        (ptrByte(V:KResult, sNat(N:Nat)) <<Nat Len:Nat) |Nat ptrByte(V:KResult, N:Nat)
-            => ptrBytes(V:KResult, N:Nat, sNat(N:Nat))
+        (ptrByte(V:KResult, sNatN:Nat) <<Nat Len:Nat) |Nat ptrByte(V:KResult, N:Nat)
+            => ptrBytes(V:KResult, N:Nat, sNatN:Nat)
         when Len ==Int numBitsPerByte
+		andBool sNatN ==Int N +Int 1
         [anywhere]
     rule
-        (ptrBytes(V:KResult, sNat(N:Nat), N':Nat) <<Nat Len:Nat) |Nat ptrByte(V:KResult, N:Nat)
+        (ptrBytes(V:KResult, sNatN:Nat, N':Nat) <<Nat Len:Nat) |Nat ptrByte(V:KResult, N:Nat)
             => ptrBytes(V:KResult, N:Nat, N':Nat)
+		when sNatN ==Int N +Int 1
         [anywhere]
     rule
         ptrBytes(V:KResult, 0, N:Nat)
@@ -1218,11 +1228,12 @@ module LLVM-MEMORY is
         ...</k>
 
     rule
-        <k> readBytes'(sNat(Len:Nat), loc(Base:Nat, Offset:Nat), L:List{K})
-            => readBytes'(Len:Nat, loc(Base:Nat, Offset:Nat) + 1, (L:List{K} ,, V:KResult))
+        <k> readBytes'(Len:Nat, loc(Base:Nat, Offset:Nat), L:List{K})
+            => readBytes'(Len:Nat -Int 1, loc(Base:Nat, Offset:Nat) + 1, (L:List{K} ,, V:KResult))
         ...</k>
         <basePtr> Base:Nat </basePtr>
         <bytes>... Offset |-> V:KResult ...</bytes>
+		when Len:Nat >Int 0
 
     rule
         <k> readBytes'(0, _, L:List{K})
@@ -1470,19 +1481,21 @@ module LLVM-STANDARD-LIBRARY is
 
     // memcpy
     rule
-        <k> memcpy(Dest:Loc, Src:Loc, sNat(Len:Nat), K1:K, K2:K)
+        <k> memcpy(Dest:Loc, Src:Loc, Len:Nat, K1:K, K2:K)
             => Store(byteType, Load(PointerType(byteType), Src), Dest)
-            ~> memcpy(Dest + 1, Src + 1, Len, K1, K2)
+            ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
         ...</k>
+		when Len >Int 0
     rule
         <k> memcpy(_, _, 0, _, _) => . ...</k>
 
     // memset
     rule
-        <k> memset(Dest:Loc, N:Nat, sNat(Len:Nat), K1:K, K2:K)
+        <k> memset(Dest:Loc, N:Nat, Len:Nat, K1:K, K2:K)
             => Store(byteType, N, Dest)
-            ~> memset(Dest + 1, N, Len, K1, K2)
+            ~> memset(Dest + 1, N, Len -Int 1, K1, K2)
         ...</k>
+		when Len >Int 0
     rule
         <k> memset(_, _, 0, _, _) => . ...</k>
 
@@ -1549,8 +1562,9 @@ module LLVM-SYSCALLS is
 
     rule
         <k> (. => read(i(8), Loc))
-            ~> readString'(Loc:Loc, sNat(_), _)
+            ~> readString'(Loc:Loc, I:Int, _)
         ...</k>
+		when I >Int 0
 
     rule <k> readString'(_, 0, S:String) => S ...</k>
 
@@ -1558,10 +1572,11 @@ module LLVM-SYSCALLS is
         <k> (I:Int => .)
             ~> readString'(
                 (Loc:Loc => Loc + 1),
-                (sNat(N:Nat) => N),
+                (N:Nat => N -Int 1),
                 (S:String => NEWSTRING)
             )
         ...</k>
+		when N >Int 0
         where NEWSTRING = S +String charString(unsigned(i(8), I))
 
     rule <k> printString(S:String) => lengthString(S) ...</k>

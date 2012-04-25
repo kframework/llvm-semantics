@@ -174,25 +174,25 @@ module LLVM-HELPERS is
     // this reduces it to be close
     rule
         signed(Type:KResult, I:Int)
-            => signed(Type:KResult, I %Int (umax(Type) +Nat 1))
+            => signed(Type:KResult, I %Int (umax(Type) +Int 1))
         when I >Int umax(Type) // note umax here
         [anywhere]
     // this picks up any extra distance
     rule
         signed(Type:KResult, I:Int)
-            => I -Int (umax(Type) +Nat 1)
+            => I -Int (umax(Type) +Int 1)
         when I >Int smax(Type) andBool I <=Int umax(Type)
         [anywhere]
 
     // same as above
     rule
         signed(Type:KResult, I:Int)
-            => signed(Type:KResult, I %Int (umax(Type) +Nat 1))
+            => signed(Type:KResult, I %Int (umax(Type) +Int 1))
         when I <Int -Int umax(Type)
         [anywhere]
     rule
         signed(Type:KResult, I:Int)
-            => I +Int (umax(Type) +Nat 1)
+            => I +Int (umax(Type) +Int 1)
         when I <Int smin(Type) andBool I >=Int -Int umax(Type)
         [anywhere]
 
@@ -208,11 +208,11 @@ module LLVM-HELPERS is
         when umin(Type) <=Nat N andBool umax(Type) >=Nat N
         [anywhere]
     rule
-        unsigned(Type:KResult, I:Int) => I remInt (umax(Type) +Nat 1)
+        unsigned(Type:KResult, I:Int) => I remInt (umax(Type) +Int 1)
         when I <Int umin(Type)
         [anywhere]
     rule
-        unsigned(Type:KResult, N:Nat) => N %Nat (umax(Type) +Nat 1)
+        unsigned(Type:KResult, N:Nat) => N %Int (umax(Type) +Int 1)
         when N >Nat umax(Type)
         [anywhere]
 
@@ -246,11 +246,11 @@ module LLVM-HELPERS is
     define sizeofInBits(X86FP80Type) => 80
     // TODO listK should be Fields (bug in K)
     define sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
-      => sizeofInBits(Type) +Nat sizeofInBits(StructType(listK(L)))
+      => sizeofInBits(Type) +Int sizeofInBits(StructType(listK(L)))
     define sizeofInBits(StructType(listK(.List{K}))) => 0
 
     declare sizeof : K -> Nat
-    define sizeof(Type:KResult) => sizeofInBits(Type) /Nat numBitsPerByte
+    define sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
         when numBitsPerByte dividesNat sizeofInBits(Type)
 
     declare zeroOfType : K -> K
@@ -263,11 +263,11 @@ module LLVM-HELPERS is
 		when N:Nat >Int 0
     define 0 copiesOf _ => .List{K}
 
-    // define N:Nat +Int (Offset:Nat +Nat sym(Base:Nat))
-        // => (N +Nat Offset) +Nat sym(Base)
+    // define N:Nat +Int (Offset:Nat +Int sym(Base:Nat))
+        // => (N +Int Offset) +Int sym(Base)
 
-    // define I:Int +Int (Offset:Nat +Nat sym(Base:Nat))
-        // => (absInt(I +Int Offset)) +Nat sym(Base)
+    // define I:Int +Int (Offset:Nat +Int sym(Base:Nat))
+        // => (absInt(I +Int Offset)) +Int sym(Base)
         // when I <Int 0 andBool I +Int Offset >=Int 0
 
 end module
@@ -771,7 +771,7 @@ module LLVM-VARIADICS is
 
     // TODO a really sketchy rule:
     rule
-        0 |Nat wvalist(VAList:List, Loc:Loc)
+        0 |Int wvalist(VAList:List, Loc:Loc)
             => wvalist(VAList:List, Loc:Loc)
         [anywhere]
 
@@ -1110,7 +1110,7 @@ module LLVM-HELPERS-JOIN-BYTES is
             => joinIntBytes(listK(L:List{K}), Len:Nat -Int 1, RESULT, Type:KResult)
         ...</k>
 		when Len:Nat >Int 0
-        where RESULT = (N':Nat <<Nat numBitsPerByte) |Nat N:Nat
+        where RESULT = (N':Nat <<Int numBitsPerByte) |Int N:Nat
 
     rule joinIntBytes(listK(.List{K}), 0, N:Nat, Type:KResult)
         => signed(Type, N:Nat)
@@ -1132,7 +1132,7 @@ module LLVM-HELPERS-JOIN-BYTES is
             => joinPointerBytes(listK(L:List{K}), Len:Nat -Int 1, RESULT)
         ...</k>
 		when Len:Nat >Int 0
-        where RESULT = (N':Nat <<Nat numBitsPerByte) |Nat ptrByte(Loc:Loc, N:Nat)
+        where RESULT = (N':Nat <<Int numBitsPerByte) |Int ptrByte(Loc:Loc, N:Nat)
 
     rule joinPointerBytes(listK(.List{K}), 0, Loc:Loc)
         => Loc:Loc
@@ -1141,17 +1141,17 @@ module LLVM-HELPERS-JOIN-BYTES is
     // crazy stuff to reassemble pointer
     syntax Nat ::= ptrBytes "(" K "," K "," K ")"
     rule
-        0 |Nat ptrByte(V:KResult, N:Nat)
+        0 |Int ptrByte(V:KResult, N:Nat)
             => ptrByte(V:KResult, N:Nat)
         [anywhere]
     rule
-        (ptrByte(V:KResult, sNatN:Nat) <<Nat Len:Nat) |Nat ptrByte(V:KResult, N:Nat)
+        (ptrByte(V:KResult, sNatN:Nat) <<Int Len:Nat) |Int ptrByte(V:KResult, N:Nat)
             => ptrBytes(V:KResult, N:Nat, sNatN:Nat)
         when Len ==Int numBitsPerByte
 		andBool sNatN ==Int N +Int 1
         [anywhere]
     rule
-        (ptrBytes(V:KResult, sNatN:Nat, N':Nat) <<Nat Len:Nat) |Nat ptrByte(V:KResult, N:Nat)
+        (ptrBytes(V:KResult, sNatN:Nat, N':Nat) <<Int Len:Nat) |Int ptrByte(V:KResult, N:Nat)
             => ptrBytes(V:KResult, N:Nat, N':Nat)
 		when sNatN ==Int N +Int 1
         [anywhere]
@@ -1193,7 +1193,7 @@ module LLVM-MEMORY is
             => writeBytes(splitBytes(V, Type), Loc)
         ...</k>
     // rule
-        // <k> writeBytes(listK((N:Nat,, L:List{K})), Base:Nat +Nat Offset:Nat)
+        // <k> writeBytes(listK((N:Nat,, L:List{K})), Base:Nat +Int Offset:Nat)
         // <basePtr> Base:Nat </basePtr>
         // <bytes> M:Map => M:Map[unknownByte / Offset:Nat] </bytes>
         // when notBool Offset in keys(M:Map)

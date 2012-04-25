@@ -7,9 +7,12 @@ module LLVM-SPECIAL is
 
     syntax Loc ::= loc "(" Int "," Int ")"    // TODO [semantic]
     syntax Loc ::= funptr "(" K ")"
+
     syntax Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
     syntax Nat ::= floatByte "(" K "," K "," K ")" // float, type, byte number
-
+	define 'isInt(ptrByte(_, _)) => true
+	define 'isInt(floatByte(_, _)) => true
+	
     syntax K ::= debug // TODO [semantic]
 
 
@@ -133,6 +136,7 @@ module LLVM-HELPERS is
     syntax K ::= joinBytes "(" K "," K ")" [strict(1)]
 
     syntax Nat ::= wvalist "(" List "," K ")"
+	define 'isInt(wvalist(_, _)) => true
 
     declare byteType : -> K
     define byteType => IntegerType(numBitsPerByte)
@@ -163,79 +167,73 @@ module LLVM-HELPERS is
     define umin Type:KResult => 0
 
     // should be a K, but builtins can't use K :(
-    syntax Int ::= signed "(" K "," K ")" // type, value
+	declare signed : K K -> Nat // type, value
 
     // case when in bounds
-    rule
+    define
         signed(Type:KResult, I:Int) => I
         when smin(Type) <=Int I andBool smax(Type) >=Int I
-        [anywhere]
 
     // this reduces it to be close
-    rule
+    define
         signed(Type:KResult, I:Int)
             => signed(Type:KResult, I %Int (umax(Type) +Int 1))
         when I >Int umax(Type) // note umax here
-        [anywhere]
     // this picks up any extra distance
-    rule
+    define
         signed(Type:KResult, I:Int)
             => I -Int (umax(Type) +Int 1)
         when I >Int smax(Type) andBool I <=Int umax(Type)
-        [anywhere]
-
+		
     // same as above
-    rule
+    define
         signed(Type:KResult, I:Int)
             => signed(Type:KResult, I %Int (umax(Type) +Int 1))
         when I <Int -Int umax(Type)
-        [anywhere]
-    rule
+    define
         signed(Type:KResult, I:Int)
             => I +Int (umax(Type) +Int 1)
         when I <Int smin(Type) andBool I >=Int -Int umax(Type)
-        [anywhere]
 
 
     // computes the positive remainder, whereas % can returns a negative number
     // TODO maybe should go in pl builtins
-    syntax Nat ::= K "remInt" K
-    rule (I:Int remInt N:Nat) => ((I %Int N) +Int N) %Int N [anywhere]
+    declare _remInt_ : K K -> Nat
+    define (I:Int remInt N:Nat) => ((I %Int N) +Int N) %Int N
 
-    syntax Nat ::= unsigned "(" K "," K ")" // type, value
-    rule
+	declare unsigned : K K -> Nat // type, value
+    define
         unsigned(Type:KResult, N:Nat) => N
         when umin(Type) <=Nat N andBool umax(Type) >=Nat N
-        [anywhere]
-    rule
+    define
         unsigned(Type:KResult, I:Int) => I remInt (umax(Type) +Int 1)
         when I <Int umin(Type)
-        [anywhere]
-    rule
+    define
         unsigned(Type:KResult, N:Nat) => N %Int (umax(Type) +Int 1)
         when N >Nat umax(Type)
-        [anywhere]
 
-    syntax Bool ::= isIntegerType "(" K ")" // predicate
-    rule isIntegerType(IntegerType(_)) => true  [anywhere]
-    rule isIntegerType(KLabel:KLabel(_)) => false
+	declare isIntegerType : K -> Bool
+    define isIntegerType(IntegerType(_)) => true
+    define isIntegerType(KLabel:KLabel(_)) => false
         when KLabel =/=KLabel 'IntegerType
-        [anywhere]
-    syntax Bool ::= isFloatType "(" K ")" // predicate
-    rule isFloatType(FloatType) => true [anywhere]
-    rule isFloatType(DoubleType) => true [anywhere]
-    rule isFloatType(X86FP80Type) => true [anywhere]
-    rule isFloatType(FP128Type) => true [anywhere]
-    rule isFloatType(PPCFP128Type) => true [anywhere]
-    rule isFloatType(X86MMXType) => true [anywhere]
 
-    syntax Bool ::= isPointerType "(" K ")" // predicate
-    rule isPointerType(PointerType(_)) => true  [anywhere]
-    syntax Bool ::= isArrayType "(" K ")" // predicate
-    rule isArrayType(ArrayType(_, _)) => true  [anywhere]
-    syntax Bool ::= isStructType "(" K ")" // predicate
-    rule isStructType(StructType(_)) => true  [anywhere]
+	declare isFloatType : K -> Bool
+    define isFloatType(FloatType) => true
+    define isFloatType(DoubleType) => true
+    define isFloatType(X86FP80Type) => true
+    define isFloatType(FP128Type) => true
+    define isFloatType(PPCFP128Type) => true
+    define isFloatType(X86MMXType) => true
 
+    declare isPointerType : K -> Bool
+    define isPointerType(PointerType(_)) => true
+	
+	declare isArrayType : K -> Bool
+    define isArrayType(ArrayType(_, _)) => true
+	
+	declare isStructType : K -> Bool
+    define isStructType(StructType(_)) => true
+	
     // fixme size should depend on architecture
     define sizeofInBits(PointerType(_)) => numBytesPerPointer *Nat numBitsPerByte
     define sizeofInBits(ArrayType(Type:KResult, Len:Nat)) => sizeofInBits(Type) *Nat Len
@@ -1140,6 +1138,7 @@ module LLVM-HELPERS-JOIN-BYTES is
 
     // crazy stuff to reassemble pointer
     syntax Nat ::= ptrBytes "(" K "," K "," K ")"
+	define 'isInt(ptrBytes(_, _, _)) => true
     rule
         0 |Int ptrByte(V:KResult, N:Nat)
             => ptrByte(V:KResult, N:Nat)

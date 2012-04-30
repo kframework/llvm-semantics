@@ -236,7 +236,7 @@ sub elementToK {
 		# return ($inNextState, "(.).K");
 	# }
 	if ($label eq 'List') {
-		my $prefix = '(_`(_`)(kList("wklist_"), ';
+		my $prefix = '(_`(_`)(kList("List`{K`}2K_"), ';
 		my $suffix = '))';
 		return ($inNextState, $prefix . $kterm . $suffix);
 	} elsif ($label eq 'Set') {

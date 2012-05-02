@@ -47,8 +47,8 @@ module LLVM-CONFIGURATION is
             </control>
             @latex("\\kBR")
             <memory color="teal">
-                <object multiplicity="*" color="LightSkyBlue">
-                    <basePtr color="orange"> -1 </basePtr>
+                <object multiplicity="*" color="LightSkyBlue" type="Map">
+                    <basePtr color="orange" type="Key"> -1 </basePtr>
                     <type> .K </type>
                     <size> 0 </size>
                     <bytes> .Map </bytes>
@@ -63,8 +63,8 @@ module LLVM-CONFIGURATION is
             <output stream="stdout" color="DodgerBlue"> .List </output>
             @latex("\\kBR")
             <modules color="teal">
-                <module multiplicity="*" color="LightSkyBlue">
-                    <moduleName color="orange"> Name("") </moduleName>
+                <module multiplicity="*" color="LightSkyBlue" type="Map">
+                    <moduleName color="orange" type="Key"> Name("") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     @latex("\\kBR")
@@ -73,8 +73,8 @@ module LLVM-CONFIGURATION is
                     <globalRegisters color="teal"> .Map </globalRegisters>
                     @latex("\\kBR")
                     <functions color="teal">
-                        <function multiplicity="*" color="LightSkyBlue">
-                            <functionName color="orange"> Name("") </functionName>
+                        <function multiplicity="*" color="LightSkyBlue" type="Map">
+                            <functionName color="orange" type="Key"> Name("") </functionName>
                             <returnType> .K </returnType>
                             <formalParameters> .K </formalParameters>
                             @latex("\\kBR")
@@ -84,8 +84,8 @@ module LLVM-CONFIGURATION is
                     </functions>
                     @latex("\\kBR")
                     <typeInfos color="teal">
-                        <typeInfo multiplicity="*" color="LightSkyBlue">
-                            <typeName color="orange"> Name("") </typeName>
+                        <typeInfo multiplicity="*" color="LightSkyBlue" type="Map">
+                            <typeName color="orange" type="Key"> Name("") </typeName>
                             <offsets> .Map </offsets>
                         </typeInfo>
                     </typeInfos>

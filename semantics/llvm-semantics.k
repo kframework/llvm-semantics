@@ -602,14 +602,14 @@ module LLVM-DECLARATIONS is
             ...</module>
         ...</modules>
 
-    rule
+    rule [typedef-assignment]:
         <k> Typedef(X:Id, UnresolvedType:K) => . ...</k>
         //<currentModifiers> _ => List(L) </currentModifiers> TODO not printing modifiers
         <currModule> Name:Id </currModule>
         <moduleName> Name </moduleName>
         <typedefs>... . => X |-> UnresolvedType ...</typedefs>
 
-    rule
+    rule [typedef-lookup]:
         <k> NamedType(X:Id) => UnresolvedType ...</k>
         <typedefs>... X |-> UnresolvedType:K ...</typedefs>
 

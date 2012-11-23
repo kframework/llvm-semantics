@@ -256,7 +256,7 @@ module LLVM-HELPERS is
     define sizeofInBits(DoubleType) => 64
     define sizeofInBits(X86FP80Type) => 80
     // TODO listK should be Fields (bug in K)
-    define sizeofInBits(StructType(listK((Type:KResult,,L:List{K}))))
+    define sizeofInBits(StructType(listK((Type:KResult,, L:List{K}))))
       => sizeofInBits(Type) +Int sizeofInBits(StructType(listK(L)))
     define sizeofInBits(StructType(listK(.List{K}))) => 0
 
@@ -568,7 +568,7 @@ module LLVM-START-AND-STOP is
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL
     rule
         <T>...
-            <k> 'sys-exit-group(I:Int,,_) ...</k>
+            <k> 'sys-exit-group(I:Int,, _) ...</k>
             <output> #ostream(1) #buffer(.) </output>
         ...</T>
         =>
@@ -646,7 +646,7 @@ module LLVM-DECLARATIONS is
         where FUNCTION = FunctionDecl(RetType:KResult, Name:Id, Arguments:K)
 
     rule
-        <k> Body((BasicBlock(Name:Id, K:K) ,, L:List{K}))
+        <k> Body((BasicBlock(Name:Id, K:K),, L:List{K}))
             => BasicBlock(Name:Id, K:K)
             ~> List{K}ToK(L)
         ...</k>
@@ -924,13 +924,13 @@ module LLVM-GEP is
 
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
-        <k> StructType(listK((Type:KResult => .List{K}),,L:List{K})) ...</k>
+        <k> StructType(listK((Type:KResult => .List{K}),, L:List{K})) ...</k>
         <gepIndices> N:Nat => N -Int 1 ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
 		when N:Nat >Int 0
 
     rule
-        <k> StructType(listK(Type:KResult,,L:List{K})) => Type ...</k>
+        <k> StructType(listK(Type:KResult,, L:List{K})) => Type ...</k>
         <gepIndices> 0 => . ...</gepIndices>
 
 end module
@@ -994,7 +994,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
             => splitIntegerBytes'(
                 I >>Int numBitsPerByte,
                 NumBytes -Int 1,
-                (L ,, (I &Int MASK))
+                (L,, (I &Int MASK))
             )
         ...</k>
 		when NumBytes >Int 0
@@ -1028,7 +1028,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
                 V:KResult,
                 Type:KResult,
                 NumBytes:Nat => NumBytes -Int 1,
-                L:List{K} => floatByte(V, Type, NumBytes -Int 1) ,, L
+                L:List{K} => floatByte(V, Type, NumBytes -Int 1),, L
             )
         ...</k>
 		when NumBytes >Int 0
@@ -1041,7 +1041,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
         ...</k>
     rule
         <k> splitPointerBytes'(Loc:Loc, NumBytes:Nat, N:Nat, L:List{K})
-            => splitPointerBytes'(Loc:Loc, NumBytes -Int 1, N:Nat +Int 1, (L ,, ptrByte(Loc:Loc, N)))
+            => splitPointerBytes'(Loc:Loc, NumBytes -Int 1, N:Nat +Int 1, (L,, ptrByte(Loc:Loc, N)))
         ...</k>
 		when NumBytes >Int 0
     rule
@@ -1083,7 +1083,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
             ~> splitStructBytes'(Zeroinitializer, L:List{K}, L':List{K})
         ...</k>
     rule
-        <k> (listK(L:List{K}) => .K) ~> splitStructBytes'(_, _, (_ ,, (.List{K} => L))) ...</k>
+        <k> (listK(L:List{K}) => .K) ~> splitStructBytes'(_, _, (_,, (.List{K} => L))) ...</k>
     rule
         <k> splitStructBytes'(_, .List{K}, L:List{K})
             => listK(L)
@@ -1241,7 +1241,7 @@ module LLVM-MEMORY is
 
     rule
         <k> readBytes'(Len:Nat, loc(Base:Nat, Offset:Nat), L:List{K})
-            => readBytes'(Len:Nat -Int 1, loc(Base:Nat, Offset:Nat) + 1, (L:List{K} ,, V:KResult))
+            => readBytes'(Len:Nat -Int 1, loc(Base:Nat, Offset:Nat) + 1, (L:List{K},, V:KResult))
         ...</k>
         <basePtr> Base:Nat </basePtr>
         <bytes>... Offset |-> V:KResult ...</bytes>
@@ -1538,7 +1538,7 @@ module LLVM-SYSCALLS-PREPROCESS is
     including LLVM-INCLUDE
     
     rule
-        <k> Call(_, Callee(funptr(Name("@__syscall")), listK(N:Nat,,L:List{K})))
+        <k> Call(_, Callee(funptr(Name("@__syscall")), listK(N:Nat,, L:List{K})))
             => (syscallHandler(N))(L)
         ...</k>
 end module
@@ -1551,7 +1551,7 @@ module LLVM-SYSCALLS is
     rule <k> 'sys-gettid(_) => 0 ...</k>
 
     rule
-        <k> 'sys-brk(ptrToInt(_,Loc:Loc),,_) => Brk ...</k>
+        <k> 'sys-brk(ptrToInt(_,Loc:Loc),, _) => Brk ...</k>
         <brk> Brk:Nat </brk>
         when Loc ==K Null
 

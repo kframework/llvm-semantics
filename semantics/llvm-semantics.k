@@ -3,16 +3,16 @@ module LLVM-SPECIAL is
 
     syntax KResult ::= Int | String | Float
     syntax KResult ::= arrayValue "(" List{K} ")"
-	syntax KResult ::= Loc
+    syntax KResult ::= Loc
 
     syntax Loc ::= loc "(" Int "," Int ")"    // TODO [semantic]
     syntax Loc ::= funptr "(" K ")"
 
     syntax Nat ::= ptrByte "(" K "," K ")" // address, byteNumber; part of a pointer, as a byte
     syntax Nat ::= floatByte "(" K "," K "," K ")" // float, type, byte number
-	define 'isInt(ptrByte(_, _)) => true
-	define 'isInt(floatByte(_, _, _)) => true
-	
+    define 'isInt(ptrByte(_, _)) => true
+    define 'isInt(floatByte(_, _, _)) => true
+
     syntax K ::= debug // TODO [semantic]
 
 
@@ -114,37 +114,37 @@ end module
 module LLVM-HELPERS is
     including LLVM-SYNTAX
     including LLVM-SETTINGS
-	
-	declare StringToList{K}_ : String -> List{K}
-	define StringToList{K}("") => .List{K}
-	define
-		StringToList{K}(S:String)
-			=> asciiString(substrString(S:String, 0, 1))
-			,, StringToList{K}(substrString(S:String, 1, lengthString(S:String)))
-		when S:String =/=String ""
-	
+
+    declare StringToList{K}_ : String -> List{K}
+    define StringToList{K}("") => .List{K}
+    define
+        StringToList{K}(S:String)
+            => asciiString(substrString(S:String, 0, 1))
+            ,, StringToList{K}(substrString(S:String, 1, lengthString(S:String)))
+        when S:String =/=String ""
+
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule
         Null => loc(-1, 0) [anywhere]
-		
-	declare base : Loc -> Int
-	define
-		base(loc(Base:Int, _)) => Base:Int
-	declare offset : Loc -> Int
-	define
-		offset(loc(_, Offset:Int)) => Offset:Int
-	declare _+_ : Loc Int -> Loc
-	// TODO not checking for null
-	define
-		loc(Base:Int, Offset:Int) + Offset':Int
-			=> loc(Base:Int, Offset:Int +Int Offset':Int)
-			
-		
+
+    declare base : Loc -> Int
+    define
+        base(loc(Base:Int, _)) => Base:Int
+    declare offset : Loc -> Int
+    define
+        offset(loc(_, Offset:Int)) => Offset:Int
+    declare _+_ : Loc Int -> Loc
+    // TODO not checking for null
+    define
+        loc(Base:Int, Offset:Int) + Offset':Int
+            => loc(Base:Int, Offset:Int +Int Offset':Int)
+
+
     syntax K ::= splitBytes "(" K "," K ")" // value, type
     syntax K ::= joinBytes "(" K "," K ")" [strict(1)]
 
     syntax Nat ::= wvalist "(" List "," K ")"
-	define 'isInt(wvalist(_, _)) => true
+    define 'isInt(wvalist(_, _)) => true
 
     declare byteType : -> K
     define byteType => IntegerType(numBitsPerByte)
@@ -175,9 +175,9 @@ module LLVM-HELPERS is
     define umin Type:KResult => 0
 
     // should be a K, but builtins can't use K :(
-	// declare signed : K K -> Nat // type, value
-	syntax Nat ::= signed "(" K "," K ")"
-	define 'isInt(signed(_, _)) => true
+    // declare signed : K K -> Nat // type, value
+    syntax Nat ::= signed "(" K "," K ")"
+    define 'isInt(signed(_, _)) => true
 
     // case when in bounds
     define
@@ -194,7 +194,7 @@ module LLVM-HELPERS is
         signed(Type:KResult, I:Int)
             => I -Int (umax(Type) +Int 1)
         when I >Int smax(Type) andBool I <=Int umax(Type)
-		
+
     // same as above
     define
         signed(Type:KResult, I:Int)
@@ -211,10 +211,10 @@ module LLVM-HELPERS is
     declare _remInt_ : K K -> Nat
     define (I:Int remInt N:Nat) => ((I %Int N) +Int N) %Int N
 
-	// declare unsigned : K K -> Nat // type, value
-	syntax Nat ::= unsigned "(" K "," K ")"
-	define 'isInt(unsigned(_, _)) => true
-	
+    // declare unsigned : K K -> Nat // type, value
+    syntax Nat ::= unsigned "(" K "," K ")"
+    define 'isInt(unsigned(_, _)) => true
+
     define
         unsigned(Type:KResult, N:Nat) => N
         when umin(Type) <=Int N andBool umax(Type) >=Int N
@@ -225,12 +225,12 @@ module LLVM-HELPERS is
         unsigned(Type:KResult, N:Nat) => N %Int (umax(Type) +Int 1)
         when N >Int umax(Type)
 
-	declare isIntegerType : K -> Bool
+    declare isIntegerType : K -> Bool
     define isIntegerType(IntegerType(_)) => true
     define isIntegerType(KLabel:KLabel(_)) => false
         when KLabel =/=KLabel 'IntegerType
 
-	declare isFloatType : K -> Bool
+    declare isFloatType : K -> Bool
     define isFloatType(FloatType) => true
     define isFloatType(DoubleType) => true
     define isFloatType(X86FP80Type) => true
@@ -240,13 +240,13 @@ module LLVM-HELPERS is
 
     declare isPointerType : K -> Bool
     define isPointerType(PointerType(_)) => true
-	
-	declare isArrayType : K -> Bool
+
+    declare isArrayType : K -> Bool
     define isArrayType(ArrayType(_, _)) => true
-	
-	declare isStructType : K -> Bool
+
+    declare isStructType : K -> Bool
     define isStructType(StructType(_)) => true
-	
+
     // fixme size should depend on architecture
     define sizeofInBits(PointerType(_)) => numBytesPerPointer *Int numBitsPerByte
     define sizeofInBits(ArrayType(Type:KResult, Len:Nat)) => sizeofInBits(Type) *Int Len
@@ -271,7 +271,7 @@ module LLVM-HELPERS is
 
     declare _copiesOf_ : K List{K} -> List{K}
     define N:Nat copiesOf L:List{K} => L,, (N:Nat -Int 1 copiesOf L)
-		when N:Nat >Int 0
+        when N:Nat >Int 0
     define 0 copiesOf _ => .List{K}
 
     // define N:Nat +Int (Offset:Nat +Int sym(Base:Nat))
@@ -285,13 +285,13 @@ end module
 
 module LLVM-STANDARD-LIBRARY-SYNTAX is
     including LLVM-SYNTAX
-    
+
     syntax K ::= memcpy "(" K "," K "," K "," K "," K ")"
     syntax K ::= memset "(" K "," K "," K "," K "," K ")"
-    
+
     syntax K ::= lifetimeStart "(" K "," K ")"
     syntax K ::= lifetimeEnd "(" K "," K ")"
-    
+
     syntax K ::= vaStart "(" K ")"
     syntax K ::= vaCopy "(" K "," K ")"
 end module
@@ -350,7 +350,7 @@ module LLVM-CLEAN-TREE is
     rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
     rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]
     rule Typedefs(L:List{K}) => List{K}ToK(L)         [anywhere]
-	rule <k> Aliases(L:List{K}) => List{K}ToK(L) ...</k>
+    rule <k> Aliases(L:List{K}) => List{K}ToK(L) ...</k>
     //rule Body(L:List{K}) => List{K}ToK(L)
     rule Instructions(L:List{K}) => List{K}ToK(L)     [anywhere]
     rule ModuleID(S:String) => Name(S)               [anywhere]
@@ -369,23 +369,23 @@ module LLVM-CLEAN-TREE is
     rule ICmp(Predicate("sge"), TyK:K, K1:K, K2:K) => SGE(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("slt"), TyK:K, K1:K, K2:K) => SLT(TyK:K, K1:K, K2:K)
     rule ICmp(Predicate("sle"), TyK:K, K1:K, K2:K) => SLE(TyK:K, K1:K, K2:K)
-	
-	rule FCmp(Predicate("false"), _, _, _) => 1
-	rule FCmp(Predicate("oeq"), TyK:K, K1:K, K2:K) => OEQ(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ogt"), TyK:K, K1:K, K2:K) => OGT(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("oge"), TyK:K, K1:K, K2:K) => OGE(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("olt"), TyK:K, K1:K, K2:K) => OLT(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ole"), TyK:K, K1:K, K2:K) => OLE(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("one"), TyK:K, K1:K, K2:K) => ONE(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ono"), TyK:K, K1:K, K2:K) => ONO(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ueq"), TyK:K, K1:K, K2:K) => UEQ(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("ule"), TyK:K, K1:K, K2:K) => ULE(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("une"), TyK:K, K1:K, K2:K) => UNE(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("uno"), TyK:K, K1:K, K2:K) => UNO(TyK:K, K1:K, K2:K)
-	rule FCmp(Predicate("true"), _, _, _) => 1
+
+    rule FCmp(Predicate("false"), _, _, _) => 1
+    rule FCmp(Predicate("oeq"), TyK:K, K1:K, K2:K) => OEQ(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ogt"), TyK:K, K1:K, K2:K) => OGT(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("oge"), TyK:K, K1:K, K2:K) => OGE(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("olt"), TyK:K, K1:K, K2:K) => OLT(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ole"), TyK:K, K1:K, K2:K) => OLE(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("one"), TyK:K, K1:K, K2:K) => ONE(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ono"), TyK:K, K1:K, K2:K) => ONO(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ueq"), TyK:K, K1:K, K2:K) => UEQ(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ugt"), TyK:K, K1:K, K2:K) => UGT(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("uge"), TyK:K, K1:K, K2:K) => UGE(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ult"), TyK:K, K1:K, K2:K) => ULT(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("ule"), TyK:K, K1:K, K2:K) => ULE(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("une"), TyK:K, K1:K, K2:K) => UNE(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("uno"), TyK:K, K1:K, K2:K) => UNO(TyK:K, K1:K, K2:K)
+    rule FCmp(Predicate("true"), _, _, _) => 1
 
     rule
         <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
@@ -479,9 +479,9 @@ module LLVM-BRANCHING is
 end module
 
 module LLVM-PHI is
-	// TODO possibly preprocess PHI
+    // TODO possibly preprocess PHI
     including LLVM-INCLUDE
-    
+
     rule
         <k> PHI(_, (Edge(K:K, Name:Id),, _:List{K})) => K:K ...</k>
         <prevBlock> Name </prevBlock>
@@ -683,9 +683,9 @@ module LLVM-CALL-RET is
     // figuring out right function body (grab first bb)
     // add frame to call stack
     // replacing control cell with new cell
-    
+
     // pushframe/popframe
-    // 
+    //
     // TODO would like to use ACTUAL control cell sitting on top of the stack, but can't have cells in lists and use context transformers
     // TODO would like to use ACTUAL control cell sitting on top of the stack, but can't have cells in lists and use context transformers
     // TODO bind term to variable even if term has inner rewrites
@@ -706,20 +706,20 @@ module LLVM-CALL-RET is
             <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
         ...</module>
         [large]
-    
+
     syntax K ::= contextSwitch "(" K "," K ")"
 
     rule
         <k> contextSwitch(FunName, Tail) => . ...</k>
         (<control>
-            C:Bag 
+            C:Bag
         </control> =>
         <control>...
             <currFunction> FunName:Id </currFunction>
         ...</control>)
         <callStack> . => frame(Tail, C) ...</callStack>
 
-        
+
 
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
@@ -742,22 +742,22 @@ module LLVM-CALL-RET is
 
     // TODO rename Tail
     rule
-        <k> Ret(V:KResult) ~> _ 
+        <k> Ret(V:KResult) ~> _
             => clearLocalMemory(Locals)
-            ~> V ~> clearVoid 
+            ~> V ~> clearVoid
             ~> Tail
         </k>
         <callStack> frame(Tail:K, C:Bag) => . ...</callStack>
         <control> <localMemory> Locals:List </localMemory> _ => C </control>
-    
+
     syntax K ::= clearLocalMemory "(" List ")"
     rule
         <k> clearLocalMemory((ListItem(Base:Int) => .) _) ...</k>
         (<object>... <basePtr> Base:Int </basePtr> ...</object> => .)
-        
+
     rule
         <k> clearLocalMemory(.) => . ...</k>
-    
+
     rule
         <k> VoidValue ~> clearVoid => . ...</k>
     rule
@@ -927,7 +927,7 @@ module LLVM-GEP is
         <k> StructType(listK((Type:KResult => .List{K}),, L:List{K})) ...</k>
         <gepIndices> N:Nat => N -Int 1 ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
-		when N:Nat >Int 0
+        when N:Nat >Int 0
 
     rule
         <k> StructType(listK(Type:KResult,, L:List{K})) => Type ...</k>
@@ -937,7 +937,7 @@ end module
 
 module LLVM-HELPERS-SPLIT-BYTES is
     including LLVM-INCLUDE
-    
+
     syntax K ::= splitIntegerBytes "(" K "," K "," K ")" // value, numBytes, type
     syntax K ::= splitIntegerBytes' "(" K "," K "," List{K} ")" // value, numbytes, accumulator
     syntax K ::= splitFloatBytes "(" K "," K "," K "," List{K} ")" // value, type, numBytes, accumulator
@@ -983,7 +983,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
         <k> splitIntegerBytes(I:Int, NumBytes:Nat, Type:KResult)
             => splitIntegerBytes'(unsigned(Type, I), NumBytes, .List{K})
         ...</k>
-		when I:Int >=Int 0 orBool I:Int <=Int 0 // trying to avoid this case unless real int
+        when I:Int >=Int 0 orBool I:Int <=Int 0 // trying to avoid this case unless real int
     // TODO can possibly rewrite Zeroinitializer to 0 here, and only have one case
     rule
         <k> splitIntegerBytes(Zeroinitializer, NumBytes:Nat, _)
@@ -997,13 +997,13 @@ module LLVM-HELPERS-SPLIT-BYTES is
                 (L,, (I &Int MASK))
             )
         ...</k>
-		when NumBytes >Int 0
+        when NumBytes >Int 0
         where MASK = (2 ^Int numBitsPerByte) -Int 1
     rule
         <k> splitIntegerBytes'(Zeroinitializer, NumBytes:Nat, L:List{K})
             => splitIntegerBytes'(Zeroinitializer, NumBytes -Int 1, (L,, 0))
         ...</k>
-		when NumBytes >Int 0
+        when NumBytes >Int 0
     // TODO: ideally, the parser should canonicalize integer literals to positive
     // TODO BUG no idea why i have to use "MyK" here instead of "K"....
     rule
@@ -1031,7 +1031,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
                 L:List{K} => floatByte(V, Type, NumBytes -Int 1),, L
             )
         ...</k>
-		when NumBytes >Int 0
+        when NumBytes >Int 0
 
     rule
         <k> splitPointerBytes((Zeroinitializer => Null), _) ...</k>
@@ -1043,7 +1043,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
         <k> splitPointerBytes'(Loc:Loc, NumBytes:Nat, N:Nat, L:List{K})
             => splitPointerBytes'(Loc:Loc, NumBytes -Int 1, N:Nat +Int 1, (L,, ptrByte(Loc:Loc, N)))
         ...</k>
-		when NumBytes >Int 0
+        when NumBytes >Int 0
     rule
         <k> splitPointerBytes'(Loc:Loc, 0, _, L:List{K})
             => listK(L)
@@ -1120,7 +1120,7 @@ module LLVM-HELPERS-JOIN-BYTES is
         <k> joinIntBytes(listK((L:List{K},, N:Nat)), Len:Nat, N':Nat, Type:KResult)
             => joinIntBytes(listK(L:List{K}), Len:Nat -Int 1, RESULT, Type:KResult)
         ...</k>
-		when Len:Nat >Int 0
+        when Len:Nat >Int 0
         where RESULT = (N':Nat <<Int numBitsPerByte) |Int N:Nat
 
     rule joinIntBytes(listK(.List{K}), 0, N:Nat, Type:KResult)
@@ -1142,7 +1142,7 @@ module LLVM-HELPERS-JOIN-BYTES is
         <k> joinPointerBytes(listK((L:List{K},, ptrByte(Loc:Loc, N:Nat))), Len:Nat, N':Nat)
             => joinPointerBytes(listK(L:List{K}), Len:Nat -Int 1, RESULT)
         ...</k>
-		when Len:Nat >Int 0
+        when Len:Nat >Int 0
         where RESULT = (N':Nat <<Int numBitsPerByte) |Int ptrByte(Loc:Loc, N:Nat)
 
     rule joinPointerBytes(listK(.List{K}), 0, Loc:Loc)
@@ -1151,7 +1151,7 @@ module LLVM-HELPERS-JOIN-BYTES is
 
     // crazy stuff to reassemble pointer
     syntax Nat ::= ptrBytes "(" K "," K "," K ")"
-	define 'isInt(ptrBytes(_, _, _)) => true
+    define 'isInt(ptrBytes(_, _, _)) => true
     rule
         0 |Int ptrByte(V:KResult, N:Nat)
             => ptrByte(V:KResult, N:Nat)
@@ -1160,19 +1160,19 @@ module LLVM-HELPERS-JOIN-BYTES is
         (ptrByte(V:KResult, sNatN:Nat) <<Int Len:Nat) |Int ptrByte(V:KResult, N:Nat)
             => ptrBytes(V:KResult, N:Nat, sNatN:Nat)
         when Len ==Int numBitsPerByte
-		andBool sNatN ==Int N +Int 1
+        andBool sNatN ==Int N +Int 1
         [anywhere]
     rule
         (ptrBytes(V:KResult, sNatN:Nat, N':Nat) <<Int Len:Nat) |Int ptrByte(V:KResult, N:Nat)
             => ptrBytes(V:KResult, N:Nat, N':Nat)
-		when sNatN ==Int N +Int 1
+        when sNatN ==Int N +Int 1
         [anywhere]
     rule
         ptrBytes(V:KResult, 0, N:Nat)
             => V
         where N ==Int (numBytesPerPointer -Int 1)
         [anywhere]
-        
+
 end module
 
 module LLVM-MEMORY is
@@ -1210,7 +1210,7 @@ module LLVM-MEMORY is
         // <bytes> M:Map => M:Map[unknownByte / Offset:Nat] </bytes>
         // when notBool Offset in keys(M:Map)
 
-	// TODO similar problem as sNat; want to match through a deconstructor
+    // TODO similar problem as sNat; want to match through a deconstructor
     rule
         <k> writeBytes(listK((N:Nat,, L:List{K})), loc(Base:Nat, Offset:Nat))
             => writeBytes(listK(L:List{K}), loc(Base:Nat, Offset:Nat) + 1)
@@ -1245,7 +1245,7 @@ module LLVM-MEMORY is
         ...</k>
         <basePtr> Base:Nat </basePtr>
         <bytes>... Offset |-> V:KResult ...</bytes>
-		when Len:Nat >Int 0
+        when Len:Nat >Int 0
 
     rule
         <k> readBytes'(0, _, L:List{K})
@@ -1261,10 +1261,10 @@ end module
 module LLVM-COMPARISONS is
     including LLVM-INCLUDE
 
-	
-	
+
+
     // all of these take place only at the top of K
-	// TODO these break with ==Int or =/=Int
+    // TODO these break with ==Int or =/=Int
     rule INotEq(Type:KResult, I1:Int, I2:Int)
         => boolToInt(unsigned(Type, I1) =/=K unsigned(Type, I2))
     rule IEq(Type:KResult, I1:Int, I2:Int)
@@ -1277,8 +1277,8 @@ module LLVM-COMPARISONS is
     rule SGE(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >=Int signed(Type, I2:Int))
     rule SLT(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) <Int signed(Type, I2:Int))
     rule SLE(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >=Int signed(Type, I2:Int))
-	
-	rule INotEq(Type:KResult, Loc1:Loc, Loc2:Loc)
+
+    rule INotEq(Type:KResult, Loc1:Loc, Loc2:Loc)
         => boolToInt(unsigned(Type, Loc1:Loc) =/=K unsigned(Type, Loc2:Loc))
     rule IEq(Type:KResult, Loc1:Loc, Loc2:Loc)
         => boolToInt(unsigned(Type, Loc1:Loc) ==K unsigned(Type, Loc2:Loc))
@@ -1290,36 +1290,36 @@ module LLVM-COMPARISONS is
     rule SGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
     rule SLT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) <Int signed(Type, Loc2:Loc))
     rule SLE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
-	
-	// TODO not handling QNAN
-	rule OEQ(Type:KResult, F1:Float, F2:Float) 
-		=> boolToInt(F1:Float ==Float F2:Float)
-	rule OGT(Type:KResult, F1:Float, F2:Float) 
-		=> boolToInt(F1:Float >Float F2:Float)	
-	rule OGE(Type:KResult, F1:Float, F2:Float)
-		=> boolToInt(F1:Float >=Float F2:Float)
-	rule OLT(Type:KResult, F1:Float, F2:Float)
-		=> boolToInt(F1:Float <Float F2:Float)
-	rule OLE(Type:KResult, F1:Float, F2:Float)
-		=> boolToInt(F1:Float <=Float F2:Float)
-	rule ONE(Type:KResult, F1:Float, F2:Float) 
-		=> boolToInt(F1:Float =/=Float F2:Float)
-	// rule ORD(Type:KResult, F1:Float, F2:Float) 
-		// => // if both are not QNAN
-	rule UEQ(Type:KResult, F1:Float, F2:Float) 
-		=> boolToInt(F1:Float ==Float F2:Float)
-	rule UGT(Type:KResult, F1:Float, F2:Float) 
-		=> boolToInt(F1:Float >Float F2:Float)	
-	rule UGE(Type:KResult, F1:Float, F2:Float)
-		=> boolToInt(F1:Float >=Float F2:Float)
-	rule ULT(Type:KResult, F1:Float, F2:Float)
-		=> boolToInt(F1:Float <Float F2:Float)
-	rule ULE(Type:KResult, F1:Float, F2:Float)
-		=> boolToInt(F1:Float <=Float F2:Float)
-	rule UNE(Type:KResult, F1:Float, F2:Float) 
-		=> boolToInt(F1:Float =/=Float F2:Float)
-	// rule UNO(Type:KResult, F1:Float, F2:Float) 
-		// => if either is QNAN
+
+    // TODO not handling QNAN
+    rule OEQ(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float ==Float F2:Float)
+    rule OGT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >Float F2:Float)
+    rule OGE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >=Float F2:Float)
+    rule OLT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <Float F2:Float)
+    rule OLE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <=Float F2:Float)
+    rule ONE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float =/=Float F2:Float)
+    // rule ORD(Type:KResult, F1:Float, F2:Float)
+        // => // if both are not QNAN
+    rule UEQ(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float ==Float F2:Float)
+    rule UGT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >Float F2:Float)
+    rule UGE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >=Float F2:Float)
+    rule ULT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <Float F2:Float)
+    rule ULE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <=Float F2:Float)
+    rule UNE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float =/=Float F2:Float)
+    // rule UNO(Type:KResult, F1:Float, F2:Float)
+        // => if either is QNAN
 
     syntax K ::= boolToInt "(" K ")"
     rule boolToInt(true) => 1
@@ -1345,7 +1345,7 @@ module LLVM-CONVERSIONS is
     // TODO need to normalize here
     rule
         <k> BitCast(_, I:Int) => I:Int ...</k>
-	rule
+    rule
         <k> BitCast(_, Loc:Loc) => Loc:Loc ...</k>
 
     // TODO need to normalize here
@@ -1462,22 +1462,22 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS is
             => memset(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memset."
-    
+
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.lifetime.start")), listK(V1:KResult,, V2:KResult)))
             => lifetimeStart(V1, V2)
         ...</k>
-    
+
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.lifetime.end")), listK(V1:KResult,, V2:KResult)))
             => lifetimeEnd(V1, V2)
         ...</k>
-    
+
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.va_start")), listK(V1:KResult)))
             => vaStart(V1)
         ...</k>
-    
+
     rule
         <k> Call(_, Callee(funptr(Name("@llvm.va_copy")), listK(V1:KResult,, V2:KResult)))
             => vaCopy(V1, V2)
@@ -1498,7 +1498,7 @@ module LLVM-STANDARD-LIBRARY is
             => Store(byteType, Load(PointerType(byteType), Src), Dest)
             ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
         ...</k>
-		when Len >Int 0
+        when Len >Int 0
     rule
         <k> memcpy(_, _, 0, _, _) => . ...</k>
 
@@ -1508,7 +1508,7 @@ module LLVM-STANDARD-LIBRARY is
             => Store(byteType, N, Dest)
             ~> memset(Dest + 1, N, Len -Int 1, K1, K2)
         ...</k>
-		when Len >Int 0
+        when Len >Int 0
     rule
         <k> memset(_, _, 0, _, _) => . ...</k>
 
@@ -1536,7 +1536,7 @@ end module
 
 module LLVM-SYSCALLS-PREPROCESS is
     including LLVM-INCLUDE
-    
+
     rule
         <k> Call(_, Callee(funptr(Name("@__syscall")), listK(N:Nat,, L:List{K})))
             => (syscallHandler(N))(L)
@@ -1577,7 +1577,7 @@ module LLVM-SYSCALLS is
         <k> (. => read(i(8), Loc))
             ~> readString'(Loc:Loc, I:Int, _)
         ...</k>
-		when I >Int 0
+        when I >Int 0
 
     rule <k> readString'(_, 0, S:String) => S ...</k>
 
@@ -1589,7 +1589,7 @@ module LLVM-SYSCALLS is
                 (S:String => NEWSTRING)
             )
         ...</k>
-		when N >Int 0
+        when N >Int 0
         where NEWSTRING = S +String charString(unsigned(i(8), I))
 
     rule <k> printString(S:String) => lengthString(S) ...</k>
@@ -1598,17 +1598,17 @@ module LLVM-SYSCALLS is
 end module
 
 module LLVM-INTERNAL-TESTING-FUNCTIONS is
-	// do not include this module when printing
-	// TODO add to makefile's grep to look for line like above when excluding modules
+    // do not include this module when printing
+    // TODO add to makefile's grep to look for line like above when excluding modules
     including LLVM-INCLUDE
 
     rule
         <k> Call(_, Callee(funptr(Name(S:String)), listK(I:Int)))
             => .
         ...</k>
-		<output>... . => ListItem(Int2String(I) +String "\n") </output>
+        <output>... . => ListItem(Int2String(I) +String "\n") </output>
         when substrString(S, 0, 14) ==String "@__fsl.print.i"
-		andBool (I >=Int 0 orBool I <=Int 0) // real integer
+        andBool (I >=Int 0 orBool I <=Int 0) // real integer
 end module
 
 module LLVM-SEMANTICS is
@@ -1638,8 +1638,8 @@ module LLVM-SEMANTICS is
     including LLVM-STANDARD-LIBRARY
     including LLVM-SYSCALLS-PREPROCESS
     including LLVM-SYSCALLS
-	
-	including LLVM-INTERNAL-TESTING-FUNCTIONS
+
+    including LLVM-INTERNAL-TESTING-FUNCTIONS
 end module
 
 ///////////////////////

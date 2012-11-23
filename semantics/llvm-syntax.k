@@ -19,7 +19,7 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax LLVM ::= `Initializer "(" K "," K ")" // type, value
 
-	syntax LLVM ::= `Aliases "(" List{K} ")"
+    syntax LLVM ::= `Aliases "(" List{K} ")"
     syntax LLVM ::= `Alias "(" K "," K ")"
 
     //@ Types
@@ -135,18 +135,18 @@ module LLVM-SYNTAX is
     syntax LLVM ::= `SGE "(" K "," K "," K ")" [strict]
     syntax LLVM ::= `SLT "(" K "," K "," K ")" [strict]
     syntax LLVM ::= `SLE "(" K "," K "," K ")" [strict]
-	
-	syntax LLVM ::= `OEQ "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `OGT "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `OGE "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `OLT "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `OLE "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `ONE "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `ONO "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `UNE "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `UNE "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `UNO "(" K "," K "," K ")" [strict]
-	syntax LLVM ::= `UEQ "(" K "," K "," K ")" [strict]
+
+    syntax LLVM ::= `OEQ "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `OGT "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `OGE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `OLT "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `OLE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `ONE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `ONO "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `UNE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `UNE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `UNO "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= `UEQ "(" K "," K "," K ")" [strict]
 
     //@ Terminator Instructions
     syntax LLVM ::= `Ret "(" K ")" [strict]

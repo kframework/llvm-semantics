@@ -424,6 +424,7 @@ module LLVM-REGISTERS is
         <k> Assign(X:Id, V:KResult) => . ...</k>
         <registers> M:Map => M[V / X] </registers>
 
+    // TODO using constructors in the AST instead of matching on a string
     rule [lookup-register]:
         <k> X => V ...</k>
         <registers>... X |-> V:KResult ...</registers>
@@ -458,6 +459,8 @@ module LLVM-BRANCHING is
         </k>
         when unsigned(i(1), I) ==Int 0
 
+    // TODO put static switch information into a map like with phi nodes
+    // TODO semantic design pattern: list traversal -> statically storing info and using simple rules later
     rule [switch-default]:
         <k> Switch(_, I:Int, Label:K, listK(.List{K}))
             => Unconditional(Label:K)
@@ -581,10 +584,13 @@ end module
 module LLVM-DECLARATIONS is
     including LLVM-INCLUDE
 
+    // TODO: semantic design pattern: assignment rule
     rule
         <k> Alias(Name:Id, K:K) => . ...</k>
         <globalRegisters> Map:Map => Map[K/Name] </globalRegisters>
 
+    // TODO list{K}ToK module sections
+    // TODO: semantic design pattern: multi-arity (want multiple pieces of data at the same time like key/value pairs) vs. variadic (when you don't need to do things at the same time)
     rule
         <k> Module(Name:Id, TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
             => Typedefs
@@ -645,6 +651,7 @@ module LLVM-DECLARATIONS is
         )
         where FUNCTION = FunctionDecl(RetType:KResult, Name:Id, Arguments:K)
 
+    // TODO add redundant context for readability (maps)
     rule
         <k> Body((BasicBlock(Name:Id, K:K),, L:List{K}))
             => BasicBlock(Name:Id, K:K)
@@ -692,6 +699,8 @@ module LLVM-CALL-RET is
     // TODO ... on RHS to reset cell
     // TODO assuming single module
 
+    // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
+
     rule
         <k> Call(_, Callee(funptr(FunName:Id), listK(Args:List{K}))) ~> Tail:K
             => contextSwitch(FunName, Tail)
@@ -720,6 +729,7 @@ module LLVM-CALL-RET is
         <callStack> . => frame(Tail, C) ...</callStack>
 
 
+    // TODO perhaps a pattern: turning a list of pairs into a map
 
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
@@ -876,6 +886,9 @@ module LLVM-FLOATING-POINT-ARITHMETIC is
             => F1 *Float F2
         ...</k>
 
+    // TODO incorrect since NaN * 0 = NaN
+    rule FMul(_, F:#Float, PositiveZero) => 0.0
+
 end module
 
 module LLVM-GEP is
@@ -1023,6 +1036,7 @@ module LLVM-HELPERS-SPLIT-BYTES is
             => listK(L)
         ...</k>
 
+    // TODO perhaps a pattern: even more localized rewriting: rewriting inside a constructor rather than rewriting the whole thing
     rule
         <k> splitFloatBytes(
                 V:KResult,
@@ -1348,6 +1362,9 @@ module LLVM-CONVERSIONS is
     rule
         <k> BitCast(_, Loc:Loc) => Loc:Loc ...</k>
 
+    //rule
+        //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
+
     // TODO need to normalize here
     rule
         <k> IntToPtr(Type:KResult, K:K) => intToPtr(Type, K:K) ...</k>
@@ -1611,6 +1628,18 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS is
         andBool (I >=Int 0 orBool I <=Int 0) // real integer
 end module
 
+module LLVM-EXCEPTIONS is
+    including LLVM-INCLUDE
+
+
+/*
+    rule
+        <k> Call(_, Callee(funptr(Name("@__cxa")), listK(V1:KResult,, V2:KResult)))
+            => @__cxa_allocate_exception
+        ...</k>
+*/
+end module
+
 module LLVM-SEMANTICS is
     including LLVM-INCLUDE
 
@@ -1638,6 +1667,7 @@ module LLVM-SEMANTICS is
     including LLVM-STANDARD-LIBRARY
     including LLVM-SYSCALLS-PREPROCESS
     including LLVM-SYSCALLS
+    including LLVM-EXCEPTIONS
 
     including LLVM-INTERNAL-TESTING-FUNCTIONS
 end module

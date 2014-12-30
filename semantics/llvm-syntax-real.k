@@ -1,3 +1,10 @@
+// Copyright (c) 2013-2014 K Team. All Rights Reserved.
+/*@
+
+This is the syntax of LLVM.
+
+This syntax requires a input LLVM program without any comments on it.
+*/
 module LLVM-SYNTAX-X
 
     syntax Identifier ::= "@" Id [klabel('globalId)] 

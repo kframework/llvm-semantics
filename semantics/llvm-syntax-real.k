@@ -5,7 +5,7 @@ This is the syntax of LLVM.
 
 This syntax requires a input LLVM program without any comments on it.
 */
-module LLVM-SYNTAX-X
+module LLVM-SYNTAX-REAL
 
     syntax Identifier ::= "@" Id [klabel('globalId)] 
                         | "%" Id [klabel('localId)] 

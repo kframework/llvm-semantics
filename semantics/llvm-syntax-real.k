@@ -7,6 +7,20 @@ This syntax requires a input LLVM program without any comments on it.
 */
 module LLVM-SYNTAX-REAL
 
+    /*a program is a list of stmts which is separated by an empty string. 
+    */
+    syntax Pgm ::= List{Stmt," "} [latex({#1})]
+
+    syntax Stmt ::= "declare" Type GlobalId
+
+    syntax Type ::= Token{[i][1-9][0-9]*}
+
+    //The following definitions relate to identifiers
+    syntax GlobalId ::= "@" Id [klabel('globalId)] 
+    syntax LocalId ::=  "%" Id [klabel('localId)] 
+    syntax Identifier ::= GlobalId | LocalId
+
+/*
     syntax Identifier ::= "@" Id [klabel('globalId)] 
                         | "%" Id [klabel('localId)] 
 
@@ -35,5 +49,6 @@ module LLVM-SYNTAX-REAL
     syntax Section ::= section(String)
 
     syntax Align ::= align(Int)
+*/  
 
 endmodule

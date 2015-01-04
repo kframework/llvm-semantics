@@ -1,202 +1,208 @@
-module LLVM-SYNTAX is
+// Copyright (c) 2013-2014 K Team. All Rights Reserved.
+/*@
+
+This is the internal syntax of LLVM.
+*/
+module LLVM-SYNTAX
     syntax KResult ::= LLVMValue
-    syntax KResult ::= listK "(" List{K} ")"  [latex "{#1}"]
+    syntax KResult ::= listK(KList)  [latex({#1})]
 
     //@ Modules
-    syntax LLVM ::= `Module "(" K "," K "," K "," K "," K "," K "," K ")"
+    syntax LLVM ::= Module(K, K, K, K, K, K, K)
     // ModuleID, TargetLayout, TargetTriple, Typedefs, GlobalVariables, Aliases, Functions
     // TODO: syntax LLVM ::= Module(K, K, K, K, K)
 
-    syntax LLVM ::= `ModuleID "(" String ")"
-    syntax LLVM ::= `TargetLayout "(" String ")"
-    syntax LLVM ::= `TargetTriple "(" String ")"
-    syntax LLVM ::= `Typedefs "(" List{K} ")"
-    syntax LLVM ::= `GlobalVariables "(" List{K} ")"
-    syntax LLVM ::= `Functions "(" List{K} ")"
-    syntax LLVM ::= `Instructions "(" List{K} ")"
+    syntax LLVM ::= ModuleID(String)
+    syntax LLVM ::= TargetLayout(String)
+    syntax LLVM ::= TargetTriple(String)
+    syntax LLVM ::= Typedefs(KList)
+    syntax LLVM ::= GlobalVariables(KList)
+    syntax LLVM ::= Functions(KList)
+    syntax LLVM ::= Instructions(KList)
 
-    syntax LLVM ::= `Typedef "(" K "," K ")" // name, type TODO: modifiers
-    syntax LLVM ::= `GlobalVariable "(" K "," K "," K "," K ")" [strict(3)]// Value/Name, Modifiers, Type, Initializer
-    syntax LLVM ::= `Initializer "(" K "," K ")" // type, value
+    syntax LLVM ::= Typedef(K, K) // name, type TODO: modifiers
+    syntax LLVM ::= GlobalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
+    syntax LLVM ::= Initializer(K, K) // type, value
 
-    syntax LLVM ::= `Aliases "(" List{K} ")"
-    syntax LLVM ::= `Alias "(" K "," K ")"
+    syntax LLVM ::= Aliases(KList)
+    syntax LLVM ::= Alias(K, K)
 
     //@ Types
-    syntax LLVM ::= `Types "(" List{K} ")"
-    context Types((_:List{K},,HOLE,,_:List{K}))
-    syntax LLVM ::= `NamedType "(" K ")"
-    syntax LLVMValue ::= `PointerType "(" K ")" [latex "{#1}*"]
-    syntax LLVM ::= `ArrayType "(" K "," K ")" [strict hybrid latex "\lbrack
-{#2} \times {#1}\rbrack"] // inner type, length
-    syntax LLVM ::= `StructType "(" K ")" [strict hybrid latex "\{{#1}\}"]
-    syntax LLVM ::= `FunctionType "(" K "," K ")" [strict hybrid] // return type, argument types
-    syntax LLVMValue ::= `VarargType
-    syntax LLVMValue ::= `IntegerType "(" K ")"
-    // syntax LLVM ::= `Width "(" Nat ")"
-    syntax LLVM ::= `LabelType
-    syntax LLVMValue ::= `VoidType
-    syntax LLVMValue ::= `FloatType
-    syntax LLVMValue ::= `DoubleType
-    syntax LLVMValue ::= `X86FP80Type
-    syntax LLVMValue ::= `FP128Type
-    syntax LLVMValue ::= `PPCFP128Type
-    syntax LLVMValue ::= `X86MMXType
+    syntax LLVM ::= Types(KList)
+    context Types((_:KList,,HOLE,,_:KList))
+    syntax LLVM ::= NamedType(K)
+    syntax LLVMValue ::= PointerType(K) [latex({#1}*)]
+    syntax LLVM ::= ArrayType(K, K) 
+                    [strict,hybrid,latex(\lbrack {#2} \times {#1}\rbrack)] // inner type, length
+    syntax LLVM ::= StructType(K) [strict,hybrid,latex(\{{#1}\})]
+    syntax LLVM ::= FunctionType(K, K) [strict,hybrid] // return type, argument types
+    syntax LLVMValue ::= "VarargType"
+    syntax LLVMValue ::= IntegerType(K)
+    // syntax LLVM ::= Width(Nat)
+    syntax LLVM ::= "LabelType"
+    syntax LLVMValue ::= "VoidType"
+    syntax LLVMValue ::= "FloatType"
+    syntax LLVMValue ::= "DoubleType"
+    syntax LLVMValue ::= "X86FP80Type"
+    syntax LLVMValue ::= "FP128Type"
+    syntax LLVMValue ::= "PPCFP128Type"
+    syntax LLVMValue ::= "X86MMXType"
 
-    syntax LLVM ::= `Fields "(" List{K} ")"
-    context Fields((_:List{K},,HOLE,,_:List{K}))
+    syntax LLVM ::= Fields(KList)
+    context Fields((_:KList,,HOLE,,_:KList))
 
     //@ Functions and function declarations
-    syntax LLVM ::= `FunctionDef "(" K "," K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments, Body
-    syntax LLVM ::= `FunctionDecl "(" K "," K "," K ")"  [strict(1)] // RetType, Value/Name, Arguments
-    syntax LLVM ::= `Arg "(" K "," K "," K ")" // Modifiers, Type, Value/Name
-    syntax LLVM ::= `NoName // used for arguments with no name
-    syntax LLVM ::= `Vararg
+    syntax LLVM ::= FunctionDef(K, K, K, K)  [strict(1)] // RetType, Value/Name, Arguments, Body
+    syntax LLVM ::= FunctionDecl(K, K, K)  [strict(1)] // RetType, Value/Name, Arguments
+    syntax LLVM ::= Arg(K, K, K) // Modifiers, Type, Value/Name
+    syntax LLVM ::= "NoName" // used for arguments with no name
+    syntax LLVM ::= "Vararg"
 
     //@ Argument modifiers
-    syntax LLVM ::= `ByVal
-    syntax LLVM ::= `Nest
-    syntax LLVM ::= `SRet
-    syntax LLVM ::= `NoAlias
-    syntax LLVM ::= `NoCapture
+    syntax LLVM ::= "ByVal"
+    syntax LLVM ::= "Nest"
+    syntax LLVM ::= "SRet"
+    syntax LLVM ::= "NoAlias"
+    syntax LLVM ::= "NoCapture"
 
-    syntax LLVM ::= `ReturnType "(" K ")"
-    syntax LLVM ::= `Arguments "(" List{K} ")"
-    context Arguments((_:List{K},,HOLE,,_:List{K}))
-    syntax LLVM ::= `Body "(" List{K} ")"
+    syntax LLVM ::= ReturnType(K)
+    syntax LLVM ::= Arguments(KList)
+    context Arguments((_:KList,,HOLE,,_:KList))
+    syntax LLVM ::= Body(KList)
 
-    syntax LLVM ::= `BasicBlock "(" K "," K ")" // Name, Instructions
-    syntax LLVM ::= `Assign "(" K "," K ")" [strict(2)] // Name, Instruction
-    syntax LLVM ::= `Instruction "(" K "," K ")" // Modifiers, the Instruction
-    syntax LLVM ::= `ConstantExpr "(" K "," K ")" // Modifiers, the operator
+    syntax LLVM ::= BasicBlock(K, K) // Name, Instructions
+    syntax LLVM ::= Assign(K, K) [strict(2)] // Name, Instruction
+    syntax LLVM ::= Instruction(K, K) // Modifiers, the Instruction
+    syntax LLVM ::= ConstantExpr(K, K) // Modifiers, the operator
 
-    syntax LLVM ::= `Opaque
+    syntax LLVM ::= "Opaque"
 
     //@ Modifiers
-    syntax LLVM ::= `Modifiers "(" List{K} ")"
-    syntax LLVM ::= `Alignment "(" Int ")"
-    syntax LLVM ::= `Constant
-    syntax LLVM ::= `NoSignedWrap
-    syntax LLVM ::= `NoUnsignedWrap
-    syntax LLVM ::= `Packed
+    syntax LLVM ::= Modifiers(KList)
+    syntax LLVM ::= Alignment(Int)
+    syntax LLVM ::= "Constant"
+    syntax LLVM ::= "NoSignedWrap"
+    syntax LLVM ::= "NoUnsignedWrap"
+    syntax LLVM ::= "Packed"
 
     //@ Identifiers, values, and constants
-    syntax Id ::= `Name "(" String ")"
-    syntax LLVM ::= Id
-    syntax LLVM ::= `Value "(" K ")"
-    syntax LLVM ::= `Operand "(" K "," K ")" [strict] // Type, Value
-    syntax LLVM ::= `ConstantString "(" String ")"
-    syntax LLVM ::= `ConstantArray "(" K "," K ")" [strict] // element type, arguments
-    syntax LLVM ::= `ConstantStruct "(" K "," K ")" [strict(2)] // modifiers, arguments
-    define 'isKResult(ConstantStruct(_, K)) => true
-        when 'isKResult(K:K)
-    syntax LLVM ::= `Null
-    syntax LLVM ::= `Undef
-    syntax LLVMValue ::= `NaN
-    syntax LLVMValue ::= `PositiveZero
-    syntax LLVMValue ::= `NegativeZero
-    syntax LLVMValue ::= `PositiveInfinity
-    syntax LLVMValue ::= `NegativeInfinity
-    syntax LLVM ::= `Float "(" String ")"
-    syntax LLVMValue ::= `VoidValue // for returning from void functions
-    syntax LLVMValue ::= `Zeroinitializer
+    syntax LLVMId ::= Name(String)
+    syntax LLVMId ::= Id
+    syntax LLVM ::= LLVMId
+    syntax LLVM ::= Values(K)
+    syntax LLVM ::= Operand(K, K) [strict] // Type, Value
+    syntax LLVM ::= ConstantString(String)
+    syntax LLVM ::= ConstantArray(K, K) [strict] // element type, arguments
+    syntax LLVM ::= ConstantStruct(K, K) [strict(2)] // modifiers, arguments
+    rule isKResult(ConstantStruct(_, K)) => true
+        requires isKResult(K:K)
+    syntax LLVM ::= "Null"
+    syntax LLVM ::= "Undef"
+    syntax LLVMValue ::= "NaN"
+    syntax LLVMValue ::= "PositiveZero"
+    syntax LLVMValue ::= "NegativeZero"
+    syntax LLVMValue ::= "PositiveInfinity"
+    syntax LLVMValue ::= "NegativeInfinity"
+    syntax LLVM ::= Float(String)
+    syntax LLVMValue ::= "VoidValue" // for returning from void functions
+    syntax LLVMValue ::= "Zeroinitializer"
 
     //@ Aggregate instructions
-    syntax LLVM ::= `ExtractValue "(" K "," K ")" // TODO
+    syntax LLVM ::= ExtractValue(K, K) // TODO
 
     //@ Memory instructions
-    syntax LLVM ::= `Alloca "(" K "," K ")" [strict] // Type, NumElements
-    syntax LLVM ::= `Load "(" K "," K ")" [strict]
-    syntax LLVM ::= `Store "(" K "," K  "," K ")" [strict]  // Type, Value, Destination
-    syntax LLVM ::= `GetElementPtr "(" K "," K "," List{K} ")" [strict(1 2)]
+    syntax LLVM ::= Alloca(K, K) [strict] // Type, NumElements
+    syntax LLVM ::= Load(K, K) [strict]
+    syntax LLVM ::= Store(K, K, K) [strict]  // Type, Value, Destination
+    syntax LLVM ::= GetElementPtr(K, K, KList) [strict(1,2)]
     context GetElementPtr(_, _, (_,,HOLE,,_))
 
     //@ Branching/Conditional instructions
-    syntax LLVM ::= `Br "(" K ")"
-    syntax LLVM ::= `Unconditional "(" K ")"
-    syntax LLVM ::= `Conditional "(" K "," K "," K ")" [strict(1)]
-    syntax LLVM ::= `Switch "(" K "," K "," K "," K ")" [strict(1 2 4)] // type, condition, default dest, list of cases
-    syntax LLVM ::= `Case "(" K "," K ")" [strict(1)] // value, successor
-    define 'isKResult(Case(K:K, _)) => true
-        when 'isKResult(K:K)
-    syntax LLVM ::= `Select "(" K "," K "," K "," K ")" [strict(1 2)] // condition, true val, false val
+    syntax LLVM ::= Br(K)
+    syntax LLVM ::= Unconditional(K)
+    syntax LLVM ::= Conditional(K, K, K) [strict(1)]
+    syntax LLVM ::= Switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
+    syntax LLVM ::= Case(K, K) [strict(1)] // value, successor
+    rule isKResult(Case(K:K, _)) => true
+        requires isKResult(K:K)
+    syntax LLVM ::= Select(K, K, K, K) [strict(1,2)] // condition, true val, false val
 
     //@ Comparison operations
-    syntax LLVM ::= `ICmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op
-    syntax LLVM ::= `FCmp "(" K "," K "," K "," K ")" // Predicate, Type, Left op, Right op
-    syntax LLVM ::= `Predicate "(" K ")"
-    syntax LLVM ::= `INotEq "(" K "," K "," K ")" [strict] // type, left op, right op
-    syntax LLVM ::= `IEq "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `UGT "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `UGE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `ULT "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `ULE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `SGT "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `SGE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `SLT "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `SLE "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= ICmp(K, K, K, K) // Predicate, Type, Left op, Right op
+    syntax LLVM ::= FCmp(K, K, K, K) // Predicate, Type, Left op, Right op
+    syntax LLVM ::= Predicate(K)
+    syntax LLVM ::= INotEq(K, K, K) [strict] // type, left op, right op
+    syntax LLVM ::= IEq(K, K, K) [strict]
+    syntax LLVM ::= UGT(K, K, K) [strict]
+    syntax LLVM ::= UGE(K, K, K) [strict]
+    syntax LLVM ::= ULT(K, K, K) [strict]
+    syntax LLVM ::= ULE(K, K, K) [strict]
+    syntax LLVM ::= SGT(K, K, K) [strict]
+    syntax LLVM ::= SGE(K, K, K) [strict]
+    syntax LLVM ::= SLT(K, K, K) [strict]
+    syntax LLVM ::= SLE(K, K, K) [strict]
 
-    syntax LLVM ::= `OEQ "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `OGT "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `OGE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `OLT "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `OLE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `ONE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `ONO "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `UNE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `UNE "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `UNO "(" K "," K "," K ")" [strict]
-    syntax LLVM ::= `UEQ "(" K "," K "," K ")" [strict]
+    syntax LLVM ::= OEQ(K, K, K) [strict]
+    syntax LLVM ::= OGT(K, K, K) [strict]
+    syntax LLVM ::= OGE(K, K, K) [strict]
+    syntax LLVM ::= OLT(K, K, K) [strict]
+    syntax LLVM ::= OLE(K, K, K) [strict]
+    syntax LLVM ::= ONE(K, K, K) [strict]
+    syntax LLVM ::= ONO(K, K, K) [strict]
+    syntax LLVM ::= UNE(K, K, K) [strict]
+    //syntax LLVM ::= UNE(K, K, K) [strict]
+    syntax LLVM ::= UNO(K, K, K) [strict]
+    syntax LLVM ::= UEQ(K, K, K) [strict]
 
     //@ Terminator Instructions
-    syntax LLVM ::= `Ret "(" K ")" [strict]
-    syntax LLVM ::= `Unreachable
+    syntax LLVM ::= Ret(K) [strict]
+    syntax LLVM ::= "Unreachable"
 
     //@ Binary Operations
-    syntax LLVM ::= `Add "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `Sub "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `Mul "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `UDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `SDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `URem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `SRem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= Add (K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= Sub (K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= Mul (K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= UDiv (K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= SDiv (K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= URem (K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= SRem (K, K, K) [strict(2,3)] // Type, Left op, Right op
 
     //@ Floating-point Binary Operations
-    syntax LLVM ::= `FAdd "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `FSub "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `FMul "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `FDiv "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `FRem "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= FAdd(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= FSub(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= FMul(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= FDiv(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= FRem(K, K, K) [strict(2,3)] // Type, Left op, Right op
 
     //@ Bitwise Binary Operations
-    syntax LLVM ::= `Shl "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `LShr "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `AShr "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `Or "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `And "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
-    syntax LLVM ::= `Xor "(" K "," K "," K ")" [strict(2 3)] // Type, Left op, Right op
+    syntax LLVM ::= Shl(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= LShr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= AShr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= Or(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= And(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax LLVM ::= Xor(K, K, K) [strict(2,3)] // Type, Left op, Right op
 
     //@ Conversion Operations
-    syntax LLVM ::= `Trunc "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `SExt "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `ZExt "(" K "," K ")" [strict] // oldtype, op
-    syntax LLVM ::= `BitCast "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `IntToPtr "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `PtrToInt "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `FPToSI "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `FPToUI "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `SIToFP "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `UIToFP "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `FPTrunc "(" K "," K ")" [strict] // type, op
-    syntax LLVM ::= `FPExt "(" K "," K ")" [strict] // type, op
+    syntax LLVM ::= Trunc(K, K) [strict] // type, op
+    syntax LLVM ::= SExt(K, K) [strict] // type, op
+    syntax LLVM ::= ZExt(K, K) [strict] // oldtype, op
+    syntax LLVM ::= BitCast(K, K) [strict] // type, op
+    syntax LLVM ::= IntToPtr(K, K) [strict] // type, op
+    syntax LLVM ::= PtrToInt(K, K) [strict] // type, op
+    syntax LLVM ::= FPToSI(K, K) [strict] // type, op
+    syntax LLVM ::= FPToUI(K, K) [strict] // type, op
+    syntax LLVM ::= SIToFP(K, K) [strict] // type, op
+    syntax LLVM ::= UIToFP(K, K) [strict] // type, op
+    syntax LLVM ::= FPTrunc(K, K) [strict] // type, op
+    syntax LLVM ::= FPExt(K, K) [strict] // type, op
 
     //@ Other Operations
-    syntax LLVM ::= `PHI "(" K "," List{K} ")" // type, edge list
-    syntax LLVM ::= `Edge "(" K "," K ")" // used by PHI
+    syntax LLVM ::= PHI(K, KList) // type, edge list
+    syntax LLVM ::= Edge(K, K) // used by PHI
 
-    syntax LLVM ::= `Call "(" K "," K ")" [strict(2)] // Type, Callee
-    syntax LLVM ::= `Callee "(" K "," K ")" [strict hybrid] // Value/Name, Arguments
+    syntax LLVM ::= Call(K, K) [strict(2)] // Type, Callee
+    syntax LLVM ::= Callee(K, K) [strict,hybrid] // Value/Name, Arguments
 
-    syntax LLVM ::= `VAArg "(" K "," K ")" [strict] // result type, va_list
+    syntax LLVM ::= VAArg (K, K) [strict] // result type, va_list
 
-end module
+endmodule

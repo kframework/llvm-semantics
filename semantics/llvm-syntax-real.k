@@ -9,16 +9,21 @@ module LLVM-SYNTAX-REAL
 
     /*a program is a list of stmts which is separated by an empty string. 
     */
-    syntax Pgm ::= List{Stmt," "} [latex({#1})]
+    //syntax Pgm ::= List{Stmt," "} [latex({#1})]
 
-    syntax Stmt ::= "declare" Type GlobalId
+    /*
+    Define rules for non-keyword tokens. This is currently just a bunch
+    of hacks. They don't cover many valid forms of tokens, and they also
+    generate some invalid forms of tokens. 
+    */
 
-    syntax Type ::= Token{[i][1-9][0-9]*}
-
-    //The following definitions relate to identifiers
-    syntax GlobalId ::= "@" Id [klabel('globalId)] 
-    syntax LocalId ::=  "%" Id [klabel('localId)] 
-    syntax Identifier ::= GlobalId | LocalId
+    syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
+    syntax FpVal ::= HexConstant | Float
+    syntax IntType ::= Token{[i][1-9][0-9]*}
+    syntax LocalValID ::= Token{[\%][1-9][0-9]*}
+    syntax LocalVar ::=  Token{[\%][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
+    syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
+    syntax GlobalVar ::= Token{[\@][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
 
 /*
     syntax Identifier ::= "@" Id [klabel('globalId)] 

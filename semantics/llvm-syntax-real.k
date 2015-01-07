@@ -25,6 +25,42 @@ module LLVM-SYNTAX-REAL
     syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
     syntax GlobalVar ::= Token{[\@][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
 
+    //This is the primary operators
+
+    //define the nsw and nuw flag
+    //llvm: nuw only applies to integer operations
+    //llvm: nsw only applies to integer operations
+    //llvm: nuw is "no unsigned wrap" and nsw is "no signed wrap"
+    syntax OptNSW ::= "nsw" 
+    syntax OptNUW ::= "nuw"
+    syntax OptNW  ::= OptNUW OptNSW | OptNSW OptNUW | OptNSW | OptNUW
+    
+    //llvm: if exact is defined in udiv and sdiv. It means 
+    //the result value of the ashr is a poison value 
+    //if any of the bits shifted out are non-zero
+    syntax OptExact ::= "exact"
+
+    //define the arithmetic operators
+    syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
+    syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
+
+    syntax OtherOps ::= "fadd" | "fsub" | "fmul" | "fdiv"
+                          | "urem" | "srem" | "frem"
+    //syntax IntOps ::= IntConstructors | IntConstructors OptNW 
+    //syntax DivOps ::= DivConstructors | DivConstructors OptExact
+
+    syntax LogicalOps ::= "and" | "or" | "xor"
+    syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc" 
+                     | "fpext" | "bitcast" | "uitofp" | "sitofp" 
+                     | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
+
+    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle" 
+                         | "sge" | "ult" | "ugt" | "ule" | "uge"
+    syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
+                         | "oge" | "ord" | "uno" | "ueq" | "une"
+                         | "ult" | "ugt" | "ule" | "uge" | Bool
+
+
 /*
     syntax Identifier ::= "@" Id [klabel('globalId)] 
                         | "%" Id [klabel('localId)] 

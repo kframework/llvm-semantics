@@ -18,6 +18,7 @@ module LLVM-SYNTAX-REAL
     */
 
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
+    syntax UnsignedInt ::= Token{[1-9][0-9]}
     syntax FpVal ::= HexConstant | Float
     syntax IntType ::= Token{[i][1-9][0-9]*}
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
@@ -85,6 +86,10 @@ module LLVM-SYNTAX-REAL
     //define Global value visibility style key words
     syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
 
+
+    //define LLVM calling convention key words
+    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc"
+                            | "x86_fastcallcc" | "cc" UnsignedInt
 
 /*
     syntax Identifier ::= "@" Id [klabel('globalId)] 

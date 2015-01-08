@@ -20,7 +20,6 @@ module LLVM-SYNTAX-REAL
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
     syntax UnsignedInt ::= Token{[1-9][0-9]}
     syntax FpVal ::= HexConstant | Float
-    syntax IntType ::= Token{[i][1-9][0-9]*}
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
     syntax LocalVar ::=  Token{[\%][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\%]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
@@ -69,8 +68,10 @@ module LLVM-SYNTAX-REAL
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
 
-    //define the float types
+    //define the float types and primary types
+    syntax IntType ::= Token{[i][1-9][0-9]*}
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
+    syntax PrimType ::= FPType | IntType | "label" | "void"
 
     //define alias linkage key words
     //define the Internal Linkage key words for global value and function declaration

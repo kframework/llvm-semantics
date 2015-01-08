@@ -110,6 +110,9 @@ module LLVM-SYNTAX-REAL
     syntax OptParamAttrs ::= ParamAttr | OptParamAttrs ParamAttr
     syntax OptFuncAttrs ::= FuncAttr | OptFuncAttrs FuncAttr
 
+    //define garbage collector name
+    syntax OptGC ::= "gc" String
+
 /*
     syntax Constant ::= Boolean | Int | Float
 

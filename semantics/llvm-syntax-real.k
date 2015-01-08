@@ -92,9 +92,19 @@ module LLVM-SYNTAX-REAL
 
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
-    syntax ParamAttr ::= "zeroext" | "signext" | "inreg" | "sret" | "noalias"
-                       | "nocapture" | "byval" | "nest" | "align" UnsignedInt
+    //the attributes is for function, expression and declaration
+    syntax CommonAttr ::= "inreg" | "zeroext" | "signext" 
+    syntax RetAttr ::= CommonAttr | "noalias"
+    syntax ParamAttr ::= RetAttr | "sret" | "nocapture" | "byval" 
+                       | "nest" | "align" UnsignedInt
+    syntax FuncAttr ::= CommonAttr | "noreturn" | "nounwind" | "readnone"
+                      | "readonly" | "inlinehint" | "alignstack" | "noinline"
+                      | "alwaysinline" | "optsize" | "ssp" | "sspreq"
+                      | "returns_twice" | "nonlazybind"
+   
+    syntax OptRetAttrs ::= RetAttr | OptRetAttrs RetAttr
     syntax OptParamAttrs ::= ParamAttr | OptParamAttrs ParamAttr
+    syntax OptFuncAttrs ::= FuncAttr | OptFuncAttrs FuncAttr
 
 /*
     syntax Constant ::= Boolean | Int | Float
@@ -112,8 +122,6 @@ module LLVM-SYNTAX-REAL
     syntax GlobalOrConstant ::= "global" | "constant"
 
     syntax Section ::= section(String)
-
-    syntax Align ::= align(Int)
 */  
 
 endmodule

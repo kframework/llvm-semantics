@@ -71,20 +71,26 @@ module LLVM-SYNTAX-REAL
     //define the float types
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
 
+    //define alias linkage key words
+    //define the Internal Linkage key words for global value and function declaration
+    syntax AliasLinkage ::=  "weak" | "weak_odr" | "internal"
+    syntax FunctionDefineLinkage ::= AliasLinkage | "linkonce" | "linkonce_odr" | "dllexport"
+    syntax GVInternalLinkage ::= FunctionDefineLinkage | "appending" | "common" 
+                               | "private" | "linker_private" | "linker_private_weak"
+
+    //define the External Linkage key words for global value and function declaration
+    syntax FunctionDeclareLinkage ::= "dllimport" | "extern_weak"
+    syntax GVExternalLinkage ::= FunctionDeclareLinkage | "external"
+
+    //define Global value visibility style key words
+    syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
+
 
 /*
     syntax Identifier ::= "@" Id [klabel('globalId)] 
                         | "%" Id [klabel('localId)] 
 
     syntax Constant ::= Boolean | Int | Float
-
-    syntax Linkage ::= "private" | "internal" | "available_externally" 
-                     | "linkonce" | "weak" | "common" | "appending"
-                     | "extern_weak" | "linkonce_odr" | "weak_odr" | "external"
-
-    syntax Visibility ::= "default" | "hidden" | "protected"
-
-    syntax DLLStorageClass ::= "dllimport" | "dllexport"
 
     syntax ThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"
 

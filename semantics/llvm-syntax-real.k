@@ -110,8 +110,14 @@ module LLVM-SYNTAX-REAL
     syntax OptParamAttrs ::= ParamAttr | OptParamAttrs ParamAttr
     syntax OptFuncAttrs ::= FuncAttr | OptFuncAttrs FuncAttr
 
-    //define garbage collector name
+    //define garbage collector name and section name
     syntax OptGC ::= "gc" String
+    syntax SectionString ::= "section" String
+
+    //define global attributes
+    syntax GlobalVarAttribute ::= SectionString | OptAlign
+    syntax GlobalVarAttributes ::= GlobalVarAttribute 
+                                 | GlobalVarAttributes GlobalVarAttribute
 
 /*
     syntax Constant ::= Boolean | Int | Float
@@ -127,8 +133,6 @@ module LLVM-SYNTAX-REAL
     syntax ExternallyInitialized ::= "externally_initialized"
 
     syntax GlobalOrConstant ::= "global" | "constant"
-
-    syntax Section ::= section(String)
 */  
 
 endmodule

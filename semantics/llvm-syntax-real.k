@@ -22,8 +22,12 @@ module LLVM-SYNTAX-REAL
     syntax IntType ::= Token{[i][1-9][0-9]*}
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
     syntax LocalVar ::=  Token{[\%][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
+    syntax LocalVar ::= Token{[\%]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
+                    [regex("[\\\"](([^\\\"\\n\\r\\\\])|([\\\\][nrtf\\\"\\\\])|([\\\\][x][0-9a-fA-F]{2})|([\\\\][u][0-9a-fA-F]{4})|([\\\\][U][0-9a-fA-F]{8}))*[\\\"]")]
     syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
     syntax GlobalVar ::= Token{[\@][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
+    syntax LocalVar ::= Token{[\@]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
+                    [regex("[\\\"](([^\\\"\\n\\r\\\\])|([\\\\][nrtf\\\"\\\\])|([\\\\][x][0-9a-fA-F]{2})|([\\\\][u][0-9a-fA-F]{4})|([\\\\][U][0-9a-fA-F]{8}))*[\\\"]")]
 
     //This is the primary operators
 
@@ -40,7 +44,7 @@ module LLVM-SYNTAX-REAL
     //if any of the bits shifted out are non-zero
     syntax OptExact ::= "exact"
 
-    //define the arithmetic operators
+    //define the arithmetic operators, logical and cast operators
     syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
     syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
 
@@ -54,11 +58,15 @@ module LLVM-SYNTAX-REAL
                      | "fpext" | "bitcast" | "uitofp" | "sitofp" 
                      | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
 
+    //define the predicates
     syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle" 
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
     syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
+
+    //define the float types
+    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
 
 
 /*

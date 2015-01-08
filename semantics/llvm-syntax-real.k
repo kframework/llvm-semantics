@@ -93,14 +93,18 @@ module LLVM-SYNTAX-REAL
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
+    syntax OptAlign ::= "align" UnsignedInt
     syntax CommonAttr ::= "inreg" | "zeroext" | "signext" 
     syntax RetAttr ::= CommonAttr | "noalias"
-    syntax ParamAttr ::= RetAttr | "sret" | "nocapture" | "byval" 
-                       | "nest" | "align" UnsignedInt
-    syntax FuncAttr ::= CommonAttr | "noreturn" | "nounwind" | "readnone"
-                      | "readonly" | "inlinehint" | "alignstack" | "noinline"
-                      | "alwaysinline" | "optsize" | "ssp" | "sspreq"
-                      | "returns_twice" | "nonlazybind"
+    syntax ParamAttr ::= RetAttr | OptAlign | "sret" | "nocapture" | "byval" 
+                       | "nest" | "inalloca" | "returned" 
+    syntax FuncAttr ::= CommonAttr | "noreturn" | "nounwind" | "readnone" | "nobuiltin"
+                      | "readonly" | "inlinehint" | alignstack(UnsignedInt) | "noinline"
+                      | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
+                      | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
+                      | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
+                      | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
+                      | "sspstrong" | "uwtable"
    
     syntax OptRetAttrs ::= RetAttr | OptRetAttrs RetAttr
     syntax OptParamAttrs ::= ParamAttr | OptParamAttrs ParamAttr

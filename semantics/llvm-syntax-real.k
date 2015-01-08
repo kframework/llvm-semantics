@@ -86,15 +86,17 @@ module LLVM-SYNTAX-REAL
     //define Global value visibility style key words
     syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
 
-
     //define LLVM calling convention key words
     syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc"
                             | "x86_fastcallcc" | "cc" UnsignedInt
 
-/*
-    syntax Identifier ::= "@" Id [klabel('globalId)] 
-                        | "%" Id [klabel('localId)] 
+    //define param attributes: The return type and each parameter of 
+    //a function type may have a set of parameter attributes associated with them.
+    syntax ParamAttr ::= "zeroext" | "signext" | "inreg" | "sret" | "noalias"
+                       | "nocapture" | "byval" | "nest" | "align" UnsignedInt
+    syntax OptParamAttrs ::= ParamAttr | OptParamAttrs ParamAttr
 
+/*
     syntax Constant ::= Boolean | Int | Float
 
     syntax ThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"

@@ -8,12 +8,12 @@ tools/llvm-dis-xml/build/tools/llvm-dis-xml: tools/llvm-dis-xml/lib/ASMXMLWriter
 	$(MAKE) -C tools/llvm-dis-xml/build
 
 check-vars:
-ifeq ($(K_BASE),)
-	@echo "ERROR: Please set K_BASE to the full path of your K installation."
-	@echo "Make sure you do NOT include a trailing slash\\"
-	@echo "One way to do this is to type 'export K_BASE=/path/to/k/framework', and then rerun 'make'"
-	@exit 1
-endif
+#ifeq ($(K_BASE),)
+#	@echo "ERROR: Please set K_BASE to the full path of your K installation."
+#	@echo "Make sure you do NOT include a trailing slash\\"
+#	@echo "One way to do this is to type 'export K_BASE=/path/to/k/framework', and then rerun 'make'"
+#	@exit 1
+#endif
 
 dist: check-vars dist/dist.done
 

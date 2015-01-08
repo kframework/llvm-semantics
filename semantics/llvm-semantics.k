@@ -354,7 +354,7 @@ module LLVM-CLEAN-TREE is
     //rule Body(L:List{K}) => List{K}ToK(L)
     rule Instructions(L:List{K}) => List{K}ToK(L)     [anywhere]
     rule ModuleID(S:String) => Name(S)               [anywhere]
-    rule Value(K:K) => K                              [anywhere]
+    rule Values(K:K) => K                              [anywhere]
     rule Br(K:K) => K:K                               [anywhere]
     rule ReturnType(K:K) => K [anywhere]
 
@@ -510,7 +510,7 @@ module LLVM-START-AND-STOP is
 
     rule
         <k> callMain
-            => Call(i(32), Callee(Value(Name("@__libc_start_main_0")),
+            => Call(i(32), Callee(Values(Name("@__libc_start_main_0")),
                 Arguments((
                     funptr(Name("@main")),, // address of main
                     0,, // argc
@@ -529,7 +529,7 @@ module LLVM-START-AND-STOP is
     // TODO need to make nicer
     rule
         <k> callMain
-            => Call(i(32), Callee(Value(Name("@__libc_start_main_2")),
+            => Call(i(32), Callee(Values(Name("@__libc_start_main_2")),
                 Arguments((
                     funptr(Name("@main")),, // address of main
                     0,, // argc
@@ -565,7 +565,7 @@ module LLVM-START-AND-STOP is
 
     rule [terminate-exit]:
         <T>...
-            <k> I:Int => Call(VoidType, Callee(Value(Name("@exit")), Arguments(I))) </k>
+            <k> I:Int => Call(VoidType, Callee(Values(Name("@exit")), Arguments(I))) </k>
         ...</T>
 
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL

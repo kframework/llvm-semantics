@@ -18,7 +18,7 @@ module LLVM-SYNTAX-REAL
     */
 
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
-    syntax UnsignedInt ::= Token{[1-9][0-9]}
+    syntax UnsignedInt ::= Token{[1-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
     syntax LocalVar ::=  Token{[\%][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
@@ -28,8 +28,14 @@ module LLVM-SYNTAX-REAL
     syntax GlobalVar ::= Token{[\@][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\@]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
 
-    syntax LocalName ::= LocalVar | LocalValID | String
-    syntax GlobalName ::= GlobalVar | GlobalValID
+    syntax LocalName ::= LocalVar | String
+
+    /*@
+      Symbolic value reference is including local name, 
+      global variable, local valid id and global valid id.
+     */
+    syntax SymbolicValueRef ::= LOCALVALID | GLOBALVALID
+                              | LocalName | GlobalVar
 
     //This is the primary operators
 
@@ -66,11 +72,6 @@ module LLVM-SYNTAX-REAL
     syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
-
-    //define the float types and primary types
-    syntax IntType ::= Token{[i][1-9][0-9]*}
-    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
-    syntax PrimType ::= FPType | IntType | "label" | "void"
 
     //define alias linkage key words
     //define the Internal Linkage key words for global value and function declaration
@@ -119,6 +120,33 @@ module LLVM-SYNTAX-REAL
     syntax GlobalVarAttributes ::= GlobalVarAttribute 
                                  | GlobalVarAttributes GlobalVarAttribute
 
+    //define the float types and primary types
+    syntax IntType ::= Token{[i][1-9][0-9]*}
+    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
+    syntax PrimType ::= FPType | IntType | "label" | "void"
+
+    //define address space and types
+    syntax OptAddrSpace ::= addrspace(UnsignedInt)
+    syntax ArgType ::= Types OptParamAttrs
+    syntax ArgTypeList ::= ArgType | ArgTypeList "," ArgType
+    syntax ArgTypeListI ::= ArgTypeList | ArgTypeList "," "..." | "..."
+
+    syntax Types ::= "opaque"
+                   | PrimType
+                   | Types OptAddrSpace"*"
+                   | Types "*"
+                   | SymbolicValueRef
+                   | Types "(" ArgTypeListI ")" OptFuncAttrs
+                   | Types "(" ArgTypeListI ")"
+                   | Types "(" ")" OptFuncAttrs
+                   | Types "(" ")"
+                   | "[" UnsignedInt "x" Types "]"
+                   | "<" UnsignedInt "x" Types ">"
+                   | "{" TypeListI "}"
+                   | "<" "{" TypeListI "}" ">"
+
+    syntax TypeListI ::= List{Types,","}
+
 /*
     syntax Constant ::= Boolean | Int | Float
 
@@ -127,8 +155,6 @@ module LLVM-SYNTAX-REAL
     syntax ThreadLocalAttr ::= "localdynamic" | "initialexec" | "localexec"
 
     syntax UnnamedAttr ::= "unnamed_attr"
-
-    syntax AddrSpace ::= addrspace(Int)
 
     syntax ExternallyInitialized ::= "externally_initialized"
 

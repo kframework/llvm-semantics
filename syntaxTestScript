@@ -1,0 +1,26 @@
+# Copyright (c) 2013-2014 K Team. All Rights Reserved.
+
+#compile LLVM syntax first
+cd semantics
+kompile llvm-syntax-real.k
+cd ..
+
+#put all test cases in a new directory without comments
+cd tests
+for i in `find . -name '*.ll'`;
+do 
+   mkdir -p `dirname ../new-dir/$i`;  
+   sed 's/;[ ]//g' $i >../new-dir/$i; 
+done
+cd..
+
+#go to the directory and test
+cd new-dir
+for i in `find . -name '*.ll'`;
+do 
+   krun -d ../semantics/llvm-syntax-real-kompiled $i --smt none; 
+done
+cd ..
+
+#remove the temporary test directory
+rm -r new-dir

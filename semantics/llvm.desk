@@ -1,1 +1,0 @@
-parser: (../dist/bin/llvm-semantics-link ../dist/share/libc.ll - | ../dist/bin/llvm-dis-xml - -o - | perl ../dist/bin/xml2k) <

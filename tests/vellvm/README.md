@@ -1,1 +1,1 @@
-This directory contains all llvm test cases which are able to run in the VELLVM, a existing partial semantics for LLVM.
+This directory contains all LLVM test cases which are able to run in the VELLVM, an existed partial semantics for LLVM.

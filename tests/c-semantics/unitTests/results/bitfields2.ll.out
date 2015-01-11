@@ -1,0 +1,9 @@
+i=-13, u=61
+bit.i=-13, bit.u=61
+unsigned_result=44, signed_result=-13
+i % u = 44
+i % (unsigned int) u = 44
+i % bit.u = -13
+bit.i % bit.u = -13
+i % (unsigned int) bit.u = 44
+bit.i % (unsigned int) bit.u = 44

@@ -1,0 +1,2 @@
+array before sorting: -1 2 1 3 5 -10 -11 
+array after bubblesort: -11 -10 -1 1 2 3 5 

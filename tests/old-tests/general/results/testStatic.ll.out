@@ -1,9 +1,0 @@
-01y=5
-02y=6
-03y=5
-04y=6
-<result>
-  <returnValue>
-    25
-  </returnValue>
-</result>

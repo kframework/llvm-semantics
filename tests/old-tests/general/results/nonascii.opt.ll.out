@@ -1,9 +1,0 @@
-size of 2 element string is 12, and size of element is 4
-first element is different
-terminator element is different
-chars are same
-<result>
-  <returnValue>
-    0
-  </returnValue>
-</result>

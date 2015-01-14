@@ -1,6 +1,0 @@
-sum(10)==55
-<result>
-  <returnValue>
-    55
-  </returnValue>
-</result>

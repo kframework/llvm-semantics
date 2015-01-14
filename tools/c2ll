@@ -1,8 +1,0 @@
-#! /usr/bin/env bash
-BASE=`basename $1 .c`
-clang -S -emit-llvm $1
-if [ $? -ne 0 ]; then
-    echo "c2ll failed"
-    exit 1
-fi
-mv $BASE.s $BASE.ll

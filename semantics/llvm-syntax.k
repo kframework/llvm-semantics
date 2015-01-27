@@ -52,4 +52,27 @@ module LLVM-SYNTAX
     syntax OptNUW ::= "nuw"
     syntax OptNW  ::= OptNUW OptNSW | OptNSW OptNUW | OptNSW | OptNUW
 
+    //llvm: if exact is defined in udiv and sdiv, it means 
+    //the result value of these operators is a poison value 
+    //if any of the bits shifted out are non-zero
+    syntax OptExact ::= "exact"
+
+    //define the arithmetic operators, logical and cast operators
+    syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
+    syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
+    syntax ArithmeticFloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv"
+                          | "urem" | "srem" | "frem"
+    syntax BinaryOps ::= IntConstructors OptNW 
+                      | IntConstructors
+                      | DivConstructors OptExact 
+                      | DivConstructors
+                      | ArithmeticFloatOps
+
+
+    syntax LogicalOps ::= "and" | "or" | "xor"
+    syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc" 
+                     | "fpext" | "bitcast" | "uitofp" | "sitofp" 
+                     | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
+
+
 endmodule

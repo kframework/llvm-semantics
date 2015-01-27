@@ -3,14 +3,22 @@
 
 This is the syntax of LLVM.
 
-This syntax requires a input LLVM program without any comments on it.
+The LLVM code representation is designed to be used in three different forms:
+ as an in-memory compiler IR, as an on-disk bitcode representation 
+(suitable for fast loading by a Just-In-Time compiler), 
+and as a human readable assembly language representation. 
+This allows LLVM to provide a powerful intermediate representation 
+for efficient compiler transformations and analysis, 
+while providing a natural means to debug and visualize the transformations. 
+The three different forms of LLVM are all equivalent. 
+This document describes the human readable representation and notation.
+
+This syntax requires a input LLVM program without comments.
 */
 module LLVM-SYNTAX
 
     /*
-    Define rules for non-keyword tokens. This is currently just a bunch
-    of hacks. They don't cover many valid forms of tokens, and they also
-    generate some invalid forms of tokens. 
+    Define syntactic constructors for non-keyword tokens. 
     */
 
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}

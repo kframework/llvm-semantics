@@ -34,4 +34,22 @@ module LLVM-SYNTAX
 
     syntax LocalName ::= LocalVar | String
 
+    /*@
+      Symbolic value reference is including local names, 
+      global variables, local valid ids and global valid ids.
+     */
+    syntax SymbolicValueRef ::= LOCALVALID | GLOBALVALID
+                              | LocalName | GlobalVar
+
+    /*@
+      There are the primary operators.
+      Define the nsw and nuw flags.
+      llvm: nuw only applies to integer operations.
+      llvm: nsw only applies to integer operations.
+      llvm: nuw is "no unsigned wrap" and nsw is "no signed wrap".
+    */
+    syntax OptNSW ::= "nsw" 
+    syntax OptNUW ::= "nuw"
+    syntax OptNW  ::= OptNUW OptNSW | OptNSW OptNUW | OptNSW | OptNUW
+
 endmodule

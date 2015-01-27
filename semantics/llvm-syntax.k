@@ -74,5 +74,11 @@ module LLVM-SYNTAX
                      | "fpext" | "bitcast" | "uitofp" | "sitofp" 
                      | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
 
+    //define the predicates
+    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle" 
+                         | "sge" | "ult" | "ugt" | "ule" | "uge"
+    syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
+                         | "oge" | "ord" | "uno" | "ueq" | "une"
+                         | "ult" | "ugt" | "ule" | "uge" | Bool
 
 endmodule

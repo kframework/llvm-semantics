@@ -25,14 +25,22 @@ module LLVM-SYNTAX
     syntax UnsignedInt ::= Token{[1-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
-    syntax LocalVar ::=  Token{[\%][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
+    syntax LocalVar ::=  Token{[\%][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\%]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
 
     syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
-    syntax GlobalVar ::= Token{[\@][a-z \. \_ \- \$][0-9 a-z \. \_ \- \$]*}
+    syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\@]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
 
-    syntax LocalName ::= LocalVar | String
+    syntax LabelStringConstant ::= Token{[1-9][0-9]*[\:]}
+    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*[\:]}
+    syntax LabelStringConstant ::= Token{[\@]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""[\:]}
+
+    //define local and global names as well as local and global assignments
+    syntax LocalName ::= LocalVar | String | LocalValID
+    syntax OptLocalAssign ::= LocalName "="
+    syntax GlobalName ::= GlobalVar | LocalValID
+    syntax OptGlobalAssign ::= GlobalName "="
 
     /*@
       Symbolic value reference is including local names, 
@@ -56,6 +64,7 @@ module LLVM-SYNTAX
     //the result value of these operators is a poison value 
     //if any of the bits shifted out are non-zero
     syntax OptExact ::= "exact"
+    syntax OptVolatile ::= "volatile"
 
     //define the arithmetic operators, logical and cast operators
     syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
@@ -131,7 +140,7 @@ module LLVM-SYNTAX
     syntax PrimType ::= FPType | IntType | "label" | "void"
 
     //define address space and types
-    syntax OptAddrSpace ::= addrspace(UnsignedInt)
+    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "unnamed_addr"
     syntax ArgType ::= Types GlobalVarAttributes
     syntax ArgTypeList ::= ArgType | ArgTypeList "," ArgType
     syntax ArgTypeListI ::= ArgTypeList | ArgTypeList "," "..." | "..."
@@ -154,6 +163,7 @@ module LLVM-SYNTAX
     syntax OptInBounds ::= "inbounds"
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Types ValueRef
+    syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
     syntax IndexList ::= List{ResolvedVal,","}
     syntax Strings ::= List{String,","}
     syntax OptSideEffect ::= "sideeffect"
@@ -187,15 +197,130 @@ module LLVM-SYNTAX
                       | "extractvalue" "(" ConstVal ConstantIndexList ")"
                       | "insertvalue" "(" ConstVal "," ConstVal ConstantIndexList ")"
 
-/*
+    //define global type constants, thread local constants and external behaviors.
+    syntax GlobalType ::= "global" | "constant"
     syntax ThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"
-
     syntax ThreadLocalAttr ::= "localdynamic" | "initialexec" | "localexec"
-
-    syntax UnnamedAttr ::= "unnamed_attr"
-
     syntax ExternallyInitialized ::= "externally_initialized"
 
-    syntax GlobalOrConstant ::= "global" | "constant"
-*/  
+    //define Aliasee references.
+    syntax AliaseeRef ::= Types SymbolicValueRef
+                        | "bitcast" "(" AliaseeRef "to" Types ")"
+
+    //define Modules and definitions.
+    syntax Module ::= List{Definition," "}
+    syntax Definition ::= "define" Function
+                        | "declare" FunctionProto
+                        | "module" "asm" AsmBlock
+                        | OptLocalAssign "type" Types
+                        | OptGlobalAssign GVVisibilityStyle ThreadLocal
+                          OptAddrSpace GlobalType ConstVal GlobalVarAttributes
+                        | OptGlobalAssign GVInternalLinkage GVVisibilityStyle
+                          ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes
+                        | OptGlobalAssign GVExternalLinkage GVVisibilityStyle
+                          ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes
+                        | OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef
+                        | "target" TargetDefinition
+                        | "deplibs" "=" LibrariesDefinition
+
+   //define a AsmBlock to be a string constant.
+   syntax AsmBlock ::= String
+
+   //define target definitions.
+   syntax TargetDefinition ::= "triple" "=" String
+                      | "datalayout" "=" String
+
+   //define libraries definitions.
+   syntax StringList ::= List{String,","}
+   syntax LibrariesDefinition ::= "[" StringList "]"
+
+   //define argument lists.
+   syntax ArgListH ::= ArgListH "," Types GlobalVarAttributes LocalName
+                     | Types GlobalVarAttributes LocalName
+   syntax ArgList ::= ArgListH | ArgListH "," "..." | "..."
+
+   //define function headers. 
+   syntax FunctionHeaderH ::= OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString OptAlign OptGC
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes OptAlign OptGC
+
+   //define function bodies.
+   syntax Begin ::= "begin" | "{"
+   syntax End ::= "end" | "}"
+   syntax BasicBlock ::= LabelStringConstant InstructionList OptLocalAssign BBTerminatorInst
+   syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
+   syntax FunctionHeader ::= FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH
+   syntax Function ::= FunctionHeader Begin BasicBlockList End
+   syntax FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH
+
+   //define instruction lists and instruction list values
+   syntax OptTailCall ::= "tail" "call" | "call"
+   syntax Inst ::= OptLocalAssign InstVal
+   syntax InstructionList ::= List{Inst,","}
+   syntax InstVal ::= BinaryOps Types ValueRef "," ValueRef
+                    | LogicalOps Types ValueRef "," ValueRef
+                    | "icmp" IPredicates Types ValueRef "," ValueRef
+                    | "fcmp" FPredicates Types ValueRef "," ValueRef
+                    | CastOps ResolvedVal "to" Types
+                    | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
+                    | "va_arg" ResolvedVal "," Types
+                    | "extractelement" ResolvedVal "," ResolvedVal
+                    | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
+                    | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
+                    | "phi" PHIList
+                    | OptTailCall OptCallingConv Types
+                      ValueRef "(" ParamList ")" GlobalVarAttributes
+                    | MemoryInst
+
+   //define memory instruction lists
+   syntax MemoryInst ::=  "malloc" Types "," OptAlign
+                        | "malloc" Types
+                        | "malloc" Types "," IntType ValueRef "," OptAlign
+                        | "malloc" Types "," IntType ValueRef
+                        | "alloca" Types "," OptAlign
+                        | "alloca" Types
+                        | "alloca" Types "," IntType ValueRef "," OptAlign
+                        | "alloca" Types "," IntType ValueRef
+                        | "free" ResolvedVal
+                        | OptVolatile "load" Types ValueRef "," OptAlign
+                        | OptVolatile "load" Types ValueRef
+                        | OptVolatile "store" ResolvedVal "," Types
+                          ValueRef "," OptAlign
+                        | OptVolatile "store" ResolvedVal "," Types ValueRef
+                        | "getresult" Types ValueRef "," UnsignedInt
+                        | "getelementptr" OptInBounds Types ValueRef IndexList
+                        | "extractvalue" Types ValueRef ConstantIndexList
+                        | "insertvalue" Types ValueRef "," Types
+                          ValueRef ConstantIndexList
+
+    //define parameter lists
+    syntax ParamFactor ::= Types GlobalVarAttributes ValueRef GlobalVarAttributes
+                       | "label" GlobalVarAttributes ValueRef GlobalVarAttributes
+    syntax ParamList ::= List{ParamFactor,","}
+
+    //define phi lists
+    syntax PHIList ::= Types "[" ValueRef "," ValueRef "]"
+                     | PHIList "," "[" ValueRef "," ValueRef "]"
+
+    //define jump tables
+    syntax JumpTableEntry ::= IntType ConstValueRef "," "label" ValueRef
+    syntax JumpTable ::= List{JumpTableEntry," "}
+
+    //define 
+    syntax BBTerminatorInst ::= "ret" ReturnedVal
+                              | "ret" "void"
+                              | "br" "label" ValueRef
+                              | "br" IntType ValueRef
+                                "," "label" ValueRef "," "label" ValueRef
+                              | "switch" IntType ValueRef ","
+                                "label" ValueRef "[" JumpTable "]"
+                              | "invoke" OptCallingConv Types
+                                ValueRef "(" ParamList ")" GlobalVarAttributes
+                                "to" "label" ValueRef "unwind" "label" ValueRef
+                              | "unwind"
+                              | "unreachable"
+
 endmodule

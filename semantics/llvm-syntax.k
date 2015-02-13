@@ -131,7 +131,8 @@ module LLVM-SYNTAX
     //define global attributes. Cannot define each attribute list precisely.
     //because list subsort problem 
     syntax GlobalVarAttribute ::= SectionString | ParamAttr | FuncAttr
-    syntax GlobalVarAttributes ::= List{GlobalVarAttribute," "}
+    syntax ListOfGlobalVarAttribute ::= List{GlobalVarAttribute," "}
+    syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute | Token{[\#][0-9]+}
 
 
     //define the float types and primary types
@@ -213,15 +214,37 @@ module LLVM-SYNTAX
                         | "declare" FunctionProto
                         | "module" "asm" AsmBlock
                         | OptLocalAssign "type" Types
-                        | OptGlobalAssign GVVisibilityStyle ThreadLocal
-                          OptAddrSpace GlobalType ConstVal GlobalVarAttributes
-                        | OptGlobalAssign GVInternalLinkage GVVisibilityStyle
-                          ThreadLocal OptAddrSpace GlobalType ConstVal GlobalVarAttributes
-                        | OptGlobalAssign GVExternalLinkage GVVisibilityStyle
-                          ThreadLocal OptAddrSpace GlobalType Types GlobalVarAttributes
-                        | OptGlobalAssign GVVisibilityStyle "alias" AliasLinkage AliaseeRef
+                        | "type" Types
+                        | GlobalAssignAndGVVBlock ThreadLocalAndOptAddrBlock
+                          GlobalType ConstVal GlobalVarAttributes
+                        | GlobalAssignAndGVVBlock
+                          GlobalType ConstVal GlobalVarAttributes
+                        | ThreadLocalAndOptAddrBlock
+                          GlobalType ConstVal GlobalVarAttributes
+                        | GlobalType ConstVal GlobalVarAttributes
+                        | GlobalAndExternalBlock ThreadLocalAndOptAddrBlock
+                          GlobalType Types GlobalVarAttributes
+                        | GlobalAndExternalBlock
+                          GlobalType Types GlobalVarAttributes
+                        | GlobalAssignAndGVVBlock "alias" AliasLinkage AliaseeRef
+                        | GlobalAssignAndGVVBlock "alias" AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
+
+   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign GVInternalLinkage GVVisibilityStyle
+                                    | OptGlobalAssign GVInternalLinkage
+                                    | OptGlobalAssign GVVisibilityStyle
+                                    | GVInternalLinkage GVVisibilityStyle
+                                    | OptGlobalAssign
+                                    | GVInternalLinkage
+                                    | GVVisibilityStyle
+   syntax GlobalAndExternalBlock ::= OptGlobalAssign GVExternalLinkage GVVisibilityStyle
+                                   | GVExternalLinkage GVVisibilityStyle
+                                   | OptGlobalAssign GVExternalLinkage
+                                   | GVExternalLinkage
+   syntax ThreadLocalAndOptAddrBlock ::= ThreadLocal OptAddrSpace
+                                       | ThreadLocal
+                                       | OptAddrSpace
 
    //define a AsmBlock to be a string constant.
    syntax AsmBlock ::= String
@@ -232,7 +255,7 @@ module LLVM-SYNTAX
 
    //define libraries definitions.
    syntax StringList ::= List{String,","}
-   syntax LibrariesDefinition ::= "[" StringList "]"
+   syntax LibrariesDefinition ::= "[" StringList "]" | "[" "]"
 
    //define argument lists.
    syntax ArgListH ::= ArgListH "," Types GlobalVarAttributes LocalName
@@ -242,63 +265,57 @@ module LLVM-SYNTAX
    //define function headers. 
    syntax FunctionHeaderH ::= OptCallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString OptAlign OptGC
+                              GlobalVarAttributes TailOfFunctionHeader
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString OptAlign OptGC
+                              GlobalVarAttributes TailOfFunctionHeader
                             | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptAlign OptGC
-                            | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString OptGC
-                            | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString OptAlign
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptAlign OptGC
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString OptGC
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString OptAlign
-                            | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptGC
-                            | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString
+                              GlobalName "(" ")"
+                              GlobalVarAttributes TailOfFunctionHeader
                             | OptCallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes SectionString
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptAlign
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptGC
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ")"
+                              GlobalVarAttributes
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ")"
+                              GlobalVarAttributes TailOfFunctionHeader
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ")" GlobalVarAttributes
 
+   syntax TailOfFunctionHeader ::= SectionString OptAlign OptGC
+                                 | OptAlign OptGC
+                                 | SectionString OptGC
+                                 | SectionString OptAlign
+                                 | SectionString
+                                 | OptAlign
+                                 | OptGC
 
    //define function bodies.
    syntax Begin ::= "begin" | "{"
    syntax End ::= "end" | "}"
    syntax BasicBlock ::= LabelStringConstant InstructionList OptLocalAssign BBTerminatorInst
+                       | LabelStringConstant InstructionList BBTerminatorInst
+                       | InstructionList OptLocalAssign BBTerminatorInst
+                       | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
    syntax FunctionHeader ::= FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH
+                           | GVVisibilityStyle FunctionHeaderH
+                           | FunctionDefineLinkage FunctionHeaderH
+                           | FunctionHeaderH
    syntax Function ::= FunctionHeader Begin BasicBlockList End
    syntax FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH
+                          | GVVisibilityStyle FunctionHeaderH
+                          | FunctionDeclareLinkage FunctionHeaderH
+                          | FunctionHeaderH
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
-   syntax Inst ::= OptLocalAssign InstVal
+   syntax Inst ::= OptLocalAssign InstVal | InstVal
    syntax InstructionList ::= List{Inst,","}
    syntax InstVal ::= BinaryOps Types ValueRef "," ValueRef
                     | LogicalOps Types ValueRef "," ValueRef
@@ -328,12 +345,18 @@ module LLVM-SYNTAX
                         | "alloca" Types "," IntType ValueRef
                         | "free" ResolvedVal
                         | OptVolatile "load" Types ValueRef "," OptAlign
+                        | "load" Types ValueRef "," OptAlign
                         | OptVolatile "load" Types ValueRef
+                        | "load" Types ValueRef
                         | OptVolatile "store" ResolvedVal "," Types
                           ValueRef "," OptAlign
+                        | "store" ResolvedVal "," Types
+                          ValueRef "," OptAlign
                         | OptVolatile "store" ResolvedVal "," Types ValueRef
+                        | "store" ResolvedVal "," Types ValueRef
                         | "getresult" Types ValueRef "," UnsignedInt
                         | "getelementptr" OptInBounds Types ValueRef IndexList
+                        | "getelementptr" Types ValueRef IndexList
                         | "extractvalue" Types ValueRef ConstantIndexList
                         | "insertvalue" Types ValueRef "," Types
                           ValueRef ConstantIndexList

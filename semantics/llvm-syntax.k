@@ -46,7 +46,7 @@ module LLVM-SYNTAX
       Symbolic value reference is including local names, 
       global variables, local valid ids and global valid ids.
      */
-    syntax SymbolicValueRef ::= LOCALVALID | GLOBALVALID
+    syntax SymbolicValueRef ::= LocalValID | GlobalValID
                               | LocalName | GlobalVar
 
     /*@
@@ -243,9 +243,49 @@ module LLVM-SYNTAX
    syntax FunctionHeaderH ::= OptCallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes SectionString OptAlign OptGC
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString OptAlign OptGC
                             | OptCallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes OptAlign OptGC
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString OptGC
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString OptAlign
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes OptAlign OptGC
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString OptGC
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString OptAlign
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes OptGC
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString
+                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes SectionString
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes OptAlign
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes OptGC
+                            | GlobalVarAttributes Types
+                              GlobalName "(" ArgList ")"
+                              GlobalVarAttributes
+
 
    //define function bodies.
    syntax Begin ::= "begin" | "{"
@@ -272,6 +312,8 @@ module LLVM-SYNTAX
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
                     | OptTailCall OptCallingConv Types
+                      ValueRef "(" ParamList ")" GlobalVarAttributes
+                    | OptTailCall Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | MemoryInst
 
@@ -318,6 +360,9 @@ module LLVM-SYNTAX
                               | "switch" IntType ValueRef ","
                                 "label" ValueRef "[" JumpTable "]"
                               | "invoke" OptCallingConv Types
+                                ValueRef "(" ParamList ")" GlobalVarAttributes
+                                "to" "label" ValueRef "unwind" "label" ValueRef
+                              | "invoke" Types
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "unwind"

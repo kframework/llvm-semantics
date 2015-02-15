@@ -169,34 +169,34 @@ module LLVM-SYNTAX
     syntax Strings ::= List{String,","}
     syntax OptSideEffect ::= "sideeffect"
 
-    syntax ConstVal ::= Types ConstValueRef
+    //syntax ConstVal ::= Types ConstValueRef
     syntax ConstValueRef ::= Int | UnsignedInt | FpVal | Bool | ConstExpr
                            | "null" | "undef" | "zeroinitializer"
-                           | "<" ConstVector ">"
-                           | "[" ConstVector "]"
+                           | "<" ReturnedVal ">"
+                           | "[" ReturnedVal "]"
                            | "[" "]"
-                           | "{" ConstVector "}"
+                           | "{" ReturnedVal "}"
                            | "{" "}"
                            | "c" String
-                           | "<" "{" ConstVector "}" ">"
+                           | "<" "{" ReturnedVal "}" ">"
                            | "<" "{" "}" ">"
                            | "asm" OptSideEffect String "," String
                            | "asm" String "," String
-    syntax ConstVector ::= ConstVal | ConstVector "," ConstVal
+    //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
 
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
-    syntax ConstExpr::= CastOps "(" ConstVal "to" Types ")"
-                      | BinaryOps "(" ConstVal "," ConstVal ")"
-                      | "getelementptr" OptInBounds "(" ConstVal IndexList ")"
-                      | "getelementptr" "(" ConstVal IndexList ")"
-                      | select(ConstVal, ConstVal, ConstVal)
-                      | "icmp" IPredicates "(" ConstVal "," ConstVal ")"
-                      | "fcmp" FPredicates "(" ConstVal "," ConstVal ")"
-                      | extractelement(ConstVal, ConstVal)
-                      | insertelement(ConstVal, ConstVal, ConstVal)
-                      | shufflevector(ConstVal, ConstVal, ConstVal)
-                      | "extractvalue" "(" ConstVal ConstantIndexList ")"
-                      | "insertvalue" "(" ConstVal "," ConstVal ConstantIndexList ")"
+    syntax ConstExpr::= CastOps "(" ResolvedVal "to" Types ")"
+                      | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
+                      | "getelementptr" OptInBounds "(" ResolvedVal IndexList ")"
+                      | "getelementptr" "(" ResolvedVal IndexList ")"
+                      | select(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | "icmp" IPredicates "(" ResolvedVal "," ResolvedVal ")"
+                      | "fcmp" FPredicates "(" ResolvedVal "," ResolvedVal ")"
+                      | extractelement(ResolvedVal, ResolvedVal)
+                      | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | "extractvalue" "(" ResolvedVal ConstantIndexList ")"
+                      | "insertvalue" "(" ResolvedVal "," ResolvedVal ConstantIndexList ")"
 
     //define global type constants, thread local constants and external behaviors.
     syntax GlobalType ::= "global" | "constant"
@@ -216,12 +216,12 @@ module LLVM-SYNTAX
                         | OptLocalAssign "type" Types
                         | "type" Types
                         | GlobalAssignAndGVVBlock ThreadLocalAndOptAddrBlock
-                          GlobalType ConstVal GlobalVarAttributes
+                          GlobalType ResolvedVal GlobalVarAttributes
                         | GlobalAssignAndGVVBlock
-                          GlobalType ConstVal GlobalVarAttributes
+                          GlobalType ResolvedVal GlobalVarAttributes
                         | ThreadLocalAndOptAddrBlock
-                          GlobalType ConstVal GlobalVarAttributes
-                        | GlobalType ConstVal GlobalVarAttributes
+                          GlobalType ResolvedVal GlobalVarAttributes
+                        | GlobalType ResolvedVal GlobalVarAttributes
                         | GlobalAndExternalBlock ThreadLocalAndOptAddrBlock
                           GlobalType Types GlobalVarAttributes
                         | GlobalAndExternalBlock

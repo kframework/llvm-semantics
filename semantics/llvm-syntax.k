@@ -374,7 +374,7 @@ module LLVM-SYNTAX
     syntax JumpTableEntry ::= IntType ConstValueRef "," "label" ValueRef
     syntax JumpTable ::= List{JumpTableEntry," "}
 
-    //define 
+    //define return statment in a function.
     syntax BBTerminatorInst ::= "ret" ReturnedVal
                               | "ret" "void"
                               | "br" "label" ValueRef

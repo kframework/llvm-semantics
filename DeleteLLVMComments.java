@@ -7,7 +7,7 @@ public class DeleteLLVMComments {
 
     /**
      * @author LiyiLi
-     * This Java program that an LLVM program as input and eliminates
+     * This Java program takes an LLVM program as input and eliminates
      * all the comments from it.  The resulting uncommented LLVM program
      * is saved to a temporary string.
      * This step is needed due to a limitation of the current K parser,
@@ -17,7 +17,7 @@ public class DeleteLLVMComments {
     public static void main(String[] args) {
         
     	if(args.length == 0){
-    		System.err.println("Haven't specify the input program.");
+    		System.err.println("Haven't specified the input program.");
         }
         String fileName = args[0];
         File llvmFile = new File(fileName);
@@ -29,23 +29,23 @@ public class DeleteLLVMComments {
                  * Declare a variable to indicate whether or
                  * not the current scanning character is inside
                  * a double quote block.
+                 * This algorithm works because users cannot write
+                 * \" inside a string (starting by " and ending by ") in LLVM.
+                 * That is why we can only use a variable (isInQuoteBlock) to keep track of
+                 * whether or not the current character is located inside
+                 * a string block of a LLVM program.
                  */
                 boolean isInQuoteBlock = false;
                 
                 while(scanner.hasNextLine()){
                     String currentLine = scanner.nextLine();
                     for(int i = 0; i < currentLine.length(); ++i){
-                    	char currentChar = '\0';
-                        if(currentLine.charAt(i) == '"'){
+                    	char currentChar = currentLine.charAt(i);
+                        if(currentChar == '"'){
                             isInQuoteBlock = ! isInQuoteBlock;
-                            currentChar = currentLine.charAt(i);
-                        } else {
-                            if(!isInQuoteBlock
-                                    && currentLine.charAt(i) == ';'){
-                                break;
-                            } else {
-                            	currentChar = currentLine.charAt(i);
-                            }
+                        } else if(!isInQuoteBlock
+                                    && currentChar == ';'){
+                            break;
                         }
                         newPrintLine += currentChar;
                     } //end of for loop

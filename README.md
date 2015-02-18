@@ -1,4 +1,5 @@
-The previous version of LLVM semantics is created by David and Chucky.
+The previous version of LLVM semantics is created by David Lazar from MIT
+and Chucky Ellison from Google.
 It is located in https://github.com/kframework/llvm-semantics-old.
 
 Versions of tools used to generate the .ll files:

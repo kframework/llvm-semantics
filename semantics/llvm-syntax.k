@@ -24,17 +24,18 @@ module LLVM-SYNTAX
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
     syntax UnsignedInt ::= Token{[1-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
+    syntax #String ::= Token{[\"] (~[\"])* [\"]}
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
     syntax LocalVar ::=  Token{[\%][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
-    syntax LocalVar ::= Token{[\%]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
+    syntax LocalVar ::= Token{[\%][\"] (~[\"])* [\"]}
 
     syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
-    syntax LocalVar ::= Token{[\@]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""}
+    syntax LocalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
     syntax LabelStringConstant ::= Token{[1-9][0-9]*[\:]}
     syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*[\:]}
-    syntax LabelStringConstant ::= Token{[\@]"\"" ((~[\"\n\r\\]) | (((([\\][nrtf\"\\]) | ([\\][x][0-9a-fA-F][0-9a-fA-F])) | ([\\][u][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])) | ([\\][U][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F])))* "\""[\:]}
+    syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
 
     //define local and global names as well as local and global assignments
     syntax LocalName ::= LocalVar | String | LocalValID

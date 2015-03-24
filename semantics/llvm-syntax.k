@@ -93,14 +93,13 @@ module LLVM-SYNTAX
 
     //define alias linkage key words
     //define the Internal Linkage key words for global value and function declaration
-    syntax AliasLinkage ::=  "weak" | "weak_odr" | "internal"
-    syntax FunctionDefineLinkage ::= AliasLinkage | "linkonce" | "linkonce_odr" | "dllexport"
-    syntax GVInternalLinkage ::= FunctionDefineLinkage | "appending" | "common" 
-                               | "private" | "linker_private" | "linker_private_weak"
+    syntax NonExternalLinkage ::= "private" | "internal" | "weak" | "weak_odr"  | "common"
+                                | "linkonce" | "linkonce_odr" | "available_externally"
+                                | "appending" | "linker_private" | "linker_private_weak"
 
     //define the External Linkage key words for global value and function declaration
-    syntax FunctionDeclareLinkage ::= "dllimport" | "extern_weak"
-    syntax GVExternalLinkage ::= FunctionDeclareLinkage | "external"
+    syntax ExternalLinkage ::= "extern_weak" | "external"
+
 
     //define Global value visibility style key words
     syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
@@ -227,22 +226,22 @@ module LLVM-SYNTAX
                           GlobalType Types GlobalVarAttributes
                         | GlobalAndExternalBlock
                           GlobalType Types GlobalVarAttributes
-                        | GlobalAssignAndGVVBlock "alias" AliasLinkage AliaseeRef
+                        | GlobalAssignAndGVVBlock "alias" NonExternalLinkage AliaseeRef
                         | GlobalAssignAndGVVBlock "alias" AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
 
-   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign GVInternalLinkage GVVisibilityStyle
-                                    | OptGlobalAssign GVInternalLinkage
+   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign NonExternalLinkage GVVisibilityStyle
+                                    | OptGlobalAssign NonExternalLinkage
                                     | OptGlobalAssign GVVisibilityStyle
-                                    | GVInternalLinkage GVVisibilityStyle
+                                    | NonExternalLinkage GVVisibilityStyle
                                     | OptGlobalAssign
-                                    | GVInternalLinkage
+                                    | NonExternalLinkage
                                     | GVVisibilityStyle
-   syntax GlobalAndExternalBlock ::= OptGlobalAssign GVExternalLinkage GVVisibilityStyle
-                                   | GVExternalLinkage GVVisibilityStyle
-                                   | OptGlobalAssign GVExternalLinkage
-                                   | GVExternalLinkage
+   syntax GlobalAndExternalBlock ::= OptGlobalAssign ExternalLinkage GVVisibilityStyle
+                                   | ExternalLinkage GVVisibilityStyle
+                                   | OptGlobalAssign ExternalLinkage
+                                   | ExternalLinkage
    syntax ThreadLocalAndOptAddrBlock ::= ThreadLocal OptAddrSpace
                                        | ThreadLocal
                                        | OptAddrSpace
@@ -304,14 +303,14 @@ module LLVM-SYNTAX
                        | InstructionList OptLocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
-   syntax FunctionHeader ::= FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH
+   syntax FunctionHeader ::= NonExternalLinkage GVVisibilityStyle FunctionHeaderH
                            | GVVisibilityStyle FunctionHeaderH
-                           | FunctionDefineLinkage FunctionHeaderH
+                           | NonExternalLinkage FunctionHeaderH
                            | FunctionHeaderH
    syntax Function ::= FunctionHeader Begin BasicBlockList End
-   syntax FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH
+   syntax FunctionProto ::= ExternalLinkage GVVisibilityStyle FunctionHeaderH
                           | GVVisibilityStyle FunctionHeaderH
-                          | FunctionDeclareLinkage FunctionHeaderH
+                          | ExternalLinkage FunctionHeaderH
                           | FunctionHeaderH
 
    //define instruction lists and instruction list values

@@ -85,7 +85,7 @@ module LLVM-SYNTAX
                      | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
 
     //define the predicates
-    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle" 
+    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
     syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
@@ -109,8 +109,13 @@ module LLVM-SYNTAX
     syntax DllStorageClass ::= "dllimport" | "dllexport"
 
     //define LLVM calling convention key words
-    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc"
-                            | "x86_fastcallcc" | "cc" UnsignedInt
+    syntax CallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
+                            | "x86_fastcallcc" | "x86_cdeclmethodcc"| "intel_ocl_bicc"
+                            | "arm_apcscc" | "arm_aapcscc" | "arm_aapcs_vfpcc"
+                            | "msp430_intrcc" | "ptx_kernel" | "ptx_device"
+                            | "spir_func" | "spir_kernel" | "x86_64_sysvcc"
+                            | "x86_64_win64cc" | "webkit_jscc" | "anyregcc"
+                            | "preserve_mostcc" | "preserve_allcc" | "cc" UnsignedInt
 
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
@@ -267,19 +272,19 @@ module LLVM-SYNTAX
    syntax ArgList ::= ArgListH | ArgListH "," "..." | "..."
 
    //define function headers. 
-   syntax FunctionHeaderH ::= OptCallingConv GlobalVarAttributes Types
+   syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes TailOfFunctionHeader
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes TailOfFunctionHeader
-                            | OptCallingConv GlobalVarAttributes Types
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ")"
                               GlobalVarAttributes TailOfFunctionHeader
-                            | OptCallingConv GlobalVarAttributes Types
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
-                            | OptCallingConv GlobalVarAttributes Types
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ")"
                               GlobalVarAttributes
                             | GlobalVarAttributes Types
@@ -332,7 +337,7 @@ module LLVM-SYNTAX
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
-                    | OptTailCall OptCallingConv Types
+                    | OptTailCall CallingConv Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | OptTailCall Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
@@ -386,7 +391,7 @@ module LLVM-SYNTAX
                                 "," "label" ValueRef "," "label" ValueRef
                               | "switch" IntType ValueRef ","
                                 "label" ValueRef "[" JumpTable "]"
-                              | "invoke" OptCallingConv Types
+                              | "invoke" CallingConv Types
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "invoke" Types

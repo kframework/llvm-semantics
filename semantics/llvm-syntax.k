@@ -102,7 +102,11 @@ module LLVM-SYNTAX
 
 
     //define Global value visibility style key words
+    //which is the same as the opt_visibility sort in Trevor Jim's LLVM YACC parser
     syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
+
+    //define the attributes for Dll storage class in LLVM.
+    syntax DllStorageClass ::= "dllimport" | "dllexport"
 
     //define LLVM calling convention key words
     syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc"

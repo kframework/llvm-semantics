@@ -31,7 +31,7 @@ module LLVM-SYNTAX
 
     syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
-    syntax LocalVar ::= Token{[\@][\"] (~[\"])* [\"]}
+    syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
     syntax LabelStringConstant ::= Token{[1-9][0-9]*[\:]}
     syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*[\:]}
@@ -161,7 +161,8 @@ module LLVM-SYNTAX
 
     //define the float types and primary types
     syntax IntType ::= Token{[i][1-9][0-9]*}
-    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
+    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
+                     | "x86_fp80" | "half"
     syntax PrimType ::= FPType | IntType | "label" | "void"
 
     //define address space and types
@@ -171,7 +172,11 @@ module LLVM-SYNTAX
     syntax ArgTypeListI ::= ArgTypeList | ArgTypeList "," "..." | "..."
 
     syntax Types ::= "opaque"
+                   | "metadata"
+                   | "x86_mmx"
                    | PrimType
+                   | LocalVar
+                   | LocalValID
                    | Types OptAddrSpace"*"
                    | Types "*"
                    | SymbolicValueRef

@@ -121,17 +121,32 @@ module LLVM-SYNTAX
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
     syntax OptAlign ::= "align" UnsignedInt
-    syntax CommonAttr ::= "inreg" | "zeroext" | "signext" 
-    syntax RetAttr ::= CommonAttr | "noalias"
-    syntax ParamAttr ::= RetAttr | OptAlign | "sret" | "nocapture" | "byval" 
-                       | "nest" | "inalloca" | "returned" 
-    syntax FuncAttr ::= CommonAttr | "noreturn" | "nounwind" | "readnone" | "nobuiltin"
+    syntax CommonAttr ::= "inreg" | "zeroext" | "signext"
+    syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
+                     | "zeroext" [klabel('zeroextOfReturn)]
+                     | "signext"  [klabel('signextOfReturn)]
+                     | "noalias" [klabel('noaliasOfReturn)]
+    syntax RetAttrs ::= List{RetAttr," "}
+
+    syntax ParamAttr ::= OptAlign | "sret" | "nocapture" | "byval"
+                       | "nest" | "inalloca" | "returned"
+                       | "inreg" [klabel('inregOfParam)]
+                       | "zeroext" [klabel('zeroextOfParam)]
+                       | "signext"  [klabel('signextOfParam)]
+                       | "noalias" [klabel('noaliasOfParam)]
+    syntax ParamAttrs ::= List{ParamAttr," "}
+
+    syntax FuncAttr ::= "noreturn" | "nounwind" | "readnone" | "nobuiltin"
                       | "readonly" | "inlinehint" | alignstack(UnsignedInt) | "noinline"
                       | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
                       | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
                       | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
                       | "sspstrong" | "uwtable"
+                      | "inreg" [klabel('inregOfFun)]
+                      | "zeroext" [klabel('zeroextOfFun)]
+                      | "signext" [klabel('signextOfFun)]
+    syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name and section name
     syntax OptGC ::= "gc" String
@@ -139,7 +154,7 @@ module LLVM-SYNTAX
 
     //define global attributes. Cannot define each attribute list precisely.
     //because list subsort problem 
-    syntax GlobalVarAttribute ::= SectionString | ParamAttr | FuncAttr
+    syntax GlobalVarAttribute ::= SectionString
     syntax ListOfGlobalVarAttribute ::= List{GlobalVarAttribute," "}
     syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute | Token{[\#][0-9]+}
 

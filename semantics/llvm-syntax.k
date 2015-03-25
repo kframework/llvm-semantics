@@ -85,7 +85,7 @@ module LLVM-SYNTAX
                      | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
 
     //define the predicates
-    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle" 
+    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
     syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
@@ -93,21 +93,29 @@ module LLVM-SYNTAX
 
     //define alias linkage key words
     //define the Internal Linkage key words for global value and function declaration
-    syntax AliasLinkage ::=  "weak" | "weak_odr" | "internal"
-    syntax FunctionDefineLinkage ::= AliasLinkage | "linkonce" | "linkonce_odr" | "dllexport"
-    syntax GVInternalLinkage ::= FunctionDefineLinkage | "appending" | "common" 
-                               | "private" | "linker_private" | "linker_private_weak"
+    syntax NonExternalLinkage ::= "private" | "internal" | "weak" | "weak_odr"  | "common"
+                                | "linkonce" | "linkonce_odr" | "available_externally"
+                                | "appending" | "linker_private" | "linker_private_weak"
 
     //define the External Linkage key words for global value and function declaration
-    syntax FunctionDeclareLinkage ::= "dllimport" | "extern_weak"
-    syntax GVExternalLinkage ::= FunctionDeclareLinkage | "external"
+    syntax ExternalLinkage ::= "extern_weak" | "external"
+
 
     //define Global value visibility style key words
+    //which is the same as the opt_visibility sort in Trevor Jim's LLVM YACC parser
     syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
 
+    //define the attributes for Dll storage class in LLVM.
+    syntax DllStorageClass ::= "dllimport" | "dllexport"
+
     //define LLVM calling convention key words
-    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc"
-                            | "x86_fastcallcc" | "cc" UnsignedInt
+    syntax CallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
+                            | "x86_fastcallcc" | "x86_cdeclmethodcc"| "intel_ocl_bicc"
+                            | "arm_apcscc" | "arm_aapcscc" | "arm_aapcs_vfpcc"
+                            | "msp430_intrcc" | "ptx_kernel" | "ptx_device"
+                            | "spir_func" | "spir_kernel" | "x86_64_sysvcc"
+                            | "x86_64_win64cc" | "webkit_jscc" | "anyregcc"
+                            | "preserve_mostcc" | "preserve_allcc" | "cc" UnsignedInt
 
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
@@ -227,22 +235,22 @@ module LLVM-SYNTAX
                           GlobalType Types GlobalVarAttributes
                         | GlobalAndExternalBlock
                           GlobalType Types GlobalVarAttributes
-                        | GlobalAssignAndGVVBlock "alias" AliasLinkage AliaseeRef
+                        | GlobalAssignAndGVVBlock "alias" NonExternalLinkage AliaseeRef
                         | GlobalAssignAndGVVBlock "alias" AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
 
-   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign GVInternalLinkage GVVisibilityStyle
-                                    | OptGlobalAssign GVInternalLinkage
+   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign NonExternalLinkage GVVisibilityStyle
+                                    | OptGlobalAssign NonExternalLinkage
                                     | OptGlobalAssign GVVisibilityStyle
-                                    | GVInternalLinkage GVVisibilityStyle
+                                    | NonExternalLinkage GVVisibilityStyle
                                     | OptGlobalAssign
-                                    | GVInternalLinkage
+                                    | NonExternalLinkage
                                     | GVVisibilityStyle
-   syntax GlobalAndExternalBlock ::= OptGlobalAssign GVExternalLinkage GVVisibilityStyle
-                                   | GVExternalLinkage GVVisibilityStyle
-                                   | OptGlobalAssign GVExternalLinkage
-                                   | GVExternalLinkage
+   syntax GlobalAndExternalBlock ::= OptGlobalAssign ExternalLinkage GVVisibilityStyle
+                                   | ExternalLinkage GVVisibilityStyle
+                                   | OptGlobalAssign ExternalLinkage
+                                   | ExternalLinkage
    syntax ThreadLocalAndOptAddrBlock ::= ThreadLocal OptAddrSpace
                                        | ThreadLocal
                                        | OptAddrSpace
@@ -264,19 +272,19 @@ module LLVM-SYNTAX
    syntax ArgList ::= ArgListH | ArgListH "," "..." | "..."
 
    //define function headers. 
-   syntax FunctionHeaderH ::= OptCallingConv GlobalVarAttributes Types
+   syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes TailOfFunctionHeader
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes TailOfFunctionHeader
-                            | OptCallingConv GlobalVarAttributes Types
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ")"
                               GlobalVarAttributes TailOfFunctionHeader
-                            | OptCallingConv GlobalVarAttributes Types
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
-                            | OptCallingConv GlobalVarAttributes Types
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ")"
                               GlobalVarAttributes
                             | GlobalVarAttributes Types
@@ -304,14 +312,14 @@ module LLVM-SYNTAX
                        | InstructionList OptLocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
-   syntax FunctionHeader ::= FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH
+   syntax FunctionHeader ::= NonExternalLinkage GVVisibilityStyle FunctionHeaderH
                            | GVVisibilityStyle FunctionHeaderH
-                           | FunctionDefineLinkage FunctionHeaderH
+                           | NonExternalLinkage FunctionHeaderH
                            | FunctionHeaderH
    syntax Function ::= FunctionHeader Begin BasicBlockList End
-   syntax FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH
+   syntax FunctionProto ::= ExternalLinkage GVVisibilityStyle FunctionHeaderH
                           | GVVisibilityStyle FunctionHeaderH
-                          | FunctionDeclareLinkage FunctionHeaderH
+                          | ExternalLinkage FunctionHeaderH
                           | FunctionHeaderH
 
    //define instruction lists and instruction list values
@@ -329,7 +337,7 @@ module LLVM-SYNTAX
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
-                    | OptTailCall OptCallingConv Types
+                    | OptTailCall CallingConv Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | OptTailCall Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
@@ -383,7 +391,7 @@ module LLVM-SYNTAX
                                 "," "label" ValueRef "," "label" ValueRef
                               | "switch" IntType ValueRef ","
                                 "label" ValueRef "[" JumpTable "]"
-                              | "invoke" OptCallingConv Types
+                              | "invoke" CallingConv Types
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "invoke" Types

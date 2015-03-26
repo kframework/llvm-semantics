@@ -40,7 +40,7 @@ module LLVM-SYNTAX
     //define local and global names as well as local and global assignments
     syntax LocalName ::= LocalVar | String | LocalValID
     syntax OptLocalAssign ::= LocalName "="
-    syntax GlobalName ::= GlobalVar | LocalValID
+    syntax GlobalName ::= GlobalVar | GlobalValID
     syntax OptGlobalAssign ::= GlobalName "="
 
     /*@

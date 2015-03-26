@@ -120,7 +120,7 @@ module LLVM-SYNTAX
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
-    syntax OptAlign ::= "align" UnsignedInt
+    syntax Align ::= "align" UnsignedInt
     syntax CommonAttr ::= "inreg" | "zeroext" | "signext"
     syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
                      | "zeroext" [klabel('zeroextOfReturn)]
@@ -128,21 +128,24 @@ module LLVM-SYNTAX
                      | "noalias" [klabel('noaliasOfReturn)]
     syntax RetAttrs ::= List{RetAttr," "}
 
-    syntax ParamAttr ::= OptAlign | "sret" | "nocapture" | "byval"
+    syntax ParamAttr ::= Align | "sret" | "nocapture" | "byval"
                        | "nest" | "inalloca" | "returned"
+                       | "readnone" [klabel('readnoneOfParam)]
+                       | "readonly" [klabel('readonlyOfParam)]
                        | "inreg" [klabel('inregOfParam)]
                        | "zeroext" [klabel('zeroextOfParam)]
                        | "signext"  [klabel('signextOfParam)]
                        | "noalias" [klabel('noaliasOfParam)]
     syntax ParamAttrs ::= List{ParamAttr," "}
 
-    syntax FuncAttr ::= "noreturn" | "nounwind" | "readnone" | "nobuiltin"
-                      | "readonly" | "inlinehint" | alignstack(UnsignedInt) | "noinline"
+    syntax FuncAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "sspstrong" | "uwtable"
+                      | "inlinehint" | alignstack(UnsignedInt) | "noinline"
                       | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
                       | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
                       | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
-                      | "sspstrong" | "uwtable"
+                      | "readonly" [klabel('readonlyOfFun)]
+                      | "readnone" [klabel('readnoneOfFun)]
                       | "inreg" [klabel('inregOfFun)]
                       | "zeroext" [klabel('zeroextOfFun)]
                       | "signext" [klabel('signextOfFun)]
@@ -316,12 +319,12 @@ module LLVM-SYNTAX
                             | GlobalVarAttributes Types
                               GlobalName "(" ")" GlobalVarAttributes
 
-   syntax TailOfFunctionHeader ::= SectionString OptAlign OptGC
-                                 | OptAlign OptGC
+   syntax TailOfFunctionHeader ::= SectionString Align OptGC
+                                 | Align OptGC
                                  | SectionString OptGC
-                                 | SectionString OptAlign
+                                 | SectionString Align
                                  | SectionString
-                                 | OptAlign
+                                 | Align
                                  | OptGC
 
    //define function bodies.
@@ -364,23 +367,23 @@ module LLVM-SYNTAX
                     | MemoryInst
 
    //define memory instruction lists
-   syntax MemoryInst ::=  "malloc" Types "," OptAlign
+   syntax MemoryInst ::=  "malloc" Types "," Align
                         | "malloc" Types
-                        | "malloc" Types "," IntType ValueRef "," OptAlign
+                        | "malloc" Types "," IntType ValueRef "," Align
                         | "malloc" Types "," IntType ValueRef
-                        | "alloca" Types "," OptAlign
+                        | "alloca" Types "," Align
                         | "alloca" Types
-                        | "alloca" Types "," IntType ValueRef "," OptAlign
+                        | "alloca" Types "," IntType ValueRef "," Align
                         | "alloca" Types "," IntType ValueRef
                         | "free" ResolvedVal
-                        | OptVolatile "load" Types ValueRef "," OptAlign
-                        | "load" Types ValueRef "," OptAlign
+                        | OptVolatile "load" Types ValueRef "," Align
+                        | "load" Types ValueRef "," Align
                         | OptVolatile "load" Types ValueRef
                         | "load" Types ValueRef
                         | OptVolatile "store" ResolvedVal "," Types
-                          ValueRef "," OptAlign
+                          ValueRef "," Align
                         | "store" ResolvedVal "," Types
-                          ValueRef "," OptAlign
+                          ValueRef "," Align
                         | OptVolatile "store" ResolvedVal "," Types ValueRef
                         | "store" ResolvedVal "," Types ValueRef
                         | "getresult" Types ValueRef "," UnsignedInt

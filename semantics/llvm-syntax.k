@@ -292,7 +292,9 @@ module LLVM-SYNTAX
    //define argument lists.
    syntax ArgListH ::= ArgListH "," Types GlobalVarAttributes LocalName
                      | Types GlobalVarAttributes LocalName
-   syntax ArgList ::= ArgListH | ArgListH "," "..." | "..."
+   syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
+                    | ArgListH
+                    | ArgListH "," ArgList
 
    //define function headers. 
    syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types

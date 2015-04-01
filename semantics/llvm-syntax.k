@@ -170,9 +170,6 @@ module LLVM-SYNTAX
 
     //define address space and types
     syntax OptAddrSpace ::= addrspace(UnsignedInt) | "unnamed_addr"
-    syntax ArgType ::= Types GlobalVarAttributes
-    syntax ArgTypeList ::= ArgType | ArgTypeList "," ArgType
-    syntax ArgTypeListI ::= ArgTypeList | ArgTypeList "," "..." | "..."
 
     syntax Types ::= "opaque"
                    | "metadata"
@@ -183,8 +180,7 @@ module LLVM-SYNTAX
                    | Types OptAddrSpace"*"
                    | Types "*"
                    | SymbolicValueRef
-                   | Types "(" ArgTypeListI ")" GlobalVarAttributes
-                   | Types "(" ")" GlobalVarAttributes
+                   | Types "(" ArgList ")" GlobalVarAttributes
                    | "[" UnsignedInt "x" Types "]"
                    | "<" UnsignedInt "x" Types ">"
                    | "{" TypeListI "}"
@@ -290,11 +286,11 @@ module LLVM-SYNTAX
    syntax LibrariesDefinition ::= "[" StringList "]" | "[" "]"
 
    //define argument lists.
-   syntax ArgListH ::= ArgListH "," Types GlobalVarAttributes LocalName
-                     | Types GlobalVarAttributes LocalName
+   syntax ArgType ::= Types ParamAttrs
+                     | Types ParamAttrs LocalVar
    syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
-                    | ArgListH
-                    | ArgListH "," ArgList
+                    | ArgType
+                    | ArgType "," ArgList
 
    //define function headers. 
    syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types
@@ -304,22 +300,11 @@ module LLVM-SYNTAX
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes TailOfFunctionHeader
                             | CallingConv GlobalVarAttributes Types
-                              GlobalName "(" ")"
-                              GlobalVarAttributes TailOfFunctionHeader
-                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes
-                            | CallingConv GlobalVarAttributes Types
-                              GlobalName "(" ")"
                               GlobalVarAttributes
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ")"
-                              GlobalVarAttributes TailOfFunctionHeader
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ")" GlobalVarAttributes
 
    syntax TailOfFunctionHeader ::= SectionString Align OptGC
                                  | Align OptGC

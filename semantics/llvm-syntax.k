@@ -138,17 +138,14 @@ module LLVM-SYNTAX
                        | "noalias" [klabel('noaliasOfParam)]
     syntax ParamAttrs ::= List{ParamAttr," "}
 
-    syntax FuncAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "sspstrong" | "uwtable"
-                      | "inlinehint" | alignstack(UnsignedInt) | "noinline"
+    syntax FuncAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
+                      | "inlinehint" | alignstack(UnsignedInt) | "noinline" | "uwtable"
                       | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
                       | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
                       | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
                       | "readonly" [klabel('readonlyOfFun)]
                       | "readnone" [klabel('readnoneOfFun)]
-                      | "inreg" [klabel('inregOfFun)]
-                      | "zeroext" [klabel('zeroextOfFun)]
-                      | "signext" [klabel('signextOfFun)]
     syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name and section name
@@ -168,8 +165,9 @@ module LLVM-SYNTAX
                      | "x86_fp80" | "half"
     syntax PrimType ::= FPType | IntType | "label" | "void"
 
-    //define address space and types
-    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "unnamed_addr"
+    //define address space and unnamed address space
+    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
+    syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
 
     syntax Types ::= "opaque"
                    | "metadata"

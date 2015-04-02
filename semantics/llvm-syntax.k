@@ -38,7 +38,7 @@ module LLVM-SYNTAX
     syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
 
     //define local and global names as well as local and global assignments
-    syntax LocalName ::= LocalVar | String | LocalValID
+    syntax LocalName ::= LocalVar | #String | LocalValID
     syntax OptLocalAssign ::= LocalName "="
     syntax GlobalName ::= GlobalVar | GlobalValID
     syntax OptGlobalAssign ::= GlobalName "="
@@ -149,8 +149,8 @@ module LLVM-SYNTAX
     syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name and section name
-    syntax OptGC ::= "gc" String
-    syntax SectionString ::= "section" String
+    syntax OptGC ::= "gc" #String
+    syntax SectionString ::= "section" #String
 
     //define global attributes. Cannot define each attribute list precisely.
     //because list subsort problem 
@@ -192,7 +192,7 @@ module LLVM-SYNTAX
     syntax ResolvedVal ::= Types ValueRef
     syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
     syntax IndexList ::= List{ResolvedVal,","}
-    syntax Strings ::= List{String,","}
+    syntax Strings ::= List{#String,","}
     syntax OptSideEffect ::= "sideeffect"
 
     //syntax ConstVal ::= Types ConstValueRef
@@ -203,11 +203,11 @@ module LLVM-SYNTAX
                            | "[" "]"
                            | "{" ReturnedVal "}"
                            | "{" "}"
-                           | "c" String
+                           | "c" #String
                            | "<" "{" ReturnedVal "}" ">"
                            | "<" "{" "}" ">"
-                           | "asm" OptSideEffect String "," String
-                           | "asm" String "," String
+                           | "asm" OptSideEffect #String "," #String
+                           | "asm" #String "," #String
     //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
 
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
@@ -273,14 +273,14 @@ module LLVM-SYNTAX
                                        | OptAddrSpace
 
    //define a AsmBlock to be a string constant.
-   syntax AsmBlock ::= String
+   syntax AsmBlock ::= #String
 
    //define target definitions.
-   syntax TargetDefinition ::= "triple" "=" String
-                      | "datalayout" "=" String
+   syntax TargetDefinition ::= "triple" "=" #String
+                      | "datalayout" "=" #String
 
    //define libraries definitions.
-   syntax StringList ::= List{String,","}
+   syntax StringList ::= List{#String,","}
    syntax LibrariesDefinition ::= "[" StringList "]" | "[" "]"
 
    //define argument lists.

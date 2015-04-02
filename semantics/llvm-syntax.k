@@ -146,6 +146,7 @@ module LLVM-SYNTAX
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
                       | "readonly" [klabel('readonlyOfFun)]
                       | "readnone" [klabel('readnoneOfFun)]
+                      | #String "=" #String
     syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name and section name

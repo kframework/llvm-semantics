@@ -151,11 +151,11 @@ module LLVM-SYNTAX
 
     //define garbage collector name and section name
     syntax OptGC ::= "gc" #String
-    syntax SectionString ::= "section" #String
+    syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
 
     //define global attributes. Cannot define each attribute list precisely.
     //because list subsort problem 
-    syntax GlobalVarAttribute ::= SectionString
+    syntax GlobalVarAttribute ::= OptSection
     syntax ListOfGlobalVarAttribute ::= List{GlobalVarAttribute," "}
     syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute | Token{[\#][0-9]+}
 
@@ -294,10 +294,10 @@ module LLVM-SYNTAX
    //define function headers. 
    syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes TailOfFunctionHeader
+                              GlobalVarAttributes OptSection TailOfFunctionHeader
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes TailOfFunctionHeader
+                              GlobalVarAttributes OptSection TailOfFunctionHeader
                             | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
@@ -305,13 +305,9 @@ module LLVM-SYNTAX
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
 
-   syntax TailOfFunctionHeader ::= SectionString Align OptGC
-                                 | Align OptGC
-                                 | SectionString OptGC
-                                 | SectionString Align
-                                 | SectionString
-                                 | Align
+   syntax TailOfFunctionHeader ::= Align OptGC
                                  | OptGC
+                                 | Align
 
    //define function bodies.
    syntax Begin ::= "begin" | "{"

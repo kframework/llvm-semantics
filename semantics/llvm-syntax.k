@@ -31,16 +31,16 @@ module LLVM-SYNTAX
 
     syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
-    syntax LocalVar ::= Token{[\@][\"] (~[\"])* [\"]}
+    syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
     syntax LabelStringConstant ::= Token{[1-9][0-9]*[\:]}
     syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*[\:]}
     syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
 
     //define local and global names as well as local and global assignments
-    syntax LocalName ::= LocalVar | String | LocalValID
+    syntax LocalName ::= LocalVar | #String | LocalValID
     syntax OptLocalAssign ::= LocalName "="
-    syntax GlobalName ::= GlobalVar | LocalValID
+    syntax GlobalName ::= GlobalVar | GlobalValID
     syntax OptGlobalAssign ::= GlobalName "="
 
     /*@
@@ -85,7 +85,7 @@ module LLVM-SYNTAX
                      | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
 
     //define the predicates
-    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle" 
+    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
     syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
@@ -93,67 +93,93 @@ module LLVM-SYNTAX
 
     //define alias linkage key words
     //define the Internal Linkage key words for global value and function declaration
-    syntax AliasLinkage ::=  "weak" | "weak_odr" | "internal"
-    syntax FunctionDefineLinkage ::= AliasLinkage | "linkonce" | "linkonce_odr" | "dllexport"
-    syntax GVInternalLinkage ::= FunctionDefineLinkage | "appending" | "common" 
-                               | "private" | "linker_private" | "linker_private_weak"
+    syntax NonExternalLinkage ::= "private" | "internal" | "weak" | "weak_odr"  | "common"
+                                | "linkonce" | "linkonce_odr" | "available_externally"
+                                | "appending" | "linker_private" | "linker_private_weak"
 
     //define the External Linkage key words for global value and function declaration
-    syntax FunctionDeclareLinkage ::= "dllimport" | "extern_weak"
-    syntax GVExternalLinkage ::= FunctionDeclareLinkage | "external"
+    syntax ExternalLinkage ::= "extern_weak" | "external"
+
 
     //define Global value visibility style key words
+    //which is the same as the opt_visibility sort in Trevor Jim's LLVM YACC parser
     syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
 
+    //define the attributes for Dll storage class in LLVM.
+    syntax DllStorageClass ::= "dllimport" | "dllexport"
+
     //define LLVM calling convention key words
-    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc"
-                            | "x86_fastcallcc" | "cc" UnsignedInt
+    syntax CallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
+                            | "x86_fastcallcc" | "x86_cdeclmethodcc"| "intel_ocl_bicc"
+                            | "arm_apcscc" | "arm_aapcscc" | "arm_aapcs_vfpcc"
+                            | "msp430_intrcc" | "ptx_kernel" | "ptx_device"
+                            | "spir_func" | "spir_kernel" | "x86_64_sysvcc"
+                            | "x86_64_win64cc" | "webkit_jscc" | "anyregcc"
+                            | "preserve_mostcc" | "preserve_allcc" | "cc" UnsignedInt
 
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
-    syntax OptAlign ::= "align" UnsignedInt
-    syntax CommonAttr ::= "inreg" | "zeroext" | "signext" 
-    syntax RetAttr ::= CommonAttr | "noalias"
-    syntax ParamAttr ::= RetAttr | OptAlign | "sret" | "nocapture" | "byval" 
-                       | "nest" | "inalloca" | "returned" 
-    syntax FuncAttr ::= CommonAttr | "noreturn" | "nounwind" | "readnone" | "nobuiltin"
-                      | "readonly" | "inlinehint" | alignstack(UnsignedInt) | "noinline"
+    syntax Align ::= "align" UnsignedInt
+    syntax CommonAttr ::= "inreg" | "zeroext" | "signext"
+    syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
+                     | "zeroext" [klabel('zeroextOfReturn)]
+                     | "signext"  [klabel('signextOfReturn)]
+                     | "noalias" [klabel('noaliasOfReturn)]
+    syntax RetAttrs ::= List{RetAttr," "}
+
+    syntax ParamAttr ::= Align | "sret" | "nocapture" | "byval"
+                       | "nest" | "inalloca" | "returned"
+                       | "readnone" [klabel('readnoneOfParam)]
+                       | "readonly" [klabel('readonlyOfParam)]
+                       | "inreg" [klabel('inregOfParam)]
+                       | "zeroext" [klabel('zeroextOfParam)]
+                       | "signext"  [klabel('signextOfParam)]
+                       | "noalias" [klabel('noaliasOfParam)]
+    syntax ParamAttrs ::= List{ParamAttr," "}
+
+    syntax FuncAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
+                      | "inlinehint" | alignstack(UnsignedInt) | "noinline" | "uwtable"
                       | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
                       | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
                       | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
-                      | "sspstrong" | "uwtable"
+                      | "readonly" [klabel('readonlyOfFun)]
+                      | "readnone" [klabel('readnoneOfFun)]
+                      | #String "=" #String
+    syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name and section name
-    syntax OptGC ::= "gc" String
-    syntax SectionString ::= "section" String
+    syntax OptGC ::= "gc" #String
+    syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
 
     //define global attributes. Cannot define each attribute list precisely.
     //because list subsort problem 
-    syntax GlobalVarAttribute ::= SectionString | ParamAttr | FuncAttr
+    syntax GlobalVarAttribute ::= OptSection
     syntax ListOfGlobalVarAttribute ::= List{GlobalVarAttribute," "}
     syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute | Token{[\#][0-9]+}
 
 
     //define the float types and primary types
     syntax IntType ::= Token{[i][1-9][0-9]*}
-    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128" | "x86_fp80"
+    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
+                     | "x86_fp80" | "half"
     syntax PrimType ::= FPType | IntType | "label" | "void"
 
-    //define address space and types
-    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "unnamed_addr"
-    syntax ArgType ::= Types GlobalVarAttributes
-    syntax ArgTypeList ::= ArgType | ArgTypeList "," ArgType
-    syntax ArgTypeListI ::= ArgTypeList | ArgTypeList "," "..." | "..."
+    //define address space and unnamed address space
+    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
+    syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
 
     syntax Types ::= "opaque"
+                   | "metadata"
+                   | "x86_mmx"
                    | PrimType
+                   | LocalVar
+                   | LocalValID
                    | Types OptAddrSpace"*"
                    | Types "*"
                    | SymbolicValueRef
-                   | Types "(" ArgTypeListI ")" GlobalVarAttributes
-                   | Types "(" ")" GlobalVarAttributes
+                   | Types "(" ArgList ")" GlobalVarAttributes
                    | "[" UnsignedInt "x" Types "]"
                    | "<" UnsignedInt "x" Types ">"
                    | "{" TypeListI "}"
@@ -167,7 +193,7 @@ module LLVM-SYNTAX
     syntax ResolvedVal ::= Types ValueRef
     syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
     syntax IndexList ::= List{ResolvedVal,","}
-    syntax Strings ::= List{String,","}
+    syntax Strings ::= List{#String,","}
     syntax OptSideEffect ::= "sideeffect"
 
     //syntax ConstVal ::= Types ConstValueRef
@@ -178,11 +204,11 @@ module LLVM-SYNTAX
                            | "[" "]"
                            | "{" ReturnedVal "}"
                            | "{" "}"
-                           | "c" String
+                           | "c" #String
                            | "<" "{" ReturnedVal "}" ">"
                            | "<" "{" "}" ">"
-                           | "asm" OptSideEffect String "," String
-                           | "asm" String "," String
+                           | "asm" OptSideEffect #String "," #String
+                           | "asm" #String "," #String
     //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
 
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
@@ -227,74 +253,61 @@ module LLVM-SYNTAX
                           GlobalType Types GlobalVarAttributes
                         | GlobalAndExternalBlock
                           GlobalType Types GlobalVarAttributes
-                        | GlobalAssignAndGVVBlock "alias" AliasLinkage AliaseeRef
+                        | GlobalAssignAndGVVBlock "alias" NonExternalLinkage AliaseeRef
                         | GlobalAssignAndGVVBlock "alias" AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
 
-   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign GVInternalLinkage GVVisibilityStyle
-                                    | OptGlobalAssign GVInternalLinkage
+   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign NonExternalLinkage GVVisibilityStyle
+                                    | OptGlobalAssign NonExternalLinkage
                                     | OptGlobalAssign GVVisibilityStyle
-                                    | GVInternalLinkage GVVisibilityStyle
+                                    | NonExternalLinkage GVVisibilityStyle
                                     | OptGlobalAssign
-                                    | GVInternalLinkage
+                                    | NonExternalLinkage
                                     | GVVisibilityStyle
-   syntax GlobalAndExternalBlock ::= OptGlobalAssign GVExternalLinkage GVVisibilityStyle
-                                   | GVExternalLinkage GVVisibilityStyle
-                                   | OptGlobalAssign GVExternalLinkage
-                                   | GVExternalLinkage
+   syntax GlobalAndExternalBlock ::= OptGlobalAssign ExternalLinkage GVVisibilityStyle
+                                   | ExternalLinkage GVVisibilityStyle
+                                   | OptGlobalAssign ExternalLinkage
+                                   | ExternalLinkage
    syntax ThreadLocalAndOptAddrBlock ::= ThreadLocal OptAddrSpace
                                        | ThreadLocal
                                        | OptAddrSpace
 
    //define a AsmBlock to be a string constant.
-   syntax AsmBlock ::= String
+   syntax AsmBlock ::= #String
 
    //define target definitions.
-   syntax TargetDefinition ::= "triple" "=" String
-                      | "datalayout" "=" String
+   syntax TargetDefinition ::= "triple" "=" #String
+                      | "datalayout" "=" #String
 
    //define libraries definitions.
-   syntax StringList ::= List{String,","}
+   syntax StringList ::= List{#String,","}
    syntax LibrariesDefinition ::= "[" StringList "]" | "[" "]"
 
    //define argument lists.
-   syntax ArgListH ::= ArgListH "," Types GlobalVarAttributes LocalName
-                     | Types GlobalVarAttributes LocalName
-   syntax ArgList ::= ArgListH | ArgListH "," "..." | "..."
+   syntax ArgType ::= Types ParamAttrs
+                     | Types ParamAttrs LocalVar
+   syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
+                    | ArgType
+                    | ArgType "," ArgList
 
    //define function headers. 
-   syntax FunctionHeaderH ::= OptCallingConv GlobalVarAttributes Types
+   syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes TailOfFunctionHeader
+                              GlobalVarAttributes OptSection TailOfFunctionHeader
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes TailOfFunctionHeader
-                            | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ")"
-                              GlobalVarAttributes TailOfFunctionHeader
-                            | OptCallingConv GlobalVarAttributes Types
+                              GlobalVarAttributes OptSection TailOfFunctionHeader
+                            | CallingConv GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
-                              GlobalVarAttributes
-                            | OptCallingConv GlobalVarAttributes Types
-                              GlobalName "(" ")"
                               GlobalVarAttributes
                             | GlobalVarAttributes Types
                               GlobalName "(" ArgList ")"
                               GlobalVarAttributes
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ")"
-                              GlobalVarAttributes TailOfFunctionHeader
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ")" GlobalVarAttributes
 
-   syntax TailOfFunctionHeader ::= SectionString OptAlign OptGC
-                                 | OptAlign OptGC
-                                 | SectionString OptGC
-                                 | SectionString OptAlign
-                                 | SectionString
-                                 | OptAlign
+   syntax TailOfFunctionHeader ::= Align OptGC
                                  | OptGC
+                                 | Align
 
    //define function bodies.
    syntax Begin ::= "begin" | "{"
@@ -304,14 +317,14 @@ module LLVM-SYNTAX
                        | InstructionList OptLocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
-   syntax FunctionHeader ::= FunctionDefineLinkage GVVisibilityStyle FunctionHeaderH
+   syntax FunctionHeader ::= NonExternalLinkage GVVisibilityStyle FunctionHeaderH
                            | GVVisibilityStyle FunctionHeaderH
-                           | FunctionDefineLinkage FunctionHeaderH
+                           | NonExternalLinkage FunctionHeaderH
                            | FunctionHeaderH
    syntax Function ::= FunctionHeader Begin BasicBlockList End
-   syntax FunctionProto ::= FunctionDeclareLinkage GVVisibilityStyle FunctionHeaderH
+   syntax FunctionProto ::= ExternalLinkage GVVisibilityStyle FunctionHeaderH
                           | GVVisibilityStyle FunctionHeaderH
-                          | FunctionDeclareLinkage FunctionHeaderH
+                          | ExternalLinkage FunctionHeaderH
                           | FunctionHeaderH
 
    //define instruction lists and instruction list values
@@ -329,30 +342,30 @@ module LLVM-SYNTAX
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
-                    | OptTailCall OptCallingConv Types
+                    | OptTailCall CallingConv Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | OptTailCall Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | MemoryInst
 
    //define memory instruction lists
-   syntax MemoryInst ::=  "malloc" Types "," OptAlign
+   syntax MemoryInst ::=  "malloc" Types "," Align
                         | "malloc" Types
-                        | "malloc" Types "," IntType ValueRef "," OptAlign
+                        | "malloc" Types "," IntType ValueRef "," Align
                         | "malloc" Types "," IntType ValueRef
-                        | "alloca" Types "," OptAlign
+                        | "alloca" Types "," Align
                         | "alloca" Types
-                        | "alloca" Types "," IntType ValueRef "," OptAlign
+                        | "alloca" Types "," IntType ValueRef "," Align
                         | "alloca" Types "," IntType ValueRef
                         | "free" ResolvedVal
-                        | OptVolatile "load" Types ValueRef "," OptAlign
-                        | "load" Types ValueRef "," OptAlign
+                        | OptVolatile "load" Types ValueRef "," Align
+                        | "load" Types ValueRef "," Align
                         | OptVolatile "load" Types ValueRef
                         | "load" Types ValueRef
                         | OptVolatile "store" ResolvedVal "," Types
-                          ValueRef "," OptAlign
+                          ValueRef "," Align
                         | "store" ResolvedVal "," Types
-                          ValueRef "," OptAlign
+                          ValueRef "," Align
                         | OptVolatile "store" ResolvedVal "," Types ValueRef
                         | "store" ResolvedVal "," Types ValueRef
                         | "getresult" Types ValueRef "," UnsignedInt
@@ -383,7 +396,7 @@ module LLVM-SYNTAX
                                 "," "label" ValueRef "," "label" ValueRef
                               | "switch" IntType ValueRef ","
                                 "label" ValueRef "[" JumpTable "]"
-                              | "invoke" OptCallingConv Types
+                              | "invoke" CallingConv Types
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "invoke" Types

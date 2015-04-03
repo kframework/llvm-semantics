@@ -180,7 +180,6 @@ module LLVM-SYNTAX
                    | LocalVar
                    | LocalValID
                    | Types OptAddrSpace"*"
-                   | Types "*"
                    | SymbolicValueRef
                    | Types "(" ArgList ")" GlobalVarAttributes
                    | "[" UnsignedInt "x" Types "]"

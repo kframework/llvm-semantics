@@ -38,8 +38,8 @@ module LLVM-SYNTAX
     syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
 
     //define local and global names as well as local and global assignments
-    syntax LocalName ::= LocalVar | #String | LocalValID
-    syntax OptLocalAssign ::= LocalName "="
+    syntax LocalName ::= LocalVar | LocalValID
+    syntax LocalAssign ::= LocalName "="
     syntax GlobalName ::= GlobalVar | GlobalValID
     syntax OptGlobalAssign ::= GlobalName "="
 
@@ -243,8 +243,7 @@ module LLVM-SYNTAX
     syntax Definition ::= "define" Function
                         | "declare" FunctionProto
                         | "module" "asm" AsmBlock
-                        | OptLocalAssign "type" Types
-                        | "type" Types
+                        | LocalAssign "type" Types
                         | GlobalAssignAndGVVBlock ThreadLocalAndOptAddrBlock
                           GlobalType ResolvedVal GlobalVarAttributes
                         | GlobalAssignAndGVVBlock
@@ -302,9 +301,9 @@ module LLVM-SYNTAX
    //define function bodies.
    syntax Begin ::= "begin" | "{"
    syntax End ::= "end" | "}"
-   syntax BasicBlock ::= LabelStringConstant InstructionList OptLocalAssign BBTerminatorInst
+   syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInst
                        | LabelStringConstant InstructionList BBTerminatorInst
-                       | InstructionList OptLocalAssign BBTerminatorInst
+                       | InstructionList LocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
    syntax FunctionHeader ::= NonExternalLinkage OptVisibilityStyle FunctionHeaderH
@@ -318,7 +317,7 @@ module LLVM-SYNTAX
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
-   syntax Inst ::= OptLocalAssign InstVal | InstVal
+   syntax Inst ::= LocalAssign InstVal | InstVal
    syntax InstructionList ::= List{Inst,","}
    syntax InstVal ::= BinaryOps Types ValueRef "," ValueRef
                     | LogicalOps Types ValueRef "," ValueRef

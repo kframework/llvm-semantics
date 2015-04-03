@@ -100,27 +100,29 @@ module LLVM-SYNTAX
     //define the External Linkage key words for global value and function declaration
     syntax ExternalLinkage ::= "extern_weak" | "external"
 
-
     //define Global value visibility style key words
     //which is the same as the opt_visibility sort in Trevor Jim's LLVM YACC parser
-    syntax GVVisibilityStyle ::=  "default" | "hidden" | "protected"
+    syntax OptVisibilityStyle ::= "default" | "hidden" | "protected"
+                               | "" [klabel('visibilityEmpty),onlyLabel]
 
     //define the attributes for Dll storage class in LLVM.
-    syntax DllStorageClass ::= "dllimport" | "dllexport"
+    syntax OptDllStorageClass ::= "dllimport" | "dllexport"
+                                | "" [klabel('dllStorageEmpty),onlyLabel]
 
     //define LLVM calling convention key words
-    syntax CallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
+    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
                             | "x86_fastcallcc" | "x86_cdeclmethodcc"| "intel_ocl_bicc"
                             | "arm_apcscc" | "arm_aapcscc" | "arm_aapcs_vfpcc"
                             | "msp430_intrcc" | "ptx_kernel" | "ptx_device"
                             | "spir_func" | "spir_kernel" | "x86_64_sysvcc"
                             | "x86_64_win64cc" | "webkit_jscc" | "anyregcc"
                             | "preserve_mostcc" | "preserve_allcc" | "cc" UnsignedInt
+                            | "" [klabel('callingConvEmpty),onlyLabel]
 
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
-    syntax Align ::= "align" UnsignedInt
+    syntax OptAlign ::= "align" UnsignedInt | "" [klabel('alignEmpty),onlyLabel]
     syntax CommonAttr ::= "inreg" | "zeroext" | "signext"
     syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
                      | "zeroext" [klabel('zeroextOfReturn)]
@@ -128,7 +130,7 @@ module LLVM-SYNTAX
                      | "noalias" [klabel('noaliasOfReturn)]
     syntax RetAttrs ::= List{RetAttr," "}
 
-    syntax ParamAttr ::= Align | "sret" | "nocapture" | "byval"
+    syntax ParamAttr ::= OptAlign | "sret" | "nocapture" | "byval"
                        | "nest" | "inalloca" | "returned"
                        | "readnone" [klabel('readnoneOfParam)]
                        | "readonly" [klabel('readonlyOfParam)]
@@ -150,7 +152,8 @@ module LLVM-SYNTAX
     syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name and section name
-    syntax OptGC ::= "gc" #String
+    syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
+    syntax OptPrefix ::= "prefix" Types ValueRef | "" [klabel('prefixEmpty),onlyLabel]
     syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
 
     //define global attributes. Cannot define each attribute list precisely.
@@ -258,15 +261,15 @@ module LLVM-SYNTAX
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
 
-   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign NonExternalLinkage GVVisibilityStyle
+   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign NonExternalLinkage OptVisibilityStyle
                                     | OptGlobalAssign NonExternalLinkage
-                                    | OptGlobalAssign GVVisibilityStyle
-                                    | NonExternalLinkage GVVisibilityStyle
+                                    | OptGlobalAssign OptVisibilityStyle
+                                    | NonExternalLinkage OptVisibilityStyle
                                     | OptGlobalAssign
                                     | NonExternalLinkage
-                                    | GVVisibilityStyle
-   syntax GlobalAndExternalBlock ::= OptGlobalAssign ExternalLinkage GVVisibilityStyle
-                                   | ExternalLinkage GVVisibilityStyle
+                                    | OptVisibilityStyle
+   syntax GlobalAndExternalBlock ::= OptGlobalAssign ExternalLinkage OptVisibilityStyle
+                                   | ExternalLinkage OptVisibilityStyle
                                    | OptGlobalAssign ExternalLinkage
                                    | ExternalLinkage
    syntax ThreadLocalAndOptAddrBlock ::= ThreadLocal OptAddrSpace
@@ -292,22 +295,9 @@ module LLVM-SYNTAX
                     | ArgType "," ArgList
 
    //define function headers. 
-   syntax FunctionHeaderH ::= CallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptSection TailOfFunctionHeader
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes OptSection TailOfFunctionHeader
-                            | CallingConv GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes
-                            | GlobalVarAttributes Types
-                              GlobalName "(" ArgList ")"
-                              GlobalVarAttributes
-
-   syntax TailOfFunctionHeader ::= Align OptGC
-                                 | OptGC
-                                 | Align
+   syntax FunctionHeaderH ::= OptCallingConv RetAttrs Types
+                              GlobalName "(" ArgList ")" OptUnnamedAddr
+                              FuncAttrs OptSection OptAlign OptGC OptPrefix
 
    //define function bodies.
    syntax Begin ::= "begin" | "{"
@@ -317,15 +307,14 @@ module LLVM-SYNTAX
                        | InstructionList OptLocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
-   syntax FunctionHeader ::= NonExternalLinkage GVVisibilityStyle FunctionHeaderH
-                           | GVVisibilityStyle FunctionHeaderH
+   syntax FunctionHeader ::= NonExternalLinkage OptVisibilityStyle FunctionHeaderH
+                           | OptVisibilityStyle FunctionHeaderH
                            | NonExternalLinkage FunctionHeaderH
                            | FunctionHeaderH
    syntax Function ::= FunctionHeader Begin BasicBlockList End
-   syntax FunctionProto ::= ExternalLinkage GVVisibilityStyle FunctionHeaderH
-                          | GVVisibilityStyle FunctionHeaderH
-                          | ExternalLinkage FunctionHeaderH
-                          | FunctionHeaderH
+   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle
+                            OptDllStorageClass FunctionHeaderH
+                          | OptVisibilityStyle OptDllStorageClass FunctionHeaderH
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
@@ -342,30 +331,30 @@ module LLVM-SYNTAX
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
-                    | OptTailCall CallingConv Types
+                    | OptTailCall OptCallingConv Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | OptTailCall Types
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | MemoryInst
 
    //define memory instruction lists
-   syntax MemoryInst ::=  "malloc" Types "," Align
+   syntax MemoryInst ::=  "malloc" Types "," OptAlign
                         | "malloc" Types
-                        | "malloc" Types "," IntType ValueRef "," Align
+                        | "malloc" Types "," IntType ValueRef "," OptAlign
                         | "malloc" Types "," IntType ValueRef
-                        | "alloca" Types "," Align
+                        | "alloca" Types "," OptAlign
                         | "alloca" Types
-                        | "alloca" Types "," IntType ValueRef "," Align
+                        | "alloca" Types "," IntType ValueRef "," OptAlign
                         | "alloca" Types "," IntType ValueRef
                         | "free" ResolvedVal
-                        | OptVolatile "load" Types ValueRef "," Align
-                        | "load" Types ValueRef "," Align
+                        | OptVolatile "load" Types ValueRef "," OptAlign
+                        | "load" Types ValueRef "," OptAlign
                         | OptVolatile "load" Types ValueRef
                         | "load" Types ValueRef
                         | OptVolatile "store" ResolvedVal "," Types
-                          ValueRef "," Align
+                          ValueRef "," OptAlign
                         | "store" ResolvedVal "," Types
-                          ValueRef "," Align
+                          ValueRef "," OptAlign
                         | OptVolatile "store" ResolvedVal "," Types ValueRef
                         | "store" ResolvedVal "," Types ValueRef
                         | "getresult" Types ValueRef "," UnsignedInt
@@ -396,7 +385,7 @@ module LLVM-SYNTAX
                                 "," "label" ValueRef "," "label" ValueRef
                               | "switch" IntType ValueRef ","
                                 "label" ValueRef "[" JumpTable "]"
-                              | "invoke" CallingConv Types
+                              | "invoke" OptCallingConv Types
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "invoke" Types
@@ -404,5 +393,8 @@ module LLVM-SYNTAX
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "unwind"
                               | "unreachable"
+
+    //this configuration will be used as testing only
+    configuration <k> $PGM:Module </k>
 
 endmodule

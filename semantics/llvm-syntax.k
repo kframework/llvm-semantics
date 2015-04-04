@@ -47,8 +47,7 @@ module LLVM-SYNTAX
       Symbolic value reference is including local names, 
       global variables, local valid ids and global valid ids.
      */
-    syntax SymbolicValueRef ::= LocalValID | GlobalValID
-                              | LocalName | GlobalVar
+    syntax SymbolicValueRef ::= LocalName | GlobalName
 
     /*@
       There are the primary operators.
@@ -148,7 +147,7 @@ module LLVM-SYNTAX
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
                       | "readonly" [klabel('readonlyOfFun)]
                       | "readnone" [klabel('readnoneOfFun)]
-                      | #String "=" #String
+                      | #String "=" #String | "#" UnsignedInt
     syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name, section name and align name.
@@ -187,7 +186,7 @@ module LLVM-SYNTAX
                    | LocalValID
                    | Types OptAddrSpace"*"
                    | SymbolicValueRef
-                   | Types "(" ArgList ")" GlobalVarAttributes
+                   | Types "(" ArgList ")"
                    | "[" UnsignedInt "x" Types "]"
                    | "<" UnsignedInt "x" Types ">"
                    | "{" TypeListI "}"
@@ -241,7 +240,7 @@ module LLVM-SYNTAX
                                       | "" [klabel('externallyInitEmpty),onlyLabel]
 
     //define Aliasee references.
-    syntax AliaseeRef ::= Types SymbolicValueRef
+    syntax AliaseeRef ::= ResolvedVal
                         | "bitcast" "(" AliaseeRef "to" Types ")"
                         | "getelementptr" OptInBounds "(" IndexList ")"
 

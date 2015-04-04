@@ -178,19 +178,21 @@ module LLVM-SYNTAX
     syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
     syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
 
-    syntax Type ::= "opaque"
-                   | "metadata"
-                   | "x86_mmx"
-                   | PrimType
-                   | LocalVar
-                   | LocalValID
-                   | Type OptAddrSpace"*"
-                   | SymbolicValueRef
-                   | Type "(" ArgList ")"
-                   | "[" UnsignedInt "x" Type "]"
-                   | "<" UnsignedInt "x" Type ">"
-                   | "{" TypeListI "}"
-                   | "<" "{" TypeListI "}" ">"
+    syntax OpaqueType ::= "opaque"
+    syntax VoidType ::= "void"
+    syntax NonVoidType ::= "metadata"
+                         | "x86_mmx"
+                         | PrimType
+                         | LocalVar
+                         | LocalValID
+                         | Type OptAddrSpace"*"
+                         | SymbolicValueRef
+                         | Type "(" ArgList ")"
+                         | "[" UnsignedInt "x" Type "]"
+                         | "<" UnsignedInt "x" Type ">"
+                         | "{" TypeListI "}"
+                         | "<" "{" TypeListI "}" ">"
+    syntax Type ::= VoidType | NonVoidType
 
     syntax TypeListI ::= List{Type,","}
 

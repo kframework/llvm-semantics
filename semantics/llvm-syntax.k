@@ -152,7 +152,7 @@ module LLVM-SYNTAX
 
     //define garbage collector name, section name and align name.
     syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
-    syntax OptPrefix ::= "prefix" Types ValueRef | "" [klabel('prefixEmpty),onlyLabel]
+    syntax OptPrefix ::= "prefix" Type ValueRef | "" [klabel('prefixEmpty),onlyLabel]
     syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
     syntax Align ::= "align" UnsignedInt
     syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
@@ -178,32 +178,32 @@ module LLVM-SYNTAX
     syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
     syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
 
-    syntax Types ::= "opaque"
+    syntax Type ::= "opaque"
                    | "metadata"
                    | "x86_mmx"
                    | PrimType
                    | LocalVar
                    | LocalValID
-                   | Types OptAddrSpace"*"
+                   | Type OptAddrSpace"*"
                    | SymbolicValueRef
-                   | Types "(" ArgList ")"
-                   | "[" UnsignedInt "x" Types "]"
-                   | "<" UnsignedInt "x" Types ">"
+                   | Type "(" ArgList ")"
+                   | "[" UnsignedInt "x" Type "]"
+                   | "<" UnsignedInt "x" Type ">"
                    | "{" TypeListI "}"
                    | "<" "{" TypeListI "}" ">"
 
-    syntax TypeListI ::= List{Types,","}
+    syntax TypeListI ::= List{Type,","}
 
     //define constant values and expressions
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
-    syntax ResolvedVal ::= Types ValueRef
+    syntax ResolvedVal ::= Type ValueRef
     syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
     syntax IndexList ::= List{ResolvedVal,","}
     syntax Strings ::= List{#String,","}
     syntax OptSideEffect ::= "sideeffect"
 
-    //syntax ConstVal ::= Types ConstValueRef
+    //syntax ConstVal ::= Type ConstValueRef
     syntax ConstValueRef ::= Int | UnsignedInt | FpVal | Bool | ConstExpr
                            | "null" | "undef" | "zeroinitializer"
                            | "<" ReturnedVal ">"
@@ -219,7 +219,7 @@ module LLVM-SYNTAX
     //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
 
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
-    syntax ConstExpr::= CastOps "(" ResolvedVal "to" Types ")"
+    syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
                       | "getelementptr" OptInBounds "(" ResolvedVal IndexList ")"
                       | select(ResolvedVal, ResolvedVal, ResolvedVal)
@@ -241,7 +241,7 @@ module LLVM-SYNTAX
 
     //define Aliasee references.
     syntax AliaseeRef ::= ResolvedVal
-                        | "bitcast" "(" AliaseeRef "to" Types ")"
+                        | "bitcast" "(" AliaseeRef "to" Type ")"
                         | "getelementptr" OptInBounds "(" IndexList ")"
 
     //define Modules and definitions.
@@ -249,15 +249,15 @@ module LLVM-SYNTAX
     syntax Definition ::= "define" Function
                         | "declare" FunctionProto
                         | "module" "asm" AsmBlock
-                        | LocalAssign "type" Types
+                        | LocalAssign "type" Type
                         | GlobalAssign ExternalLinkage OptVisibilityStyle
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
-                          Types OptSectionAndAlign
+                          Type OptSectionAndAlign
                         | GlobalAssign NonExternalLinkage OptVisibilityStyle
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
-                          Types ValueRef OptSectionAndAlign
+                          Type ValueRef OptSectionAndAlign
                         | GlobalAssign OptLinkage OptVisibilityStyle
                           "alias" OptLinkage AliaseeRef
                         | "target" TargetDefinition
@@ -275,14 +275,14 @@ module LLVM-SYNTAX
    syntax LibrariesDefinition ::= "[" StringList "]" | "[" "]"
 
    //define argument lists.
-   syntax ArgType ::= Types ParamAttrs
-                     | Types ParamAttrs LocalVar
+   syntax ArgType ::= Type ParamAttrs
+                     | Type ParamAttrs LocalVar
    syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
                     | ArgType
                     | ArgType "," ArgList
 
    //define function headers. 
-   syntax FunctionHeaderH ::= OptCallingConv RetAttrs Types
+   syntax FunctionHeaderH ::= OptCallingConv RetAttrs Type
                               GlobalName "(" ArgList ")" OptUnnamedAddr
                               FuncAttrs OptSection OptAlign OptGC OptPrefix
 
@@ -307,56 +307,56 @@ module LLVM-SYNTAX
    syntax OptTailCall ::= "tail" "call" | "call"
    syntax Inst ::= LocalAssign InstVal | InstVal
    syntax InstructionList ::= List{Inst,","}
-   syntax InstVal ::= BinaryOps Types ValueRef "," ValueRef
-                    | LogicalOps Types ValueRef "," ValueRef
-                    | "icmp" IPredicates Types ValueRef "," ValueRef
-                    | "fcmp" FPredicates Types ValueRef "," ValueRef
-                    | CastOps ResolvedVal "to" Types
+   syntax InstVal ::= BinaryOps Type ValueRef "," ValueRef
+                    | LogicalOps Type ValueRef "," ValueRef
+                    | "icmp" IPredicates Type ValueRef "," ValueRef
+                    | "fcmp" FPredicates Type ValueRef "," ValueRef
+                    | CastOps ResolvedVal "to" Type
                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
-                    | "va_arg" ResolvedVal "," Types
+                    | "va_arg" ResolvedVal "," Type
                     | "extractelement" ResolvedVal "," ResolvedVal
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
-                    | OptTailCall OptCallingConv Types
+                    | OptTailCall OptCallingConv Type
                       ValueRef "(" ParamList ")" GlobalVarAttributes
-                    | OptTailCall Types
+                    | OptTailCall Type
                       ValueRef "(" ParamList ")" GlobalVarAttributes
                     | MemoryInst
 
    //define memory instruction lists
-   syntax MemoryInst ::=  "malloc" Types "," OptAlign
-                        | "malloc" Types
-                        | "malloc" Types "," IntType ValueRef "," OptAlign
-                        | "malloc" Types "," IntType ValueRef
-                        | "alloca" Types "," OptAlign
-                        | "alloca" Types
-                        | "alloca" Types "," IntType ValueRef "," OptAlign
-                        | "alloca" Types "," IntType ValueRef
+   syntax MemoryInst ::=  "malloc" Type "," OptAlign
+                        | "malloc" Type
+                        | "malloc" Type "," IntType ValueRef "," OptAlign
+                        | "malloc" Type "," IntType ValueRef
+                        | "alloca" Type "," OptAlign
+                        | "alloca" Type
+                        | "alloca" Type "," IntType ValueRef "," OptAlign
+                        | "alloca" Type "," IntType ValueRef
                         | "free" ResolvedVal
-                        | OptVolatile "load" Types ValueRef "," OptAlign
-                        | "load" Types ValueRef "," OptAlign
-                        | OptVolatile "load" Types ValueRef
-                        | "load" Types ValueRef
-                        | OptVolatile "store" ResolvedVal "," Types
+                        | OptVolatile "load" Type ValueRef "," OptAlign
+                        | "load" Type ValueRef "," OptAlign
+                        | OptVolatile "load" Type ValueRef
+                        | "load" Type ValueRef
+                        | OptVolatile "store" ResolvedVal "," Type
                           ValueRef "," OptAlign
-                        | "store" ResolvedVal "," Types
+                        | "store" ResolvedVal "," Type
                           ValueRef "," OptAlign
-                        | OptVolatile "store" ResolvedVal "," Types ValueRef
-                        | "store" ResolvedVal "," Types ValueRef
-                        | "getresult" Types ValueRef "," UnsignedInt
-                        | "getelementptr" OptInBounds Types ValueRef IndexList
-                        | "extractvalue" Types ValueRef ConstantIndexList
-                        | "insertvalue" Types ValueRef "," Types
+                        | OptVolatile "store" ResolvedVal "," Type ValueRef
+                        | "store" ResolvedVal "," Type ValueRef
+                        | "getresult" Type ValueRef "," UnsignedInt
+                        | "getelementptr" OptInBounds Type ValueRef IndexList
+                        | "extractvalue" Type ValueRef ConstantIndexList
+                        | "insertvalue" Type ValueRef "," Type
                           ValueRef ConstantIndexList
 
     //define parameter lists
-    syntax ParamFactor ::= Types GlobalVarAttributes ValueRef GlobalVarAttributes
+    syntax ParamFactor ::= Type GlobalVarAttributes ValueRef GlobalVarAttributes
                        | "label" GlobalVarAttributes ValueRef GlobalVarAttributes
     syntax ParamList ::= List{ParamFactor,","}
 
     //define phi lists
-    syntax PHIList ::= Types "[" ValueRef "," ValueRef "]"
+    syntax PHIList ::= Type "[" ValueRef "," ValueRef "]"
                      | PHIList "," "[" ValueRef "," ValueRef "]"
 
     //define jump tables
@@ -371,10 +371,10 @@ module LLVM-SYNTAX
                                 "," "label" ValueRef "," "label" ValueRef
                               | "switch" IntType ValueRef ","
                                 "label" ValueRef "[" JumpTable "]"
-                              | "invoke" OptCallingConv Types
+                              | "invoke" OptCallingConv Type
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
-                              | "invoke" Types
+                              | "invoke" Type
                                 ValueRef "(" ParamList ")" GlobalVarAttributes
                                 "to" "label" ValueRef "unwind" "label" ValueRef
                               | "unwind"

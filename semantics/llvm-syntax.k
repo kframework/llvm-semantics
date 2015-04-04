@@ -38,10 +38,10 @@ module LLVM-SYNTAX
     syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
 
     //define local and global names as well as local and global assignments
-    syntax LocalName ::= LocalVar | #String | LocalValID
-    syntax OptLocalAssign ::= LocalName "="
+    syntax LocalName ::= LocalVar | LocalValID
+    syntax LocalAssign ::= LocalName "="
     syntax GlobalName ::= GlobalVar | GlobalValID
-    syntax OptGlobalAssign ::= GlobalName "="
+    syntax GlobalAssign ::= GlobalName "="
 
     /*@
       Symbolic value reference is including local names, 
@@ -96,6 +96,7 @@ module LLVM-SYNTAX
     syntax NonExternalLinkage ::= "private" | "internal" | "weak" | "weak_odr"  | "common"
                                 | "linkonce" | "linkonce_odr" | "available_externally"
                                 | "appending" | "linker_private" | "linker_private_weak"
+                                | "" [klabel('nonExternalLinkageEmpty),onlyLabel]
 
     //define the External Linkage key words for global value and function declaration
     syntax ExternalLinkage ::= "extern_weak" | "external"
@@ -122,7 +123,6 @@ module LLVM-SYNTAX
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
-    syntax OptAlign ::= "align" UnsignedInt | "" [klabel('alignEmpty),onlyLabel]
     syntax CommonAttr ::= "inreg" | "zeroext" | "signext"
     syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
                      | "zeroext" [klabel('zeroextOfReturn)]
@@ -151,10 +151,15 @@ module LLVM-SYNTAX
                       | #String "=" #String
     syntax FuncAttrs ::= List{FuncAttr," "}
 
-    //define garbage collector name and section name
+    //define garbage collector name, section name and align name.
     syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
     syntax OptPrefix ::= "prefix" Types ValueRef | "" [klabel('prefixEmpty),onlyLabel]
     syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
+    syntax OptAlign ::= "align" UnsignedInt | "" [klabel('alignEmpty),onlyLabel]
+    syntax OptSectionAndAlign ::= "" [klabel('sectionAndAlignEmpty),onlyLabel]
+                                | "," "section" #String
+                                | "," "align" UnsignedInt
+                                | "," "section" #String "," "align" UnsignedInt
 
     //define global attributes. Cannot define each attribute list precisely.
     //because list subsort problem 
@@ -180,7 +185,6 @@ module LLVM-SYNTAX
                    | LocalVar
                    | LocalValID
                    | Types OptAddrSpace"*"
-                   | Types "*"
                    | SymbolicValueRef
                    | Types "(" ArgList ")" GlobalVarAttributes
                    | "[" UnsignedInt "x" Types "]"
@@ -230,9 +234,11 @@ module LLVM-SYNTAX
 
     //define global type constants, thread local constants and external behaviors.
     syntax GlobalType ::= "global" | "constant"
-    syntax ThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"
+    syntax OptThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"
+                         | "" [klabel('threadLocalEmpty),onlyLabel]
     syntax ThreadLocalAttr ::= "localdynamic" | "initialexec" | "localexec"
-    syntax ExternallyInitialized ::= "externally_initialized"
+    syntax OptExternallyInitialized ::= "externally_initialized"
+                                      | "" [klabel('externallyInitEmpty),onlyLabel]
 
     //define Aliasee references.
     syntax AliaseeRef ::= Types SymbolicValueRef
@@ -243,38 +249,22 @@ module LLVM-SYNTAX
     syntax Definition ::= "define" Function
                         | "declare" FunctionProto
                         | "module" "asm" AsmBlock
-                        | OptLocalAssign "type" Types
-                        | "type" Types
-                        | GlobalAssignAndGVVBlock ThreadLocalAndOptAddrBlock
-                          GlobalType ResolvedVal GlobalVarAttributes
-                        | GlobalAssignAndGVVBlock
-                          GlobalType ResolvedVal GlobalVarAttributes
-                        | ThreadLocalAndOptAddrBlock
-                          GlobalType ResolvedVal GlobalVarAttributes
-                        | GlobalType ResolvedVal GlobalVarAttributes
-                        | GlobalAndExternalBlock ThreadLocalAndOptAddrBlock
-                          GlobalType Types GlobalVarAttributes
-                        | GlobalAndExternalBlock
-                          GlobalType Types GlobalVarAttributes
+                        | LocalAssign "type" Types
+                        | GlobalAssign ExternalLinkage OptVisibilityStyle
+                          OptDllStorageClass OptThreadLocal OptAddrSpace
+                          OptUnnamedAddr OptExternallyInitialized GlobalType
+                          Types OptSectionAndAlign
+                        | GlobalAssign NonExternalLinkage OptVisibilityStyle
+                          OptDllStorageClass OptThreadLocal OptAddrSpace
+                          OptUnnamedAddr OptExternallyInitialized GlobalType
+                          Types ValueRef OptSectionAndAlign
                         | GlobalAssignAndGVVBlock "alias" NonExternalLinkage AliaseeRef
                         | GlobalAssignAndGVVBlock "alias" AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
 
-   syntax GlobalAssignAndGVVBlock ::= OptGlobalAssign NonExternalLinkage OptVisibilityStyle
-                                    | OptGlobalAssign NonExternalLinkage
-                                    | OptGlobalAssign OptVisibilityStyle
+   syntax GlobalAssignAndGVVBlock ::= GlobalAssign NonExternalLinkage OptVisibilityStyle
                                     | NonExternalLinkage OptVisibilityStyle
-                                    | OptGlobalAssign
-                                    | NonExternalLinkage
-                                    | OptVisibilityStyle
-   syntax GlobalAndExternalBlock ::= OptGlobalAssign ExternalLinkage OptVisibilityStyle
-                                   | ExternalLinkage OptVisibilityStyle
-                                   | OptGlobalAssign ExternalLinkage
-                                   | ExternalLinkage
-   syntax ThreadLocalAndOptAddrBlock ::= ThreadLocal OptAddrSpace
-                                       | ThreadLocal
-                                       | OptAddrSpace
 
    //define a AsmBlock to be a string constant.
    syntax AsmBlock ::= #String
@@ -302,9 +292,9 @@ module LLVM-SYNTAX
    //define function bodies.
    syntax Begin ::= "begin" | "{"
    syntax End ::= "end" | "}"
-   syntax BasicBlock ::= LabelStringConstant InstructionList OptLocalAssign BBTerminatorInst
+   syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInst
                        | LabelStringConstant InstructionList BBTerminatorInst
-                       | InstructionList OptLocalAssign BBTerminatorInst
+                       | InstructionList LocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
    syntax FunctionHeader ::= NonExternalLinkage OptVisibilityStyle FunctionHeaderH
@@ -318,7 +308,7 @@ module LLVM-SYNTAX
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
-   syntax Inst ::= OptLocalAssign InstVal | InstVal
+   syntax Inst ::= LocalAssign InstVal | InstVal
    syntax InstructionList ::= List{Inst,","}
    syntax InstVal ::= BinaryOps Types ValueRef "," ValueRef
                     | LogicalOps Types ValueRef "," ValueRef

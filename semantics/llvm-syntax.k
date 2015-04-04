@@ -172,7 +172,7 @@ module LLVM-SYNTAX
     syntax IntType ::= Token{[i][1-9][0-9]*}
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
                      | "x86_fp80" | "half"
-    syntax PrimType ::= FPType | IntType | "label" | "void"
+    syntax PrimType ::= FPType | IntType | "label"
 
     //define address space and unnamed address space
     syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
@@ -185,16 +185,16 @@ module LLVM-SYNTAX
                          | PrimType
                          | LocalVar
                          | LocalValID
-                         | Type OptAddrSpace"*"
-                         | SymbolicValueRef
+                         | Type OptAddrSpace "*"
+                         | LocalName
                          | Type "(" ArgList ")"
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"
-                         | "{" TypeListI "}"
-                         | "<" "{" TypeListI "}" ">"
+                         | "{" TypeList "}"
+                         | "<" "{" TypeList "}" ">"
     syntax Type ::= VoidType | NonVoidType
 
-    syntax TypeListI ::= List{Type,","}
+    syntax TypeList ::= List{Type,","}
 
     //define constant values and expressions
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]

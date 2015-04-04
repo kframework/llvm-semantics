@@ -124,14 +124,13 @@ module LLVM-SYNTAX
     //define param attributes: The return type and each parameter of 
     //a function type may have a set of parameter attributes associated with them.
     //the attributes is for function, expression and declaration
-    syntax CommonAttr ::= "inreg" | "zeroext" | "signext"
     syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
                      | "zeroext" [klabel('zeroextOfReturn)]
                      | "signext"  [klabel('signextOfReturn)]
                      | "noalias" [klabel('noaliasOfReturn)]
     syntax RetAttrs ::= List{RetAttr," "}
 
-    syntax ParamAttr ::= OptAlign | "sret" | "nocapture" | "byval"
+    syntax ParamAttr ::= Align | "sret" | "nocapture" | "byval"
                        | "nest" | "inalloca" | "returned"
                        | "readnone" [klabel('readnoneOfParam)]
                        | "readonly" [klabel('readonlyOfParam)]
@@ -156,7 +155,8 @@ module LLVM-SYNTAX
     syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
     syntax OptPrefix ::= "prefix" Types ValueRef | "" [klabel('prefixEmpty),onlyLabel]
     syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
-    syntax OptAlign ::= "align" UnsignedInt | "" [klabel('alignEmpty),onlyLabel]
+    syntax Align ::= "align" UnsignedInt
+    syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
     syntax OptSectionAndAlign ::= "" [klabel('sectionAndAlignEmpty),onlyLabel]
                                 | "," "section" #String
                                 | "," "align" UnsignedInt

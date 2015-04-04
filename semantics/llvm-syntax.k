@@ -100,6 +100,7 @@ module LLVM-SYNTAX
 
     //define the External Linkage key words for global value and function declaration
     syntax ExternalLinkage ::= "extern_weak" | "external"
+    syntax OptLinkage ::= NonExternalLinkage | ExternalLinkage
 
     //define Global value visibility style key words
     //which is the same as the opt_visibility sort in Trevor Jim's LLVM YACC parser
@@ -195,7 +196,7 @@ module LLVM-SYNTAX
     syntax TypeListI ::= List{Types,","}
 
     //define constant values and expressions
-    syntax OptInBounds ::= "inbounds"
+    syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Types ValueRef
     syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
@@ -222,7 +223,6 @@ module LLVM-SYNTAX
     syntax ConstExpr::= CastOps "(" ResolvedVal "to" Types ")"
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
                       | "getelementptr" OptInBounds "(" ResolvedVal IndexList ")"
-                      | "getelementptr" "(" ResolvedVal IndexList ")"
                       | select(ResolvedVal, ResolvedVal, ResolvedVal)
                       | "icmp" IPredicates "(" ResolvedVal "," ResolvedVal ")"
                       | "fcmp" FPredicates "(" ResolvedVal "," ResolvedVal ")"
@@ -243,6 +243,7 @@ module LLVM-SYNTAX
     //define Aliasee references.
     syntax AliaseeRef ::= Types SymbolicValueRef
                         | "bitcast" "(" AliaseeRef "to" Types ")"
+                        | "getelementptr" OptInBounds "(" IndexList ")"
 
     //define Modules and definitions.
     syntax Module ::= List{Definition," "}
@@ -258,13 +259,10 @@ module LLVM-SYNTAX
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
                           Types ValueRef OptSectionAndAlign
-                        | GlobalAssignAndGVVBlock "alias" NonExternalLinkage AliaseeRef
-                        | GlobalAssignAndGVVBlock "alias" AliaseeRef
+                        | GlobalAssign OptLinkage OptVisibilityStyle
+                          "alias" OptLinkage AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
-
-   syntax GlobalAssignAndGVVBlock ::= GlobalAssign NonExternalLinkage OptVisibilityStyle
-                                    | NonExternalLinkage OptVisibilityStyle
 
    //define a AsmBlock to be a string constant.
    syntax AsmBlock ::= #String
@@ -349,7 +347,6 @@ module LLVM-SYNTAX
                         | "store" ResolvedVal "," Types ValueRef
                         | "getresult" Types ValueRef "," UnsignedInt
                         | "getelementptr" OptInBounds Types ValueRef IndexList
-                        | "getelementptr" Types ValueRef IndexList
                         | "extractvalue" Types ValueRef ConstantIndexList
                         | "insertvalue" Types ValueRef "," Types
                           ValueRef ConstantIndexList

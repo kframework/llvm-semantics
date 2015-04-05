@@ -303,8 +303,6 @@ module LLVM-SYNTAX
                               FuncAttrs OptSection OptAlign OptGC OptPrefix
 
    //define function bodies.
-   syntax Begin ::= "begin" | "{"
-   syntax End ::= "end" | "}"
    syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInst
                        | LabelStringConstant InstructionList BBTerminatorInst
                        | InstructionList LocalAssign BBTerminatorInst

@@ -252,6 +252,7 @@ module LLVM-SYNTAX
                         | "declare" FunctionProto
                         | "module" "asm" AsmBlock
                         | LocalAssign "type" Type
+                        | LocalAssign "type" OpaqueType
                         | GlobalAssign ExternalLinkage OptVisibilityStyle
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType

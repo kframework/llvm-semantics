@@ -391,14 +391,14 @@ module LLVM-SYNTAX
                                      | "indirectbr" ResolvedVal ","
                                        "[" LabelValues "]" InstructionMetadatas
                                      | "switch" IntType ValueRef ","
-                                       LabelValue "[" JumpTable "]"
+                                       LabelValue "[" JumpTable "]" InstructionMetadatas
                                      | "invoke" OptCallingConv Type
                                        ValueRef "(" ParamList ")" GlobalVarAttributes
                                        "to" LabelValue "unwind" LabelValue
                                      | "invoke" Type
                                        ValueRef "(" ParamList ")" GlobalVarAttributes
                                        "to" LabelValue "unwind" LabelValue
-                                     | "unreachable"
+                                     | "unreachable" InstructionMetadatas
 
     //this configuration will be used as testing only
     configuration <k> $PGM:Module </k>

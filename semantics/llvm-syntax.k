@@ -310,14 +310,9 @@ module LLVM-SYNTAX
                        | InstructionList LocalAssign BBTerminatorInst
                        | InstructionList BBTerminatorInst
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
-   syntax FunctionHeader ::= NonExternalLinkage OptVisibilityStyle FunctionHeaderH
-                           | OptVisibilityStyle FunctionHeaderH
-                           | NonExternalLinkage FunctionHeaderH
-                           | FunctionHeaderH
-   syntax Function ::= FunctionHeader Begin BasicBlockList End
-   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle
-                            OptDllStorageClass FunctionHeaderH
-                          | OptVisibilityStyle OptDllStorageClass FunctionHeaderH
+   syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeaderH "{" BasicBlockList "}"
+   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeaderH
+                          | OptDllStorageClass OptVisibilityStyle FunctionHeaderH
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"

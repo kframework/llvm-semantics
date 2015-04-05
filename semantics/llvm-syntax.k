@@ -22,7 +22,8 @@ module LLVM-SYNTAX
     */
 
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
-    syntax UnsignedInt ::= Token{[1-9][0-9]*}
+    syntax UnsignedInt ::= Token{[0-9][0-9]*}
+    syntax NaturalNumber ::= Token{[1-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
@@ -36,6 +37,10 @@ module LLVM-SYNTAX
     syntax LabelStringConstant ::= Token{[1-9][0-9]*[\:]}
     syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*[\:]}
     syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
+
+    //define metadata variables and attribute group ids.
+    syntax MetadataVar ::= Token{[\!][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
+    syntax AttributeGroupId ::= Token{[\#][0-9]+}
 
     //define local and global names as well as local and global assignments
     syntax LocalName ::= LocalVar | LocalValID
@@ -140,14 +145,14 @@ module LLVM-SYNTAX
     syntax ParamAttrs ::= List{ParamAttr," "}
 
     syntax FuncAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
-                      | "inlinehint" | alignstack(UnsignedInt) | "noinline" | "uwtable"
+                      | "inlinehint" | alignstack(NaturalNumber) | "noinline" | "uwtable"
                       | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
                       | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
                       | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
                       | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
                       | "readonly" [klabel('readonlyOfFun)]
                       | "readnone" [klabel('readnoneOfFun)]
-                      | #String "=" #String | "#" UnsignedInt
+                      | #String "=" #String | AttributeGroupId
     syntax FuncAttrs ::= List{FuncAttr," "}
 
     //define garbage collector name, section name and align name.
@@ -165,7 +170,7 @@ module LLVM-SYNTAX
     //because list subsort problem 
     syntax GlobalVarAttribute ::= OptSection
     syntax ListOfGlobalVarAttribute ::= List{GlobalVarAttribute," "}
-    syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute | Token{[\#][0-9]+}
+    syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute
 
 
     //define the float types and primary types
@@ -183,8 +188,6 @@ module LLVM-SYNTAX
     syntax NonVoidType ::= "metadata"
                          | "x86_mmx"
                          | PrimType
-                         | LocalVar
-                         | LocalValID
                          | Type OptAddrSpace "*"
                          | LocalName
                          | Type "(" ArgList ")"
@@ -246,6 +249,10 @@ module LLVM-SYNTAX
                         | "bitcast" "(" AliaseeRef "to" Type ")"
                         | "getelementptr" OptInBounds "(" IndexList ")"
 
+    //define the constructs in a metadata list
+    syntax MetadataValue ::= "!" UnsignedInt
+    syntax MetadataValues ::= List{MetadataValue," "}
+
     //define Modules and definitions.
     syntax Module ::= List{Definition," "}
     syntax Definition ::= "define" Function
@@ -265,6 +272,8 @@ module LLVM-SYNTAX
                           "alias" OptLinkage AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
+                        | "!" UnsignedInt "=" Type "!" "{" IndexList "}"
+                        | MetadataVar "=" "!" "{" MetadataValues "}"
 
    //define a AsmBlock to be a string constant.
    syntax AsmBlock ::= #String

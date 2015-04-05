@@ -207,7 +207,8 @@ module LLVM-SYNTAX
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Type ValueRef
     syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
-    syntax IndexList ::= List{ResolvedVal,","}
+    syntax Index ::= ResolvedVal | "null"
+    syntax IndexList ::= List{Index,","}
     syntax Strings ::= List{#String,","}
     syntax OptSideEffect ::= "sideeffect"
 
@@ -303,21 +304,14 @@ module LLVM-SYNTAX
                               FuncAttrs OptSection OptAlign OptGC OptPrefix
 
    //define function bodies.
-   syntax Begin ::= "begin" | "{"
-   syntax End ::= "end" | "}"
-   syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInst
-                       | LabelStringConstant InstructionList BBTerminatorInst
-                       | InstructionList LocalAssign BBTerminatorInst
-                       | InstructionList BBTerminatorInst
+   syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInstruction
+                       | LabelStringConstant InstructionList BBTerminatorInstruction
+                       | InstructionList LocalAssign BBTerminatorInstruction
+                       | InstructionList BBTerminatorInstruction
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
-   syntax FunctionHeader ::= NonExternalLinkage OptVisibilityStyle FunctionHeaderH
-                           | OptVisibilityStyle FunctionHeaderH
-                           | NonExternalLinkage FunctionHeaderH
-                           | FunctionHeaderH
-   syntax Function ::= FunctionHeader Begin BasicBlockList End
-   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle
-                            OptDllStorageClass FunctionHeaderH
-                          | OptVisibilityStyle OptDllStorageClass FunctionHeaderH
+   syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeaderH "{" BasicBlockList "}"
+   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeaderH
+                          | OptDllStorageClass OptVisibilityStyle FunctionHeaderH
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
@@ -376,25 +370,35 @@ module LLVM-SYNTAX
                      | PHIList "," "[" ValueRef "," ValueRef "]"
 
     //define jump tables
-    syntax JumpTableEntry ::= IntType ConstValueRef "," "label" ValueRef
+    syntax JumpTableEntry ::= IntType ConstValueRef "," LabelValue
     syntax JumpTable ::= List{JumpTableEntry," "}
+    syntax LabelValue ::= "label" ValueRef
+    syntax LabelValues ::= List{LabelValue,","}
+
+    //define the metadata in the tail of all instructions.
+    syntax InstructionMetadata ::= MetadataVar "!" UnsignedInt
+                                 | MetadataVar "!" "{" IndexList "}"
+    syntax InstructionMetadatas ::= "" [klabel('instMetadabaEmpty),onlyLabel]
+                                 | "," InstructionMetadata InstructionMetadatas
 
     //define return statment in a function.
-    syntax BBTerminatorInst ::= "ret" ReturnedVal
-                              | "ret" "void"
-                              | "br" "label" ValueRef
-                              | "br" IntType ValueRef
-                                "," "label" ValueRef "," "label" ValueRef
-                              | "switch" IntType ValueRef ","
-                                "label" ValueRef "[" JumpTable "]"
-                              | "invoke" OptCallingConv Type
-                                ValueRef "(" ParamList ")" GlobalVarAttributes
-                                "to" "label" ValueRef "unwind" "label" ValueRef
-                              | "invoke" Type
-                                ValueRef "(" ParamList ")" GlobalVarAttributes
-                                "to" "label" ValueRef "unwind" "label" ValueRef
-                              | "unwind"
-                              | "unreachable"
+    syntax BBTerminatorInstruction ::= "ret" NonVoidType ValueRef InstructionMetadatas
+                                     | "ret" VoidType InstructionMetadatas
+                                     | "br" LabelValue InstructionMetadatas
+                                     | "br" IntType ValueRef ","
+                                       LabelValue "," LabelValue InstructionMetadatas
+                                     | "resume" ResolvedVal InstructionMetadatas
+                                     | "indirectbr" ResolvedVal ","
+                                       "[" LabelValues "]" InstructionMetadatas
+                                     | "switch" IntType ValueRef ","
+                                       LabelValue "[" JumpTable "]" InstructionMetadatas
+                                     | "invoke" OptCallingConv Type
+                                       ValueRef "(" ParamList ")" GlobalVarAttributes
+                                       "to" LabelValue "unwind" LabelValue
+                                     | "invoke" Type
+                                       ValueRef "(" ParamList ")" GlobalVarAttributes
+                                       "to" LabelValue "unwind" LabelValue
+                                     | "unreachable" InstructionMetadatas
 
     //this configuration will be used as testing only
     configuration <k> $PGM:Module </k>

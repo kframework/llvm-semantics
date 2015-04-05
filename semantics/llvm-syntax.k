@@ -23,7 +23,6 @@ module LLVM-SYNTAX
 
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
     syntax UnsignedInt ::= Token{[0-9][0-9]*}
-    syntax NaturalNumber ::= Token{[1-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
     syntax LocalValID ::= Token{[\%][1-9][0-9]*}
@@ -144,16 +143,20 @@ module LLVM-SYNTAX
                        | "noalias" [klabel('noaliasOfParam)]
     syntax ParamAttrs ::= List{ParamAttr," "}
 
-    syntax FuncAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
-                      | "inlinehint" | alignstack(NaturalNumber) | "noinline" | "uwtable"
+    syntax CommAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
+                      | "inlinehint" | "noinline" | "uwtable" | "sanitize_thread"
                       | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
                       | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
                       | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
-                      | "sanitize_address" | "sanitize_memory" | "sanitize_thread"
-                      | "readonly" [klabel('readonlyOfFun)]
-                      | "readnone" [klabel('readnoneOfFun)]
+                      | "sanitize_address" | "sanitize_memory"
+                      | "readonly" [klabel('readonlyOfComm)]
+                      | "readnone" [klabel('readnoneOfComm)]
                       | #String "=" #String | AttributeGroupId
+    syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
     syntax FuncAttrs ::= List{FuncAttr," "}
+    syntax GroupAttr ::= CommAttr | #String | "alignstack" "=" UnsignedInt
+                       | "align" "=" UnsignedInt
+    syntax GroupAttrs ::= List{GroupAttr," "}
 
     //define garbage collector name, section name and align name.
     syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
@@ -274,6 +277,7 @@ module LLVM-SYNTAX
                         | "deplibs" "=" LibrariesDefinition
                         | "!" UnsignedInt "=" Type "!" "{" IndexList "}"
                         | MetadataVar "=" "!" "{" MetadataValues "}"
+                        | "attributes" AttributeGroupId "=" "{" GroupAttrs "}"
 
    //define a AsmBlock to be a string constant.
    syntax AsmBlock ::= #String

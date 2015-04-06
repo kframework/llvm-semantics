@@ -68,7 +68,7 @@ module LLVM-SYNTAX
     //llvm: if exact is defined in udiv and sdiv, it means 
     //the result value of these operators is a poison value 
     //if any of the bits shifted out are non-zero
-    syntax OptExact ::= "exact"
+    syntax OptExact ::= "exact" | "" [klabel('exactEmpty),onlyLabel]
     syntax OptVolatile ::= "volatile"
 
     //define the arithmetic operators, logical and cast operators
@@ -76,9 +76,8 @@ module LLVM-SYNTAX
     syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
     syntax ArithmeticFloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv"
                           | "urem" | "srem" | "frem"
-    syntax BinaryOps ::= IntConstructors OptNW 
-                      | DivConstructors OptExact 
-                      | DivConstructors
+    syntax BinaryOps ::= IntConstructors OptNW
+                      | DivConstructors OptExact
                       | ArithmeticFloatOps
 
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Copyright (c) 2014-2015 K Team. All Rights Reserved. -->
+
+<tests>
+  <test
+      definition="../semantics/llvm-syntax.k"
+      programs="."
+      results="parsing-results"
+      extension="ll"
+      >
+    <all-programs>
+      <krun-option name="--smt" value="none" />
+    </all-programs>
+  </test>
+</tests>
+

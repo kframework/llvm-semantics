@@ -304,10 +304,13 @@ module LLVM-SYNTAX
                               FuncAttrs OptSection OptAlign OptGC OptPrefix
 
    //define function bodies.
-   syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInstruction
+   syntax BasicBlock ::= InstructionList BBTerminatorInstruction
+    /*LabelStringConstant InstructionList LocalAssign BBTerminatorInstruction
                        | LabelStringConstant InstructionList BBTerminatorInstruction
                        | InstructionList LocalAssign BBTerminatorInstruction
-                       | InstructionList BBTerminatorInstruction
+                       | 
+    */
+
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
    syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeaderH "{" BasicBlockList "}"
    syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeaderH
@@ -361,8 +364,7 @@ module LLVM-SYNTAX
                           ValueRef ConstantIndexList
 
     //define parameter lists
-    syntax ParamFactor ::= Type GlobalVarAttributes ValueRef GlobalVarAttributes
-                       | "label" GlobalVarAttributes ValueRef GlobalVarAttributes
+    syntax ParamFactor ::= Type ParamAttrs ValueRef [klabel('paramFactor)]
     syntax ParamList ::= List{ParamFactor,","}
 
     //define phi lists
@@ -392,12 +394,12 @@ module LLVM-SYNTAX
                                        "[" LabelValues "]" InstructionMetadatas
                                      | "switch" IntType ValueRef ","
                                        LabelValue "[" JumpTable "]" InstructionMetadatas
-                                     | "invoke" OptCallingConv Type
-                                       ValueRef "(" ParamList ")" GlobalVarAttributes
-                                       "to" LabelValue "unwind" LabelValue
-                                     | "invoke" Type
-                                       ValueRef "(" ParamList ")" GlobalVarAttributes
-                                       "to" LabelValue "unwind" LabelValue
+                                     | "invoke" OptCallingConv RetAttrs Type
+                                       ValueRef "(" ParamList ")" FuncAttrs
+                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
+                                     | LocalAssign "invoke" OptCallingConv RetAttrs Type
+                                       ValueRef "(" ParamList ")" FuncAttrs
+                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
                                      | "unreachable" InstructionMetadatas
 
     //this configuration will be used as testing only

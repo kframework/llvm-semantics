@@ -318,7 +318,7 @@ module LLVM-SYNTAX
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
    syntax Instruction ::= LocalAssign InstVal | InstVal
-   syntax InstructionList ::= List{Instruction,","}
+   syntax InstructionList ::= List{Instruction," "}
    syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef
                     | LogicalOps Type ValueRef "," ValueRef
                     | "icmp" IPredicates Type ValueRef "," ValueRef

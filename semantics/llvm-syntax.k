@@ -25,11 +25,11 @@ module LLVM-SYNTAX
     syntax UnsignedInt ::= Token{[0-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
-    syntax LocalValID ::= Token{[\%][1-9][0-9]*}
+    syntax LocalValID ::= Token{[\%][0-9]+}
     syntax LocalVar ::=  Token{[\%][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\%][\"] (~[\"])* [\"]}
 
-    syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
+    syntax GlobalValID ::= Token{[\@][0-9]+}
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
@@ -60,37 +60,39 @@ module LLVM-SYNTAX
       llvm: nsw only applies to integer operations.
       llvm: nuw is "no unsigned wrap" and nsw is "no signed wrap".
     */
-    syntax OptNSW ::= "nsw" 
-    syntax OptNUW ::= "nuw"
-    syntax OptNW  ::= OptNUW OptNSW | OptNSW OptNUW | OptNSW | OptNUW
+    syntax NSW ::= "nsw" 
+    syntax NUW ::= "nuw"
+    syntax OptNW  ::= NUW NSW | NSW NUW | NSW | NUW
+                    | "" [klabel('nwEmpty),onlyLabel]
 
     //llvm: if exact is defined in udiv and sdiv, it means 
     //the result value of these operators is a poison value 
     //if any of the bits shifted out are non-zero
-    syntax OptExact ::= "exact"
+    syntax OptExact ::= "exact" | "" [klabel('exactEmpty),onlyLabel]
     syntax OptVolatile ::= "volatile"
+    syntax FastMathFlag ::= "fast" | "nnan" | "ninf" | "nsz" | "arcp"
+    syntax FastMathFlags ::= List{FastMathFlag," "}
 
     //define the arithmetic operators, logical and cast operators
     syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
     syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
-    syntax ArithmeticFloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv"
-                          | "urem" | "srem" | "frem"
-    syntax BinaryOps ::= IntConstructors OptNW 
-                      | IntConstructors
-                      | DivConstructors OptExact 
-                      | DivConstructors
-                      | ArithmeticFloatOps
-
+    syntax FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
+    syntax ArithmeticOps ::= "urem" | "srem"
+    syntax BinaryOps ::= IntConstructors OptNW
+                      | DivConstructors OptExact
+                      | FloatOps FastMathFlags
+                      | ArithmeticOps
 
     syntax LogicalOps ::= "and" | "or" | "xor"
-    syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc" 
-                     | "fpext" | "bitcast" | "uitofp" | "sitofp" 
-                     | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
+    syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc"
+                     | "fpext" | "bitcast" | "uitofp" | "sitofp"
+                     | "fptoui" | "fptosi" | "inttoptr"
+                     | "addrspacecast" | "ptrtoint"
 
     //define the predicates
-    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle"
+    syntax IPredicate ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
-    syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
+    syntax FPredicate ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
 
@@ -206,7 +208,7 @@ module LLVM-SYNTAX
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Type ValueRef
-    syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
+    syntax ReturnedVal ::= ResolvedVal | ResolvedVal "," ReturnedVal
     syntax Index ::= ResolvedVal | "null"
     syntax IndexList ::= List{Index,","}
     syntax Strings ::= List{#String,","}
@@ -232,8 +234,8 @@ module LLVM-SYNTAX
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
                       | "getelementptr" OptInBounds "(" ResolvedVal IndexList ")"
                       | select(ResolvedVal, ResolvedVal, ResolvedVal)
-                      | "icmp" IPredicates "(" ResolvedVal "," ResolvedVal ")"
-                      | "fcmp" FPredicates "(" ResolvedVal "," ResolvedVal ")"
+                      | "icmp" IPredicate "(" ResolvedVal "," ResolvedVal ")"
+                      | "fcmp" FPredicate "(" ResolvedVal "," ResolvedVal ")"
                       | extractelement(ResolvedVal, ResolvedVal)
                       | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
                       | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
@@ -304,10 +306,13 @@ module LLVM-SYNTAX
                               FuncAttrs OptSection OptAlign OptGC OptPrefix
 
    //define function bodies.
-   syntax BasicBlock ::= LabelStringConstant InstructionList LocalAssign BBTerminatorInstruction
+   syntax BasicBlock ::= InstructionList BBTerminatorInstruction
+    /*LabelStringConstant InstructionList LocalAssign BBTerminatorInstruction
                        | LabelStringConstant InstructionList BBTerminatorInstruction
                        | InstructionList LocalAssign BBTerminatorInstruction
-                       | InstructionList BBTerminatorInstruction
+                       | 
+    */
+
    syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
    syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeaderH "{" BasicBlockList "}"
    syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeaderH
@@ -315,16 +320,16 @@ module LLVM-SYNTAX
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
-   syntax Inst ::= LocalAssign InstVal | InstVal
-   syntax InstructionList ::= List{Inst,","}
-   syntax InstVal ::= BinaryOps Type ValueRef "," ValueRef
-                    | LogicalOps Type ValueRef "," ValueRef
-                    | "icmp" IPredicates Type ValueRef "," ValueRef
-                    | "fcmp" FPredicates Type ValueRef "," ValueRef
-                    | CastOps ResolvedVal "to" Type
+   syntax Instruction ::= LocalAssign InstVal | InstVal
+   syntax InstructionList ::= List{Instruction," "}
+   syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
+                    | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
+                    | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                    | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                    | CastOps ResolvedVal "to" Type InstructionMetadatas
                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
-                    | "va_arg" ResolvedVal "," Type
-                    | "extractelement" ResolvedVal "," ResolvedVal
+                    | "va_arg" ResolvedVal "," Type InstructionMetadatas
+                    | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
@@ -361,8 +366,7 @@ module LLVM-SYNTAX
                           ValueRef ConstantIndexList
 
     //define parameter lists
-    syntax ParamFactor ::= Type GlobalVarAttributes ValueRef GlobalVarAttributes
-                       | "label" GlobalVarAttributes ValueRef GlobalVarAttributes
+    syntax ParamFactor ::= Type ParamAttrs ValueRef [klabel('paramFactor)]
     syntax ParamList ::= List{ParamFactor,","}
 
     //define phi lists
@@ -378,7 +382,7 @@ module LLVM-SYNTAX
     //define the metadata in the tail of all instructions.
     syntax InstructionMetadata ::= MetadataVar "!" UnsignedInt
                                  | MetadataVar "!" "{" IndexList "}"
-    syntax InstructionMetadatas ::= "" [klabel('instMetadabaEmpty),onlyLabel]
+    syntax InstructionMetadatas ::= "" [klabel('.InstructionMetadatas),onlyLabel]
                                  | "," InstructionMetadata InstructionMetadatas
 
     //define return statment in a function.
@@ -392,12 +396,12 @@ module LLVM-SYNTAX
                                        "[" LabelValues "]" InstructionMetadatas
                                      | "switch" IntType ValueRef ","
                                        LabelValue "[" JumpTable "]" InstructionMetadatas
-                                     | "invoke" OptCallingConv Type
-                                       ValueRef "(" ParamList ")" GlobalVarAttributes
-                                       "to" LabelValue "unwind" LabelValue
-                                     | "invoke" Type
-                                       ValueRef "(" ParamList ")" GlobalVarAttributes
-                                       "to" LabelValue "unwind" LabelValue
+                                     | "invoke" OptCallingConv RetAttrs Type
+                                       ValueRef "(" ParamList ")" FuncAttrs
+                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
+                                     | LocalAssign "invoke" OptCallingConv RetAttrs Type
+                                       ValueRef "(" ParamList ")" FuncAttrs
+                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
                                      | "unreachable" InstructionMetadatas
 
     //this configuration will be used as testing only

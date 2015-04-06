@@ -25,11 +25,11 @@ module LLVM-SYNTAX
     syntax UnsignedInt ::= Token{[0-9][0-9]*}
     syntax FpVal ::= HexConstant | Float
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
-    syntax LocalValID ::= Token{[\%][1-9][0-9]*}
+    syntax LocalValID ::= Token{[\%][0-9]+}
     syntax LocalVar ::=  Token{[\%][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\%][\"] (~[\"])* [\"]}
 
-    syntax GlobalValID ::= Token{[\@][1-9][0-9]*}
+    syntax GlobalValID ::= Token{[\@][0-9]+}
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
@@ -60,9 +60,10 @@ module LLVM-SYNTAX
       llvm: nsw only applies to integer operations.
       llvm: nuw is "no unsigned wrap" and nsw is "no signed wrap".
     */
-    syntax OptNSW ::= "nsw" 
-    syntax OptNUW ::= "nuw"
-    syntax OptNW  ::= OptNUW OptNSW | OptNSW OptNUW | OptNSW | OptNUW
+    syntax NSW ::= "nsw" 
+    syntax NUW ::= "nuw"
+    syntax OptNW  ::= NUW NSW | NSW NUW | NSW | NUW
+                    | "" [klabel('nwEmpty),onlyLabel]
 
     //llvm: if exact is defined in udiv and sdiv, it means 
     //the result value of these operators is a poison value 
@@ -76,7 +77,6 @@ module LLVM-SYNTAX
     syntax ArithmeticFloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv"
                           | "urem" | "srem" | "frem"
     syntax BinaryOps ::= IntConstructors OptNW 
-                      | IntConstructors
                       | DivConstructors OptExact 
                       | DivConstructors
                       | ArithmeticFloatOps
@@ -318,9 +318,9 @@ module LLVM-SYNTAX
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
-   syntax Inst ::= LocalAssign InstVal | InstVal
-   syntax InstructionList ::= List{Inst,","}
-   syntax InstVal ::= BinaryOps Type ValueRef "," ValueRef
+   syntax Instruction ::= LocalAssign InstVal | InstVal
+   syntax InstructionList ::= List{Instruction,","}
+   syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef
                     | LogicalOps Type ValueRef "," ValueRef
                     | "icmp" IPredicates Type ValueRef "," ValueRef
                     | "fcmp" FPredicates Type ValueRef "," ValueRef

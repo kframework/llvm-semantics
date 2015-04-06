@@ -330,8 +330,10 @@ module LLVM-SYNTAX
                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "va_arg" ResolvedVal "," Type InstructionMetadatas
                     | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
-                    | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
-                    | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
+                    | "insertelement" ResolvedVal "," ResolvedVal
+                      "," ResolvedVal InstructionMetadatas
+                    | "shufflevector" ResolvedVal "," ResolvedVal
+                      "," ResolvedVal InstructionMetadatas
                     | "phi" PHIList
                     | OptTailCall OptCallingConv Type
                       ValueRef "(" ParamList ")" GlobalVarAttributes

@@ -208,7 +208,7 @@ module LLVM-SYNTAX
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Type ValueRef
-    syntax ReturnedVal ::= ResolvedVal | ReturnedVal "," ResolvedVal
+    syntax ReturnedVal ::= ResolvedVal | ResolvedVal "," ReturnedVal
     syntax Index ::= ResolvedVal | "null"
     syntax IndexList ::= List{Index,","}
     syntax Strings ::= List{#String,","}
@@ -329,7 +329,7 @@ module LLVM-SYNTAX
                     | CastOps ResolvedVal "to" Type InstructionMetadatas
                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "va_arg" ResolvedVal "," Type InstructionMetadatas
-                    | "extractelement" ResolvedVal "," ResolvedVal
+                    | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "phi" PHIList
@@ -382,7 +382,7 @@ module LLVM-SYNTAX
     //define the metadata in the tail of all instructions.
     syntax InstructionMetadata ::= MetadataVar "!" UnsignedInt
                                  | MetadataVar "!" "{" IndexList "}"
-    syntax InstructionMetadatas ::= "" [klabel('instMetadabaEmpty),onlyLabel]
+    syntax InstructionMetadatas ::= "" [klabel('.InstructionMetadatas),onlyLabel]
                                  | "," InstructionMetadata InstructionMetadatas
 
     //define return statment in a function.

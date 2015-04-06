@@ -83,16 +83,16 @@ module LLVM-SYNTAX
                       | FloatOps FastMathFlags
                       | ArithmeticOps
 
-
     syntax LogicalOps ::= "and" | "or" | "xor"
-    syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc" 
-                     | "fpext" | "bitcast" | "uitofp" | "sitofp" 
-                     | "fptoui" | "fptosi" | "inttoptr" | "ptrtoint"
+    syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc"
+                     | "fpext" | "bitcast" | "uitofp" | "sitofp"
+                     | "fptoui" | "fptosi" | "inttoptr"
+                     | "addrspacecast" | "ptrtoint"
 
     //define the predicates
-    syntax IPredicates ::= "eq" | "ne" | "slt" | "sgt" | "sle"
+    syntax IPredicate ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
-    syntax FPredicates ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
+    syntax FPredicate ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
 
@@ -234,8 +234,8 @@ module LLVM-SYNTAX
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
                       | "getelementptr" OptInBounds "(" ResolvedVal IndexList ")"
                       | select(ResolvedVal, ResolvedVal, ResolvedVal)
-                      | "icmp" IPredicates "(" ResolvedVal "," ResolvedVal ")"
-                      | "fcmp" FPredicates "(" ResolvedVal "," ResolvedVal ")"
+                      | "icmp" IPredicate "(" ResolvedVal "," ResolvedVal ")"
+                      | "fcmp" FPredicate "(" ResolvedVal "," ResolvedVal ")"
                       | extractelement(ResolvedVal, ResolvedVal)
                       | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
                       | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
@@ -322,13 +322,13 @@ module LLVM-SYNTAX
    syntax OptTailCall ::= "tail" "call" | "call"
    syntax Instruction ::= LocalAssign InstVal | InstVal
    syntax InstructionList ::= List{Instruction," "}
-   syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef
-                    | LogicalOps Type ValueRef "," ValueRef
-                    | "icmp" IPredicates Type ValueRef "," ValueRef
-                    | "fcmp" FPredicates Type ValueRef "," ValueRef
-                    | CastOps ResolvedVal "to" Type
+   syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
+                    | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
+                    | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                    | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                    | CastOps ResolvedVal "to" Type InstructionMetadatas
                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
-                    | "va_arg" ResolvedVal "," Type
+                    | "va_arg" ResolvedVal "," Type InstructionMetadatas
                     | "extractelement" ResolvedVal "," ResolvedVal
                     | "insertelement" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "shufflevector" ResolvedVal "," ResolvedVal "," ResolvedVal

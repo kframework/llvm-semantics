@@ -70,15 +70,18 @@ module LLVM-SYNTAX
     //if any of the bits shifted out are non-zero
     syntax OptExact ::= "exact" | "" [klabel('exactEmpty),onlyLabel]
     syntax OptVolatile ::= "volatile"
+    syntax FastMathFlag ::= "fast" | "nnan" | "ninf" | "nsz" | "arcp"
+    syntax FastMathFlags ::= List{FastMathFlag," "}
 
     //define the arithmetic operators, logical and cast operators
     syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
     syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
-    syntax ArithmeticFloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv"
-                          | "urem" | "srem" | "frem"
+    syntax FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
+    syntax ArithmeticOps ::= "urem" | "srem"
     syntax BinaryOps ::= IntConstructors OptNW
                       | DivConstructors OptExact
-                      | ArithmeticFloatOps
+                      | FloatOps FastMathFlags
+                      | ArithmeticOps
 
 
     syntax LogicalOps ::= "and" | "or" | "xor"

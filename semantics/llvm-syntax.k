@@ -33,9 +33,8 @@ module LLVM-SYNTAX
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
-    syntax LabelStringConstant ::= Token{[1-9][0-9]*[\:]}
-    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*[\:]}
-    syntax LabelStringConstant ::= Token{[\@][\"] (~[\"])* [\"][\:]}
+    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]}
+    syntax LabelStringConstant ::= Token{[\"] (~[\"])* [\"][\:]}
 
     //define metadata variables and attribute group ids.
     syntax MetadataVar ::= Token{[\!][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
@@ -315,13 +314,9 @@ module LLVM-SYNTAX
 
    //define function bodies.
    syntax BasicBlock ::= InstructionList BBTerminatorInstruction
-    /*LabelStringConstant InstructionList LocalAssign BBTerminatorInstruction
                        | LabelStringConstant InstructionList BBTerminatorInstruction
-                       | InstructionList LocalAssign BBTerminatorInstruction
-                       | 
-    */
 
-   syntax BasicBlockList ::= BasicBlockList BasicBlock | BasicBlock
+   syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
    syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeaderH "{" BasicBlockList "}"
    syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeaderH
                           | OptDllStorageClass OptVisibilityStyle FunctionHeaderH

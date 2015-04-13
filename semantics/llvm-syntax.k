@@ -69,7 +69,8 @@ module LLVM-SYNTAX
     //the result value of these operators is a poison value 
     //if any of the bits shifted out are non-zero
     syntax OptExact ::= "exact" | "" [klabel('exactEmpty),onlyLabel]
-    syntax OptVolatile ::= "volatile"
+    syntax OptVolatile ::= "volatile" | "" [klabel('volatileEmpty),onlyLabel]
+    syntax OptAtomic ::= "atomic" | "" [klabel('atomicEmpty),onlyLabel]
     syntax FastMathFlag ::= "fast" | "nnan" | "ninf" | "nsz" | "arcp"
     syntax FastMathFlags ::= List{FastMathFlag," "}
 
@@ -208,23 +209,23 @@ module LLVM-SYNTAX
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Type ValueRef
-    syntax ReturnedVal ::= ResolvedVal | ResolvedVal "," ReturnedVal
+    syntax IntResolveVal ::= IntType ValueRef [klabel('intResolveVal)]
+    syntax IntResolveVals ::= "" [klabel('.IntResolveVals),onlyLabel]
+                            | "," IntResolveVal IntResolveVals
+    syntax ReturnedVal ::= List{ResolvedVal,","}
     syntax Index ::= ResolvedVal | "null"
     syntax IndexList ::= List{Index,","}
     syntax Strings ::= List{#String,","}
     syntax OptSideEffect ::= "sideeffect"
 
     //syntax ConstVal ::= Type ConstValueRef
-    syntax ConstValueRef ::= Int | UnsignedInt | FpVal | Bool | ConstExpr
+    syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
                            | "null" | "undef" | "zeroinitializer"
                            | "<" ReturnedVal ">"
                            | "[" ReturnedVal "]"
-                           | "[" "]"
                            | "{" ReturnedVal "}"
-                           | "{" "}"
-                           | "c" #String
                            | "<" "{" ReturnedVal "}" ">"
-                           | "<" "{" "}" ">"
+                           | "c" #String
                            | "asm" OptSideEffect #String "," #String
                            | "asm" #String "," #String
     //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
@@ -320,8 +321,18 @@ module LLVM-SYNTAX
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"
-   syntax Instruction ::= LocalAssign InstVal | InstVal
+   syntax OptCleanup ::= "cleanup" | "" [klabel('cleanupEmpty),onlyLabel]
+   syntax LandingpadFactor ::= "catch" ResolvedVal | "filter" ResolvedVal
+   syntax LandingpadFactors ::= List{LandingpadFactor," "}
+
    syntax InstructionList ::= List{Instruction," "}
+   syntax Instruction ::= LocalAssign InstVal | InstVal
+                        | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
+                          OptScopeOrder  "," OptAlign InstructionMetadatas
+                        | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
+                          OptScopeOrder InstructionMetadatas
+                        | "fence" OptSingleThread Ordering InstructionMetadatas
+
    syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
                     | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
                     | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
@@ -329,50 +340,60 @@ module LLVM-SYNTAX
                     | CastOps ResolvedVal "to" Type InstructionMetadatas
                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
                     | "va_arg" ResolvedVal "," Type InstructionMetadatas
+                    | "getelementptr" OptInBounds ResolvedVal
+                      IntResolveVals InstructionMetadatas
                     | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                     | "insertelement" ResolvedVal "," ResolvedVal
                       "," ResolvedVal InstructionMetadatas
                     | "shufflevector" ResolvedVal "," ResolvedVal
                       "," ResolvedVal InstructionMetadatas
-                    | "phi" PHIList
-                    | OptTailCall OptCallingConv Type
-                      ValueRef "(" ParamList ")" GlobalVarAttributes
-                    | OptTailCall Type
-                      ValueRef "(" ParamList ")" GlobalVarAttributes
-                    | MemoryInst
+                    | "phi" Type PHIList InstructionMetadatas
+                    | "landingpad" Type "personality" ResolvedVal OptCleanup
+                      LandingpadFactors InstructionMetadatas
+                    | OptTailCall OptCallingConv RetAttrs ResolvedVal
+                      "(" ParamList ")" FuncAttrs InstructionMetadatas
+                    | "alloca" OptInalloca AllocMetadata
+                    | "load" OptAtomic OptVolatile ResolvedVal
+                      OptScopeOrder "," OptAlign InstructionMetadatas
+                    | "load" OptAtomic OptVolatile ResolvedVal
+                      OptScopeOrder InstructionMetadatas
+                    | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
+                      ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+                    //The ‘atomicrmw‘ instruction is used to atomically modify memory.
+                    | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
+                      "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
+                    | "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
+                    | "insertvalue" ResolvedVal "," ResolvedVal
+                      ConstantIndexList InstructionMetadatas
 
-   //define memory instruction lists
-   syntax MemoryInst ::=  "malloc" Type "," OptAlign
-                        | "malloc" Type
-                        | "malloc" Type "," IntType ValueRef "," OptAlign
-                        | "malloc" Type "," IntType ValueRef
-                        | "alloca" Type "," OptAlign
-                        | "alloca" Type
-                        | "alloca" Type "," IntType ValueRef "," OptAlign
-                        | "alloca" Type "," IntType ValueRef
-                        | "free" ResolvedVal
-                        | OptVolatile "load" Type ValueRef "," OptAlign
-                        | "load" Type ValueRef "," OptAlign
-                        | OptVolatile "load" Type ValueRef
-                        | "load" Type ValueRef
-                        | OptVolatile "store" ResolvedVal "," Type
-                          ValueRef "," OptAlign
-                        | "store" ResolvedVal "," Type
-                          ValueRef "," OptAlign
-                        | OptVolatile "store" ResolvedVal "," Type ValueRef
-                        | "store" ResolvedVal "," Type ValueRef
-                        | "getresult" Type ValueRef "," UnsignedInt
-                        | "getelementptr" OptInBounds Type ValueRef IndexList
-                        | "extractvalue" Type ValueRef ConstantIndexList
-                        | "insertvalue" Type ValueRef "," Type
-                          ValueRef ConstantIndexList
+   //define the allocation metadata.
+   syntax AllocMetadata ::= Type | Type "," Align
+                          | Type "," IntType ValueRef
+                          | Type "," IntType ValueRef "," Align
+   syntax OptInalloca ::= "inalloca" | "" [klabel('inallocaEmpty),onlyLabel]
+
+   //define the ordering attributes for memory instructions.
+   syntax Ordering ::= "unordered" | "monotonic" | "acquire" | "release"
+                        | "acq_rel" | "seq_cst"
+   syntax OptSingleThread ::= "singlethread"
+                            | "" [klabel('singlethreadEmpty),onlyLabel]
+   syntax OptScopeOrder ::= OptSingleThread Ordering
+                          | "" [klabel('scopeorderEmpty),onlyLabel]
+   syntax OrderingList ::= Ordering | Ordering OrderingList
+   syntax BinOpsForAtomicrmw ::= "xchg" | "nand" | "max"
+                               | "umax" | "umin" | "min"
+                               | "add" [klabel('addOfAtomicrmw)]
+                               | "sub" [klabel('subOfAtomicrmw)]
+                               | "and" [klabel('andOfAtomicrmw)]
+                               | "or" [klabel('orOfAtomicrmw)]
+                               | "xor" [klabel('xorOfAtomicrmw)]
 
     //define parameter lists
     syntax ParamFactor ::= Type ParamAttrs ValueRef [klabel('paramFactor)]
     syntax ParamList ::= List{ParamFactor,","}
 
     //define phi lists
-    syntax PHIList ::= Type "[" ValueRef "," ValueRef "]"
+    syntax PHIList ::= "[" ValueRef "," ValueRef "]"
                      | PHIList "," "[" ValueRef "," ValueRef "]"
 
     //define jump tables

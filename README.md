@@ -21,11 +21,11 @@ removed from your LLVM program before you call the kast tool on them.
 For your convenience, we provide a java program that does that, called
 DeleteLLVMComments:
 
-$ java DeleteLVMComments myprogram.ll
+$ java DeleteLLVMComments myprogram.ll
 
 will output the resulting LLVM program to standard output, while
 
-$ krun --parser "java DeleteLVMComments" --directory mysemanticsdirectory myprogram.ll
+$ krun --parser "java DeleteLLVMComments" --directory mysemanticsdirectory myprogram.ll
 
 will forward it to the kast tool. Therefore, if your LLVM program
 contains comments, make sure that you use the pipe command

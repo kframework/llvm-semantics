@@ -216,7 +216,10 @@ module LLVM-SYNTAX
     syntax Index ::= ResolvedVal | "null"
     syntax IndexList ::= List{Index,","}
     syntax Strings ::= List{#String,","}
-    syntax OptSideEffect ::= "sideeffect"
+    syntax OptSideEffect ::= "sideeffect" | "" [klabel('sideeffectEmpty),onlyLabel]
+    syntax OptAlignstack ::= "alignstack" | "" [klabel('alignstackEmpty),onlyLabel]
+    syntax OptInteldialect ::= "inteldialect"
+                             | "" [klabel('inteldialectEmpty),onlyLabel]
 
     //syntax ConstVal ::= Type ConstValueRef
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
@@ -226,9 +229,8 @@ module LLVM-SYNTAX
                            | "{" ReturnedVal "}"
                            | "<" "{" ReturnedVal "}" ">"
                            | "c" #String
-                           | "asm" OptSideEffect #String "," #String
-                           | "asm" #String "," #String
-    //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
+                           | "asm" OptSideEffect OptAlignstack OptInteldialect
+                             #String "," #String
 
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
     syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"

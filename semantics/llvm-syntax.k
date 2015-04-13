@@ -207,7 +207,6 @@ module LLVM-SYNTAX
 
     //define constant values and expressions
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
-    syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ResolvedVal ::= Type ValueRef
     syntax IntResolveVal ::= IntType ValueRef [klabel('intResolveVal)]
     syntax IntResolveVals ::= "" [klabel('.IntResolveVals),onlyLabel]
@@ -216,9 +215,13 @@ module LLVM-SYNTAX
     syntax Index ::= ResolvedVal | "null"
     syntax IndexList ::= List{Index,","}
     syntax Strings ::= List{#String,","}
-    syntax OptSideEffect ::= "sideeffect"
+    syntax OptSideEffect ::= "sideeffect" | "" [klabel('sideeffectEmpty),onlyLabel]
+    syntax OptAlignstack ::= "alignstack" | "" [klabel('alignstackEmpty),onlyLabel]
+    syntax OptInteldialect ::= "inteldialect"
+                             | "" [klabel('inteldialectEmpty),onlyLabel]
 
     //syntax ConstVal ::= Type ConstValueRef
+    syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
                            | "null" | "undef" | "zeroinitializer"
                            | "<" ReturnedVal ">"
@@ -226,22 +229,26 @@ module LLVM-SYNTAX
                            | "{" ReturnedVal "}"
                            | "<" "{" ReturnedVal "}" ">"
                            | "c" #String
-                           | "asm" OptSideEffect #String "," #String
-                           | "asm" #String "," #String
-    //syntax ConstVector ::= ResolvedVal | ConstVector "," ResolvedVal
+                           | "asm" OptSideEffect OptAlignstack OptInteldialect
+                             #String "," #String
+                           | "!" UnsignedInt
+                           | "!" #String
+                           | "!" "(" IndexList ")"
 
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
     syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"
-                      | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
-                      | "getelementptr" OptInBounds "(" ResolvedVal IndexList ")"
-                      | select(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | BinaryOps(ResolvedVal, ResolvedVal)
+                      | LogicalOps(ResolvedVal, ResolvedVal)
+                      | blockaddress(ValueRef, ValueRef)
                       | "icmp" IPredicate "(" ResolvedVal "," ResolvedVal ")"
                       | "fcmp" FPredicate "(" ResolvedVal "," ResolvedVal ")"
-                      | extractelement(ResolvedVal, ResolvedVal)
-                      | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
-                      | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
                       | "extractvalue" "(" ResolvedVal ConstantIndexList ")"
                       | "insertvalue" "(" ResolvedVal "," ResolvedVal ConstantIndexList ")"
+                      | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | "getelementptr" OptInBounds "(" ReturnedVal ")"
+                      | select(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | extractelement(ResolvedVal, ResolvedVal)
+                      | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
 
     //define global type constants, thread local constants and external behaviors.
     syntax GlobalType ::= "global" | "constant"
@@ -254,10 +261,10 @@ module LLVM-SYNTAX
     //define Aliasee references.
     syntax AliaseeRef ::= ResolvedVal
                         | "bitcast" "(" AliaseeRef "to" Type ")"
-                        | "getelementptr" OptInBounds "(" IndexList ")"
+                        | "getelementptr" OptInBounds "(" IndexList ")" [klabel('elemPtrAliasee)]
 
     //define the constructs in a metadata list
-    syntax MetadataValue ::= "!" UnsignedInt
+    syntax MetadataValue ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
     syntax MetadataValues ::= List{MetadataValue," "}
 
     //define Modules and definitions.

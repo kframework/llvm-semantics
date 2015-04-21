@@ -17,7 +17,7 @@ This syntax requires a input LLVM program without comments.
 */
 module LLVM-SYNTAX
 
-    /*
+    /*@
       Define syntactic constructors for non-keyword tokens. 
       Standard integers (such as ‘4’) are constants of the integer type.
       Negative numbers may be used with integer types.
@@ -26,15 +26,15 @@ module LLVM-SYNTAX
     syntax UnsignedInt ::= Token{[0-9][0-9]*}
 
 
-    /*
+    /*@
       Floating point constants use standard decimal notation (e.g. 123.421),
       exponential notation (e.g. 1.23421e+2), or a more precise hexadecimal notation.
     */
     syntax FpVal ::= HexConstant | Float
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
+    syntax Strings ::= List{#String,","}
 
-
-    /*
+    /*@
       LLVM identifiers come in two basic types: global and local.
       Global identifiers (functions, global variables) begin with the '@' character.
       Local identifiers (register names, types) begin with the '%' character.
@@ -65,12 +65,6 @@ module LLVM-SYNTAX
     syntax LocalAssign ::= LocalName "="
     syntax GlobalName ::= GlobalVar | GlobalValID
     syntax GlobalAssign ::= GlobalName "="
-
-    /*@
-      Symbolic value reference is including local names, 
-      global variables, local valid ids and global valid ids.
-     */
-    syntax SymbolicValueRef ::= LocalName | GlobalName
 
     //Label names are the ids for entry basic blocks.
     syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]}
@@ -410,10 +404,10 @@ module LLVM-SYNTAX
     syntax ParamAttrs ::= List{ParamAttr," "}
 
     /*@
-       Function attributes are set to communicate additional information
-       about a function. Function attributes are considered to be part of the
-       function, not of the function type, so functions with different function
-       attributes can have the same function type.
+      Function attributes are set to communicate additional information
+      about a function. Function attributes are considered to be part of the
+      function, not of the function type, so functions with different function
+      attributes can have the same function type.
     */
     syntax CommAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
                       | "inlinehint" | "noinline" | "uwtable" | "sanitize_thread"
@@ -432,82 +426,82 @@ module LLVM-SYNTAX
 
 
     /*@
-       Comdats have a selection kind to provide input on how the linker
-       should choose between keys in two different object files.
-       The selection kind must be one of the following:
-       any
-          The linker may choose any COMDAT key, the choice is arbitrary.
-       exactmatch
-          The linker may choose any COMDAT key but the sections
-          must contain the same data.
-       largest
-          The linker will choose the section containing the
-          largest COMDAT key.
-       noduplicates
-          The linker requires that only section with this
-          COMDAT key exist.
-       samesize
-          The linker may choose any COMDAT key but the sections must
-          contain the same amount of data. 
+      Comdats have a selection kind to provide input on how the linker
+      should choose between keys in two different object files.
+      The selection kind must be one of the following:
+      any
+         The linker may choose any COMDAT key, the choice is arbitrary.
+      exactmatch
+         The linker may choose any COMDAT key but the sections
+         must contain the same data.
+      largest
+         The linker will choose the section containing the
+         largest COMDAT key.
+      noduplicates
+         The linker requires that only section with this
+         COMDAT key exist.
+      samesize
+         The linker may choose any COMDAT key but the sections must
+         contain the same amount of data. 
     */
     syntax SelectionKind ::= "any" | "exactmatch" | "largest"
                            | "noduplicates" | "samesize"
 
 
     /*@
-       Each function may specify a garbage collector strategy name.
-       The supported values of name includes those built in to LLVM and any provided
-       by loaded plugins. Specifying a GC strategy will cause the compiler to alter
-       its output in order to support the named garbage collection algorithm.
-       Note that LLVM itself does not contain a garbage collector, this functionality
-       is restricted to generating machine code which can interoperate with a
-       collector provided externally.
+      Each function may specify a garbage collector strategy name.
+      The supported values of name includes those built in to LLVM and any provided
+      by loaded plugins. Specifying a GC strategy will cause the compiler to alter
+      its output in order to support the named garbage collection algorithm.
+      Note that LLVM itself does not contain a garbage collector, this functionality
+      is restricted to generating machine code which can interoperate with a
+      collector provided externally.
     */
     syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
 
 
     /*@
-       Prefix data is data associated with a function which the code generator
-       will emit immediately before the function’s entrypoint. The purpose of this
-       feature is to allow frontends to associate language-specific runtime metadata
-       with specific functions and make it available through the function pointer
-       while still allowing the function pointer to be called.
+      Prefix data is data associated with a function which the code generator
+      will emit immediately before the function’s entrypoint. The purpose of this
+      feature is to allow frontends to associate language-specific runtime metadata
+      with specific functions and make it available through the function pointer
+      while still allowing the function pointer to be called.
     */
     syntax OptPrefix ::= "prefix" Type ValueRef | "" [klabel('prefixEmpty),onlyLabel]
 
 
     /*@
-       The prologue attribute allows arbitrary code (encoded as bytes) to
-       be inserted prior to the function body. This can be used for enabling function
-       hot-patching and instrumentation.
-       To maintain the semantics of ordinary function calls, the prologue data must
-       have a particular format. Specifically, it must begin with a sequence of bytes
-       which decode to a sequence of machine instructions, valid for the module’s target,
-       which transfer control to the point immediately succeeding the prologue data,
-       without performing any other visible action. This allows the inliner and other
-       passes to reason about the semantics of the function definition without needing
-       to reason about the prologue data. Obviously this makes the format of the prologue
-       data highly target dependent.
+      The prologue attribute allows arbitrary code (encoded as bytes) to
+      be inserted prior to the function body. This can be used for enabling function
+      hot-patching and instrumentation.
+      To maintain the semantics of ordinary function calls, the prologue data must
+      have a particular format. Specifically, it must begin with a sequence of bytes
+      which decode to a sequence of machine instructions, valid for the module’s target,
+      which transfer control to the point immediately succeeding the prologue data,
+      without performing any other visible action. This allows the inliner and other
+      passes to reason about the semantics of the function definition without needing
+      to reason about the prologue data. Obviously this makes the format of the prologue
+      data highly target dependent.
     */
     syntax OptPrologue ::= "prologue" Type ValueRef | "" [klabel('prologueEmpty),onlyLabel]
 
 
     /*@
-       The section attribute allows you to specify a specific section
-       a global variable or function should be in after translation.
-       LLVM allows an explicit section to be specified for functions.
-       If the target supports it, it will emit functions to the section specified. 
-       Additionally, the function can be placed in a COMDAT.
+      The section attribute allows you to specify a specific section
+      a global variable or function should be in after translation.
+      LLVM allows an explicit section to be specified for functions.
+      If the target supports it, it will emit functions to the section specified. 
+      Additionally, the function can be placed in a COMDAT.
     */
     syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
 
 
     /*@
-       Comdat IR provides access to COFF and ELF object file COMDAT functionality.
-       Comdats have a name which represents the COMDAT key. All global objects that
-       specify this key will only end up in the final object file if the linker chooses
-       that key over some other key. Aliases are placed in the same COMDAT that their
-       aliasee computes to, if any.
+      Comdat IR provides access to COFF and ELF object file COMDAT functionality.
+      Comdats have a name which represents the COMDAT key. All global objects that
+      specify this key will only end up in the final object file if the linker chooses
+      that key over some other key. Aliases are placed in the same COMDAT that their
+      aliasee computes to, if any.
     */
     syntax Comdat ::= comdat(ComdatVar) | "comdat" [klabel('simplifiedComdat)]
     syntax OptComdat ::= Comdat | "" [klabel('comdatEmpty),onlyLabel]
@@ -530,6 +524,161 @@ module LLVM-SYNTAX
                                 | "," "section" #String "," Align
                                 | "," "section" #String "," Comdat
                                 | "," "section" #String "," Comdat "," Align
+
+
+    /*@
+      an optional address space attribute defines the numbered address
+      space where the pointed-to object resides.
+      Global variables can be marked with unnamed_addr which indicates
+      that the address is not significant, only the content
+      If the unnamed_addr attribute is given for a function, the address
+      is known to not be significant and two identical functions can be merged.
+    */
+    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
+    syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
+
+
+    /*@
+      "inbounds" is an attribute in the getelementptr instruction.
+      If the inbounds keyword is present, the result value of the getelementptr
+      is a poison value if the base pointer is not an in bounds address of an
+      allocated object, or if any of the addresses that would be formed by
+      successive addition of the offsets implied by the indices to the base address
+      with infinitely precise signed arithmetic are not an in bounds address of
+      that allocated object.
+      If the inbounds keyword is not present, the offsets are added to the base
+      address with silently-wrapping two’s complement arithmetic.
+    */
+    syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
+
+
+    /*@
+      "sideeffect", "alignstack" and "inteldialect" are attributes that are used in
+      the asm instruction which is known as the inline assembler expression.
+      LLVM supports inline assembler expressions (as opposed to Module-Level Inline
+      Assembly) through the use of a special value.
+      Inline asms with side effects not visible in the constraint list must be marked
+      as having side effects. This is done through the use of the ‘sideeffect‘ keyword.
+      The compiler should make conservative assumptions about what the asm might
+      contain and should generate its usual stack alignment code in the prologue if the
+      ‘alignstack‘ keyword is present.
+      When the ‘inteldialect‘ keyword is present, the inline asm is using the Intel dialect.
+    */
+    syntax OptSideEffect ::= "sideeffect" | "" [klabel('sideeffectEmpty),onlyLabel]
+    syntax OptAlignstack ::= "alignstack" | "" [klabel('alignstackEmpty),onlyLabel]
+    syntax OptInteldialect ::= "inteldialect"
+                             | "" [klabel('inteldialectEmpty),onlyLabel]
+    //define a AsmBlock to be a string constant.
+    syntax AsmBlock ::= #String
+
+    /*@
+      A variable may be defined as thread_local, which means that it will not
+      be shared by threads (each thread will have a separated copy of the variable).
+      Not all targets support thread-local variables. Optionally, a TLS model may be
+      specified:
+
+       localdynamic
+         For variables that are only used within the current shared library.
+       initialexec
+         For variables in modules that will not be loaded dynamically.
+       localexec
+         For variables defined in the executable and only used within it.
+
+      If no explicit model is given, the “general dynamic” model is used.
+    */
+    syntax OptThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"
+                         | "" [klabel('threadLocalEmpty),onlyLabel]
+    syntax ThreadLocalAttr ::= "localdynamic" | "initialexec" | "localexec"
+
+
+    /*@
+      This attribute is used in defining global variables.
+      By default, global initializers are optimized by assuming that
+      global variables defined within the module are not modified from
+      their initial values before the start of the global initializer.
+      This is true even for variables potentially accessible from outside
+      the module, including those with external linkage or appearing in @llvm.used
+      or dllexported variables. This assumption may be suppressed by marking
+      the variable with externally_initialized.
+    */
+    syntax OptExternallyInitialized ::= "externally_initialized"
+                                      | "" [klabel('externallyInitEmpty),onlyLabel]
+
+
+    /*@
+      This attribute is used in specifying whether or not a variable is a
+      global constant or a constant global variable.
+      A variable may be defined as a global constant, which indicates that
+      the contents of the variable will never be modified (enabling better
+      optimization, allowing the global data to be placed in the read-only section
+      of an executable, etc). Note that variables that need runtime initialization
+      cannot be marked constant as there is a store to the variable.
+      LLVM explicitly allows declarations of global variables to be marked constant,
+      even if the final definition of the global is not. This capability can be
+      used to enable slightly better optimization of the program, but requires the
+      language definition to guarantee that optimizations based on the ‘constantness’
+      are valid for the translation units that do not include the definition.
+    */
+    syntax GlobalType ::= "global" | "constant"
+
+
+    /*@
+      Opaque structure types are used to represent named structure types that
+      do not have a body specified. This corresponds (for example) to the C notion
+      of a forward declared structure.
+    */
+    syntax OpaqueType ::= "opaque"
+
+
+    /*@
+      The LLVM type system is one of the most important features of the
+      intermediate representation. Being typed enables a number of optimizations
+      to be performed on the intermediate representation directly, without having
+      to do extra analyses on the side before the transformation. A strong type
+      system makes it easier to read the generated code and enables novel analyses
+      and transformations that are not feasible to perform on normal three address
+      code representations.
+      The void type does not represent any value and has no size.
+      The function type can be thought of as a function signature.
+      The integer type is a very simple type that simply specifies an arbitrary
+      bit width for the integer type desired. Any bit width from 1 bit to 223-1
+      (about 8 million) can be specified.
+      half          16-bit floating point value
+      float         32-bit floating point value
+      double        64-bit floating point value
+      fp128         128-bit floating point value (112-bit mantissa)
+      x86_fp80      80-bit floating point value (X87)
+      ppc_fp128     128-bit floating point value (two 64-bits)
+      The x86_mmx type represents a value held in an MMX register on an x86 machine.
+      The pointer type is used to specify memory locations. Pointers are commonly
+      used to reference objects in memory.
+      A vector type is a simple derived type that represents a vector of elements.
+      The label type represents code labels.
+      The metadata type represents embedded metadata. No derived types
+      may be created from metadata except for function arguments.
+      The array type is a very simple derived type that arranges elements
+      sequentially in memory. The array type requires a size (number of
+      elements) and an underlying data type.
+      The structure type is used to represent a collection of data members
+      together in memory. The elements of a structure may be any type that has a size.
+    */
+    syntax IntType ::= Token{[i][1-9][0-9]*}
+    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
+                     | "x86_fp80" | "half"
+    syntax PrimType ::= FPType | IntType | "label"
+    syntax VoidType ::= "void"
+    syntax NonVoidType ::= "metadata"
+                         | "x86_mmx"
+                         | PrimType
+                         | Type OptAddrSpace "*"
+                         | LocalName
+                         | Type "(" ArgList ")"
+                         | "[" UnsignedInt "x" Type "]"
+                         | "<" UnsignedInt "x" Type ">"
+                         | "{" TypeList "}"
+                         | "<" "{" TypeList "}" ">"
+    syntax Type ::= VoidType | NonVoidType
+    syntax TypeList ::= List{Type,","}
 
 
     /*@
@@ -644,48 +793,61 @@ module LLVM-SYNTAX
                          | "ult" | "ugt" | "ule" | "uge" | Bool
 
 
-    //define the float types and primary types
-    syntax IntType ::= Token{[i][1-9][0-9]*}
-    syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
-                     | "x86_fp80" | "half"
-    syntax PrimType ::= FPType | IntType | "label"
-
-    //define address space and unnamed address space
-    syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
-    syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
-
-    syntax OpaqueType ::= "opaque"
-    syntax VoidType ::= "void"
-    syntax NonVoidType ::= "metadata"
-                         | "x86_mmx"
-                         | PrimType
-                         | Type OptAddrSpace "*"
-                         | LocalName
-                         | Type "(" ArgList ")"
-                         | "[" UnsignedInt "x" Type "]"
-                         | "<" UnsignedInt "x" Type ">"
-                         | "{" TypeList "}"
-                         | "<" "{" TypeList "}" ">"
-    syntax Type ::= VoidType | NonVoidType
-
-    syntax TypeList ::= List{Type,","}
-
-    //define constant values and expressions
-    syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
+    /*@
+      The following section defines some useful shortcuts for the syntax
+      of LLVM. It includes definiting a construct for the "Type Value"
+      combination and another construct for the "IntegerType Value" combination.
+    */
     syntax ResolvedVal ::= Type ValueRef
     syntax IntResolveVal ::= IntType ValueRef [klabel('intResolveVal)]
     syntax IntResolveVals ::= "" [klabel('.IntResolveVals),onlyLabel]
                             | "," IntResolveVal IntResolveVals
     syntax ReturnedVal ::= List{ResolvedVal,","}
-    syntax Index ::= ResolvedVal | "null"
+    syntax Index ::= ResolvedVal | "null"  [klabel('nullOfIndex)]
     syntax IndexList ::= List{Index,","}
-    syntax Strings ::= List{#String,","}
-    syntax OptSideEffect ::= "sideeffect" | "" [klabel('sideeffectEmpty),onlyLabel]
-    syntax OptAlignstack ::= "alignstack" | "" [klabel('alignstackEmpty),onlyLabel]
-    syntax OptInteldialect ::= "inteldialect"
-                             | "" [klabel('inteldialectEmpty),onlyLabel]
 
-    //syntax ConstVal ::= Type ConstValueRef
+
+    /*@
+      Symbolic value reference is including local names, 
+      global variables, local valid ids and global valid ids.
+     */
+    syntax SymbolicValueRef ::= LocalName | GlobalName
+
+
+    /*@
+      LLVM has several different basic types of constants.
+      This section describes them all and their syntax.
+      Boolean constants:
+             The two strings ‘true‘ and ‘false‘ are both valid constants
+             of the i1 type.
+      Integer constants:
+             Standard integers (such as ‘4’) are constants of the integer type.
+             Negative numbers may be used with integer types.
+      Floating point constants:
+             Floating point constants use standard decimal notation (e.g. 123.421)
+             and exponential notation (e.g. 1.23421e+2).
+      Null pointer constants:
+             The identifier ‘null‘ is recognized as a null pointer constant
+             and must be of pointer type.
+      Structure constants:
+             Structure constants are represented with notation similar to structure
+             type definitions (a comma separated list of elements, surrounded by
+             braces ({})).
+      Array constants:
+             Array constants are represented with notation similar to array
+             type definitions (a comma separated list of elements, surrounded
+             by square brackets ([])).
+      Vector constants:
+             Vector constants are represented with notation similar to vector
+             type definitions (a comma separated list of elements, surrounded
+             by less-than/greater-than’s (<>)).
+      Zero initialization:
+             String ‘zeroinitializer‘ can be used to zero initialize a value
+             to zero of any type, including scalar and aggregate types.
+      Metadata node:
+             A metadata node is a constant tuple without types. For example:
+             “!{!0, !{!2, !0}, !"test"}”.
+    */
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
                            | "null" | "undef" | "zeroinitializer"
@@ -699,8 +861,12 @@ module LLVM-SYNTAX
                            | "!" UnsignedInt
                            | "!" #String
                            | "!" "(" IndexList ")"
+    //define the values that appear in a metadata list
+    syntax MetadataValue ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
+    syntax MetadataValues ::= List{MetadataValue," "}
 
-    /*
+
+    /*@
       Constant expressions are used to allow expressions involving other
       constants to be used as constants. Constant expressions may be of
       any first class type and may involve any LLVM operation that does
@@ -722,25 +888,285 @@ module LLVM-SYNTAX
                       | extractelement(ResolvedVal, ResolvedVal)
                       | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
 
-    //define global type constants, thread local constants and external behaviors.
-    syntax GlobalType ::= "global" | "constant"
-    syntax OptThreadLocal ::= "thread_local" "(" ThreadLocalAttr ")" | "thread_local"
-                         | "" [klabel('threadLocalEmpty),onlyLabel]
-    syntax ThreadLocalAttr ::= "localdynamic" | "initialexec" | "localexec"
-    syntax OptExternallyInitialized ::= "externally_initialized"
-                                      | "" [klabel('externallyInitEmpty),onlyLabel]
 
-    //define Aliasee references.
+   //definition the constructs for tail call and call
+   syntax OptTailCall ::= "tail" "call" | "call"
+
+    /*@
+      This attribute is used in the landingpad instruction.
+      The optional cleanup flag indicates that the landing pad block is a cleanup.
+    */
+    syntax OptCleanup ::= "cleanup" | "" [klabel('cleanupEmpty),onlyLabel]
+
+    /*@
+      define the factors for the landingpad instruction.
+      A clause begins with the clause type — catch or filter —
+      and contains the global variable representing the “type” that may
+      be caught or filtered respectively. 
+    */
+    syntax LandingpadFactor ::= "catch" ResolvedVal | "filter" ResolvedVal
+    syntax LandingpadFactors ::= List{LandingpadFactor," "}
+
+    //define the allocation metadata. It is a syntactic convince to define it like this.
+    syntax AllocMetadata ::= Type | Type "," Align
+                           | Type "," IntType ValueRef
+                           | Type "," IntType ValueRef "," Align
+
+    /*@
+      The inalloca argument attribute allows the caller to take the address
+      of outgoing stack arguments.
+    */
+    syntax OptInalloca ::= "inalloca" [klabel('inallocaOfAlloca)]
+                         | "" [klabel('inallocaEmpty),onlyLabel]
+
+    /*@
+      Atomic instructions (cmpxchg, atomicrmw, fence, atomic load, and
+      atomic store) take ordering parameters that determine which other
+      atomic instructions on the same address they synchronize with.
+      unordered:
+         The set of values that can be read is governed by the happens-before
+         partial order. A value cannot be read unless some operation wrote it.
+      monotonic:
+         In addition to the guarantees of unordered, there is a single total
+         order for modifications by monotonic operations on each address.
+      acquire:
+         In addition to the guarantees of monotonic, a synchronizes-with edge
+         may be formed with a release operation. This is intended to model C++’s
+         memory_order_acquire.
+      release:
+         In addition to the guarantees of monotonic, if this operation writes
+         a value which is subsequently read by an acquire operation, it
+         synchronizes-with that operation.
+      acq_rel (acquire+release):
+         Acts as both an acquire and release operation on its address.
+         This corresponds to the C++0x/C1x memory_order_acq_rel.
+      seq_cst (sequentially consistent):
+         In addition to the guarantees of acq_rel (acquire for an operation
+         that only reads, release for an operation that only writes), there is a
+         global total order on all sequentially-consistent operations on all
+         addresses, which is consistent with the happens-before partial order
+         and with the modification orders of all the affected addresses.
+
+      If an atomic operation is marked singlethread, it only synchronizes with
+      or participates in modification and seq_cst total orderings with other
+      operations running in the same thread (for example, in signal handlers).
+    */
+    syntax Ordering ::= "unordered" | "monotonic" | "acquire" | "release"
+                         | "acq_rel" | "seq_cst"
+    syntax OptSingleThread ::= "singlethread"
+                             | "" [klabel('singlethreadEmpty),onlyLabel]
+    syntax OptScopeOrder ::= OptSingleThread Ordering
+                           | "" [klabel('scopeorderEmpty),onlyLabel]
+    syntax OrderingList ::= Ordering | Ordering OrderingList
+
+    /*@
+      There are three arguments to the ‘atomicrmw‘ instruction: an operation to apply,
+      an address whose value to modify, an argument to the operation. The operation
+      must be one of the following keywords: 
+        xchg
+        add
+        sub
+        and
+        nand
+        or
+        xor
+        max
+        min
+        umax
+        umin
+    */
+    syntax BinOpsForAtomicrmw ::= "xchg" | "nand" | "max"
+                                | "umax" | "umin" | "min"
+                                | "add" [klabel('addOfAtomicrmw)]
+                                | "sub" [klabel('subOfAtomicrmw)]
+                                | "and" [klabel('andOfAtomicrmw)]
+                                | "or" [klabel('orOfAtomicrmw)]
+                                | "xor" [klabel('xorOfAtomicrmw)]
+
+    //define the metadata in the tail of all instructions.
+    syntax InstructionMetadata ::= MetadataVar "!" UnsignedInt
+                                 | MetadataVar "!" "{" IndexList "}"
+    syntax InstructionMetadatas ::= "" [klabel('.InstructionMetadatas),onlyLabel]
+                                 | "," InstructionMetadata InstructionMetadatas
+
+    //define parameter lists. It is a syntactic convince to define it like this.
+    syntax ParamFactor ::= Type ParamAttrs ValueRef [klabel('paramFactor)]
+    syntax ParamList ::= List{ParamFactor,","}
+
+    /*@
+      Define phi lists for the use of blocks in a phi function.
+      The ‘phi‘ instruction takes a list of pairs as arguments,
+      with one pair for each predecessor basic block of the current block.
+    */
+    syntax PHIList ::= "[" ValueRef "," ValueRef "]"
+                     | PHIList "," "[" ValueRef "," ValueRef "]"
+
+    /*@
+      Define jump tables for the switch instruction.
+      It is an array of pairs of comparison value constants and ‘label‘s.
+      The table is not allowed to contain duplicate constant entries.
+    */
+    syntax JumpTableEntry ::= IntType ConstValueRef "," LabelValue
+    syntax JumpTable ::= List{JumpTableEntry," "}
+    syntax LabelValue ::= "label" ValueRef
+    syntax LabelValues ::= List{LabelValue,","}
+
+
+    /*@
+      The LLVM instruction set consists of several different classifications
+      of instructions: terminator instructions, binary instructions, bitwise binary
+      instructions, memory instructions, and other instructions.
+    */
+    syntax InstructionList ::= List{Instruction," "}
+    syntax Instruction ::= LocalAssign InstVal | InstVal
+                         | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
+                           OptScopeOrder  "," OptAlign InstructionMetadatas
+                         | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
+                           OptScopeOrder InstructionMetadatas
+                         | "fence" OptSingleThread Ordering InstructionMetadatas
+
+    /*@
+      The InstVal defines a set of instructions that can have a local name associated
+       with it.
+    */
+    syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
+                     | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
+                     | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                     | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                     | CastOps ResolvedVal "to" Type InstructionMetadatas
+                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
+                     | "va_arg" ResolvedVal "," Type InstructionMetadatas
+                     | "getelementptr" OptInBounds ResolvedVal
+                       IntResolveVals InstructionMetadatas
+                     | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
+                     | "insertelement" ResolvedVal "," ResolvedVal
+                       "," ResolvedVal InstructionMetadatas
+                     | "shufflevector" ResolvedVal "," ResolvedVal
+                       "," ResolvedVal InstructionMetadatas
+                     | "phi" Type PHIList InstructionMetadatas
+                     | "landingpad" Type "personality" ResolvedVal OptCleanup
+                       LandingpadFactors InstructionMetadatas
+                     | OptTailCall OptCallingConv RetAttrs ResolvedVal
+                       "(" ParamList ")" FuncAttrs InstructionMetadatas
+                     | "alloca" OptInalloca AllocMetadata
+                     | "load" OptAtomic OptVolatile ResolvedVal
+                       OptScopeOrder "," OptAlign InstructionMetadatas
+                     | "load" OptAtomic OptVolatile ResolvedVal
+                       OptScopeOrder InstructionMetadatas
+                     | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
+                       ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+                     //The ‘atomicrmw‘ instruction is used to atomically modify memory.
+                     | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
+                       "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
+                     | "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
+                     | "insertvalue" ResolvedVal "," ResolvedVal
+                       ConstantIndexList InstructionMetadatas
+
+
+    /*@
+      As mentioned previously, every basic block in a program ends with a “Terminator”
+      instruction, which indicates which block should be executed after the current block
+      is finished. These terminator instructions typically yield a ‘void‘ value:
+      they produce control flow, not values (the one exception being the ‘invoke‘ instruction).
+    */
+    syntax BBTerminatorInstruction ::= "ret" NonVoidType ValueRef InstructionMetadatas
+                                     | "ret" VoidType InstructionMetadatas
+                                     | "br" LabelValue InstructionMetadatas
+                                     | "br" IntType ValueRef ","
+                                       LabelValue "," LabelValue InstructionMetadatas
+                                     | "resume" ResolvedVal InstructionMetadatas
+                                     | "indirectbr" ResolvedVal ","
+                                       "[" LabelValues "]" InstructionMetadatas
+                                     | "switch" IntType ValueRef ","
+                                       LabelValue "[" JumpTable "]" InstructionMetadatas
+                                     | "invoke" OptCallingConv RetAttrs Type
+                                       ValueRef "(" ParamList ")" FuncAttrs
+                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
+                                     | LocalAssign "invoke" OptCallingConv RetAttrs Type
+                                       ValueRef "(" ParamList ")" FuncAttrs
+                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
+                                     | "unreachable" InstructionMetadatas
+
+
+    /*@
+      Aliases, unlike function or variables, don’t create any new data.
+      They are just a new symbol and metadata for an existing position.
+      Aliases have a name and an aliasee that is either a global value
+      or a constant expression.
+    */
     syntax AliaseeRef ::= ResolvedVal
                         | "bitcast" "(" AliaseeRef "to" Type ")"
                         | "getelementptr" OptInBounds "(" IndexList ")" [klabel('elemPtrAliasee)]
 
-    //define the constructs in a metadata list
-    syntax MetadataValue ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
-    syntax MetadataValues ::= List{MetadataValue," "}
+    /*@
+      Define target definitions for the target definition.
+      datalayout: A module may specify a target specific data layout string
+                  that specifies how data is to be laid out in memory.
+      triple: A module may specify a target triple string that describes the target host.
+    */
+    syntax TargetDefinition ::= "triple" "=" #String
+                       | "datalayout" "=" #String
 
-    //define Modules and definitions.
-    syntax Module ::= List{Definition," "}
+    //Define libraries definitions for the values of the definition of deplibs.
+    syntax LibrariesDefinition ::= "[" Strings "]" [klabel('deplibsValues)]
+
+    //Define argument lists for the function header.
+    syntax ArgType ::= Type ParamAttrs
+                      | Type ParamAttrs LocalVar
+    syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
+                     | ArgType
+                     | ArgType "," ArgList
+
+    /*@
+      LLVM function declarations consist of the “declare” keyword, an optional
+      linkage type, an optional visibility style, an optional DLL storage class,
+      an optional calling convention, an optional unnamed_addr attribute, a return type,
+      an optional parameter attribute for the return type, a function name, a possibly
+      empty list of arguments, an optional alignment, an optional garbage collector name,
+      an optional prefix, and an optional prologue.
+    */
+    syntax FunctionHeader ::= OptCallingConv RetAttrs Type GlobalName
+                               "(" ArgList ")" OptUnnamedAddr FuncAttrs OptSection
+                                OptComdat OptAlign OptGC OptPrefix OptPrologue
+    syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeader
+                           | OptDllStorageClass OptVisibilityStyle FunctionHeader
+
+    /*@
+      A function definition contains a list of basic blocks, forming the CFG
+      (Control Flow Graph) for the function. Each basic block may optionally start
+      with a label (giving the basic block a symbol table entry), contains a list of
+      instructions, and ends with a terminator instruction (such as a branch or function
+      return). If an explicit label is not provided, a block is assigned an implicit numbered
+      label, using the next value from the same counter as used for unnamed temporaries.
+    */
+    syntax BasicBlock ::= InstructionList BBTerminatorInstruction
+                        | LabelStringConstant InstructionList BBTerminatorInstruction
+    syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
+
+    /*@
+      LLVM function definitions consist of the “define” keyword, an optional linkage
+      type, an optional visibility style, an optional DLL storage class, an optional
+      calling convention, an optional unnamed_addr attribute, a return type, an optional
+      parameter attribute for the return type, a function name, a (possibly empty) argument
+      list (each with optional parameter attributes), optional function attributes, an optional
+      section, an optional alignment, an optional comdat, an optional garbage collector name,
+      an optional prefix, an optional prologue, an opening curly brace, a list of basic blocks,
+      and a closing curly brace.
+    */
+    syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeader "{" BasicBlockList "}"
+
+
+    /*@
+      LLVM programs are composed of Module‘s, each of which is a translation unit
+      of the input programs. Each module consists of functions, global variables,
+      and symbol table entries. Modules may be combined together with the LLVM linker,
+      which merges function (and global variable) definitions, resolves forward declarations,
+      and merges symbol table entries.
+      In general, a module is made up of a list of global values (where both functions and
+      global variables are global values). Global values are represented by a pointer to
+      a memory location (in this case, a pointer to an array of char, and a pointer to a
+      function), and have one of the following linkage types.
+    */
     syntax Definition ::= "define" Function
                         | "declare" FunctionProto
                         | "module" "asm" AsmBlock
@@ -763,144 +1189,6 @@ module LLVM-SYNTAX
                         | ComdatVar "=" "comdat" SelectionKind
                         | "attributes" AttributeGroupId "=" "{" GroupAttrs "}"
 
-   //define a AsmBlock to be a string constant.
-   syntax AsmBlock ::= #String
-
-   //define target definitions.
-   syntax TargetDefinition ::= "triple" "=" #String
-                      | "datalayout" "=" #String
-
-   //define libraries definitions.
-   syntax StringList ::= List{#String,","}
-   syntax LibrariesDefinition ::= "[" StringList "]" | "[" "]"
-
-   //define argument lists.
-   syntax ArgType ::= Type ParamAttrs
-                     | Type ParamAttrs LocalVar
-   syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
-                    | ArgType
-                    | ArgType "," ArgList
-
-   //define function headers. 
-   syntax FunctionHeader ::= OptCallingConv RetAttrs Type GlobalName
-                              "(" ArgList ")" OptUnnamedAddr FuncAttrs OptSection
-                               OptComdat OptAlign OptGC OptPrefix OptPrologue
-
-   //define function bodies.
-   syntax BasicBlock ::= InstructionList BBTerminatorInstruction
-                       | LabelStringConstant InstructionList BBTerminatorInstruction
-
-   syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
-   syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeader "{" BasicBlockList "}"
-   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeader
-                          | OptDllStorageClass OptVisibilityStyle FunctionHeader
-
-   //define instruction lists and instruction list values
-   syntax OptTailCall ::= "tail" "call" | "call"
-   syntax OptCleanup ::= "cleanup" | "" [klabel('cleanupEmpty),onlyLabel]
-   syntax LandingpadFactor ::= "catch" ResolvedVal | "filter" ResolvedVal
-   syntax LandingpadFactors ::= List{LandingpadFactor," "}
-
-   syntax InstructionList ::= List{Instruction," "}
-   syntax Instruction ::= LocalAssign InstVal | InstVal
-                        | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                          OptScopeOrder  "," OptAlign InstructionMetadatas
-                        | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                          OptScopeOrder InstructionMetadatas
-                        | "fence" OptSingleThread Ordering InstructionMetadatas
-
-   syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
-                    | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
-                    | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
-                    | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
-                    | CastOps ResolvedVal "to" Type InstructionMetadatas
-                    | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
-                    | "va_arg" ResolvedVal "," Type InstructionMetadatas
-                    | "getelementptr" OptInBounds ResolvedVal
-                      IntResolveVals InstructionMetadatas
-                    | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
-                    | "insertelement" ResolvedVal "," ResolvedVal
-                      "," ResolvedVal InstructionMetadatas
-                    | "shufflevector" ResolvedVal "," ResolvedVal
-                      "," ResolvedVal InstructionMetadatas
-                    | "phi" Type PHIList InstructionMetadatas
-                    | "landingpad" Type "personality" ResolvedVal OptCleanup
-                      LandingpadFactors InstructionMetadatas
-                    | OptTailCall OptCallingConv RetAttrs ResolvedVal
-                      "(" ParamList ")" FuncAttrs InstructionMetadatas
-                    | "alloca" OptInalloca AllocMetadata
-                    | "load" OptAtomic OptVolatile ResolvedVal
-                      OptScopeOrder "," OptAlign InstructionMetadatas
-                    | "load" OptAtomic OptVolatile ResolvedVal
-                      OptScopeOrder InstructionMetadatas
-                    | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
-                      ResolvedVal OptSingleThread OrderingList InstructionMetadatas
-                    //The ‘atomicrmw‘ instruction is used to atomically modify memory.
-                    | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
-                      "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
-                    | "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
-                    | "insertvalue" ResolvedVal "," ResolvedVal
-                      ConstantIndexList InstructionMetadatas
-
-   //define the allocation metadata.
-   syntax AllocMetadata ::= Type | Type "," Align
-                          | Type "," IntType ValueRef
-                          | Type "," IntType ValueRef "," Align
-   syntax OptInalloca ::= "inalloca" | "" [klabel('inallocaEmpty),onlyLabel]
-
-   //define the ordering attributes for memory instructions.
-   syntax Ordering ::= "unordered" | "monotonic" | "acquire" | "release"
-                        | "acq_rel" | "seq_cst"
-   syntax OptSingleThread ::= "singlethread"
-                            | "" [klabel('singlethreadEmpty),onlyLabel]
-   syntax OptScopeOrder ::= OptSingleThread Ordering
-                          | "" [klabel('scopeorderEmpty),onlyLabel]
-   syntax OrderingList ::= Ordering | Ordering OrderingList
-   syntax BinOpsForAtomicrmw ::= "xchg" | "nand" | "max"
-                               | "umax" | "umin" | "min"
-                               | "add" [klabel('addOfAtomicrmw)]
-                               | "sub" [klabel('subOfAtomicrmw)]
-                               | "and" [klabel('andOfAtomicrmw)]
-                               | "or" [klabel('orOfAtomicrmw)]
-                               | "xor" [klabel('xorOfAtomicrmw)]
-
-    //define parameter lists
-    syntax ParamFactor ::= Type ParamAttrs ValueRef [klabel('paramFactor)]
-    syntax ParamList ::= List{ParamFactor,","}
-
-    //define phi lists
-    syntax PHIList ::= "[" ValueRef "," ValueRef "]"
-                     | PHIList "," "[" ValueRef "," ValueRef "]"
-
-    //define jump tables
-    syntax JumpTableEntry ::= IntType ConstValueRef "," LabelValue
-    syntax JumpTable ::= List{JumpTableEntry," "}
-    syntax LabelValue ::= "label" ValueRef
-    syntax LabelValues ::= List{LabelValue,","}
-
-    //define the metadata in the tail of all instructions.
-    syntax InstructionMetadata ::= MetadataVar "!" UnsignedInt
-                                 | MetadataVar "!" "{" IndexList "}"
-    syntax InstructionMetadatas ::= "" [klabel('.InstructionMetadatas),onlyLabel]
-                                 | "," InstructionMetadata InstructionMetadatas
-
-    //define return statment in a function.
-    syntax BBTerminatorInstruction ::= "ret" NonVoidType ValueRef InstructionMetadatas
-                                     | "ret" VoidType InstructionMetadatas
-                                     | "br" LabelValue InstructionMetadatas
-                                     | "br" IntType ValueRef ","
-                                       LabelValue "," LabelValue InstructionMetadatas
-                                     | "resume" ResolvedVal InstructionMetadatas
-                                     | "indirectbr" ResolvedVal ","
-                                       "[" LabelValues "]" InstructionMetadatas
-                                     | "switch" IntType ValueRef ","
-                                       LabelValue "[" JumpTable "]" InstructionMetadatas
-                                     | "invoke" OptCallingConv RetAttrs Type
-                                       ValueRef "(" ParamList ")" FuncAttrs
-                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
-                                     | LocalAssign "invoke" OptCallingConv RetAttrs Type
-                                       ValueRef "(" ParamList ")" FuncAttrs
-                                       "to" LabelValue "unwind" LabelValue InstructionMetadatas
-                                     | "unreachable" InstructionMetadatas
+    syntax Module ::= List{Definition," "}
 
 endmodule

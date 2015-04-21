@@ -464,7 +464,7 @@ module LLVM-SYNTAX
        to reason about the prologue data. Obviously this makes the format of the prologue
        data highly target dependent.
     */
-    syntax OptPrefix ::= "prologue" Type ValueRef | "" [klabel('prologueEmpty),onlyLabel]
+    syntax OptPrologue ::= "prologue" Type ValueRef | "" [klabel('prologueEmpty),onlyLabel]
 
 
     /*@
@@ -741,18 +741,18 @@ module LLVM-SYNTAX
                     | ArgType "," ArgList
 
    //define function headers. 
-   syntax FunctionHeaderH ::= OptCallingConv RetAttrs Type
-                              GlobalName "(" ArgList ")" OptUnnamedAddr
-                              FuncAttrs OptSection OptAlign OptGC OptPrefix
+   syntax FunctionHeader ::= OptCallingConv RetAttrs Type GlobalName
+                              "(" ArgList ")" OptUnnamedAddr FuncAttrs
+                              OptSection OptAlign OptGC OptPrefix OptPrologue
 
    //define function bodies.
    syntax BasicBlock ::= InstructionList BBTerminatorInstruction
                        | LabelStringConstant InstructionList BBTerminatorInstruction
 
    syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
-   syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeaderH "{" BasicBlockList "}"
-   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeaderH
-                          | OptDllStorageClass OptVisibilityStyle FunctionHeaderH
+   syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeader "{" BasicBlockList "}"
+   syntax FunctionProto ::= ExternalLinkage OptVisibilityStyle FunctionHeader
+                          | OptDllStorageClass OptVisibilityStyle FunctionHeader
 
    //define instruction lists and instruction list values
    syntax OptTailCall ::= "tail" "call" | "call"

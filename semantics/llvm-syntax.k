@@ -76,9 +76,11 @@ module LLVM-SYNTAX
     syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]}
     syntax LabelStringConstant ::= Token{[\"] (~[\"])* [\"][\:]}
 
-    //define metadata variables and attribute group ids.
+    //define metadata variables, attribute group ids and comdat variables.
     syntax MetadataVar ::= Token{[\!][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
     syntax AttributeGroupId ::= Token{[\#][0-9]+}
+    syntax ComdatVar ::= Token{[\$][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
+                          [notInRules]
 
     /*@
       There are the primary operators.
@@ -430,6 +432,29 @@ module LLVM-SYNTAX
 
 
     /*@
+       Comdats have a selection kind to provide input on how the linker
+       should choose between keys in two different object files.
+       The selection kind must be one of the following:
+       any
+          The linker may choose any COMDAT key, the choice is arbitrary.
+       exactmatch
+          The linker may choose any COMDAT key but the sections
+          must contain the same data.
+       largest
+          The linker will choose the section containing the
+          largest COMDAT key.
+       noduplicates
+          The linker requires that only section with this
+          COMDAT key exist.
+       samesize
+          The linker may choose any COMDAT key but the sections must
+          contain the same amount of data. 
+    */
+    syntax SelectionKind ::= "any" | "exactmatch" | "largest"
+                           | "noduplicates" | "samesize"
+
+
+    /*@
        Each function may specify a garbage collector strategy name.
        The supported values of name includes those built in to LLVM and any provided
        by loaded plugins. Specifying a GC strategy will cause the compiler to alter
@@ -478,6 +503,17 @@ module LLVM-SYNTAX
 
 
     /*@
+       Comdat IR provides access to COFF and ELF object file COMDAT functionality.
+       Comdats have a name which represents the COMDAT key. All global objects that
+       specify this key will only end up in the final object file if the linker chooses
+       that key over some other key. Aliases are placed in the same COMDAT that their
+       aliasee computes to, if any.
+    */
+    syntax Comdat ::= comdat(ComdatVar) | "comdat" [klabel('simplifiedComdat)]
+    syntax OptComdat ::= Comdat | "" [klabel('comdatEmpty),onlyLabel]
+
+
+    /*@
       An explicit alignment may be specified for a function. If not present,
       or if the alignment is set to zero, the alignment of the function is set by
       the target to whatever it feels convenient. If an explicit alignment is
@@ -486,10 +522,14 @@ module LLVM-SYNTAX
     */
     syntax Align ::= "align" UnsignedInt
     syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
-    syntax OptSectionAndAlign ::= "" [klabel('sectionAndAlignEmpty),onlyLabel]
+    syntax OptSectionComdatAndAlign ::= "" [klabel('sectionComdatAndAlignEmpty),onlyLabel]
                                 | "," "section" #String
-                                | "," "align" UnsignedInt
-                                | "," "section" #String "," "align" UnsignedInt
+                                | "," Align
+                                | "," Comdat
+                                | "," Comdat "," Align
+                                | "," "section" #String "," Align
+                                | "," "section" #String "," Comdat
+                                | "," "section" #String "," Comdat "," Align
 
 
     /*@
@@ -709,17 +749,18 @@ module LLVM-SYNTAX
                         | GlobalAssign ExternalLinkage OptVisibilityStyle
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
-                          Type OptSectionAndAlign
+                          Type OptSectionComdatAndAlign
                         | GlobalAssign NonExternalLinkage OptVisibilityStyle
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
-                          Type ValueRef OptSectionAndAlign
+                          Type ValueRef OptSectionComdatAndAlign
                         | GlobalAssign OptLinkage OptVisibilityStyle
                           "alias" OptLinkage AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
                         | "!" UnsignedInt "=" Type "!" "{" IndexList "}"
                         | MetadataVar "=" "!" "{" MetadataValues "}"
+                        | ComdatVar "=" "comdat" SelectionKind
                         | "attributes" AttributeGroupId "=" "{" GroupAttrs "}"
 
    //define a AsmBlock to be a string constant.
@@ -742,8 +783,8 @@ module LLVM-SYNTAX
 
    //define function headers. 
    syntax FunctionHeader ::= OptCallingConv RetAttrs Type GlobalName
-                              "(" ArgList ")" OptUnnamedAddr FuncAttrs
-                              OptSection OptAlign OptGC OptPrefix OptPrologue
+                              "(" ArgList ")" OptUnnamedAddr FuncAttrs OptSection
+                               OptComdat OptAlign OptGC OptPrefix OptPrologue
 
    //define function bodies.
    syntax BasicBlock ::= InstructionList BBTerminatorInstruction
@@ -861,8 +902,5 @@ module LLVM-SYNTAX
                                        ValueRef "(" ParamList ")" FuncAttrs
                                        "to" LabelValue "unwind" LabelValue InstructionMetadatas
                                      | "unreachable" InstructionMetadatas
-
-    //this configuration will be used as testing only
-    configuration <k> $PGM:Module </k>
 
 endmodule

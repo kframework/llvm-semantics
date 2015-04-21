@@ -213,7 +213,7 @@ module LLVM-SYNTAX
     syntax OptLinkage ::= NonExternalLinkage | ExternalLinkage
 
 
-    /*
+    /*@
       All Global Variables and Functions have one of the following visibility styles:
 
       “default” - Default style
@@ -240,6 +240,126 @@ module LLVM-SYNTAX
     syntax OptVisibilityStyle ::= "default" | "hidden" | "protected"
                                | "" [klabel('visibilityEmpty),onlyLabel]
 
+
+    /*@
+      All Global Variables, Functions and Aliases can have one of the
+      following DLL storage class:
+
+      dllimport
+          “dllimport” causes the compiler to reference a function or variable via
+          a global pointer to a pointer that is set up by the DLL exporting the symbol.
+          On Microsoft Windows targets, the pointer name is formed by combining __imp_
+          and the function or variable name.
+      dllexport
+          “dllexport” causes the compiler to provide a global pointer to a pointer
+          in a DLL, so that it can be referenced with the dllimport attribute.
+          On Microsoft Windows targets, the pointer name is formed by combining
+          __imp_ and the function or variable name. Since this storage class exists
+         for defining a dll interface, the compiler, assembler and linker know it is
+         externally referenced and must refrain from deleting the symbol. 
+    */
+    syntax OptDllStorageClass ::= "dllimport" | "dllexport"
+                                | "" [klabel('dllStorageEmpty),onlyLabel]
+
+
+    /*@
+      LLVM functions, calls and invokes can all have an optional calling convention
+      specified for the call. The calling convention of any pair of dynamic caller/callee
+      must match, or the behavior of the program is undefined. The following calling
+      conventions are supported by LLVM, and more may be added in the future:
+
+      “ccc” - The C calling convention
+              This calling convention (the default if no other calling convention is
+              specified) matches the target C calling conventions. This calling convention
+              supports varargs function calls and tolerates some mismatch in the declared
+              prototype and implemented declaration of the function (as does normal C).
+      “fastcc” - The fast calling convention
+              This calling convention attempts to make calls as fast as possible (e.g.
+              by passing things in registers). This calling convention allows the target
+              to use whatever tricks it wants to produce fast code for the target, without
+              having to conform to an externally specified ABI (Application Binary
+              Interface). Tail calls can only be optimized when this, the GHC or the HiPE
+              convention is used. This calling convention does not support varargs and
+              requires the prototype of all callees to exactly match the prototype
+              of the function definition.
+      “coldcc” - The cold calling convention
+              This calling convention attempts to make code in the caller as efficient
+              as possible under the assumption that the call is not commonly executed.
+              As such, these calls often preserve all registers so that the call does
+              not break any live ranges in the caller side. This calling convention
+              does not support varargs and requires the prototype of all callees to
+              exactly match the prototype of the function definition. Furthermore
+              the inliner doesn’t consider such function calls for inlining.
+      “cc 10” - GHC convention
+              This calling convention has been implemented specifically for use by
+              the Glasgow Haskell Compiler (GHC). It passes everything in registers, going
+              to extremes to achieve this by disabling callee save registers. This calling
+              convention should not be used lightly but only for specific situations such as
+              an alternative to the register pinning performance technique often used when
+              implementing functional programming languages. At the moment only X86 supports
+              this convention and it has the following limitations:
+                On X86-32 only supports up to 4 bit type parameters. No floating
+                point types are supported.
+                On X86-64 only supports up to 10 bit type parameters and 6 floating point
+                parameters.
+              This calling convention supports tail call optimization but requires both
+              the caller and callee are using it.
+      “cc 11” - The HiPE calling convention
+              This calling convention has been implemented specifically for use by the
+              High-Performance Erlang (HiPE) compiler, the native code compiler of the
+              Ericsson’s Open Source Erlang/OTP system. It uses more registers for argument
+              passing than the ordinary C calling convention and defines no callee-saved
+              registers. The calling convention properly supports tail call optimization
+              but requires that both the caller and the callee use it. It uses a register
+              pinning mechanism, similar to GHC’s convention, for keeping frequently
+              accessed runtime components pinned to specific hardware registers. At the
+              moment only X86 supports this convention (both 32 and 64 bit).
+      “webkit_jscc” - WebKit’s JavaScript calling convention
+              This calling convention has been implemented for WebKit FTL JIT.
+              It passes arguments on the stack right to left (as cdecl does), and returns
+              a value in the platform’s customary return register.
+      “anyregcc” - Dynamic calling convention for code patching
+              This is a special convention that supports patching an arbitrary code
+              sequence in place of a call site. This convention forces the call arguments
+              into registers but allows them to be dynamically allocated. This can currently
+              only be used with calls to llvm.experimental.patchpoint because only this
+              intrinsic records the location of its arguments in a side table. See Stack
+              maps and patch points in LLVM.
+      “preserve_mostcc” - The PreserveMost calling convention
+              This calling convention attempts to make the code in the caller as
+              unintrusive as possible. This convention behaves identically to the C calling
+              convention on how arguments and return values are passed, but it uses a
+              different set of caller/callee-saved registers. This alleviates the burden
+              of saving and recovering a large register set before and after the call in
+              the caller. If the arguments are passed in callee-saved registers,
+              then they will be preserved by the callee across the call. This doesn’t apply
+              for values returned in callee-saved registers.
+      “preserve_allcc” - The PreserveAll calling convention
+              This calling convention attempts to make the code in the caller even less
+              intrusive than the PreserveMost calling convention. This calling convention
+              also behaves identical to the C calling convention on how arguments and return
+              values are passed, but it uses a different set of caller/callee-saved registers.
+              This removes the burden of saving and recovering a large register set before
+              and after the call in the caller. If the arguments are passed in callee-saved
+              registers, then they will be preserved by the callee across the call. This
+              doesn’t apply for values returned in callee-saved registers.
+      “cc <n>” - Numbered convention
+              Any calling convention may be specified by number, allowing target-specific
+              calling conventions to be used. Target specific calling conventions start at 64.
+
+      More calling conventions can be added/defined on an as-needed basis, to support Pascal
+      conventions or any other well-known target-independent convention.
+    */
+    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
+                            | "x86_fastcallcc" | "x86_cdeclmethodcc"| "intel_ocl_bicc"
+                            | "arm_apcscc" | "arm_aapcscc" | "arm_aapcs_vfpcc"
+                            | "msp430_intrcc" | "ptx_kernel" | "ptx_device"
+                            | "spir_func" | "spir_kernel" | "x86_64_sysvcc"
+                            | "x86_64_win64cc" | "webkit_jscc" | "anyregcc"
+                            | "preserve_mostcc" | "preserve_allcc" | "cc" UnsignedInt
+                            | "" [klabel('callingConvEmpty),onlyLabel]
+
+
     /*@
       LLVM IR floating-point binary ops (fadd, fsub, fmul, fdiv, frem) have the
       following flags that can be set to enable otherwise unsafe floating point
@@ -262,11 +382,122 @@ module LLVM-SYNTAX
     syntax FastMathFlag ::= "fast" | "nnan" | "ninf" | "nsz" | "arcp"
     syntax FastMathFlags ::= List{FastMathFlag," "}
 
+
+    /*@
+      The return type and each parameter of a function type may have a
+      set of parameter attributes associated with them. Parameter
+      attributes are used to communicate additional information about the
+      result or parameters of a function. Parameter attributes are considered
+      to be part of the function, not of the function type, so functions with
+      different parameter attributes can have the same function type.
+    */
+    syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
+                     | "zeroext" [klabel('zeroextOfReturn)]
+                     | "signext"  [klabel('signextOfReturn)]
+                     | "noalias" [klabel('noaliasOfReturn)]
+    syntax RetAttrs ::= List{RetAttr," "}
+
+    syntax ParamAttr ::= Align | "sret" | "nocapture" | "byval"
+                       | "nest" | "inalloca" | "returned"
+                       | "readnone" [klabel('readnoneOfParam)]
+                       | "readonly" [klabel('readonlyOfParam)]
+                       | "inreg" [klabel('inregOfParam)]
+                       | "zeroext" [klabel('zeroextOfParam)]
+                       | "signext"  [klabel('signextOfParam)]
+                       | "noalias" [klabel('noaliasOfParam)]
+    syntax ParamAttrs ::= List{ParamAttr," "}
+
+    /*@
+       Function attributes are set to communicate additional information
+       about a function. Function attributes are considered to be part of the
+       function, not of the function type, so functions with different function
+       attributes can have the same function type.
+    */
+    syntax CommAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
+                      | "inlinehint" | "noinline" | "uwtable" | "sanitize_thread"
+                      | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
+                      | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
+                      | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
+                      | "sanitize_address" | "sanitize_memory"
+                      | "readonly" [klabel('readonlyOfComm)]
+                      | "readnone" [klabel('readnoneOfComm)]
+                      | #String "=" #String | AttributeGroupId
+    syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
+    syntax FuncAttrs ::= List{FuncAttr," "}
+    syntax GroupAttr ::= CommAttr | #String | "alignstack" "=" UnsignedInt
+                       | "align" "=" UnsignedInt
+    syntax GroupAttrs ::= List{GroupAttr," "}
+
+
+    /*@
+       Each function may specify a garbage collector strategy name.
+       The supported values of name includes those built in to LLVM and any provided
+       by loaded plugins. Specifying a GC strategy will cause the compiler to alter
+       its output in order to support the named garbage collection algorithm.
+       Note that LLVM itself does not contain a garbage collector, this functionality
+       is restricted to generating machine code which can interoperate with a
+       collector provided externally.
+    */
+    syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
+
+
+    /*@
+       Prefix data is data associated with a function which the code generator
+       will emit immediately before the function’s entrypoint. The purpose of this
+       feature is to allow frontends to associate language-specific runtime metadata
+       with specific functions and make it available through the function pointer
+       while still allowing the function pointer to be called.
+    */
+    syntax OptPrefix ::= "prefix" Type ValueRef | "" [klabel('prefixEmpty),onlyLabel]
+
+
+    /*@
+       The prologue attribute allows arbitrary code (encoded as bytes) to
+       be inserted prior to the function body. This can be used for enabling function
+       hot-patching and instrumentation.
+       To maintain the semantics of ordinary function calls, the prologue data must
+       have a particular format. Specifically, it must begin with a sequence of bytes
+       which decode to a sequence of machine instructions, valid for the module’s target,
+       which transfer control to the point immediately succeeding the prologue data,
+       without performing any other visible action. This allows the inliner and other
+       passes to reason about the semantics of the function definition without needing
+       to reason about the prologue data. Obviously this makes the format of the prologue
+       data highly target dependent.
+    */
+    syntax OptPrefix ::= "prologue" Type ValueRef | "" [klabel('prologueEmpty),onlyLabel]
+
+
+    /*@
+       The section attribute allows you to specify a specific section
+       a global variable or function should be in after translation.
+       LLVM allows an explicit section to be specified for functions.
+       If the target supports it, it will emit functions to the section specified. 
+       Additionally, the function can be placed in a COMDAT.
+    */
+    syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
+
+
+    /*@
+      An explicit alignment may be specified for a function. If not present,
+      or if the alignment is set to zero, the alignment of the function is set by
+      the target to whatever it feels convenient. If an explicit alignment is
+      specified, the function is forced to have at least that much alignment.
+      All alignments must be a power of 2.
+    */
+    syntax Align ::= "align" UnsignedInt
+    syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
+    syntax OptSectionAndAlign ::= "" [klabel('sectionAndAlignEmpty),onlyLabel]
+                                | "," "section" #String
+                                | "," "align" UnsignedInt
+                                | "," "section" #String "," "align" UnsignedInt
+
+
     /*@
       The two arguments to the these instructions must be integer or vector
       of integer values. Both arguments must have identical types.
     */
     syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
+
 
     /*@
       The two arguments to the these instructions must be integer
@@ -276,6 +507,7 @@ module LLVM-SYNTAX
       “((a udiv exact b) mul b) == a”).
     */
     syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr"
+
 
     /*@
       The two arguments to the these instructions must be floating
@@ -287,11 +519,13 @@ module LLVM-SYNTAX
     */
     syntax FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
 
+
     /*@
       The two arguments to the ‘urem‘ instruction must be integer or vector
       of integer values. Both arguments must have identical types.
     */
     syntax ArithmeticOps ::= "urem" | "srem"
+
 
     /*@
       Binary operators are used to do most of the computation in a program.
@@ -305,6 +539,7 @@ module LLVM-SYNTAX
                       | FloatOps FastMathFlags
                       | ArithmeticOps
 
+
     /*@
       The two arguments to the ‘xor‘ instruction must be integer or vector
       of integer values. Both arguments must have identical types.
@@ -317,6 +552,7 @@ module LLVM-SYNTAX
     */
     syntax LogicalOps ::= "and" | "or" | "xor"
 
+
     /*@
       The instructions in this category are the conversion instructions (casting)
       which all take a single operand and a type. They perform various bit
@@ -326,6 +562,7 @@ module LLVM-SYNTAX
                      | "fpext" | "bitcast" | "uitofp" | "sitofp"
                      | "fptoui" | "fptosi" | "inttoptr"
                      | "addrspacecast" | "ptrtoint"
+
 
     /*@
       The ‘icmp‘ instruction returns a boolean value or a vector of boolean
@@ -352,6 +589,7 @@ module LLVM-SYNTAX
     syntax IPredicate ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
 
+
     /*@
       The ‘fcmp‘ instruction returns a boolean value or vector of boolean
       values based on comparison of its operands.
@@ -364,73 +602,6 @@ module LLVM-SYNTAX
     syntax FPredicate ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
-
-
-
-    //define the attributes for Dll storage class in LLVM.
-    syntax OptDllStorageClass ::= "dllimport" | "dllexport"
-                                | "" [klabel('dllStorageEmpty),onlyLabel]
-
-    //define LLVM calling convention key words
-    syntax OptCallingConv ::= "ccc" | "fastcc" | "coldcc" | "x86_stdcallcc" | "x86_thiscallcc"
-                            | "x86_fastcallcc" | "x86_cdeclmethodcc"| "intel_ocl_bicc"
-                            | "arm_apcscc" | "arm_aapcscc" | "arm_aapcs_vfpcc"
-                            | "msp430_intrcc" | "ptx_kernel" | "ptx_device"
-                            | "spir_func" | "spir_kernel" | "x86_64_sysvcc"
-                            | "x86_64_win64cc" | "webkit_jscc" | "anyregcc"
-                            | "preserve_mostcc" | "preserve_allcc" | "cc" UnsignedInt
-                            | "" [klabel('callingConvEmpty),onlyLabel]
-
-    //define param attributes: The return type and each parameter of 
-    //a function type may have a set of parameter attributes associated with them.
-    //the attributes is for function, expression and declaration
-    syntax RetAttr ::= "inreg" [klabel('inregOfReturn)]
-                     | "zeroext" [klabel('zeroextOfReturn)]
-                     | "signext"  [klabel('signextOfReturn)]
-                     | "noalias" [klabel('noaliasOfReturn)]
-    syntax RetAttrs ::= List{RetAttr," "}
-
-    syntax ParamAttr ::= Align | "sret" | "nocapture" | "byval"
-                       | "nest" | "inalloca" | "returned"
-                       | "readnone" [klabel('readnoneOfParam)]
-                       | "readonly" [klabel('readonlyOfParam)]
-                       | "inreg" [klabel('inregOfParam)]
-                       | "zeroext" [klabel('zeroextOfParam)]
-                       | "signext"  [klabel('signextOfParam)]
-                       | "noalias" [klabel('noaliasOfParam)]
-    syntax ParamAttrs ::= List{ParamAttr," "}
-
-    syntax CommAttr ::= "noreturn" | "nounwind" | "nobuiltin" | "builtin" | "sspstrong"
-                      | "inlinehint" | "noinline" | "uwtable" | "sanitize_thread"
-                      | "alwaysinline" | "optsize" | "ssp" | "sspreq" | "naked"
-                      | "returns_twice" | "nonlazybind" | "cold" | "minsize" 
-                      | "noduplicate" | "noimplicitfloat" | "noredzone" | "optnone"
-                      | "sanitize_address" | "sanitize_memory"
-                      | "readonly" [klabel('readonlyOfComm)]
-                      | "readnone" [klabel('readnoneOfComm)]
-                      | #String "=" #String | AttributeGroupId
-    syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
-    syntax FuncAttrs ::= List{FuncAttr," "}
-    syntax GroupAttr ::= CommAttr | #String | "alignstack" "=" UnsignedInt
-                       | "align" "=" UnsignedInt
-    syntax GroupAttrs ::= List{GroupAttr," "}
-
-    //define garbage collector name, section name and align name.
-    syntax OptGC ::= "gc" #String | "" [klabel('gcEmpty),onlyLabel]
-    syntax OptPrefix ::= "prefix" Type ValueRef | "" [klabel('prefixEmpty),onlyLabel]
-    syntax OptSection ::= "section" #String | "" [klabel('sectionEmpty),onlyLabel]
-    syntax Align ::= "align" UnsignedInt
-    syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
-    syntax OptSectionAndAlign ::= "" [klabel('sectionAndAlignEmpty),onlyLabel]
-                                | "," "section" #String
-                                | "," "align" UnsignedInt
-                                | "," "section" #String "," "align" UnsignedInt
-
-    //define global attributes. Cannot define each attribute list precisely.
-    //because list subsort problem 
-    syntax GlobalVarAttribute ::= OptSection
-    syntax ListOfGlobalVarAttribute ::= List{GlobalVarAttribute," "}
-    syntax GlobalVarAttributes ::= ListOfGlobalVarAttribute
 
 
     //define the float types and primary types

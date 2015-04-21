@@ -18,13 +18,41 @@ This syntax requires a input LLVM program without comments.
 module LLVM-SYNTAX
 
     /*
-    Define syntactic constructors for non-keyword tokens. 
+      Define syntactic constructors for non-keyword tokens. 
+      Standard integers (such as ‘4’) are constants of the integer type.
+      Negative numbers may be used with integer types.
     */
-
     syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
     syntax UnsignedInt ::= Token{[0-9][0-9]*}
+
+
+    /*
+      Floating point constants use standard decimal notation (e.g. 123.421),
+      exponential notation (e.g. 1.23421e+2), or a more precise hexadecimal notation.
+    */
     syntax FpVal ::= HexConstant | Float
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
+
+
+    /*
+      LLVM identifiers come in two basic types: global and local.
+      Global identifiers (functions, global variables) begin with the '@' character.
+      Local identifiers (register names, types) begin with the '%' character.
+      Additionally, there are three different formats for identifiers,
+      for different purposes:
+
+        1, Named values are represented as a string of characters with their prefix.
+           For example, %foo, @DivisionByZero, %a.really.long.identifier.
+           The actual regular expression used is ‘[%@][-a-zA-Z$._][-a-zA-Z$._0-9]*‘.
+           Identifiers that require other characters in their names can be surrounded
+           with quotes. Special characters may be escaped using "\xx" where xx is the
+           ASCII code for the character in hexadecimal. In this way, any character
+           can be used in a name value, even quotes themselves. The "\01" prefix can
+           be used on global variables to suppress mangling.
+        2, Unnamed values are represented as an unsigned numeric value
+           with their prefix. For example, %12, @2, %44.
+        3, Constants, which are described in the section ConstValueRef below.
+    */
     syntax LocalValID ::= Token{[\%][0-9]+}
     syntax LocalVar ::=  Token{[\%][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax LocalVar ::= Token{[\%][\"] (~[\"])* [\"]}
@@ -33,14 +61,6 @@ module LLVM-SYNTAX
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
     syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
 
-    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]}
-    syntax LabelStringConstant ::= Token{[\"] (~[\"])* [\"][\:]}
-
-    //define metadata variables and attribute group ids.
-    syntax MetadataVar ::= Token{[\!][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
-    syntax AttributeGroupId ::= Token{[\#][0-9]+}
-
-    //define local and global names as well as local and global assignments
     syntax LocalName ::= LocalVar | LocalValID
     syntax LocalAssign ::= LocalName "="
     syntax GlobalName ::= GlobalVar | GlobalValID
@@ -52,65 +72,300 @@ module LLVM-SYNTAX
      */
     syntax SymbolicValueRef ::= LocalName | GlobalName
 
+    //Label names are the ids for entry basic blocks.
+    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]}
+    syntax LabelStringConstant ::= Token{[\"] (~[\"])* [\"][\:]}
+
+    //define metadata variables and attribute group ids.
+    syntax MetadataVar ::= Token{[\!][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
+    syntax AttributeGroupId ::= Token{[\#][0-9]+}
+
     /*@
       There are the primary operators.
       Define the nsw and nuw flags.
-      llvm: nuw only applies to integer operations.
-      llvm: nsw only applies to integer operations.
-      llvm: nuw is "no unsigned wrap" and nsw is "no signed wrap".
+      nuw and nsw stand for “No Unsigned Wrap” and
+      “No Signed Wrap”, respectively. If the nuw and/or nsw
+      keywords are present, the result value of the add is a
+      poison value if unsigned and/or signed overflow, respectively, occurs.
     */
     syntax NSW ::= "nsw" 
     syntax NUW ::= "nuw"
     syntax OptNW  ::= NUW NSW | NSW NUW | NSW | NUW
                     | "" [klabel('nwEmpty),onlyLabel]
 
-    //llvm: if exact is defined in udiv and sdiv, it means 
-    //the result value of these operators is a poison value 
-    //if any of the bits shifted out are non-zero
+
+    /*@
+      If the exact keyword is present, the result value of the udiv
+      is a poison value if %op1 is not a multiple of %op2 (as such,
+      “((a udiv exact b) mul b) == a”).
+    */
     syntax OptExact ::= "exact" | "" [klabel('exactEmpty),onlyLabel]
+
+
+    /*@
+      Certain memory accesses, such as load‘s, store‘s, and
+      llvm.memcpy‘s may be marked volatile. The optimizers must not
+      change the number of volatile operations or change their order
+      of execution relative to other volatile operations. The optimizers
+      may change the order of volatile operations relative to non-volatile
+      operations. This is not Java’s “volatile” and has no cross-thread
+      synchronization behavior.
+    */
     syntax OptVolatile ::= "volatile" | "" [klabel('volatileEmpty),onlyLabel]
+
+
+    /*@
+      If the load is marked as atomic, it takes an extra ordering and optional
+      singlethread argument. The release and acq_rel orderings are not valid on
+      load instructions. Atomic loads produce defined results when they may see
+      multiple atomic stores.
+    */
     syntax OptAtomic ::= "atomic" | "" [klabel('atomicEmpty),onlyLabel]
+
+
+    /*@
+      linkage describes how names can or can not refer to the same entity throughout
+      the whole program or one single translation unit.
+      A name's linkage is related to, but distinct from, its scope. The scope of a
+      name is the part of a translation unit where it is visible.
+      If the name has external linkage, the entity that name denotes may be referred
+      to from another translation unit using a distinct declaration for that same name,
+      and from other scopes within the same translation unit using distinct declarations.
+      Were the name given internal linkage, such a declaration would denote a distinct
+      entity, although using the same name, but its entity could be referred to by
+      distinct declarations within the same translation unit. A name that has no linkage
+      at all cannot be referred to from declarations in different scopes, not even from
+      within the same translation unit. Examples of such names are parameters of functions
+      and local variables.
+
+      All Global Variables and Functions have one of the following types of linkage:
+
+      private: Global values with “private” linkage are only directly accessible
+               by objects in the current module. In particular, linking code into
+               a module with an private global value may cause the private to be renamed
+               as necessary to avoid collisions. Because the symbol is private to the
+               module, all references can be updated. This doesn’t show up in any
+               symbol table in the object file.
+      internal:Similar to private, but the value shows as a local symbol
+               (STB_LOCAL in the case of ELF) in the object file. This corresponds to
+               the notion of the ‘static‘ keyword in C.
+      available_externally:
+               Globals with “available_externally” linkage are never emitted into
+               the object file corresponding to the LLVM module. They exist to allow
+               inlining and other optimizations to take place given knowledge of the
+               definition of the global, which is known to be somewhere outside the
+               module. Globals with available_externally linkage are allowed to be
+               discarded at will, and are otherwise the same as linkonce_odr.
+               This linkage type is only allowed on definitions, not declarations.
+      linkonce:
+               Globals with “linkonce” linkage are merged with other globals
+               of the same name when linkage occurs. This can be used to implement
+               some forms of inline functions, templates, or other code which must
+               be generated in each translation unit that uses it, but where the body
+               may be overridden with a more definitive definition later. Unreferenced
+               linkonce globals are allowed to be discarded. Note that linkonce linkage
+               does not actually allow the optimizer to inline the body of this function
+               into callers because it doesn’t know if this definition of the function
+               is the definitive definition within the program or whether it will be
+               overridden by a stronger definition. To enable inlining and other
+               optimizations, use “linkonce_odr” linkage.
+      weak: “weak” linkage has the same merging semantics as
+            linkonce linkage, except that unreferenced globals with weak
+            linkage may not be discarded. This is used for globals that are
+            declared “weak” in C source code.
+      common: “common” linkage is most similar to “weak” linkage, but they
+              are used for tentative definitions in C, such as “int X;” at global
+              scope. Symbols with “common” linkage are merged in the same way as
+              weak symbols, and they may not be deleted if unreferenced. common
+              symbols may not have an explicit section, must have a zero initializer,
+              and may not be marked ‘constant‘. Functions and aliases may not
+              have common linkage.
+      appending: “appending” linkage may only be applied to global variables
+                 of pointer to array type. When two global variables with appending
+                 linkage are linked together, the two global arrays are appended
+                 together. This is the LLVM, typesafe, equivalent of having the system
+                 linker append together “sections” with identical names when .o
+                 files are linked.
+      extern_weak:The semantics of this linkage follow the ELF object file model:
+                  the symbol is weak until linked, if not linked, the symbol becomes
+                  null instead of being an undefined reference.
+      linkonce_odr, weak_odr:
+                  Some languages allow differing globals to be merged, such as
+                  two functions with different semantics. Other languages, such as C++,
+                  ensure that only equivalent globals are ever merged (the “one definition
+                  rule” — “ODR”). Such languages can use the linkonce_odr and weak_odr
+                  linkage types to indicate that the global will only be merged with
+                  equivalent globals. These linkage types are otherwise the same as
+                  their non-odr versions.
+      external:
+                  If none of the above identifiers are used, the global is externally
+                  visible, meaning that it participates in linkage and can be used to
+                  resolve external symbol references.
+
+      It is illegal for a function declaration to have any linkage type
+      other than external or extern_weak.
+    */
+    syntax NonExternalLinkage ::= "private" | "internal" | "weak" | "weak_odr"  | "common"
+                                | "linkonce" | "linkonce_odr" | "available_externally"
+                                | "appending" | "linker_private" | "linker_private_weak"
+                                | "" [klabel('nonExternalLinkageEmpty),onlyLabel]
+    syntax ExternalLinkage ::= "extern_weak" | "external"
+    syntax OptLinkage ::= NonExternalLinkage | ExternalLinkage
+
+
+    /*
+      All Global Variables and Functions have one of the following visibility styles:
+
+      “default” - Default style
+                  On targets that use the ELF object file format, default visibility
+                  means that the declaration is visible to other modules and,
+                  in shared libraries, means that the declared entity may be overridden.
+                  On Darwin, default visibility means that the declaration is visible
+                  to other modules. Default visibility corresponds to “external linkage”
+                  in the language.
+      “hidden” - Hidden style
+                  Two declarations of an object with hidden visibility refer to the same
+                  object if they are in the same shared object. Usually, hidden
+                  visibility indicates that the symbol will not be placed into the
+                  dynamic symbol table, so no other module (executable or shared library)
+                  can reference it directly.
+      “protected” - Protected style
+                  On ELF, protected visibility indicates that the symbol will be placed
+                  in the dynamic symbol table, but that references within the defining
+                  module will bind to the local symbol. That is, the symbol cannot be
+                  overridden by another module.
+
+      A symbol with internal or private linkage must have default visibility.
+    */
+    syntax OptVisibilityStyle ::= "default" | "hidden" | "protected"
+                               | "" [klabel('visibilityEmpty),onlyLabel]
+
+    /*@
+      LLVM IR floating-point binary ops (fadd, fsub, fmul, fdiv, frem) have the
+      following flags that can be set to enable otherwise unsafe floating point
+      operations:
+
+      nnan: No NaNs - Allow optimizations to assume the arguments and result
+            are not NaN. Such optimizations are required to retain defined behavior
+            over NaNs, but the value of the result is undefined.
+      ninf: No Infs - Allow optimizations to assume the arguments and result are
+            not +/-Inf. Such optimizations are required to retain defined behavior
+            over +/-Inf, but the value of the result is undefined.
+      nsz:  No Signed Zeros - Allow optimizations to treat the sign of a zero
+            argument or result as insignificant.
+      arcp: Allow Reciprocal - Allow optimizations to use the reciprocal of an
+            argument rather than perform division.
+      fast: Fast - Allow algebraically equivalent transformations that may
+            dramatically change results in floating point (e.g. reassociate).
+            This flag implies all the others. 
+    */
     syntax FastMathFlag ::= "fast" | "nnan" | "ninf" | "nsz" | "arcp"
     syntax FastMathFlags ::= List{FastMathFlag," "}
 
-    //define the arithmetic operators, logical and cast operators
+    /*@
+      The two arguments to the these instructions must be integer or vector
+      of integer values. Both arguments must have identical types.
+    */
     syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
-    syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr" 
+
+    /*@
+      The two arguments to the these instructions must be integer
+      or vector of integer values. Both arguments must have identical types.
+      If the exact keyword is present, the result value of them is a poison
+      value if %op1 is not a multiple of %op2 (as such,
+      “((a udiv exact b) mul b) == a”).
+    */
+    syntax DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr"
+
+    /*@
+      The two arguments to the these instructions must be floating
+      point or vector of floating point values. Both arguments
+      must have identical types.
+      This instruction can also take any number of fast-math flags,
+      which are optimization hints to enable otherwise unsafe floating
+      point optimizations.
+    */
     syntax FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
+
+    /*@
+      The two arguments to the ‘urem‘ instruction must be integer or vector
+      of integer values. Both arguments must have identical types.
+    */
     syntax ArithmeticOps ::= "urem" | "srem"
+
+    /*@
+      Binary operators are used to do most of the computation in a program.
+      They require two operands of the same type, execute an operation on them,
+      and produce a single value. The operands might represent multiple data,
+      as is the case with the vector data type. The result value has the same
+      type as its operands.
+    */
     syntax BinaryOps ::= IntConstructors OptNW
                       | DivConstructors OptExact
                       | FloatOps FastMathFlags
                       | ArithmeticOps
 
+    /*@
+      The two arguments to the ‘xor‘ instruction must be integer or vector
+      of integer values. Both arguments must have identical types.
+      The ‘and‘ instruction returns the bitwise logical and of its two operands.
+      The ‘or‘ instruction returns the bitwise logical inclusive or of its
+      two operands.
+      The ‘xor‘ instruction returns the bitwise logical exclusive
+      or of its two operands. The xor is used to implement the “one’s complement”
+      operation, which is the “~” operator in C.
+    */
     syntax LogicalOps ::= "and" | "or" | "xor"
+
+    /*@
+      The instructions in this category are the conversion instructions (casting)
+      which all take a single operand and a type. They perform various bit
+      conversions on the operand.
+    */
     syntax CastOps ::= "trunc" | "zext" | "sext" | "fptrunc"
                      | "fpext" | "bitcast" | "uitofp" | "sitofp"
                      | "fptoui" | "fptosi" | "inttoptr"
                      | "addrspacecast" | "ptrtoint"
 
-    //define the predicates
+    /*@
+      The ‘icmp‘ instruction returns a boolean value or a vector of boolean
+      values based on comparison of its two integer, integer vector, pointer,
+      or pointer vector operands.
+      The ‘icmp‘ instruction takes three operands. The first operand is
+      the condition code indicating the kind of comparison to perform.
+      It is not a value, just a keyword. The possible condition code are:
+
+         eq: equal
+         ne: not equal
+         ugt: unsigned greater than
+         uge: unsigned greater or equal
+         ult: unsigned less than
+         ule: unsigned less or equal
+         sgt: signed greater than
+         sge: signed greater or equal
+         slt: signed less than
+         sle: signed less or equal
+
+      The remaining two arguments must be integer or pointer or integer
+      vector typed. They must also be identical types.
+    */
     syntax IPredicate ::= "eq" | "ne" | "slt" | "sgt" | "sle"
                          | "sge" | "ult" | "ugt" | "ule" | "uge"
+
+    /*@
+      The ‘fcmp‘ instruction returns a boolean value or vector of boolean
+      values based on comparison of its operands.
+      If the operands are floating point scalars, then the result type
+      is a boolean (i1).
+      If the operands are floating point vectors, then the result type is
+      a vector of boolean with the same number of elements as the operands
+      being compared.
+    */
     syntax FPredicate ::= "oeq" | "one" | "olt" | "ogt" | "ole" 
                          | "oge" | "ord" | "uno" | "ueq" | "une"
                          | "ult" | "ugt" | "ule" | "uge" | Bool
 
-    //define alias linkage key words
-    //define the Internal Linkage key words for global value and function declaration
-    syntax NonExternalLinkage ::= "private" | "internal" | "weak" | "weak_odr"  | "common"
-                                | "linkonce" | "linkonce_odr" | "available_externally"
-                                | "appending" | "linker_private" | "linker_private_weak"
-                                | "" [klabel('nonExternalLinkageEmpty),onlyLabel]
 
-    //define the External Linkage key words for global value and function declaration
-    syntax ExternalLinkage ::= "extern_weak" | "external"
-    syntax OptLinkage ::= NonExternalLinkage | ExternalLinkage
-
-    //define Global value visibility style key words
-    //which is the same as the opt_visibility sort in Trevor Jim's LLVM YACC parser
-    syntax OptVisibilityStyle ::= "default" | "hidden" | "protected"
-                               | "" [klabel('visibilityEmpty),onlyLabel]
 
     //define the attributes for Dll storage class in LLVM.
     syntax OptDllStorageClass ::= "dllimport" | "dllexport"
@@ -234,6 +489,13 @@ module LLVM-SYNTAX
                            | "!" #String
                            | "!" "(" IndexList ")"
 
+    /*
+      Constant expressions are used to allow expressions involving other
+      constants to be used as constants. Constant expressions may be of
+      any first class type and may involve any LLVM operation that does
+      not have side effects (e.g. load and call are not supported).
+      The following is the syntax for constant expressions.
+    */
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
     syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"
                       | BinaryOps(ResolvedVal, ResolvedVal)

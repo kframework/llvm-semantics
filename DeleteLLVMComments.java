@@ -1,5 +1,9 @@
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.util.Scanner;
 
 // Copyright (c) 2015 K Team. All Rights Reserved.
@@ -13,11 +17,12 @@ public class DeleteLLVMComments {
      * This step is needed due to a limitation of the current K parser,
      * which cannot parse LLVM comments, and it
      * will be eliminated as soon as the K parser is fixed.
+     * @throws InterruptedException 
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) throws InterruptedException {
         
-    	if(args.length == 0){
-    		System.err.println("Haven't specified the input program.");
+        if(args.length == 0){
+            System.err.println("Haven't specified the input program.");
         }
         String fileName = args[0];
         File llvmFile = new File(fileName);
@@ -40,7 +45,7 @@ public class DeleteLLVMComments {
                 while(scanner.hasNextLine()){
                     String currentLine = scanner.nextLine();
                     for(int i = 0; i < currentLine.length(); ++i){
-                    	char currentChar = currentLine.charAt(i);
+                        char currentChar = currentLine.charAt(i);
                         if(currentChar == '"'){
                             isInQuoteBlock = ! isInQuoteBlock;
                         } else if(!isInQuoteBlock
@@ -59,8 +64,38 @@ public class DeleteLLVMComments {
         }
         else {//if input file doesn't exist.
               System.err.println("Input test file " +
-              		"is not a file or does not exist.");
+                      "is not a file or does not exist.");
         }
-		System.out.println(newPrintLine);
+        File output = new File(fileName+".temp");
+        PrintWriter printWriter = null;
+        try {
+            printWriter = new PrintWriter(output);
+        } catch (FileNotFoundException e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+        printWriter.print(newPrintLine);
+        printWriter.close();
+        Process p = null;
+        try {
+            p = Runtime.getRuntime().exec(new String[]{"/bin/sh", "-c", "\"kast "+fileName+".temp\""});
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        p.waitFor();
+     
+        BufferedReader reader = 
+             new BufferedReader(new InputStreamReader(p.getInputStream()));
+     
+        String line = "";            
+        try {
+            while ((line = reader.readLine())!= null) {
+                System.out.println(line);
+            }
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
     }
 }

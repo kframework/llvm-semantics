@@ -1216,6 +1216,472 @@ module LLVM-SYNTAX
 
     syntax Module ::= List{Definition," "}
 
-    configuration <k> $PGM:Module </k>
+endmodule
 
+
+module LLVM-ABSTRACTSYNTAX
+    imports LLVM-SYNTAX
+
+    syntax KResult ::= Int | String | Float
+                      | arrayValue(KList)
+                      | Loc
+                      | IntegerType(K)
+                      | PointerType(K, K) //type, address space
+                      | ArrayTypeValue(K, K)
+                      | StructTypeValue(K)
+                      | listK(KList)  [latex({#1})]
+
+    syntax NonVoidType ::= ArrayType(K, K) [strict] // inner type, length
+                         | StructType(K) [strict]
+
+    rule [ I:UnsignedInt x T:Type ] => ArrayType(
+                                    String2Int(#tokenToString(I)),T) [macro]
+    rule T:Type A:OptAddrSpace * => PointerType(T, A) [macro]
+    rule { Ts:TypeList } => StructType(Ts) [macro]
+    rule < { Ts:TypeList } > => StructType(Ts) [macro]
+
+    //change IntType from LLVM syntax to K rule syntax
+    rule I:IntType => IntegerType(String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I))))) [macro]
+
+    syntax Loc ::= loc(Int, Int)    // TODO [semantic]
+    syntax Loc ::= funptr(K)
+
+    syntax Nat ::= ptrByte(K, K) // address, byteNumber; part of a pointer, as a byte
+    syntax Nat ::= floatByte(K, K, K) // float, type, byte number
+    rule isNat(ptrByte(_, _)) => true
+    rule isNat(floatByte(_, _, _)) => true
+
+    syntax KItem ::= "debug" // TODO [semantic]
+    syntax KItem ::= "callMain" // TODO [semantic]
+    syntax KItem ::= "initGlobals" // TODO [semantic]
+
+    syntax SymbolicValueRef ::= Name(#String)
+
+    syntax KItem ::= theDefinition(K,K) [strict]
+    syntax KItem ::= INotEq(K, K, K) [strict] // type, left op, right op
+    syntax KItem ::= IEq(K, K, K) [strict]
+    syntax KItem ::= UGT(K, K, K) [strict]
+    syntax KItem ::= UGE(K, K, K) [strict]
+    syntax KItem ::= ULT(K, K, K) [strict]
+    syntax KItem ::= ULE(K, K, K) [strict]
+    syntax KItem ::= SGT(K, K, K) [strict]
+    syntax KItem ::= SGE(K, K, K) [strict]
+    syntax KItem ::= SLT(K, K, K) [strict]
+    syntax KItem ::= SLE(K, K, K) [strict]
+
+    syntax KItem ::= OEQ(K, K, K) [strict]
+    syntax KItem ::= OGT(K, K, K) [strict]
+    syntax KItem ::= OGE(K, K, K) [strict]
+    syntax KItem ::= OLT(K, K, K) [strict]
+    syntax KItem ::= OLE(K, K, K) [strict]
+    syntax KItem ::= ONE(K, K, K) [strict]
+    syntax KItem ::= ORD(K, K, K) [strict]
+    syntax KItem ::= UNE(K, K, K) [strict]
+    //syntax LLVM ::= UNE(K, K, K) [strict]
+    syntax KItem ::= UNO(K, K, K) [strict]
+    syntax KItem ::= UEQ(K, K, K) [strict]
+
+endmodule
+
+module LLVM-SETTINGS
+    imports LLVM-ABSTRACTSYNTAX
+
+    syntax Int ::= "numBitsPerByte" [function]
+    rule numBitsPerByte => 8
+
+    syntax Int ::= "numBytesPerPointer" [function]
+    rule numBytesPerPointer => 4
+endmodule
+
+module LLVM-HELPERS
+    imports LLVM-SETTINGS
+
+    syntax KList ::= StringToKList(String) [function]
+    rule StringToKList("") => .KList
+    rule
+        StringToKList(S:String)
+            => String2Char(substrString(S:String, 0, 1))
+            ,, StringToKList(substrString(S:String, 1, lengthString(S:String)))
+        when S:String =/=String ""
+
+
+    // TODO many possible errors will slip by with this, but lots of stuff will work
+    rule null<:ConstValueRef => loc(-1, 0) [anywhere]
+
+    syntax Int ::= base(Loc)
+    rule base(loc(Base:Int, _)) => Base:Int
+    
+    syntax Int ::= offset(Loc)
+    rule offset(loc(_, Offset:Int)) => Offset:Int
+    
+    syntax Loc ::= Loc "+" Int
+    // TODO not checking for null
+    
+    rule loc(Base:Int, Offset:Int) + Offset':Int
+            => loc(Base:Int, Offset:Int +Int Offset':Int)
+
+    syntax KItem ::= splitBytes(K, K) // value, type
+    syntax KItem ::= joinBytes(K, K) [strict(1)]
+
+    syntax Nat ::= wvalist(List, K)
+    rule isNat(wvalist(_, _)) => true
+
+    syntax KItem ::= "byteType" [function]
+    rule byteType => IntegerType(numBitsPerByte)
+
+    syntax KItem ::= i(K) [function]//[latex "i({#1})"]
+    rule i(N:Int) => IntegerType(N)
+
+    syntax Int ::= sizeofInBits(K) [function]
+
+    syntax Loc ::= intToPtr(K, K)
+    syntax Int ::= ptrToInt(K, K)
+    syntax KItem ::= read(K, K) [strict(1)]
+    syntax KItem ::= write(K, K, K) [strict] // type, value, location
+
+    syntax Kitem ::= innerType(K) [function]
+    rule innerType(PointerType(K:K, _)) => K:K
+    rule innerType(ArrayType(K:K, _)) => K:K
+
+    // these give the two's complement signed max and min of a type
+    syntax Int ::= smax(K) [function]
+    syntax Int ::= smin(K) [function]
+    rule smax(Type:KResult) => (2 ^Int absInt(sizeofInBits(Type) -Int 1)) -Int 1
+    rule smin(Type:KResult) => 0 -Int (2 ^Int absInt(sizeofInBits(Type) -Int 1))
+
+    syntax Int ::= ufmax(K) [function]
+    syntax Int ::= ufmin(K) [function]
+    rule ufmax(Type:KResult) => (2 ^Int absInt(sizeofInBits(Type))) -Int 1
+    rule ufmin(Type:KResult) => 0
+
+    // should be a K, but builtins can't use K :(
+    // declare signed : K K -> Nat // type, value
+    syntax Nat ::= signed(K, K)
+    rule isNat(signed(_, _)) => true
+
+    // case when in bounds
+    rule signed(Type:KResult, I:Int) => I
+        when smin(Type) <=Int I andBool smax(Type) >=Int I
+
+    // this reduces it to be close
+    rule signed(Type:KResult, I:Int)
+            => signed(Type:KResult, I %Int (ufmax(Type) +Int 1))
+        when I >Int ufmax(Type) // note umax here
+    // this picks up any extra distance
+    rule signed(Type:KResult, I:Int)
+            => I -Int (ufmax(Type) +Int 1)
+        when I >Int smax(Type) andBool I <=Int ufmax(Type)
+
+    // same as above
+    rule signed(Type:KResult, I:Int)
+            => signed(Type:KResult, I %Int (ufmax(Type) +Int 1))
+        when I <Int 0 -Int ufmax(Type)
+    rule signed(Type:KResult, I:Int)
+            => I +Int (ufmax(Type) +Int 1)
+        when I <Int smin(Type) andBool I >=Int 0 -Int ufmax(Type)
+
+
+    // computes the positive remainder, whereas % can returns a negative number
+    // TODO maybe should go in pl builtins
+    syntax Int ::= K "remInt" K [function]
+    rule (I:Int remInt N:Int) => ((I %Int N) +Int N) %Int N
+
+    // declare unsigned : K K -> Nat // type, value
+    syntax Nat ::= unsigned(K, K)
+    rule isNat(unsigned(_, _)) => true
+
+    rule unsigned(Type:KResult, N:Int) => N
+        when ufmin(Type) <=Int N andBool ufmax(Type) >=Int N
+    rule unsigned(Type:KResult, I:Int) => I remInt (ufmax(Type) +Int 1)
+        when I <Int ufmin(Type)
+    rule unsigned(Type:KResult, N:Int) => N %Int (ufmax(Type) +Int 1)
+        when N >Int ufmax(Type)
+
+    syntax Bool ::= isIntegerType(K) [function]
+    rule isIntegerType(IntegerType(_)) => true
+    rule isIntegerType(KLabel:KLabel(_)) => false
+        when KLabel =/=KLabel 'IntegerType
+
+    syntax Bool ::= isFloatType(K) [function]
+    rule isFloatType(F:FPType) => true
+    rule isFloatType(x86_mmx) => true
+
+    syntax Bool ::= isPointerType(K) [function]
+    rule isPointerType(PointerType(_, _)) => true
+
+    syntax Bool ::= isArrayType(K) [function]
+    rule isArrayType(ArrayType(_, _)) => true
+
+    syntax Bool ::= isStructType(K)
+    rule isStructType(StructType(_)) => true
+
+    // fixme size should depend on architecture
+    rule sizeofInBits(PointerType(_, _)) => numBytesPerPointer *Int numBitsPerByte
+    rule sizeofInBits(ArrayType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
+
+    rule sizeofInBits(IntegerType(N:Int)) => N
+    rule sizeofInBits(FloatType) => 32
+    rule sizeofInBits(DoubleType) => 64
+    rule sizeofInBits(X86FP80Type) => 80
+    // TODO listK should be Fields (bug in K)
+    rule sizeofInBits(StructType(listK((Type:KResult,, L:KList))))
+      => sizeofInBits(Type) +Int sizeofInBits(StructType(listK(L)))
+    rule sizeofInBits(StructType(listK(.KList))) => 0
+
+    syntax Int ::= sizeof(K) [function]
+    rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
+        when numBitsPerByte dividesInt sizeofInBits(Type)
+
+    syntax KItem ::= zeroOfType(K)
+    rule zeroOfType(Type:KResult) => 0
+        when isIntegerType(Type)
+
+
+    syntax KList ::= K "copiesOf" KList [function]
+    rule N:Int copiesOf L:KList => L,, (N:Int -Int 1 copiesOf L)
+        when N:Int >Int 0
+    rule 0 copiesOf _ => .KList
+
+    // define N:Nat +Int (Offset:Nat +Int sym(Base:Nat))
+        // => (N +Int Offset) +Int sym(Base)
+
+    // define I:Int +Int (Offset:Nat +Int sym(Base:Nat))
+        // => (absInt(I +Int Offset)) +Int sym(Base)
+        // when I <Int 0 andBool I +Int Offset >=Int 0
+
+
+endmodule
+
+module LLVM-STANDARD-LIBRARY-SYNTAX
+
+    syntax KItem ::= memcpy(K, K, K, K, K)
+    syntax KItem ::= memset(K, K, K, K, K)
+
+    syntax KItem ::= lifetimeStart(K, K)
+    syntax KItem ::= lifetimeEnd(K, K)
+
+    syntax KItem ::= vaStart(K)
+    syntax KItem ::= vaCopy(K, K)
+endmodule
+
+module LLVM-SYSCALLS-SYNTAX
+
+    syntax KLabel ::= syscallHandler(K) [function]
+
+    syntax KLabel ::= "'sys-write"
+    rule syscallHandler(4) => 'sys-write
+
+    syntax KLabel ::= "'sys-getpid"
+    rule syscallHandler(20) => 'sys-getpid
+
+    syntax KLabel ::= "'sys-brk"
+    rule syscallHandler(45) => 'sys-brk
+
+    syntax KLabel ::= "'sys-ioctl"
+    rule syscallHandler(54) => 'sys-ioctl
+
+    syntax KLabel ::= "'sys-rt-sigprocmask"
+    rule syscallHandler(175) => 'sys-rt-sigprocmask
+
+    syntax KLabel ::= "'sys-gettid"
+    rule syscallHandler(224) => 'sys-gettid
+
+    syntax KLabel ::= "'sys-exit-group"
+    rule syscallHandler(248) => 'sys-exit-group
+
+    syntax KLabel ::= "'sys-tgkill"
+    rule syscallHandler(268) => 'sys-tgkill
+
+endmodule
+
+
+module LLVM-CONFIGURATION
+    imports LLVM-HELPERS
+
+    configuration
+        <T multiplicity="?">
+            <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+            <callStack color="Goldenrod"> .List </callStack>
+            <nextLoc color="gray"> loc(1, 0) </nextLoc>
+            <brk> loc(0, 0) </brk>
+            <control color="LightGoldenrod">
+                <currBlock color="Orchid"> Name("Initial") </currBlock>
+                <prevBlock color="Orchid"> Name("Initial") </prevBlock>
+                <currModule color="Orchid"> Name("Initial") </currModule>
+                <currFunction color="Orchid"> Name("Initial") </currFunction>
+                <valist> .List </valist>
+                <registers color="teal"> .Map </registers>
+                // TODO: this should eventually be a Set
+                <currentModifiers color="Orchid"> .List </currentModifiers>
+                <localMemory> .List </localMemory>
+            </control>
+            <memory color="teal" type="Map">
+                <object multiplicity="*" color="LightSkyBlue">
+                    <basePtr color="orange" type="Key"> -1 </basePtr>
+                    <type> .K </type>
+                    <size> 0 </size>
+                    <bytes> .Map </bytes>
+                </object>
+            </memory>
+            // auxiliary cells:
+            <gepInfo multiplicity="?" color="red">
+                <gepType> .K </gepType>
+                <gepResult> 0 </gepResult>
+                <gepIndices> .K </gepIndices>
+            </gepInfo>
+            <output stream="stdout" color="DodgerBlue"> .List </output>
+            <modules color="teal">
+                <module multiplicity="*" color="LightSkyBlue">
+                    <moduleName color="orange"> Name("") </moduleName>
+                    <targetLayout> "" </targetLayout>
+                    <targetTriple> "" </targetTriple>
+                    <typedefs> .Map </typedefs>
+                    <savedGlobals> .K </savedGlobals>
+                    <globalRegisters color="teal"> .Map </globalRegisters>
+                    <functions color="teal">
+                        <function multiplicity="*" color="LightSkyBlue">
+                            <functionName color="orange"> Name("") </functionName>
+                            <returnType> .K </returnType>
+                            <formalParameters> .K </formalParameters>
+                            <basicBlocks> .Map </basicBlocks>
+                            <initialBasicBlock> .K </initialBasicBlock>
+                        </function>
+                    </functions>
+                    <typeInfos color="teal">
+                        <typeInfo multiplicity="*" color="LightSkyBlue">
+                            <typeName color="orange"> Name("") </typeName>
+                            <offsets> .Map </offsets>
+                        </typeInfo>
+                    </typeInfos>
+                </module>
+            </modules>
+        </T>
+        <result multiplicity="?" color="DodgerBlue">
+            <returnValue> -1 </returnValue>
+        </result>
+
+endmodule
+
+/* this module gets included by all later modules */
+module LLVM-INCLUDE
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+endmodule
+
+/* this module contains rules for cleaning up the AST */
+module LLVM-CLEAN-TREE
+    imports LLVM-INCLUDE
+
+/*
+    rule <k> Operand(Type:KResult, I:Int) => signed(Type, I) ...</k>
+        when isIntegerType(Type)
+    rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
+        when notBool isIntegerType(Type)
+    // rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
+
+    rule GlobalVariables(L:List{K}) => List{K}ToK(L)  [anywhere]
+    rule Functions(L:List{K}) => List{K}ToK(L)        [anywhere]
+    rule Typedefs(L:List{K}) => List{K}ToK(L)         [anywhere]
+    rule <k> Aliases(L:List{K}) => List{K}ToK(L) ...</k>
+    //rule Body(L:List{K}) => List{K}ToK(L)
+    rule Instructions(L:List{K}) => List{K}ToK(L)     [anywhere]
+    rule ModuleID(S:String) => Name(S)               [anywhere]
+    rule Values(K:K) => K                              [anywhere]
+    rule Br(K:K) => K:K                               [anywhere]
+    rule ReturnType(K:K) => K [anywhere]
+*/
+
+    rule icmp ne T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(INotEq(T, V, V'),I)
+    rule icmp eq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(IEq(T, V, V'),I)
+    rule icmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGT(T, V, V'),I)
+    rule icmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGE(T, V, V'),I)
+    rule icmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULT(T, V, V'),I)
+    rule icmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULE(T, V, V'),I)
+    rule icmp sgt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SGT(T, V, V'),I)
+    rule icmp sge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SGE(T, V, V'),I)
+    rule icmp slt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SLT(T, V, V'),I)
+    rule icmp sle T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SLE(T, V, V'),I)
+
+    rule fcmp false _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
+         => theDefinition(0,I)
+    rule fcmp true _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
+         => theDefinition(1,I)
+    rule fcmp oeq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OEQ(T, V, V'),I)
+    rule fcmp ogt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OGT(T, V, V'),I)
+    rule fcmp oge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OGE(T, V, V'),I)
+    rule fcmp olt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OLT(T, V, V'),I)
+    rule fcmp ole T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OLE(T, V, V'),I)
+    rule fcmp one T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ONE(T, V, V'),I)
+    rule fcmp ord T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ORD(T, V, V'),I)
+    rule fcmp ueq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UEQ(T, V, V'),I)
+    rule fcmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGT(T, V, V'),I)
+    rule fcmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGE(T, V, V'),I)
+    rule fcmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULT(T, V, V'),I)
+    rule fcmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULE(T, V, V'),I)
+    rule fcmp une T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UNE(T, V, V'),I)
+    rule fcmp uno T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UNO(T, V, V'),I)
+
+/*
+    rule
+        <k> Instruction(Modifiers(L:List{K}), K:K) => K ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+
+    rule
+        <k> ConstantExpr(Modifiers(L:List{K}), K:K) => K ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+*/
+endmodule
+
+module LLVM-GLOBALS
+    imports LLVM-INCLUDE
+
+    syntax KItem ::= preInit(K, K, K) [strict(2)]
+
+     rule
+        <k> GlobalVariable(X:Id, Modifiers(L:KList), PointerType(TyK:K), Init:K)
+            => preInit(X, Alloca(TyK:K, 1), Init:K)
+        ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+
+    rule
+        <k> preInit(X:Id, Loc:Loc, Initializer(TK:K, K:K)) => . ...</k>
+        <savedGlobals>... . => Store(TK:K, K:K, Loc) </savedGlobals>
+        <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
+
+    rule <k> initGlobals => K:K ...</k>
+        <savedGlobals> K:K => . </savedGlobals>
+
+endmodule
+
+module LLVM-SEMANTICS
+    imports LLVM-GLOBALS
+    imports LLVM-INCLUDE
+    imports LLVM-CLEAN-TREE
 endmodule

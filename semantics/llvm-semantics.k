@@ -22,7 +22,7 @@ module LLVM-SYNTAX
       Standard integers (such as ‘4’) are constants of the integer type.
       Negative numbers may be used with integer types.
     */
-    syntax HexConstant ::= Token{[0][x][0-9 a-f]*}
+    syntax HexConstant ::= Token{[u s]?[0][x][K M L]?[0-9 a-f A-F]*}
     syntax UnsignedInt ::= Token{[0-9][0-9]*}
 
 
@@ -30,7 +30,14 @@ module LLVM-SYNTAX
       Floating point constants use standard decimal notation (e.g. 123.421),
       exponential notation (e.g. 1.23421e+2), or a more precise hexadecimal notation.
     */
-    syntax FpVal ::= HexConstant | Float
+    syntax Floating ::= Token{[\+\-]?[0-9]+"."[0-9]*([eE][\+\-]?[0-9]+)?([fFdD]|([pP][0-9]+[xX][0-9]+))?}
+                 [regex("([\\+-]?[0-9]+(\\.[0-9]*)?|\\.[0-9]*)([eE][\\+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+))?([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
+    syntax Floating ::= Token{[\+\-]?"Infinity"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
+                 [regex("[\\+-]?Infinity([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
+    syntax Floating ::= Token{"NaN"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
+                 [regex("NaN([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
+    syntax Floating ::= "NaN" | "Infinity"
+    syntax FpVal ::= HexConstant | Floating
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
     syntax Strings ::= List{#String,","}
 
@@ -522,6 +529,7 @@ module LLVM-SYNTAX
                                 | "," Comdat
                                 | "," Comdat "," Align
                                 | "," "section" #String "," Align
+                                | "," Align "," "section" #String
                                 | "," "section" #String "," Comdat
                                 | "," "section" #String "," Comdat "," Align
 
@@ -867,9 +875,12 @@ module LLVM-SYNTAX
                            | "!" UnsignedInt
                            | "!" #String
                            | "!" "(" IndexList ")"
+                           | "!" "{" MetadataValues "}"
     //define the values that appear in a metadata list
     syntax MetadataValue ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
-    syntax MetadataValues ::= List{MetadataValue," "}
+                           | "!" #String
+                           | Index
+    syntax MetadataValues ::= List{MetadataValue,","}
 
 
     /*@
@@ -881,8 +892,8 @@ module LLVM-SYNTAX
     */
     syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
     syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"
-                      | BinaryOps(ResolvedVal, ResolvedVal)
-                      | LogicalOps(ResolvedVal, ResolvedVal)
+                      | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
+                      | LogicalOps "(" ResolvedVal "," ResolvedVal ")"
                       | blockaddress(ValueRef, ValueRef)
                       | "icmp" IPredicate "(" ResolvedVal "," ResolvedVal ")"
                       | "fcmp" FPredicate "(" ResolvedVal "," ResolvedVal ")"
@@ -1054,7 +1065,7 @@ module LLVM-SYNTAX
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
                        "(" ParamList ")" FuncAttrs InstructionMetadatas
-                     | "alloca" OptInalloca AllocMetadata
+                     | "alloca" OptInalloca AllocMetadata InstructionMetadatas
                      | "load" OptAtomic OptVolatile ResolvedVal
                        OptScopeOrder "," OptAlign InstructionMetadatas
                      | "load" OptAtomic OptVolatile ResolvedVal
@@ -1159,7 +1170,7 @@ module LLVM-SYNTAX
       an optional prefix, an optional prologue, an opening curly brace, a list of basic blocks,
       and a closing curly brace.
     */
-    syntax Function ::= OptLinkage OptVisibilityStyle FunctionHeader "{" BasicBlockList "}"
+    syntax Function ::= OptLinkage OptVisibilityStyle OptDllStorageClass FunctionHeader "{" BasicBlockList "}"
 
 
     /*@
@@ -1183,6 +1194,14 @@ module LLVM-SYNTAX
                           OptUnnamedAddr OptExternallyInitialized GlobalType
                           Type OptSectionComdatAndAlign
                         | GlobalAssign NonExternalLinkage OptVisibilityStyle
+                          OptDllStorageClass OptThreadLocal OptAddrSpace
+                          OptUnnamedAddr OptExternallyInitialized GlobalType
+                          Type ValueRef OptSectionComdatAndAlign
+                        | ExternalLinkage OptVisibilityStyle
+                          OptDllStorageClass OptThreadLocal OptAddrSpace
+                          OptUnnamedAddr OptExternallyInitialized GlobalType
+                          Type OptSectionComdatAndAlign
+                        | NonExternalLinkage OptVisibilityStyle
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
                           Type ValueRef OptSectionComdatAndAlign
@@ -1640,7 +1659,29 @@ module LLVM-CLEAN-TREE
 */
 endmodule
 
+module LLVM-GLOBALS
+    imports LLVM-INCLUDE
+
+    syntax KItem ::= preInit(K, K, K) [strict(2)]
+
+     rule
+        <k> GlobalVariable(X:Id, Modifiers(L:KList), PointerType(TyK:K), Init:K)
+            => preInit(X, Alloca(TyK:K, 1), Init:K)
+        ...</k>
+        <currentModifiers> _ => List(L) </currentModifiers>
+
+    rule
+        <k> preInit(X:Id, Loc:Loc, Initializer(TK:K, K:K)) => . ...</k>
+        <savedGlobals>... . => Store(TK:K, K:K, Loc) </savedGlobals>
+        <globalRegisters> M:Map => M[Loc/X] </globalRegisters>
+
+    rule <k> initGlobals => K:K ...</k>
+        <savedGlobals> K:K => . </savedGlobals>
+
+endmodule
+
 module LLVM-SEMANTICS
+    imports LLVM-GLOBALS
     imports LLVM-INCLUDE
     imports LLVM-CLEAN-TREE
 endmodule

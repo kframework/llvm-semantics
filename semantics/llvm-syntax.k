@@ -22,8 +22,8 @@ module LLVM-SYNTAX
       Standard integers (such as ‘4’) are constants of the integer type.
       Negative numbers may be used with integer types.
     */
-    syntax HexConstant ::= Token{[u s]?[0][x][K M L]?[0-9 a-f A-F]*}
-    syntax UnsignedInt ::= Token{[0-9][0-9]*}
+    syntax HexConstant ::= Token{[u s]?[0][x][K M L]?[0-9 a-f A-F]*} [onlyLabel]
+    syntax UnsignedInt ::= Token{[0-9][0-9]*} [onlyLabel]
 
 
     /*@
@@ -31,11 +31,14 @@ module LLVM-SYNTAX
       exponential notation (e.g. 1.23421e+2), or a more precise hexadecimal notation.
     */
     syntax Floating ::= Token{[\+\-]?[0-9]+"."[0-9]*([eE][\+\-]?[0-9]+)?([fFdD]|([pP][0-9]+[xX][0-9]+))?}
-                 [regex("([\\+-]?[0-9]+(\\.[0-9]*)?|\\.[0-9]*)([eE][\\+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+))?([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
+                         [onlyLabel]
+                 //[regex("([\\+-]?[0-9]+(\\.[0-9]*)?|\\.[0-9]*)([eE][\\+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+))?([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
     syntax Floating ::= Token{[\+\-]?"Infinity"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
-                 [regex("[\\+-]?Infinity([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
+                          [onlyLabel]
+               //  [regex("[\\+-]?Infinity([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
     syntax Floating ::= Token{"NaN"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
-                 [regex("NaN([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
+                          [onlyLabel]
+                // [regex("NaN([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
     syntax Floating ::= "NaN" | "Infinity"
     syntax FpVal ::= HexConstant | Floating
     syntax #String ::= Token{[\"] (~[\"])* [\"]}
@@ -60,13 +63,15 @@ module LLVM-SYNTAX
            with their prefix. For example, %12, @2, %44.
         3, Constants, which are described in the section ConstValueRef below.
     */
-    syntax LocalValID ::= Token{[\%][0-9]+}
+    syntax LocalValID ::= Token{[\%][0-9]+} [onlyLabel]
     syntax LocalVar ::=  Token{[\%][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
-    syntax LocalVar ::= Token{[\%][\"] (~[\"])* [\"]}
+                         [onlyLabel]
+    syntax LocalVar ::= Token{[\%][\"] (~[\"])* [\"]} [onlyLabel]
 
-    syntax GlobalValID ::= Token{[\@][0-9]+}
+    syntax GlobalValID ::= Token{[\@][0-9]+} [onlyLabel]
     syntax GlobalVar ::= Token{[\@][a-z A-Z \. \_ \- \$][0-9 a-z A-Z \. \_ \- \$]*}
-    syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]}
+                         [onlyLabel]
+    syntax GlobalVar ::= Token{[\@][\"] (~[\"])* [\"]} [onlyLabel]
 
     syntax LocalName ::= LocalVar | LocalValID
     syntax LocalAssign ::= LocalName "="
@@ -74,14 +79,15 @@ module LLVM-SYNTAX
     syntax GlobalAssign ::= GlobalName "="
 
     //Label names are the ids for entry basic blocks.
-    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]}
-    syntax LabelStringConstant ::= Token{[\"] (~[\"])* [\"][\:]}
+    syntax LabelStringConstant ::= Token{[a-z A-Z \. \_ \- \$ 0-9]*[\:]} [onlyLabel]
+    syntax LabelStringConstant ::= Token{[\"] (~[\"])* [\"][\:]} [onlyLabel]
 
     //define metadata variables, attribute group ids and comdat variables.
     syntax MetadataVar ::= Token{[\!][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
-    syntax AttributeGroupId ::= Token{[\#][0-9]+}
+                           [onlyLabel]
+    syntax AttributeGroupId ::= Token{[\#][0-9]+} [onlyLabel]
     syntax ComdatVar ::= Token{[\$][a-z A-Z \. \_ \- \$ \\][0-9 a-z A-Z \. \_ \- \$ \\]*}
-                          [notInRules]
+                          [onlyLabel]
 
     /*@
       There are the primary operators.
@@ -670,7 +676,7 @@ module LLVM-SYNTAX
       The structure type is used to represent a collection of data members
       together in memory. The elements of a structure may be any type that has a size.
     */
-    syntax IntType ::= Token{[i][1-9][0-9]*}
+    syntax IntType ::= Token{[i][1-9][0-9]*} [onlyLabel]
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
                      | "x86_fp80" | "half"
     syntax PrimType ::= FPType | IntType | "label"
@@ -864,7 +870,8 @@ module LLVM-SYNTAX
     */
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
-                           | "null" | "undef" | "zeroinitializer"
+                           | "null" [klabel('nullOfConstValueRef)]
+                           | "undef" | "zeroinitializer"
                            | "<" ReturnedVal ">"
                            | "[" ReturnedVal "]"
                            | "{" ReturnedVal "}"
@@ -1034,7 +1041,7 @@ module LLVM-SYNTAX
       of instructions: terminator instructions, binary instructions, bitwise binary
       instructions, memory instructions, and other instructions.
     */
-    syntax InstructionList ::= List{Instruction," "}
+    syntax InstructionList ::= List{Instruction," "} [klabel('instList)]
     syntax Instruction ::= LocalAssign InstVal | InstVal
                          | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
                            OptScopeOrder  "," OptAlign InstructionMetadatas
@@ -1214,8 +1221,6 @@ module LLVM-SYNTAX
                         | ComdatVar "=" "comdat" SelectionKind
                         | "attributes" AttributeGroupId "=" "{" GroupAttrs "}"
 
-    syntax Module ::= List{Definition," "}
-
-    configuration <k> $PGM:Module </k>
+    syntax Module ::= List{Definition," "} [klabel('defLIst)]
 
 endmodule

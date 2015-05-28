@@ -5,13 +5,13 @@ module LLVM-ABSTRACTSYNTAX
     imports LLVM-SYNTAX
 
     syntax KResult ::= Int | #String | Floating
-                      | arrayValue(KList)
+                      | arrayValue(List)
                       | Loc
                       | integerType(K)
                       | pointerType(K, K) //type, address space
                       | arrayTypeValue(K, K)
                       | structTypeValue(K)
-                      | listK(KList)  [latex({#1})]
+                      | listK(List)  [latex({#1})]
 
     syntax Element ::= val(K) [strict]
     rule 'isKResult(val(K:K)) => true
@@ -26,6 +26,11 @@ module LLVM-ABSTRACTSYNTAX
 
     rule elemListToK(.ElemList) => .K
     rule elemListToK(val(K:K), L:ElemList) => K ~> elemListToK(L)
+
+    syntax List ::= elemListToList(ElemList) [function]
+
+    rule elemListToList(.ElemList) => .List
+    rule elemListToList(val(K:K), L:ElemList) => ListItem(K) elemListToList(L)
 
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | structType(K) [strict]
@@ -58,6 +63,18 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
+    syntax ElemList ::= "vararg"
+
+    //LLVM builtin values
+    syntax KResult ::= "NaN"
+    syntax KResult ::= "PositiveZero"
+    syntax KResult ::= "NegativeZero"
+    syntax KResult ::= "PositiveInfinity"
+    syntax KResult ::= "NegativeInfinity"
+
+    syntax KItem ::= float(#String)
+    syntax KItem ::= constantString(#String)
+    syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
     syntax KItem ::= initializer(K, K) // type, value
     syntax KItem ::= globalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
@@ -73,6 +90,20 @@ module LLVM-ABSTRACTSYNTAX
     rule 'isKResult(case(K:K, _)) => true
         when 'isKResult(K:K)
 
+    //@ Conversion Operations
+    syntax KItem ::= trunc(K, K) [strict] // type, op
+    syntax KItem ::= sExt(K, K) [strict] // type, op
+    syntax KItem ::= zExt(K, K) [strict] // oldtype, op
+    syntax KItem ::= bitCast(K, K) [strict] // type, op
+    syntax KItem ::= intToPtr(K, K) [strict] // type, op
+    syntax KItem ::= ptrToInt(K, K) [strict] // type, op
+    syntax KItem ::= fpToSI(K, K) [strict] // type, op
+    syntax KItem ::= fpToUI(K, K) [strict] // type, op
+
+    syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
+    syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
+    syntax KItem ::= ret(K) [strict]
+    syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
     syntax KItem ::= arguments(ElemList) [strict]
     syntax KItem ::= values(K)
     syntax KItem ::= phi(K, K) // type, edge list
@@ -83,6 +114,7 @@ module LLVM-ABSTRACTSYNTAX
     rule 'isKResult(callee(K:K, K':K)) => true
         when 'isKResult(K:K) andBool 'isKResult(K')
 
+    syntax KItem ::= getElementPtr(K, K, ElemList) [strict]
     syntax KItem ::= aliases(ElemList)
     syntax KItem ::= alias(K, K)
     syntax KItem ::= theModule(K, K, K, K, K, K, K)
@@ -122,6 +154,31 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= UEQ(K, K, K) [strict]
 
 
+    //@ Binary Operations
+    syntax KItem ::= theAdd(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theSub(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theMul(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theUDiv(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theSDiv(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theURem(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theSRem(K, K, K) [strict(2,3)] // Type, Left op, Right op
+
+    //@ Floating-point Binary Operations
+    syntax KItem ::= theFAdd(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFSub(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFMul(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFDiv(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFRem(K, K, K) [strict(2,3)] // Type, Left op, Right op
+
+    //@ Bitwise Binary Operations
+    syntax KItem ::= theShl(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theLShr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theAShr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theOr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theAnd(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theXor(K, K, K) [strict(2,3)] // Type, Left op, Right op
+
+
 endmodule
 
 module LLVM-SETTINGS
@@ -153,13 +210,13 @@ module LLVM-HELPERS
          => searchElemInMap(removeAll(M,SetItem(Key)),.K,Key')
          when Key =/=K Key' andBool Key =/=K .K
 
-    syntax KList ::= StringToKList(String) [function]
-    rule StringToKList("") => .KList
+    syntax List ::= StringToList(String) [function]
+    rule StringToList("") => .List
     rule
-        StringToKList(S:String)
-            => String2Char(substrString(S:String, 0, 1))
-            ,, StringToKList(substrString(S:String, 1, lengthString(S:String)))
-        when S:String =/=String ""
+        StringToList(S:#String)
+            => ListItem(String2Char(substrString(S:#String, 0, 1)))
+                StringToList(substrString(S:#String, 1, lengthString(S:#String)))
+        when S =/=String ""
 
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
@@ -191,8 +248,8 @@ module LLVM-HELPERS
 
     syntax Int ::= sizeofInBits(K) [function]
 
-    syntax Loc ::= intToPtr(K, K)
-    syntax Int ::= ptrToInt(K, K)
+    syntax Loc ::= intToPtrOfLoc(K, K)
+    syntax Int ::= ptrToIntOfLoc(K, K)
     syntax KItem ::= read(K, K) [strict(1)]
     syntax KItem ::= write(K, K, K) [strict] // type, value, location
 
@@ -281,9 +338,9 @@ module LLVM-HELPERS
     rule sizeofInBits(double) => 64
     rule sizeofInBits(x86_fp80) => 80
     // TODO listK should be Fields (bug in K)
-    rule sizeofInBits(structType(listK((Type:KResult,, L:KList))))
+    rule sizeofInBits(structType(listK((ListItem(Type:KResult) L:List))))
       => sizeofInBits(Type) +Int sizeofInBits(structType(listK(L)))
-    rule sizeofInBits(structType(listK(.KList))) => 0
+    rule sizeofInBits(structType(listK(.List))) => 0
 
     syntax Int ::= sizeof(K) [function]
     rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
@@ -294,15 +351,15 @@ module LLVM-HELPERS
         when isIntegerType(Type)
 
 
-    syntax KList ::= K "copiesOf" KList [function]
-    rule N:Int copiesOf L:KList => L,, (N:Int -Int 1 copiesOf L)
+    syntax List ::= K "copiesOf" List [function]
+    rule N:Int copiesOf L:List => L (N:Int -Int 1 copiesOf L)
         when N:Int >Int 0
-    rule 0 copiesOf _ => .KList
+    rule 0 copiesOf _ => .List
 
-    // define N:Nat +Int (Offset:Nat +Int sym(Base:Nat))
+    // define N:Int +Int (Offset:Int +Int sym(Base:Int))
         // => (N +Int Offset) +Int sym(Base)
 
-    // define I:Int +Int (Offset:Nat +Int sym(Base:Nat))
+    // define I:Int +Int (Offset:Int +Int sym(Base:Int))
         // => (absInt(I +Int Offset)) +Int sym(Base)
         // when I <Int 0 andBool I +Int Offset >=Int 0
 
@@ -361,7 +418,7 @@ module LLVM-CONFIGURATION
     configuration
         <T multiplicity="?">
             <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
-            <callStack color="Goldenrod"> .ElemList </callStack>
+            <callStack color="Goldenrod"> .List </callStack>
             <nextLoc color="gray"> loc(1, 0) </nextLoc>
             <brk> loc(0, 0) </brk>
             <control color="LightGoldenrod">
@@ -369,11 +426,11 @@ module LLVM-CONFIGURATION
                 <prevBlock color="Orchid"> name("Initial") </prevBlock>
                 <currModule color="Orchid"> name("Initial") </currModule>
                 <currFunction color="Orchid"> name("Initial") </currFunction>
-                <valist> .ElemList </valist>
+                <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
                 // TODO: this should eventually be a Set
                 <currentModifiers color="Orchid"> .ElemList </currentModifiers>
-                <localMemory> .ElemList </localMemory>
+                <localMemory> .List </localMemory>
             </control>
             <memory color="teal" type="Map">
                 <object multiplicity="*" color="LightSkyBlue">
@@ -604,11 +661,11 @@ module LLVM-BRANCHING
     // TODO put static switch information into a map like with phi nodes
     // TODO semantic design pattern: list traversal -> statically storing info and using simple rules later
     rule [switch-default]:
-        <k> switch(_, I:Int, Label:K, listK(.KList))
+        <k> switch(_, I:Int, Label:K, listK(.List))
             => unconditional(Label:K)
         </k>
     rule [switch-hit]:
-        <k> switch(Type:KResult, I:Int, _, listK((case(I':Int, Label:K),, L:KList)))
+        <k> switch(Type:KResult, I:Int, _, listK(ListItem(case(I':Int, Label:K)) L:List))
             => unconditional(Label:K)
         </k>
         when unsigned(Type, I) ==Int unsigned(Type, I')
@@ -617,7 +674,8 @@ module LLVM-BRANCHING
                 Type:KResult,
                 I:Int,
                 _,
-                listK(((case(I':Int, Label:K) => .KList),, L:KList))
+                listK(ListItem(case(I':Int, Label:K)) L:List
+                     => L)
             )
         </k>
         when unsigned(Type, I) =/=Int unsigned(Type, I')
@@ -636,14 +694,15 @@ module LLVM-PHI
 
     //change second argument of PHI from KLIst to listK(KList)
     rule
-        <k> phi(_:K, listK((edge(K':K, Label:SymbolicValueRef),, _:KList)))
+        <k> phi(_:K, listK(ListItem(edge(K':K, Label:SymbolicValueRef)) _:List))
             => K'
         ...</k>
         <prevBlock> Label </prevBlock>
 
     rule
         <k> phi(_:K,
-                 listK(((edge(K:K, Label:SymbolicValueRef) => .KList),, _:KList))) ...</k>
+                 listK(ListItem(edge(K:K, Label:SymbolicValueRef)) L:List
+                        => L)) ...</k>
         <prevBlock> Label':SymbolicValueRef </prevBlock>
         when Label =/=K Label'
 
@@ -848,6 +907,1086 @@ module LLVM-DECLARATIONS
 
 endmodule
 
+module LLVM-CALL-RET
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    syntax KItem ::= frame(K, Bag)
+    syntax KItem ::= bind(List, List)
+
+    rule <k> arguments(L:ElemList) => elemListToK(L) ...</k>
+
+    // TODO: rename tail
+    // grabbing argument names
+    // figuring out right function body (grab first bb)
+    // add frame to call stack
+    // replacing control cell with new cell
+
+    // pushframe/popframe
+    //
+    // TODO would like to use ACTUAL control cell sitting on top of the stack, but can't have cells in lists and use context transformers
+    // TODO would like to use ACTUAL control cell sitting on top of the stack, but can't have cells in lists and use context transformers
+    // TODO bind term to variable even if term has inner rewrites
+    // TODO ... on RHS to reset cell
+    // TODO assuming single module
+
+    // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
+
+    rule
+        <k> call(_, callee(funptr(FunName:SymbolicValueRef), listK(Args:List))) ~> Tail:K
+            => contextSwitch(FunName, Tail)
+            ~> bind(Args, elemListToList(Formals))
+            ~> Body
+        </k>
+        <module>...
+            <functionName> FunName </functionName>
+            <formalParameters> arguments(Formals:ElemList) </formalParameters>
+            <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
+            <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
+        ...</module>
+        [large]
+
+    syntax KItem ::= contextSwitch(K, K)
+
+    rule
+        <k> contextSwitch(FunName, Tail) => .K ...</k>
+        (<control>
+            C:Bag
+        </control> =>
+        <control>...
+            <currFunction> FunName:SymbolicValueRef </currFunction>
+        ...</control>)
+        <callStack> .List => ListItem(frame(Tail, C)) ...</callStack>
+
+
+    // TODO perhaps a pattern: turning a list of pairs into a map
+
+    // might need a way to convert nonmatching types here?  depends on semantics
+    rule
+        <k> bind((ListItem(Arg:K) Args:List), (ListItem(arg(_, _, Formal:K)) Formals:List))
+            => assign(Formal, Arg)
+            ~> bind(Args, Formals)
+        ...</k>
+    rule
+        <k> bind(.List, .List) => . ...</k>
+
+    rule
+        <k> bind((ListItem(Arg:K) L:List
+                  => L), ListItem(vararg)) ...</k>
+        <valist>... .List => ListItem(Arg) </valist>
+
+    rule
+        <k> bind(.List, ListItem(vararg)) => .K ...</k>
+
+    // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
+    syntax KItem ::= "clearVoid"
+    syntax KItem ::= clearLocalMemory(List)
+
+    // TODO rename Tail
+    rule
+        <k> ret(V:KResult) ~> _
+            => clearLocalMemory(Locals)
+            ~> V ~> clearVoid
+            ~> Tail
+        </k>
+        <callStack> ListItem(frame(Tail:K, C:Bag)) => .List ...</callStack>
+        <control> <localMemory> Locals:List </localMemory> _ => C </control>
+
+    rule
+        <k> clearLocalMemory((ListItem(Base:Int) => .List) _) ...</k>
+        (<object>... <basePtr> Base:Int </basePtr> ...</object> => .)
+
+    rule clearLocalMemory(.List) => .K
+
+    rule void ~> clearVoid => .K
+    rule V:KResult ~> clearVoid => V
+         when V =/=K void
+
+endmodule
+
+module LLVM-VARIADICS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    syntax KItem ::= valist(List, K)
+    syntax KItem ::= vaArg(K, K, K) [strict]
+
+    rule
+        <k> theVAArg(Type:KResult, Loc:Loc) => vaArg(Type, Loc, read(i(numBitsPerByte), Loc)) ...</k>
+
+    rule
+        <k> vaArg(Type, Loc:Loc, wvalist((ListItem(K:K) VAList:List), _))
+            => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc)
+            ~> K
+        ...</k>
+
+    // TODO a really sketchy rule:
+    rule
+        0 |Int wvalist(VAList:List, Loc:Loc)
+            => wvalist(VAList:List, Loc:Loc)
+        [anywhere]
+
+
+endmodule
+
+module LLVM-ARITHMETIC
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    rule [add]:
+        <k> theAdd(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, I1 +Int I2)
+        ...</k>
+    rule
+        <k> theSub(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, I1 -Int I2)
+        ...</k>
+    rule
+        <k> theMul(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, I1 *Int I2)
+        ...</k>
+    rule
+        <k> theSDiv(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))
+        ...</k>
+        when signed(Type, I2) =/=Int 0 // catch undefined
+    rule
+        <k> theUDiv(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, (unsigned(Type, I1) /Int unsigned(Type, I2)))
+        ...</k>
+        when unsigned(Type, I2) =/=Int 0 // catch undefined
+    rule
+        <k> theSRem(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, (signed(Type, I1) %Int signed(Type, I2)))
+        ...</k>
+        when signed(Type, I2) =/=Int 0 // catch undefined
+    rule
+        <k> theURem(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, (unsigned(Type, I1) %Int unsigned(Type, I2)))
+        ...</k>
+        when unsigned(Type, I2) =/=Int 0 // catch undefined
+
+    rule
+        <k> theShl(Type:KResult, I:Int, Len:Int)
+            => signed(Type, I <<Int Len)
+        ...</k>
+        when Len >=Int 0
+    rule
+        <k> theLShr(Type:KResult, I:Int, Len:Int)
+            => signed(Type, unsigned(Type, I) >>Int Len)
+        ...</k>
+        when Len >=Int 0
+    rule
+        <k> theAShr(Type:KResult, I:Int, Len:Int)
+            => signed(Type, signed(Type, I:Int) >>Int Len)
+        ...</k>
+        when Len >=Int 0
+    rule
+        <k> theOr(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, I1 |Int I2)
+        ...</k>
+    rule
+        <k> theAnd(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, I1 &Int I2)
+        ...</k>
+    rule
+        <k> theXor(Type:KResult, I1:Int, I2:Int)
+            => signed(Type, I1 xorInt I2)
+        ...</k>
+
+
+    // weave into add
+        // checkNSW(unsign(I1) +Int unsign(I2), Type)
+        // ~> checkNUW(sign(I1) +Int sign(I2), Type)
+    // before RHS
+
+endmodule
+
+module LLVM-FLOATING-POINT-ARITHMETIC
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    rule
+        <k> theFAdd(Type:KResult, F1:Float, F2:Float)
+            => F1 +Float F2
+        ...</k>
+
+    rule
+        <k> theFSub(Type:KResult, F1:Float, F2:Float)
+            => F1 -Float F2
+        ...</k>
+
+    rule
+        <k> theFMul(Type:KResult, F1:Float, F2:Float)
+            => F1 *Float F2
+        ...</k>
+
+    // TODO incorrect since NaN * 0 = NaN
+    rule theFMul(_, F:#Float, PositiveZero) => 0.0
+
+endmodule
+
+module LLVM-GEP
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    syntax KItem ::= "gep"
+
+    // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
+    rule
+        <k> getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
+            => Type ~> gep
+        ...</k>
+        (. =>
+            <gepInfo>...
+                // <gepType> Type </gepType>
+                <gepResult> PtrVal </gepResult>
+                <gepIndices> elemListToK(Indices) </gepIndices>
+            ...</gepInfo>
+        )
+
+    rule
+        <k> _:KResult ~> gep => Loc ...</k>
+        (
+            <gepInfo>...
+                <gepIndices> .K </gepIndices>
+                <gepResult> Loc:Loc </gepResult>
+            ...</gepInfo>
+            => .
+        )
+
+    // rule <gepType> Type:KResult => Type </gepType>
+
+    // TODO this is pretty ugly
+    // these rules make sure the body of a pointer type is a result
+    syntax KItem ::= "typing"
+    syntax KItem ::= evalPointerType(K, K) [strict(1)]
+    
+    rule pointerType(T:K, A:K) ~> gep => evalPointerType(T, A) ~> gep
+         when notBool 'isKResult(T)
+
+    rule evalPointerType(T:KResult, A:K) => pointerType(T, A)
+
+    rule
+        <k> pointerType(Type:KResult, _:K) => Type ...</k>
+        <gepIndices> I:Int => . ...</gepIndices>
+        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
+
+    rule
+        <k> arrayType(Type:KResult, _) => Type ...</k>
+        <gepIndices> N:Int => . ...</gepIndices>
+        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int N) </gepResult>
+        when N >=Int 0
+
+    // WARNING TODO: _ may match more than one result (ask Traian)
+    rule
+        <k> structType(listK(ListItem(Type:KResult) L:List => L)) ...</k>
+        <gepIndices> N:Int => N -Int 1 ...</gepIndices>
+        <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
+        when N >Int 0
+
+    rule
+        <k> structType(listK(ListItem(Type:KResult) L:List)) => Type ...</k>
+        <gepIndices> 0 => . ...</gepIndices>
+
+endmodule
+
+module LLVM-HELPERS-SPLIT-BYTES
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    syntax KItem ::= splitIntegerBytes(K, K, K) // value, numBytes, type
+    syntax KItem ::= "splitIntegerBytes'" "(" K "," K "," List ")" // value, numbytes, accumulator
+    syntax KItem ::= splitFloatBytes(K, K, K, List) // value, type, numBytes, accumulator
+    syntax KItem ::= splitPointerBytes(K, K) // value, numBytes
+    syntax KItem ::= "splitPointerBytes'" "(" K "," K "," K "," List ")" // value, numbytes, whichByte, accumulator
+    syntax KItem ::= splitArrayBytes(K, K, K) [strict(3)] // value, numBytes, innertype
+    syntax KItem ::= splitStructBytes(K, List) // value, field types
+    syntax KItem ::= "splitStructBytes'" "(" K "," List "," List ")" // value, field types, accumulator
+
+
+    // Type(IntegerType(32))
+    // should generate list with LSBytes first
+    rule
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitIntegerBytes(V, sizeof(Type), Type)
+        ...</k>
+        when isIntegerType(Type)
+
+    rule
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitFloatBytes(V, Type, sizeof(Type), .List)
+        ...</k>
+        when isFloatType(Type)
+
+    rule
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitPointerBytes(V, sizeof(Type))
+        ...</k>
+        when isPointerType(Type)
+
+    rule
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitArrayBytes(V, sizeof(Type), innerType(Type))
+        ...</k>
+        when isArrayType(Type)
+
+    rule
+        <k> splitBytes(V:KResult, structType(listK(L:List)))
+            => splitStructBytes(V, L)
+        ...</k>
+
+    rule
+        <k> splitIntegerBytes(I:Int, NumBytes:Int, Type:KResult)
+            => splitIntegerBytes'(unsigned(Type, I), NumBytes, .List)
+        ...</k>
+        when I:Int >=Int 0 orBool I:Int <=Int 0 // trying to avoid this case unless real int
+    // TODO can possibly rewrite zeroinitializer to 0 here, and only have one case
+    rule
+        <k> splitIntegerBytes(zeroinitializer, NumBytes:Int, _)
+            => splitIntegerBytes'(zeroinitializer, NumBytes, .List)
+        ...</k>
+    rule
+        <k> splitIntegerBytes'(I:Int, NumBytes:Int, L:List)
+            => splitIntegerBytes'(
+                I >>Int numBitsPerByte,
+                NumBytes -Int 1,
+                (L ListItem(I &Int ((2 ^Int numBitsPerByte) -Int 1)))
+            )
+        ...</k>
+        when NumBytes >Int 0
+
+    rule
+        <k> splitIntegerBytes'(zeroinitializer, NumBytes:Int, L:List)
+            => splitIntegerBytes'(zeroinitializer, NumBytes -Int 1, (L ListItem(0)))
+        ...</k>
+        when NumBytes >Int 0
+    // TODO: ideally, the parser should canonicalize integer literals to positive
+    // TODO BUG no idea why i have to use "MyK" here instead of "K"....
+    rule
+        <k> splitIntegerBytes'(MyK:K, 0, L:List)
+            => listK(L)
+        ...</k>
+        when MyK ==K 0
+        orBool MyK ==K zeroinitializer
+
+    rule
+        <k> splitIntegerBytes(wvalist(VAList:List, Loc:Loc), 1, _)
+            => listK(ListItem(wvalist(VAList:List, Loc:Loc)))
+        ...</k>
+
+    rule
+        <k> splitFloatBytes(V:KResult, Type:KResult, 0, L:List)
+            => listK(L)
+        ...</k>
+
+    // TODO perhaps a pattern: even more localized rewriting: rewriting inside a constructor rather than rewriting the whole thing
+    rule
+        <k> splitFloatBytes(
+                V:KResult,
+                Type:KResult,
+                NumBytes:Int => NumBytes -Int 1,
+                L:List => ListItem(floatByte(V, Type, NumBytes -Int 1)) L
+            )
+        ...</k>
+        when NumBytes >Int 0
+
+    rule
+        <k> splitPointerBytes((zeroinitializer => 'nullOfConstValueRef(.KList)), _) ...</k>
+    rule
+        <k> splitPointerBytes(Loc:Loc, NumBytes:Int)
+            => splitPointerBytes'(Loc:Loc, NumBytes, 0, .List)
+        ...</k>
+    rule
+        <k> splitPointerBytes'(Loc:Loc, NumBytes:Int, N:Int, L:List)
+            => splitPointerBytes'(Loc:Loc, NumBytes -Int 1, N:Int +Int 1, (L ListItem(ptrByte(Loc:Loc, N))))
+        ...</k>
+        when NumBytes >Int 0
+    rule
+        <k> splitPointerBytes'(Loc:Loc, 0, _, L:List)
+            => listK(L)
+        ...</k>
+
+    rule
+        <k> splitArrayBytes(arrayValue(L:List), NumBytes:Int, _)
+            => listK(L)
+        ...</k>
+        when size(L) ==Int NumBytes
+
+    rule
+        <k> (.K => splitBytes(zeroinitializer, Type)) ~> splitArrayBytes(zeroinitializer, _, Type:KResult) ...</k>
+
+    rule
+        <k> listK(L:List) ~> splitArrayBytes(zeroinitializer, NumBytes:Int, Type:KResult)
+            => listK((NumBytes /Int sizeof(Type)) copiesOf L:List)
+        ...</k>
+        when sizeof(Type) divInt NumBytes
+
+    // TODO assumes no padding
+    // TODO need to heat types
+    // TODO BUG L'' causes latex to fail (generates L ' ')
+    rule
+        <k> splitStructBytes(V:KResult, L:List)
+            => splitStructBytes'(V:KResult, L:List, .List)
+        ...</k>
+    rule
+        <k> splitStructBytes'(constantStruct(K:K, listK(ListItem(V:KResult) Fields:List)),
+                      (ListItem(Type:KResult) L:List), L':List)
+            => splitBytes(V, Type)
+            ~> splitStructBytes'(constantStruct(K:K, listK(Fields)), L:List, L':List)
+        ...</k>
+    rule
+        <k> splitStructBytes'(zeroinitializer, (ListItem(Type:KResult) L:List), L':List)
+            => splitBytes(zeroinitializer, Type)
+            ~> splitStructBytes'(zeroinitializer, L:List, L':List)
+        ...</k>
+    rule
+        <k> (listK(L:List) => .K) ~> splitStructBytes'(_, _, (_:List (.List => L))) ...</k>
+    rule
+        <k> splitStructBytes'(_, .List, L:List)
+            => listK(L)
+        ...</k>
+
+endmodule
+
+module LLVM-HELPERS-JOIN-BYTES
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    syntax KItem ::= joinIntBytes(K, K, K, K)
+    syntax KItem ::= joinFloatBytes(K, K, K)
+    syntax KItem ::= joinPointerBytes(K, K, K)
+
+    rule
+        <k> joinBytes(V:KResult, Type:KResult)
+            => joinIntBytes(V:KResult, sizeof(Type), 0, Type)
+        ...</k>
+        when isIntegerType(Type)
+
+    rule
+        <k> joinBytes(V:KResult, Type:KResult)
+            => joinFloatBytes(V:KResult, sizeof(Type), 0)
+        ...</k>
+        when isFloatType(Type)
+
+    rule
+        <k> joinBytes(V:KResult, Type:KResult)
+            => joinPointerBytes(V:KResult, sizeof(Type), 0)
+        ...</k>
+        when isPointerType(Type)
+
+    rule
+        <k> joinIntBytes(listK(L:List ListItem(N:Int)), Len:Int, N':Int, Type:KResult)
+            => joinIntBytes(listK(L:List), Len:Int -Int 1,
+                           (N':Int <<Int numBitsPerByte) |Int N:Int, Type:KResult)
+        ...</k>
+        when Len >Int 0 andBool N' >=Int 0 andBool N >=Int 0
+
+    rule joinIntBytes(listK(.List), 0, N:Int, Type:KResult)
+        => signed(Type, N:Int)
+        when N >=Int 0
+        [anywhere]
+
+    rule joinIntBytes(listK(.List), 0, wvalist(VAList:List, Loc:Loc), Type:KResult)
+        => wvalist(VAList:List, Loc:Loc)
+        [anywhere]
+
+    // TODO BAD
+    rule
+        <k> joinFloatBytes(listK(ListItem(floatByte(F:Float, _, _)) _), _, _)
+            => F
+        ...</k>
+
+    rule
+        <k> joinPointerBytes(listK((L:List ListItem(ptrByte(Loc:Loc, N:Int)))), Len:Int, N':Int)
+            => joinPointerBytes(listK(L:List), Len:Int -Int 1, 
+                          (N':Int <<Int numBitsPerByte) |Int ptrByte(Loc:Loc, N:Int))
+        ...</k>
+        when Len >Int 0 andBool N >=Int 0 andBool N' >=Int 0
+
+    rule joinPointerBytes(listK(.List), 0, Loc:Loc)
+        => Loc:Loc
+        [anywhere]
+
+    // crazy stuff to reassemble pointer
+    syntax Int ::= ptrBytes(K, K, K)
+    //rule 'isInt(ptrBytes(_, _, _)) => true
+    
+    rule
+        0 |Int ptrByte(V:KResult, N:Int)
+            => ptrByte(V:KResult, N:Int)
+        [anywhere]
+    rule
+        (ptrByte(V:KResult, SNatN:Int) <<Int Len:Int) |Int ptrByte(V:KResult, N:Int)
+            => ptrBytes(V:KResult, N:Int, SNatN:Int)
+        when Len ==Int numBitsPerByte
+        andBool SNatN ==Int N +Int 1
+        andBool N >=Int 0
+        [anywhere]
+    rule
+        (ptrBytes(V:KResult, SNatN:Int, N':Int) <<Int Len:Int) |Int ptrByte(V:KResult, N:Int)
+            => ptrBytes(V:KResult, N:Int, N':Int)
+        when SNatN ==Int N +Int 1 andBool N' >=Int 0
+             andBool N >=Int 0 andBool Len >=Int 0 
+        [anywhere]
+    rule
+        ptrBytes(V:KResult, 0, N:Int)
+            => V
+        when N ==Int numBytesPerPointer -Int 1
+        [anywhere]
+
+endmodule
+
+module LLVM-MEMORY
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    syntax KItem ::= "nextSym" Loc [function]
+    rule nextSym loc(N:Int, 0) => loc(N:Int +Int 1, 0)
+
+    rule
+        <k> alloca(Type:KResult, N:Int) => Loc ...</k>
+        (. =>
+            <object>...
+                <basePtr> base(Loc) </basePtr>
+                <type> Type </type>
+                <size> sizeof(Type) *Int N </size>
+            ...</object>
+        )
+        <localMemory>... .List => ListItem(base(Loc)) </localMemory>
+        <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
+
+    rule
+        <k> store(Type:KResult, V:KResult, Loc:Loc)
+            => write(Type:KResult, V:KResult, Loc:Loc)
+        ...</k>
+
+    syntax KItem ::= writeBytes(K, K) [strict(1)] // list of bytes, location
+
+    rule
+        <k> write(Type:KResult, V:KResult, Loc:Loc)
+            => writeBytes(splitBytes(V, Type), Loc)
+        ...</k>
+    // rule
+        // <k> writeBytes(listK((N:Int,, L:KList)), Base:Int +Int Offset:Int)
+        // <basePtr> Base:Int </basePtr>
+        // <bytes> M:Map => M:Map[unknownByte / Offset:Int] </bytes>
+        // when notBool Offset in keys(M:Map)
+
+    // TODO similar problem as sNat; want to match through a deconstructor
+    rule
+        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int))
+            => writeBytes(listK(L:List), loc(Base:Int, Offset:Int) + 1)
+        ...</k>
+        <basePtr> Base:Int </basePtr>
+        <bytes> M:Map => M:Map[Offset <- N] </bytes>
+        // <size> Len:Int </size>
+        // when Offset < Len
+        // i guess
+
+    rule
+        <k> writeBytes(listK(.List), _) => . ...</k>
+
+    rule
+        <k> load(pointerType(TyK:K,A:K), Loc:Loc)
+            => read(TyK:K, Loc:Loc)
+        ...</k>
+
+    rule
+        <k> read(Type:KResult, Loc:Loc)
+            => joinBytes(readBytes(sizeof(Type:KResult), Loc:Loc), Type:KResult)
+        ...</k>
+
+    rule
+        <k> readBytes(Len:Int, Loc:Loc)
+            => readBytes'(Len:Int, Loc:Loc, .List)
+        ...</k>
+
+    rule
+        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int), L:List)
+            => readBytes'(Len:Int -Int 1, loc(Base:Int, Offset:Int) + 1, (L:List ListItem(V:KResult)))
+        ...</k>
+        <basePtr> Base:Int </basePtr>
+        <bytes>... Offset |-> V:KResult ...</bytes>
+        when Len:Int >Int 0
+
+    rule
+        <k> readBytes'(0, _, L:List)
+            => listK(L)
+        ...</k>
+
+    syntax KItem ::= readBytes(K, K)
+    syntax KItem ::= "readBytes'" "(" K "," K "," List ")"
+
+endmodule
+
+module LLVM-COMPARISONS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    // all of these take place only at the top of K
+    // TODO these break with ==Int or =/=Int
+    rule INotEq(Type:KResult, I1:Int, I2:Int)
+        => boolToInt(unsigned(Type, I1) =/=K unsigned(Type, I2))
+    rule IEq(Type:KResult, I1:Int, I2:Int)
+        => boolToInt(unsigned(Type, I1) ==K unsigned(Type, I2))
+    rule UGT(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) >Int unsigned(Type, I2:Int))
+    rule UGE(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) >=Int unsigned(Type, I2:Int))
+    rule ULT(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) <Int unsigned(Type, I2:Int))
+    rule ULE(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) <=Int unsigned(Type, I2:Int))
+    rule SGT(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >Int signed(Type, I2:Int))
+    rule SGE(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >=Int signed(Type, I2:Int))
+    rule SLT(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) <Int signed(Type, I2:Int))
+    rule SLE(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >=Int signed(Type, I2:Int))
+
+    rule INotEq(Type:KResult, Loc1:Loc, Loc2:Loc)
+        => boolToInt(unsigned(Type, Loc1:Loc) =/=K unsigned(Type, Loc2:Loc))
+    rule IEq(Type:KResult, Loc1:Loc, Loc2:Loc)
+        => boolToInt(unsigned(Type, Loc1:Loc) ==K unsigned(Type, Loc2:Loc))
+    rule UGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >Int unsigned(Type, Loc2:Loc))
+    rule UGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >=Int unsigned(Type, Loc2:Loc))
+    rule ULT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <Int unsigned(Type, Loc2:Loc))
+    rule ULE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <=Int unsigned(Type, Loc2:Loc))
+    rule SGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >Int signed(Type, Loc2:Loc))
+    rule SGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
+    rule SLT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) <Int signed(Type, Loc2:Loc))
+    rule SLE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
+
+    // TODO not handling QNAN
+    rule OEQ(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float ==Float F2:Float)
+    rule OGT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >Float F2:Float)
+    rule OGE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >=Float F2:Float)
+    rule OLT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <Float F2:Float)
+    rule OLE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <=Float F2:Float)
+    rule ONE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float =/=Float F2:Float)
+    // rule ORD(Type:KResult, F1:Float, F2:Float)
+        // => // if both are not QNAN
+    rule UEQ(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float ==Float F2:Float)
+    rule UGT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >Float F2:Float)
+    rule UGE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float >=Float F2:Float)
+    rule ULT(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <Float F2:Float)
+    rule ULE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float <=Float F2:Float)
+    rule UNE(Type:KResult, F1:Float, F2:Float)
+        => boolToInt(F1:Float =/=Float F2:Float)
+    // rule UNO(Type:KResult, F1:Float, F2:Float)
+        // => if either is QNAN
+
+    syntax KItem ::= boolToInt(K)
+    rule boolToInt(true) => 1
+    rule boolToInt(false) => 0
+
+endmodule
+
+module LLVM-CONVERSIONS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    // TODO only handling scalars
+    rule
+        <k> trunc(Type:KResult, I:Int) => signed(Type, I) ...</k>
+
+    // TODO only handling scalars
+    rule
+        <k> zExt(Type:KResult, I:Int) => unsigned(Type, I) ...</k>
+    // TODO only handling scalars
+    rule
+        <k> sExt(Type:KResult, I:Int) => I ...</k>
+        when signed(Type, I) ==Int I // sanity check since this isn't supposed to change values and I is supposed to have been canonicalized
+
+    // TODO need to normalize here
+    rule
+        <k> bitCast(_, I:Int) => I:Int ...</k>
+    rule
+        <k> bitCast(_, Loc:Loc) => Loc:Loc ...</k>
+
+    //rule
+        //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
+
+    // TODO need to normalize here
+    rule
+        <k> intToPtr(Type:KResult, K:K) => intToPtrOfLoc(Type, K:K) ...</k>
+    rule
+        <k> ptrToInt(Type:KResult, K:K) => ptrToIntOfLoc(Type, K:K) ...</k>
+
+    // TODO needs side conditions
+    rule intToPtrOfLoc(Type:KResult, intToPtrOfLoc(Type':KResult, K:K)) => K:K [anywhere]
+    rule ptrToIntOfLoc(Type:KResult, ptrToIntOfLoc(Type':KResult, K:K)) => K:K [anywhere]
+
+    rule unsigned(Type:KResult, Loc:Loc)
+        => ptrToIntOfLoc(Type, Loc:Loc)
+        [anywhere]
+    rule signed(Type:KResult, Loc:Loc)
+        => ptrToIntOfLoc(Type, Loc:Loc)
+        [anywhere]
+    rule unsigned(_, ptrToIntOfLoc(Type:KResult, K:K))
+        => ptrToIntOfLoc(Type, K:K)
+    rule signed(_, ptrToIntOfLoc(Type:KResult, K:K))
+        => ptrToIntOfLoc(Type, K:K)
+
+    // definitely misses problems with null
+    // TODO assumes types are same and are big enough
+    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) >Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
+        => Offset >Int Offset'
+        [anywhere]
+    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) >=Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
+        => Offset >=Int Offset'
+        [anywhere]
+    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) <Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
+        => Offset <Int Offset'
+        [anywhere]
+    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) <=Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
+        => Offset <=Int Offset'
+        [anywhere]
+    rule ptrToIntOfLoc(Type:KResult, loc(I:Int, Offset:Int))
+                  -Int ptrToIntOfLoc(Type:KResult, loc(I:Int, Offset':Int))
+        => signed(Type, Offset -Int Offset')
+        [anywhere]
+
+    rule
+        <k> fpToSI(Type:KResult, F:Float)
+            => signed(Type, Float2Int(F))
+        ...</k>
+
+    rule
+        <k> fpToUI(Type:KResult, F:Float)
+            => unsigned(Type, Float2Int(F))
+        ...</k>
+
+endmodule
+
+module LLVM-LITERALS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    rule float(S:#String) => String2Float(S)
+    //when String2Float(S) >=Float String2Float(S)
+        // TODO when 'isFloat(String2Float(S))
+
+    rule
+        <k> constantString(S:#String)
+            => arrayValue(StringToList(S))
+        ...</k>
+
+    rule
+        <k> constantArray(Type:KResult, listK(L:List))
+            => createArrayValue(Type, L)
+        ...</k>
+
+    syntax KItem ::= createArrayValue(K, List)
+    syntax KItem ::= "createArrayValue'" "(" K "," List "," List ")"
+    syntax KItem ::= "createArrayValue''" "(" K "," List "," K "," List ")" [strict(3)]
+
+    rule
+        <k> createArrayValue(Type:KResult, L:List)
+            => createArrayValue'(Type:KResult, L:List, .List)
+        ...</k>
+    rule
+        <k> createArrayValue'(Type:KResult, (ListItem(K:K) L:List), L':List)
+            => createArrayValue''(Type:KResult, L:List, splitBytes(K, Type), L':List)
+        ...</k>
+    rule
+        <k> createArrayValue''(Type:KResult, L:List, listK(Bytes:List), L':List)
+            => createArrayValue'(Type:KResult, L:List, (L' Bytes))
+        ...</k>
+    rule
+        <k> createArrayValue'(_, .List, L:List)
+            => arrayValue(L)
+        ...</k>
+
+endmodule
+
+module LLVM-STANDARD-LIBRARY-PREPROCESS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    /////////////////////////////////////////////////////////
+    // turning calls to intrinsics into semantic productions
+    // perhaps this kind of stuff could be generalized, or done away with
+    // its purpose is to make the actual function definitions nice
+
+    rule
+        // TODO why doesn't this work?
+        // <k> Call(_, Callee(funptr(Name(S:String)), listK(L:KList)))
+            // => 'memcpy`(_`,_`,_`,_`,_`)(L)
+        <k> call(_, callee(funptr(name(S:#String)), listK(ListItem(V1:KResult)
+                   ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
+            => memcpy(V1, V2, V3, V4, V5)
+        ...</k>
+        when substrString(S, 0, 13) ==String "@llvm.memcpy."
+
+    rule
+        <k> call(_, callee(funptr(name(S:#String)), listK(ListItem(V1:KResult)
+                  ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
+            => memset(V1, V2, V3, V4, V5)
+        ...</k>
+        when substrString(S, 0, 13) ==String "@llvm.memset."
+
+    rule
+        <k> call(_, callee(funptr(name("@llvm.lifetime.start")), listK(ListItem(V1:KResult)
+                   ListItem(V2:KResult))))
+            => lifetimeStart(V1, V2)
+        ...</k>
+
+    rule
+        <k> call(_, callee(funptr(name("@llvm.lifetime.end")), listK(ListItem(V1:KResult)
+                  ListItem(V2:KResult))))
+            => lifetimeEnd(V1, V2)
+        ...</k>
+
+    rule
+        <k> call(_, callee(funptr(name("@llvm.va_start")), listK(ListItem(V1:KResult))))
+            => vaStart(V1)
+        ...</k>
+
+    rule
+        <k> call(_, callee(funptr(name("@llvm.va_copy")), listK(ListItem(V1:KResult)
+                  ListItem(V2:KResult))))
+            => vaCopy(V1, V2)
+        ...</k>
+
+    rule
+        <k> call(_, callee(funptr(name("@llvm.va_end")), _))
+            => .K
+        ...</k>
+endmodule
+
+module LLVM-STANDARD-LIBRARY
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    // memcpy
+    rule
+        <k> memcpy(Dest:Loc, Src:Loc, Len:Int, K1:K, K2:K)
+            => store(byteType, load(pointerType(byteType,0), Src), Dest)
+            ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
+        ...</k>
+        when Len >Int 0
+    rule
+        <k> memcpy(_, _, 0, _, _) => .K ...</k>
+
+    // memset
+    rule
+        <k> memset(Dest:Loc, N:Int, Len:Int, K1:K, K2:K)
+            => store(byteType, N, Dest)
+            ~> memset(Dest + 1, N, Len -Int 1, K1, K2)
+        ...</k>
+        when Len >Int 0
+    rule
+        <k> memset(_, _, 0, _, _) => .K ...</k>
+
+    // lifetimeStart
+    // don't need to do anything for positive semantics
+    rule
+        <k> lifetimeStart(_, _) => .K ...</k>
+
+    // lifetimeEnd
+    // don't need to do anything for positive semantics
+    rule
+        <k> lifetimeEnd(_, _) => .K ...</k>
+
+    //@ Variadic intrinsics
+    rule
+        <k> vaStart(Loc:Loc) => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc) ...</k>
+        <valist> VAList:List </valist>
+
+    rule
+        <k> vaCopy(Loc1:Loc, Loc2:Loc)
+            => write(i(numBitsPerByte), read(i(numBitsPerByte), Loc2), Loc1)
+        ...</k>
+
+endmodule
+
+module LLVM-SYSCALLS-PREPROCESS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    rule
+        <k> call(_, callee(funptr(name("@__syscall")), listK(ListItem(N:Int) L:List)))
+            => (syscallHandler(N))(L)
+        ...</k>
+endmodule
+
+module LLVM-SYSCALLS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    rule <k> 'sys-ioctl(_) => 0 ...</k>
+    rule <k> 'sys-rt-sigprocmask(_) => 0 ...</k>
+    rule <k> 'sys-gettid(_) => 0 ...</k>
+
+    //there might be a problem here. about the sort of brk cell.
+    rule
+        <k> 'sys-brk(ptrToIntOfLoc(_,Loc:Loc),, _) => Brk ...</k>
+        <brk> Brk:Loc </brk>
+        when Loc ==K 'nullOfConstValueRef(.KList)
+
+
+    // TODO krun should provide this value
+    rule <k> 'sys-getpid(_) => 10000 ...</k>
+
+    syntax KItem ::= printString(K) [strict]
+    syntax KItem ::= readString(K, K)
+    syntax KItem ::= "readString'" "(" K "," K "," K ")"
+
+    rule
+        <k> 'sys-write(FileDesc:Int,, ptrToIntOfLoc(_, Loc:Loc),, Len:Int,, _)
+            => printString(readString(Loc, Len))
+        ...</k>
+        when Len >=Int 0
+
+    rule
+        <k> readString(Loc:Loc, Len:Int)
+            => readString'(Loc, Len, "")
+        ...</k>
+        when Len >=Int 0
+
+    rule
+        <k> (. => read(i(8), Loc))
+            ~> readString'(Loc:Loc, I:Int, _)
+        ...</k>
+        when I >Int 0
+
+    rule <k> readString'(_, 0, S:String) => S ...</k>
+
+    rule
+        <k> (I:Int => .)
+            ~> readString'(
+                (Loc:Loc => Loc + 1),
+                (N:Int => N -Int 1),
+                (S:String => S +String Int2String(unsigned(i(8), I)))
+            )
+        ...</k>
+        when N >Int 0
+
+    rule <k> printString(S:#String) => lengthString(S) ...</k>
+         <output>... .List => ListItem(S) </output>
+
+endmodule
+
+module LLVM-INTERNAL-TESTING-FUNCTIONS
+    // do not include this module when printing
+    // TODO add to makefile's grep to look for line like above when excluding modules
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+    rule
+        <k> call(_, callee(funptr(name(S:#String)), listK(ListItem(I:Int))))
+            => .K
+        ...</k>
+        <output>... .List => ListItem(Int2String(I) +String "\n") </output>
+        when substrString(S, 0, 14) ==String "@__fsl.print.i"
+        andBool (I >=Int 0 orBool I <=Int 0) // real integer
+endmodule
+
+module LLVM-EXCEPTIONS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+
+
+/*
+    rule
+        <k> Call(_, Callee(funptr(Name("@__cxa")), listK(V1:KResult,, V2:KResult)))
+            => @__cxa_allocate_exception
+        ...</k>
+*/
+endmodule
+
 module LLVM-SEMANTICS
     imports LLVM-SYNTAX
     imports LLVM-ABSTRACTSYNTAX
@@ -864,19 +2003,13 @@ module LLVM-SEMANTICS
     imports LLVM-SELECTION
     imports LLVM-START-AND-STOP
     imports LLVM-DECLARATIONS
-/*
-    imports LLVM-HELPERS-SPLIT-BYTES
-    imports LLVM-HELPERS-JOIN-BYTES
-
-    imports LLVM-SELECTION
-    imports LLVM-REGISTERS
-    imports LLVM-START-AND-STOP
     imports LLVM-CALL-RET
     imports LLVM-VARIADICS
-    imports LLVM-DECLARATIONS
     imports LLVM-ARITHMETIC
     imports LLVM-FLOATING-POINT-ARITHMETIC
     imports LLVM-GEP
+    imports LLVM-HELPERS-SPLIT-BYTES
+    imports LLVM-HELPERS-JOIN-BYTES
     imports LLVM-MEMORY
     imports LLVM-COMPARISONS
     imports LLVM-CONVERSIONS
@@ -885,8 +2018,6 @@ module LLVM-SEMANTICS
     imports LLVM-STANDARD-LIBRARY
     imports LLVM-SYSCALLS-PREPROCESS
     imports LLVM-SYSCALLS
-    imports LLVM-EXCEPTIONS
-
     imports LLVM-INTERNAL-TESTING-FUNCTIONS
-*/
+    imports LLVM-EXCEPTIONS
 endmodule

@@ -884,9 +884,11 @@ module LLVM-SYNTAX
                            | "!" "(" IndexList ")"
                            | "!" "{" MetadataValues "}"
     //define the values that appear in a metadata list
-    syntax MetadataValue ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
+    syntax MetadataValueInt ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
+    syntax MetadataValue ::= MetadataValueInt
                            | "!" #String
                            | Index
+    syntax MetadataInts ::= List{MetadataValueInt,","}
     syntax MetadataValues ::= List{MetadataValue,","}
 
 
@@ -1217,7 +1219,7 @@ module LLVM-SYNTAX
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
                         | "!" UnsignedInt "=" Type "!" "{" IndexList "}"
-                        | MetadataVar "=" "!" "{" MetadataValues "}"
+                        | MetadataVar "=" "!" "{" MetadataInts "}"
                         | ComdatVar "=" "comdat" SelectionKind
                         | "attributes" AttributeGroupId "=" "{" GroupAttrs "}"
 

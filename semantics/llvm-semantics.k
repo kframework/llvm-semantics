@@ -72,6 +72,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "PositiveInfinity"
     syntax KResult ::= "NegativeInfinity"
 
+    //don't know how to deal with
+    syntax KItem ::= moduleAsm(#String)
+
     syntax KItem ::= float(#String)
     syntax KItem ::= constantString(#String)
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
@@ -119,15 +122,15 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= alias(K, K)
     syntax KItem ::= theModule(K, K, K, K, K, K, K)
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= functionDef(K, K, K, K)  [strict(1)] // RetType, Value/Name, Arguments, Body
-    syntax KItem ::= functionDecl(K, K, K)  [strict(1)] // RetType, Value/Name, Arguments
+    syntax KItem ::= functionDef(K, K, K, K, K)  [strict(1)] // Attributes, RetType, Value/Name, Arguments, Body
+    syntax KItem ::= functionDecl(K, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K) // name, type TODO: modifiers
     syntax KItem ::= fields(ElemList) [strict]
     syntax KItem ::= types(ElemList)  [strict]
     syntax KItem ::= setBlock(K)
     syntax KItem ::= body(ElemList)
 
-    syntax SymbolicValueRef ::= name(#String)
+    syntax SymbolicValueRef ::= name(String)
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= INotEq(K, K, K) [strict] // type, left op, right op
@@ -454,6 +457,7 @@ module LLVM-CONFIGURATION
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
                     <savedGlobals> .K </savedGlobals>
+                    <globalFunVarCounter> 0 </globalFunVarCounter>
                     <globalRegisters color="teal"> .Map </globalRegisters>
                     <functions color="teal">
                         <function multiplicity="*" color="LightSkyBlue">
@@ -461,6 +465,7 @@ module LLVM-CONFIGURATION
                             <returnType> .K </returnType>
                             <formalParameters> .K </formalParameters>
                             <basicBlocks> .Map </basicBlocks>
+                            <localFunVarCounter> 0 </localFunVarCounter>
                             <initialBasicBlock> .K </initialBasicBlock>
                         </function>
                     </functions>
@@ -823,6 +828,235 @@ module LLVM-DECLARATIONS
 
     // TODO KListToK module sections
     // TODO: semantic design pattern: multi-arity (want multiple pieces of data at the same time like key/value pairs) vs. variadic (when you don't need to do things at the same time)
+    syntax KItem ::= preModule(Module, K, K, K, K, K, K, K)
+    syntax KItem ::= "emptyDef"
+    syntax KItem ::= stringConstruct(#String)
+    syntax KItem ::= preFunctionDecl(FunctionProto) [function]
+
+    rule preFunctionDecl(Ex:ExternalLinkage Vi:OptVisibilityStyle
+                         Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
+                         ( Ars:ArgList ) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
+                         Co:OptComdat Al:OptAlign Gc:OptGC Pf:OptPrefix Pl:OptPrologue)
+          => functionDecl(modifiers(val(Ex),val('dllStorageEmpty(.KList)),val(Vi),val(Cl)
+                         ,val(Re),val(Un),val(Fu),val(Se)
+                         ,val(Co),val(Al),val(Gc),val(Pf),val(Pl)),Ty,Gl,Ars)
+    rule preFunctionDecl(Dll:OptDllStorageClass Vi:OptVisibilityStyle
+                         Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
+                         ( Ars:ArgList ) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
+                         Co:OptComdat Al:OptAlign Gc:OptGC Pf:OptPrefix Pl:OptPrologue)
+          => functionDecl(modifiers(val('nonExternalLinkageEmpty(.KList)),val(Dll),val(Vi),val(Cl)
+                         ,val(Re),val(Un),val(Fu),val(Se)
+                         ,val(Co),val(Al),val(Gc),val(Pf),val(Pl)),Ty,Gl,Ars)
+
+    syntax KItem ::= preFunctionDef(Function) [function]
+
+    rule preFunctionDef(Li:OptLinkage Vi:OptVisibilityStyle Dll:OptDllStorageClass
+                        Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
+                         (Ars:ArgList) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
+                          Co:OptComdat Al:OptAlign Gc:OptGC Pf:OptPrefix Pr:OptPrologue
+                        {Bl:BasicBlockList})
+         => functionDef(modifiers(val(Li),val(Vi),val(Dll),val(Cl),val(Re),val(Un),val(Fu)
+                       ,val(Se),val(Co),val(Al),val(Gc),val(Pf),val(Pr)),Ty,Gl,Ars,Bl)
+
+    syntax ElemList ::= dealWithSectionComdatAndAlign(K, K, K, K, K, K, K, K, K) [function]
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, 'sectionComdatAndAlignEmpty(.KList))
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val('sectionEmpty(.KList)),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , section S:#String)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val(section S),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , Al:Align)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val('sectionEmpty(.KList)),val('comdatEmpty(.KList)),val(Al)
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , Co:Comdat)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val('sectionEmpty(.KList)),val(Co),val('alignEmpty(.KList))
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , Co:Comdat , Al:Align)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val('sectionEmpty(.KList)),val(Co),val(Al)
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , section S:#String , Al:Align)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val(section S),val('comdatEmpty(.KList)),val(Al)
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , Al:Align , section S:#String)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val(section S),val('comdatEmpty(.KList)),val(Al)
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , section S:#String , Co:Comdat)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val(section S),val(Co),val('alignEmpty(.KList))
+    rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
+          H:K, , section S:#String , Co:Comdat , Al:Align)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
+            ,val(section S),val(Co),val(Al)
+
+
+    rule DefList:Module => preModule(DefList, .K, .K, .K, .K, .K, .K, .K) [structural]
+    rule preModule(target triple = S:#String DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms, TargetLayout:K, TargetTriple:K ~> stringConstruct(S),
+               Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+    rule preModule(target datalayout = S:#String DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K ~> stringConstruct(S), TargetTriple:K,
+               Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+    rule preModule(declare F:FunctionProto DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars:K, Aliases:K, Functions:K ~> preFunctionDecl(F))
+    rule preModule(module asm S:#String DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K ~> moduleAsm(S), TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+    rule preModule(N:LocalName = type Ty:Type DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K ~> typedef(name(#tokenToString(N)),Ty)
+               , GlobalVars:K, Aliases:K, Functions:K)
+    rule preModule(N:LocalName = type opaque DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K ~> typedef(name(#tokenToString(N)),opaque)
+               , GlobalVars:K, Aliases:K, Functions:K)
+    rule preModule(N:GlobalVar = Ex:ExternalLinkage Vi:OptVisibilityStyle
+                          Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                          Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                          Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),modifiers(
+              dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,emptyDef), Aliases:K, Functions:K)
+
+    rule <k> preModule(N:GlobalValID = Ex:ExternalLinkage Vi:OptVisibilityStyle
+                          Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                          Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                          Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),modifiers(
+              dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,emptyDef), Aliases:K, Functions:K)
+         ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+         when String2Int(substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))) ==Int Count
+
+    rule <k> preModule(N:GlobalValID = Ex:ExternalLinkage Vi:OptVisibilityStyle
+                          Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                          Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                          Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K) ~> K
+         => .K </k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+         <output>... .List => ListItem("variable expected to be numbered " +String Int2String(Count)) </output>
+         when String2Int(substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))) =/=Int Count
+
+    rule <k> preModule(Ex:ExternalLinkage Vi:OptVisibilityStyle
+                          Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                          Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                          Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString("@" +String Int2String(Count)))
+             ,modifiers(dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,emptyDef), Aliases:K, Functions:K)
+         ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+
+    rule preModule(N:GlobalVar = Ex:NonExternalLinkage Vi:OptVisibilityStyle
+                     Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                     Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                     Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module
+                     , ModuleAsms:K, TargetLayout:K,
+                    TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),modifiers(
+              dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,Vl), Aliases:K, Functions:K)
+
+    rule <k> preModule(N:GlobalValID = Ex:NonExternalLinkage Vi:OptVisibilityStyle
+                 Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                 Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                 Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),modifiers(
+              dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,Vl), Aliases:K, Functions:K)
+         ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+         when String2Int(substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))) ==Int Count
+
+    rule <k> preModule(N:GlobalValID = Ex:NonExternalLinkage Vi:OptVisibilityStyle
+               Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+               Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+               Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+               TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K) ~> K
+         => .K </k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+         <output>... .List => ListItem("variable expected to be numbered " +String Int2String(Count)) </output>
+         when String2Int(substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))) =/=Int Count
+
+    rule <k> preModule(Ex:NonExternalLinkage Vi:OptVisibilityStyle
+               Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+               Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+               Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString("@" +String Int2String(Count)))
+             ,modifiers(dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,Vl), Aliases:K, Functions:K)
+         ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+
+    rule preModule(deplibs = [ Ss:Strings ] DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K
+           , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K
+           , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+
+    rule preModule(N:GlobalVar = Ex:NonExternalLinkage Vi:OptVisibilityStyle
+                     Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                     Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                     Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module
+                     , ModuleAsms:K, TargetLayout:K,
+                    TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),modifiers(
+              dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,Vl), Aliases:K, Functions:K)
+
+    rule <k> preModule(N:GlobalValID = Ex:NonExternalLinkage Vi:OptVisibilityStyle
+                 Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+                 Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+                 Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K,
+               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),modifiers(
+              dealWithSectionComdatAndAlign(Ex,Vi,Dll,Th,Ad,Un,Exi,Gl,Sca))
+              ,Ty,Vl), Aliases:K, Functions:K)
+         ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+         when String2Int(substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))) ==Int Count
+
+    rule <k> preModule(N:GlobalValID = Ex:NonExternalLinkage Vi:OptVisibilityStyle
+               Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
+               Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
+               Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
+               TargetTriple:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K) ~> K
+         => .K </k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
+         <output>... .List => ListItem("variable expected to be numbered " +String Int2String(Count)) </output>
+         when String2Int(substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))) =/=Int Count
+
+    rule preModule(.Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K,
+            Aliases:K, Functions:K)
+         => theModule(name("main"),TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K,
+            Aliases:K, Functions:K) [structural]
+
     rule
         <k> theModule(Label:SymbolicValueRef, TargetLayout:K, TargetTriple:K, Typedefs:K, GlobalVars:K,
             Aliases:K, Functions:K)
@@ -858,7 +1092,7 @@ module LLVM-DECLARATIONS
     rule Types(L:ElemList) => L
 
     rule
-        <k> functionDef(RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
+        <k> functionDef(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
             => F ...</k>
         <currFunction> _ => Label </currFunction>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
@@ -871,7 +1105,7 @@ module LLVM-DECLARATIONS
         )
 
     rule
-        <k> functionDecl(RetType:KResult, Label:SymbolicValueRef, Arguments:K)
+        <k> functionDecl(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K)
             => .K ...</k>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         (. =>
@@ -973,7 +1207,7 @@ module LLVM-CALL-RET
             ~> bind(Args, Formals)
         ...</k>
     rule
-        <k> bind(.List, .List) => . ...</k>
+        <k> bind(.List, .List) => .K ...</k>
 
     rule
         <k> bind((ListItem(Arg:K) L:List

@@ -4,7 +4,7 @@ requires "llvm-syntax.k"
 module LLVM-ABSTRACTSYNTAX
     imports LLVM-SYNTAX
 
-    syntax KResult ::= Int | #String | Floating
+    syntax KResult ::= Int | String | Floating
                       | arrayValue(List)
                       | Loc
                       | integerType(K)
@@ -36,7 +36,7 @@ module LLVM-ABSTRACTSYNTAX
                          | structType(K) [strict]
                          | namedType(K)
 
-    rule [ I:UnsignedInt x T:Type ] => arrayType(
+    /*rule [ I:UnsignedInt x T:Type ] => arrayType(
                                     String2Int(#tokenToString(I)),T) [macro]
     rule T:Type A:OptAddrSpace * => pointerType(T, A) [macro]
     rule { Ts:TypeList } => structType(Ts) [macro]
@@ -45,7 +45,7 @@ module LLVM-ABSTRACTSYNTAX
     //change IntType from LLVM syntax to K rule syntax
     rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I))))) [macro]
-
+*/
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)
 
@@ -73,12 +73,12 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeInfinity"
 
     //don't know how to deal with
-    syntax KItem ::= moduleAsm(#String)
+    syntax KItem ::= moduleAsm(String)
     syntax KItem ::= metaConst(K, IndexList) //Type, IndexList
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
 
-    syntax KItem ::= float(#String)
-    syntax KItem ::= constantString(#String)
+    syntax KItem ::= float(String)
+    syntax KItem ::= constantString(String)
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
     syntax KItem ::= initializer(K, K) // type, value
@@ -219,9 +219,9 @@ module LLVM-HELPERS
     syntax List ::= StringToList(String) [function]
     rule StringToList("") => .List
     rule
-        StringToList(S:#String)
-            => ListItem(String2Char(substrString(S:#String, 0, 1)))
-                StringToList(substrString(S:#String, 1, lengthString(S:#String)))
+        StringToList(S:String)
+            => ListItem(String2Char(substrString(S:String, 0, 1)))
+                StringToList(substrString(S:String, 1, lengthString(S:String)))
         when S =/=String ""
 
 
@@ -629,13 +629,13 @@ module LLVM-REGISTERS
 
     // TODO using constructors in the AST instead of matching on a string
     rule [lookup-register]:
-        <k> name(S:#String) => searchElemInMap(M,.K,name(S)) ...</k>
+        <k> name(S:String) => searchElemInMap(M,.K,name(S)) ...</k>
         <registers> M:Map </registers>
         when substrString(S, 0, 1) ==String "%"
            andBool searchElemInMap(M,.K,name(S)) =/=K none
 
     rule [lookup-global-register]:
-        <k> name(S:#String) => searchElemInMap(M,.K,name(S)) ...</k>
+        <k> name(S:String) => searchElemInMap(M,.K,name(S)) ...</k>
         <globalRegisters> M:Map </globalRegisters>
         when substrString(S, 0, 1) ==String "@"
            andBool searchElemInMap(M,.K,name(S)) =/=K none
@@ -817,7 +817,7 @@ module LLVM-START-AND-STOP
 
 endmodule
 
-module LLVM-DECLARATIONS
+module LLVM-PREPROCESSING
     imports LLVM-SYNTAX
     imports LLVM-ABSTRACTSYNTAX
     imports LLVM-SETTINGS
@@ -826,16 +826,9 @@ module LLVM-DECLARATIONS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    // TODO: semantic design pattern: assignment rule
-    rule
-        <k> alias(Mod:K, X:SymbolicValueRef, K:K) => . ...</k>
-        <globalRegisters> Map:Map => Map[X <- K] </globalRegisters>
-
-    // TODO KListToK module sections
-    // TODO: semantic design pattern: multi-arity (want multiple pieces of data at the same time like key/value pairs) vs. variadic (when you don't need to do things at the same time)
     syntax KItem ::= preModule(Module, K, K, K, K, K, K, K, K)
     syntax KItem ::= "emptyDef"
-    syntax KItem ::= stringConstruct(#String)
+    syntax KItem ::= stringConstruct(String)
     syntax KItem ::= preFunctionDecl(FunctionProto) [function]
 
     rule preFunctionDecl(Ex:ExternalLinkage Vi:OptVisibilityStyle
@@ -869,7 +862,7 @@ module LLVM-DECLARATIONS
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val('sectionEmpty(.KList)),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S:#String)
+          H:K, , section S)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val(section S),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
@@ -885,37 +878,49 @@ module LLVM-DECLARATIONS
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val('sectionEmpty(.KList)),val(Co),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S:#String , Al:Align)
+          H:K, , section S , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val(section S),val('comdatEmpty(.KList)),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , Al:Align , section S:#String)
+          H:K, , Al:Align , section S)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val(section S),val('comdatEmpty(.KList)),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S:#String , Co:Comdat)
+          H:K, , section S , Co:Comdat)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val(section S),val(Co),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S:#String , Co:Comdat , Al:Align)
+          H:K, , section S , Co:Comdat , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val(section S),val(Co),val(Al)
 
 
-    rule DefList:Module => preModule(DefList, .K, .K, .K, .K, .K, .K, .K, .K) [structural]
-    rule preModule(target triple = S:#String DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule <k> DefList:Module => preModule(DefList, .K, .K, .K, .K, .K, .K, .K, .K) ...</k>
+         <modules>...
+            . =>
+            <module>...
+                <moduleName> name("main") </moduleName>
+            ...</module>
+        ...</modules>
+        [structural]
+
+    rule preModule(target triple = S DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms, TargetLayout:K, TargetTriple:K ~> stringConstruct(S), MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-    rule preModule(target datalayout = S:#String DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(target datalayout = S DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => preModule(DL:Module, ModuleAsms:K, TargetLayout:K ~> stringConstruct(S), TargetTriple:K, MetaVars:K,
+         => preModule(DL, ModuleAsms:K, TargetLayout:K ~> stringConstruct(S), TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
     rule preModule(declare F:FunctionProto DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K ~> preFunctionDecl(F))
-    rule preModule(module asm S:#String DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(define F:Function DL:Module, ModuleAsms:K, TargetLayout:K,
+            TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+         => preModule(DL, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
+               Typedefs:K, GlobalVars:K, Aliases:K, Functions:K ~> preFunctionDef(F))
+    rule preModule(module asm S DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K ~> moduleAsm(S), TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
@@ -1096,6 +1101,42 @@ module LLVM-DECLARATIONS
          => theModule(name("main"),TargetLayout, TargetTriple, MetaVars
             ,Typedefs, GlobalVars,Aliases, Functions) [structural]
 
+    rule <k> metaVar(N:MetadataVar, Mis:MetadataInts) => .K ...</k>
+         <attributeGroups> M:Map => M[N <- Mis] </attributeGroups>
+         when allInMap(Mis,M)
+    rule <k> metaVar(N:MetadataVar, Mis:MetadataInts) ~> K:K => .K </k>
+         <attributeGroups> M:Map </attributeGroups>
+         <output>... .List => ListItem("error: use of undefined metadata ''") </output>
+         when notBool allInMap(Mis,M)
+
+    syntax Bool ::= allInMap(MetadataInts, Map) [function]
+
+    rule allInMap(.MetadataInts,M:Map) => true
+    rule allInMap(! I:UnsignedInt, Mis:MetadataInts,M:Map) => false
+         when notBool (I in keys(M))
+    rule allInMap(! I:UnsignedInt, Mis:MetadataInts,M:Map)
+         => allInMap(Mis,M)
+         when I in keys(M)
+
+endmodule
+
+module LLVM-DECLARATIONS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+    imports LLVM-PREPROCESSING
+
+    // TODO: semantic design pattern: assignment rule
+    rule
+        <k> alias(Mod:K, X:SymbolicValueRef, K:K) => . ...</k>
+        <globalRegisters> Map:Map => Map[X <- K] </globalRegisters>
+
+    // TODO KListToK module sections
+    // TODO: semantic design pattern: multi-arity (want multiple pieces of data at the same time like key/value pairs) vs. variadic (when you don't need to do things at the same time)
     rule
         <k> theModule(Label:SymbolicValueRef, TargetLayout:K, TargetTriple:K, MetaVars:K
             , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
@@ -1107,11 +1148,10 @@ module LLVM-DECLARATIONS
         ...</k>
         <currModule> _ => Label </currModule>
         <modules>...
-            . =>
             <module>...
                 <moduleName> Label </moduleName>
-                <targetLayout> TargetLayout </targetLayout>
-                <targetTriple> TargetTriple </targetTriple>
+                <targetLayout> _ => TargetLayout </targetLayout>
+                <targetTriple> _ => TargetTriple </targetTriple>
             ...</module>
         ...</modules>
 
@@ -1998,12 +2038,12 @@ module LLVM-LITERALS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule float(S:#String) => String2Float(S)
+    rule float(S) => String2Float(S)
     //when String2Float(S) >=Float String2Float(S)
         // TODO when 'isFloat(String2Float(S))
 
     rule
-        <k> constantString(S:#String)
+        <k> constantString(S:String)
             => arrayValue(StringToList(S))
         ...</k>
 
@@ -2053,14 +2093,14 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         // TODO why doesn't this work?
         // <k> Call(_, Callee(funptr(Name(S:String)), listK(L:KList)))
             // => 'memcpy`(_`,_`,_`,_`,_`)(L)
-        <k> call(_, callee(funptr(name(S:#String)), listK(ListItem(V1:KResult)
+        <k> call(_, callee(funptr(name(S:String)), listK(ListItem(V1:KResult)
                    ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memcpy."
 
     rule
-        <k> call(_, callee(funptr(name(S:#String)), listK(ListItem(V1:KResult)
+        <k> call(_, callee(funptr(name(S:String)), listK(ListItem(V1:KResult)
                   ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
@@ -2218,7 +2258,7 @@ module LLVM-SYSCALLS
         ...</k>
         when N >Int 0
 
-    rule <k> printString(S:#String) => lengthString(S) ...</k>
+    rule <k> printString(S:String) => lengthString(S) ...</k>
          <output>... .List => ListItem(S) </output>
 
 endmodule
@@ -2235,7 +2275,7 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, callee(funptr(name(S:#String)), listK(ListItem(I:Int))))
+        <k> call(_, callee(funptr(name(S:String)), listK(ListItem(I:Int))))
             => .K
         ...</k>
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>
@@ -2277,6 +2317,7 @@ module LLVM-SEMANTICS
     imports LLVM-SELECTION
     imports LLVM-START-AND-STOP
     imports LLVM-DECLARATIONS
+    imports LLVM-PREPROCESSING
     imports LLVM-CALL-RET
     imports LLVM-VARIADICS
     imports LLVM-ARITHMETIC

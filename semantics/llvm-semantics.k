@@ -9,13 +9,15 @@ module LLVM-ABSTRACTSYNTAX
                       | Loc
                       | integerType(K)
                       | pointerType(K, K) //type, address space
-                      | arrayTypeValue(K, K)
+                      | arrayTypeValue(K, K)  // inner type, length
                       | structTypeValue(K)
+                      | functionTypeValue(K, K)  // return type, argument types
                       | listK(List)  [latex({#1})]
 
     syntax Element ::= val(K) [strict]
-    rule 'isKResult(val(K:K)) => true
-        when 'isKResult(K:K)
+    syntax KResult ::= valValue(K)
+    rule val(K:KResult) => valValue(K) [structural]
+
     syntax ElemList ::= List{Element,","} [strict,klabel('elemCon)]
     syntax Int ::= lengthOfList(ElemList) [function]
 
@@ -35,17 +37,23 @@ module LLVM-ABSTRACTSYNTAX
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | structType(K) [strict]
                          | namedType(K)
+                         | functionType(K, K) [strict] // return type, argument types
 
-    /*rule [ I:UnsignedInt x T:Type ] => arrayType(
-                                    String2Int(#tokenToString(I)),T) [macro]
-    rule T:Type A:OptAddrSpace * => pointerType(T, A) [macro]
+    rule arrayType(K1:KResult, K2:KResult) => arrayTypeValue(K1, K2) [structural]
+    rule structType(K1:KResult) => structTypeValue(K1) [structural]
+    rule functionType(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
+
+    //uniform the types.
+    rule [ I:UnsignedInt x T:Type ] => arrayType(T,
+                                    String2Int(#tokenToString(I))) [structural]
+    rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
     rule { Ts:TypeList } => structType(Ts) [macro]
     rule < { Ts:TypeList } > => structType(Ts) [macro]
 
     //change IntType from LLVM syntax to K rule syntax
     rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
-                        1, lengthString(#tokenToString(I))))) [macro]
-*/
+                        1, lengthString(#tokenToString(I))))) [structural]
+
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)
 
@@ -92,8 +100,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= conditional(K, K, K) [strict(1)]
     syntax KItem ::= switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
     syntax KItem ::= case(K, K) [strict(1)] // value, successor
-    rule 'isKResult(case(K:K, _)) => true
-        when 'isKResult(K:K)
+    syntax KItem ::= caseValue(K, K)
+    rule case(K:KResult, K') => caseValue(K, K')
 
     //@ Conversion Operations
     syntax KItem ::= trunc(K, K) [strict] // type, op
@@ -116,8 +124,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val
     syntax KItem ::= call(K, K) [strict(2)] // Type, Callee
     syntax KItem ::= callee(K, K) [strict] // Value/Name, Arguments
-    rule 'isKResult(callee(K:K, K':K)) => true
-        when 'isKResult(K:K) andBool 'isKResult(K')
+    syntax KItem ::= calleeValue(K, K)
+    rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
     syntax KItem ::= getElementPtr(K, K, ElemList) [strict]
     syntax KItem ::= aliases(ElemList)
@@ -262,6 +270,7 @@ module LLVM-HELPERS
     syntax Kitem ::= innerType(K) [function]
     rule innerType(pointerType(K:K, _)) => K:K
     rule innerType(arrayType(K:K, _)) => K:K
+    rule innerType(arrayTypeValue(K:K, _)) => K:K
 
     // these give the two's complement signed max and min of a type
     syntax Int ::= smax(K) [function]
@@ -331,19 +340,25 @@ module LLVM-HELPERS
 
     syntax Bool ::= isArrayType(K) [function]
     rule isArrayType(arrayType(_, _)) => true
+    rule isArrayType(arrayTypeValue(_, _)) => true
 
     syntax Bool ::= isStructType(K)
     rule isStructType(structType(_)) => true
+    rule isStructType(structTypeValue(_)) => true
 
     // fixme size should depend on architecture
     rule sizeofInBits(pointerType(_, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(arrayType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
+    rule sizeofInBits(arrayTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
 
     rule sizeofInBits(integerType(N:Int)) => N
     rule sizeofInBits(float) => 32
     rule sizeofInBits(double) => 64
     rule sizeofInBits(x86_fp80) => 80
     // TODO listK should be Fields (bug in K)
+    rule sizeofInBits(structTypeValue(listK((ListItem(Type:KResult) L:List))))
+      => sizeofInBits(Type) +Int sizeofInBits(structTypeValue(listK(L)))
+    rule sizeofInBits(structTypeValue(listK(.List))) => 0
     rule sizeofInBits(structType(listK((ListItem(Type:KResult) L:List))))
       => sizeofInBits(Type) +Int sizeofInBits(structType(listK(L)))
     rule sizeofInBits(structType(listK(.List))) => 0
@@ -597,12 +612,36 @@ module LLVM-GLOBALS
 
     syntax KItem ::= preInit(K, K, K) [strict(2)]
 
-    
+    //for the pointer type of global variable.
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), pointerType(TyK:K,Ad:K), Init:K)
-            => preInit(X, alloca(TyK:K, 1), Init:K)
+            => preInit(X, alloca(TyK:K, 1), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
+
+    //for the array type of global variable.
+    rule
+        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
+                , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
+            => preInit(X, alloca(TyK, Size), initializer(TyK,Init))
+        ...</k>
+        <currentModifiers> _ => L </currentModifiers>
+
+    //for the struct type of global variable.
+    rule
+        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
+                , structTypeValue(TyK:KResult), Init:K)
+            => preInit(X, alloca(TyK, 1), initializer(TyK,Init))
+        ...</k>
+        <currentModifiers> _ => L </currentModifiers>
+
+    //for the function type of global variable - an error.
+    rule
+        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
+                , functionTypeValue(TyK:K, K':K), Init:K) ~> K
+            => .K
+        </k>
+        <output>... .List => ListItem("error: invalid type for global variable") </output>
 
     rule
         <k> preInit(X:SymbolicValueRef, Loc:Loc, initializer(TK:K, K:K)) => .K ...</k>
@@ -675,7 +714,7 @@ module LLVM-BRANCHING
             => unconditional(Label:K)
         </k>
     rule [switch-hit]:
-        <k> switch(Type:KResult, I:Int, _, listK(ListItem(case(I':Int, Label:K)) L:List))
+        <k> switch(Type:KResult, I:Int, _, listK(ListItem(caseValue(I':Int, Label:K)) L:List))
             => unconditional(Label:K)
         </k>
         when unsigned(Type, I) ==Int unsigned(Type, I')
@@ -684,7 +723,7 @@ module LLVM-BRANCHING
                 Type:KResult,
                 I:Int,
                 _,
-                listK(ListItem(case(I':Int, Label:K)) L:List
+                listK(ListItem(caseValue(I':Int, Label:K)) L:List
                      => L)
             )
         </k>
@@ -788,8 +827,8 @@ module LLVM-START-AND-STOP
 
     rule // argv & envp
         <k> initEnvStructures(Loc:Loc)
-            => write(arrayType(pointerType(i(8),0), 3), zeroinitializer, Loc)
-            ~> initEnvStructures'(Loc + sizeof(arrayType(pointerType(i(8),0), 3)))
+            => write(arrayTypeValue(pointerType(i(8),0), 3), zeroinitializer, Loc)
+            ~> initEnvStructures'(Loc + sizeof(arrayTypeValue(pointerType(i(8),0), 3)))
             ~> Loc
         ...</k>
 
@@ -1252,7 +1291,7 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
 
     rule
-        <k> call(_, callee(funptr(FunName:SymbolicValueRef), listK(Args:List))) ~> Tail:K
+        <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), listK(Args:List))) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, elemListToList(Formals))
             ~> Body
@@ -1512,20 +1551,20 @@ module LLVM-GEP
         <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
 
     rule
-        <k> arrayType(Type:KResult, _) => Type ...</k>
+        <k> arrayTypeValue(Type:KResult, _) => Type ...</k>
         <gepIndices> N:Int => . ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int N) </gepResult>
         when N >=Int 0
 
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
-        <k> structType(listK(ListItem(Type:KResult) L:List => L)) ...</k>
+        <k> structTypeValue(listK(ListItem(Type:KResult) L:List => L)) ...</k>
         <gepIndices> N:Int => N -Int 1 ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
         when N >Int 0
 
     rule
-        <k> structType(listK(ListItem(Type:KResult) L:List)) => Type ...</k>
+        <k> structTypeValue(listK(ListItem(Type:KResult) L:List)) => Type ...</k>
         <gepIndices> 0 => . ...</gepIndices>
 
 endmodule
@@ -1576,7 +1615,7 @@ module LLVM-HELPERS-SPLIT-BYTES
         when isArrayType(Type)
 
     rule
-        <k> splitBytes(V:KResult, structType(listK(L:List)))
+        <k> splitBytes(V:KResult, structTypeValue(listK(L:List)))
             => splitStructBytes(V, L)
         ...</k>
 
@@ -2093,44 +2132,44 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         // TODO why doesn't this work?
         // <k> Call(_, Callee(funptr(Name(S:String)), listK(L:KList)))
             // => 'memcpy`(_`,_`,_`,_`,_`)(L)
-        <k> call(_, callee(funptr(name(S:String)), listK(ListItem(V1:KResult)
+        <k> call(_, calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
                    ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memcpy."
 
     rule
-        <k> call(_, callee(funptr(name(S:String)), listK(ListItem(V1:KResult)
+        <k> call(_, calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
                   ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memset."
 
     rule
-        <k> call(_, callee(funptr(name("@llvm.lifetime.start")), listK(ListItem(V1:KResult)
+        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.start")), listK(ListItem(V1:KResult)
                    ListItem(V2:KResult))))
             => lifetimeStart(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, callee(funptr(name("@llvm.lifetime.end")), listK(ListItem(V1:KResult)
+        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.end")), listK(ListItem(V1:KResult)
                   ListItem(V2:KResult))))
             => lifetimeEnd(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, callee(funptr(name("@llvm.va_start")), listK(ListItem(V1:KResult))))
+        <k> call(_, calleeValue(funptr(name("@llvm.va_start")), listK(ListItem(V1:KResult))))
             => vaStart(V1)
         ...</k>
 
     rule
-        <k> call(_, callee(funptr(name("@llvm.va_copy")), listK(ListItem(V1:KResult)
+        <k> call(_, calleeValue(funptr(name("@llvm.va_copy")), listK(ListItem(V1:KResult)
                   ListItem(V2:KResult))))
             => vaCopy(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, callee(funptr(name("@llvm.va_end")), _))
+        <k> call(_, calleeValue(funptr(name("@llvm.va_end")), _))
             => .K
         ...</k>
 endmodule
@@ -2196,7 +2235,7 @@ module LLVM-SYSCALLS-PREPROCESS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, callee(funptr(name("@__syscall")), listK(ListItem(N:Int) L:List)))
+        <k> call(_, calleeValue(funptr(name("@__syscall")), listK(ListItem(N:Int) L:List)))
             => (syscallHandler(N))(L)
         ...</k>
 endmodule
@@ -2275,7 +2314,7 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, callee(funptr(name(S:String)), listK(ListItem(I:Int))))
+        <k> call(_, calleeValue(funptr(name(S:String)), listK(ListItem(I:Int))))
             => .K
         ...</k>
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>
@@ -2295,7 +2334,7 @@ module LLVM-EXCEPTIONS
 
 /*
     rule
-        <k> Call(_, Callee(funptr(Name("@__cxa")), listK(V1:KResult,, V2:KResult)))
+        <k> Call(_, calleeValue(funptr(Name("@__cxa")), listK(V1:KResult,, V2:KResult)))
             => @__cxa_allocate_exception
         ...</k>
 */

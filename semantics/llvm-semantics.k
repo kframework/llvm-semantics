@@ -29,6 +29,12 @@ module LLVM-ABSTRACTSYNTAX
     rule elemListToK(.ElemList) => .K
     rule elemListToK(val(K:K), L:ElemList) => K ~> elemListToK(L)
 
+    syntax KItem ::= instructionListToK(InstructionList) [function]
+
+    rule instructionListToK(.InstructionList) => .K
+    rule instructionListToK(K:Instruction L:Instruction)
+                             => K ~> instructionListToK(L)
+
     syntax List ::= elemListToList(ElemList) [function]
 
     rule elemListToList(.ElemList) => .List
@@ -68,6 +74,8 @@ module LLVM-ABSTRACTSYNTAX
     //rule isNat(ptrByte(_, _)) => true
     //rule isNat(floatByte(_, _, _)) => true
 
+    syntax KItem ::= "emptyDef"
+    syntax KItem ::= "funBegin"
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
@@ -89,6 +97,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= constantString(String)
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
+    syntax KItem ::= invoke(K, K, K, K, K, K, K, K)//name, modifiers, Type, Value, Params, fromLabel toLabel Meta
     syntax KItem ::= initializer(K, K) // type, value
     syntax KItem ::= globalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(ElemList)
@@ -115,7 +124,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
-    syntax KItem ::= ret(K) [strict]
+    syntax KItem ::= ret(K, K, K) [strict(1,2)]
     syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
     syntax KItem ::= arguments(ElemList) [strict]
     syntax KItem ::= values(K)
@@ -133,7 +142,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= functionDef(K, K, K, K, K)  [strict(1)] // Attributes, RetType, Value/Name, Arguments, Body
+    syntax KItem ::= functionDef(K, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(K, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K) // name, type TODO: modifiers
     syntax KItem ::= fields(ElemList) [strict]
@@ -479,16 +488,6 @@ module LLVM-CONFIGURATION
                     <attributeGroups> .Map </attributeGroups>
                     <metaGroups> .Map </metaGroups>
                     <globalRegisters color="teal"> .Map </globalRegisters>
-                    <functions color="teal">
-                        <function multiplicity="*" color="LightSkyBlue">
-                            <functionName color="orange"> name("") </functionName>
-                            <returnType> .K </returnType>
-                            <formalParameters> .K </formalParameters>
-                            <basicBlocks> .Map </basicBlocks>
-                            <localFunVarCounter> 0 </localFunVarCounter>
-                            <initialBasicBlock> .K </initialBasicBlock>
-                        </function>
-                    </functions>
                     <typeInfos color="teal">
                         <typeInfo multiplicity="*" color="LightSkyBlue">
                             <typeName color="orange"> name("") </typeName>
@@ -497,6 +496,17 @@ module LLVM-CONFIGURATION
                     </typeInfos>
                 </module>
             </modules>
+            <functions color="teal">
+                 <function multiplicity="*" color="LightSkyBlue">
+                       <funModuleName color="orange"> name("") </funModuleName>
+                       <functionName color="orange"> name("") </functionName>
+                       <returnType> .K </returnType>
+                       <formalParameters> .K </formalParameters>
+                       <basicBlocks> .Map </basicBlocks>
+                       <localFunVarCounter> 0 </localFunVarCounter>
+                       <initialBasicBlock> .K </initialBasicBlock>
+                 </function>
+            </functions>
         </T>
         <result multiplicity="?" color="DodgerBlue">
             <returnValue> -1 </returnValue>
@@ -692,8 +702,10 @@ module LLVM-BRANCHING
 
     rule
         <k> unconditional(Label:SymbolicValueRef) => M[Label] </k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName:SymbolicValueRef </functionName>
+        <functionName> FunName </functionName>
         <basicBlocks> M:Map </basicBlocks>
 
     rule
@@ -796,6 +808,8 @@ module LLVM-START-AND-STOP
                 )))))
             ))
         </k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
         <functionName> name("@main") </functionName>
         <formalParameters> arguments(L:ElemList) </formalParameters>
         when lengthOfList(L) ==Int 0
@@ -818,6 +832,8 @@ module LLVM-START-AND-STOP
                 ))
             ))
         </k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
         <functionName> name("@main") </functionName>
         <formalParameters> arguments(L:ElemList) </formalParameters>
         when lengthOfList(L) ==Int 2
@@ -866,7 +882,6 @@ module LLVM-PREPROCESSING
     imports LLVM-SYSCALLS-SYNTAX
 
     syntax KItem ::= preModule(Module, K, K, K, K, K, K, K, K)
-    syntax KItem ::= "emptyDef"
     syntax KItem ::= stringConstruct(String)
     syntax KItem ::= preFunctionDecl(FunctionProto) [function]
 
@@ -936,7 +951,7 @@ module LLVM-PREPROCESSING
 
     rule <k> DefList:Module => preModule(DefList, .K, .K, .K, .K, .K, .K, .K, .K) ...</k>
          <modules>...
-            . =>
+            .Bag =>
             <module>...
                 <moduleName> name("main") </moduleName>
             ...</module>
@@ -1210,13 +1225,199 @@ module LLVM-DECLARATIONS
     rule Fields(L:ElemList) => L
     rule Types(L:ElemList) => L
 
+
+    //ensure the static single assignment property in a function.
+    //and normalize the llvm operators to abstract syntax.
+
+    syntax KItem ::= checkSingleAssignment(K, K, Set)
+                   | checkSingleAssignmentInBlock(SymbolicValueRef, K,K, Set)
+
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .K, K:K, S:Set)
+         ~> checkSingleAssignment(K1:K, K2:K, S':Set)
+         => checkSingleAssignment(K1, K2 ~> basicBlock(N,K), S S')
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .InstructionList
+                               BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, BB, K, S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:NonVoidType
+                                  Va:ValueRef Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> ret Nt Va Meta, S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:VoidType
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> ret Nt Meta, S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br La:LabelValue
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> br La Meta, S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br It:IntType Va:ValueRef ,
+                                       La1:LabelValue , La2:LabelValue
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> (br It Va, La1, La2 Meta), S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, indirectbr Re:ResolvedVal ,
+                                       [ Las:LabelValues ]
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> (indirectbr Re, [Las] Meta), S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, switch It:IntType Va:ValueRef ,
+                                       La:LabelValue [ Ju:JumpTable ]
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> (switch It Va, La [Ju] Meta), S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, unreachable
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> (unreachable Meta), S)
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> invoke(name("%"+String Int2String(I)),
+                   modifiers(val(Opc),val(Re),val(Fu)),Ty,Va,Pa,La1,La2,Meta), S)
+         ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalVar
+                                       = invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> invoke(name(#tokenToString(Var)),
+                   modifiers(val(Opc),val(Re),val(Fu)),Ty,Va,Pa,La1,La2,Meta), SetItem(Var) S)
+          when notBool (Var in S)
+
+    rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalVar
+                                       = invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, K:K, S:Set) ~> K':K
+         => .K
+         </k>
+         <output>... .List => ListItem(" multiple definition of local value named '"
+                   +String substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var))) +String "'") </output>
+          when Var in S
+
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalValID
+                                       = invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K ~> invoke(name(#tokenToString(Var)),
+                   modifiers(val(Opc),val(Re),val(Fu)),Ty,Va,Pa,La1,La2,Meta), SetItem(Var) S)
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+          when notBool (Var in S) andBool String2Int(substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var)))) ==Int I
+
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalValID
+                                       = invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, K:K, S:Set) ~> K':K
+         => .K </k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int </localFunVarCounter>
+         <output>... .List => ListItem("error: variable expected to be numbered " +String Int2String(I)) </output>
+          when String2Int(substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var)))) =/=Int I
+
+    syntax KItem ::= instruction(K, K) //name, body
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, In:InstVal Ins:InstructionList
+                               BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, Ins BB, K
+                      ~> instruction(name("%" +String Int2String(I)),In), S)
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar = In:InstVal
+               Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, Ins BB, K
+                      ~> instruction(name(#tokenToString(Var)),In), SetItem(Var) S)
+         ...</k>
+         when notBool (Var in S)
+
+    rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar = In:InstVal
+               Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set) ~> K':K
+         => .K </k>
+         <output>... .List => ListItem(" multiple definition of local value named '"
+                   +String substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var))) +String "'") </output>
+         when (Var in S)
+
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalValID = In:InstVal
+               Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, Ins BB, K
+                      ~> instruction(name(#tokenToString(Var)),In), SetItem(Var) S)
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+         when notBool (Var in S) andBool String2Int(substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var)))) ==Int I
+
+    rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalValID = In:InstVal
+               Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set) ~> K':K
+         => .K </k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+          when String2Int(substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var)))) =/=Int I
+
+    rule checkSingleAssignment(.K, K:K, S:Set) => K
+    rule checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
+                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K, S:Set)
+         => checkSingleAssignmentInBlock(makeVarFromLabel(L),Ins BB, .K, S)
+           ~> checkSingleAssignment(BBL, K, S:Set)
+    rule checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
+                                BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(makeVarFromLabel(L),Ins BB, .K, S) ~>
+            checkSingleAssignment(.K, K, S)
+
+    rule <k>checkSingleAssignment(Ins:InstructionList
+                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K, S:Set)
+         => checkSingleAssignmentInBlock(name("%" +String Int2String(I)), Ins BB, .K, S)
+           ~> checkSingleAssignment(BBL, K, S)
+         ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+
+    rule <k> checkSingleAssignment(Ins:InstructionList
+                                BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(name("%" +String Int2String(I)), Ins BB, .K, S)
+           ~> checkSingleAssignment(.K , K, S)
+         ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+
     rule
         <k> functionDef(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
-            => F ...</k>
+            => checkSingleAssignment(F, .K, .Set) ...</k>
         <currFunction> _ => Label </currFunction>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
-        (. =>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        (.Bag =>
             <function>...
+                <funModuleName> ModName </funModuleName>
                 <returnType> RetType </returnType>
                 <formalParameters> Arguments:K </formalParameters>
                 <functionName> Label </functionName>
@@ -1227,31 +1428,89 @@ module LLVM-DECLARATIONS
         <k> functionDecl(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K)
             => .K ...</k>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
-        (. =>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        (.Bag =>
             <function>...
+                <funModuleName> ModName </funModuleName>
                 <returnType> RetType </returnType>
                 <formalParameters> Arguments:K </formalParameters>
                 <functionName> Label </functionName>
             ...</function>
         )
 
-    // TODO add redundant context for readability (maps)
-    rule
-        <k> body(val(basicBlock(Label:SymbolicValueRef, K:K)), L:ElemList)
-            => basicBlock(Label:SymbolicValueRef, K:K)
-            ~> elemListToK(L)
-        ...</k>
+    syntax SymbolicValueRef ::= makeVarFromLabel(LabelStringConstant)
+                                [function]
+    rule makeVarFromLabel(L:LabelStringConstant)
+              => name(substrString(#tokenToString(L), 0
+                    , lengthString(#tokenToString(L)) -Int 1))
+
+    rule BB:BasicBlock BBL:BasicBlockList => BB ~> BBL
+/*
+    rule <k> funBegin ~> Ins:InstructionList Tem:BBTerminatorInstruction
+                           BBL:BasicBlockList
+             => BBL ...</k>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName':SymbolicValueRef </functionName>
-        <initialBasicBlock> .K => Label:SymbolicValueRef </initialBasicBlock>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+        <initialBasicBlock> .K => name(Int2String(I)) </initialBasicBlock>
+        <basicBlocks> M:Map => M[name(Int2String(I))
+                <- (setBlock(name(Int2String(I)))
+             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
+        when FunName ==K FunName'
+*/
+    rule <k> funBegin
+             => .K ...</k>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+        //<currFunction> FunName:SymbolicValueRef </currFunction>
+        /*<modules>...
+            <module>...
+               <functions>...
+                  <function>...
+        //<functionName> FunName':SymbolicValueRef </functionName>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+               ...</function>
+           ...</functions>
+            ...</module>
+        ...</modules>
+       */
+        //<initialBasicBlock> .K => name(Int2String(I)) </initialBasicBlock>
+        /*<basicBlocks> M:Map => M[name(Int2String(I))
+                <- (setBlock(name(Int2String(I)))
+             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>*/
+        //when FunName ==K FunName'
+/*
+    rule <k> funBegin ~> L:LabelStringConstant Ins:InstructionList
+                         Tem:BBTerminatorInstruction BBL:BasicBlockList
+             => BBL ...</k>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName':SymbolicValueRef </functionName>
+        <initialBasicBlock> .K => makeVarFromLabel(L) </initialBasicBlock>
+        <basicBlocks> M:Map => M[makeVarFromLabel(L)
+                <- (setBlock(makeVarFromLabel(L))
+             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
         when FunName ==K FunName'
 
-    rule
-        <k> basicBlock(Label:SymbolicValueRef, K:K) => .K ...</k>
+    rule <k> funBegin ~> L:LabelStringConstant Ins:InstructionList
+                         Tem:BBTerminatorInstruction
+             => .K ...</k>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName':SymbolicValueRef </functionName>
-        <basicBlocks> M => M[Label <- (setBlock(Label) ~> K:K)] </basicBlocks>
+        <initialBasicBlock> .K => makeVarFromLabel(L) </initialBasicBlock>
+        <basicBlocks> M:Map => M[makeVarFromLabel(L)
+                <- (setBlock(makeVarFromLabel(L))
+             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
         when FunName ==K FunName'
+*/
+    rule
+        <k> Label:LabelStringConstant Ins:InstructionList
+            Tem:BBTerminatorInstruction => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName:SymbolicValueRef </functionName>
+        <basicBlocks> M:Map => M[makeVarFromLabel(Label)
+                <- (setBlock(makeVarFromLabel(Label))
+             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
 
     rule
         <k> setBlock(Label:SymbolicValueRef) => .K ...</k>
@@ -1296,12 +1555,12 @@ module LLVM-CALL-RET
             ~> bind(Args, elemListToList(Formals))
             ~> Body
         </k>
-        <module>...
-            <functionName> FunName </functionName>
-            <formalParameters> arguments(Formals:ElemList) </formalParameters>
-            <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
-            <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
-        ...</module>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <functionName> FunName </functionName>
+        <formalParameters> arguments(Formals:ElemList) </formalParameters>
+        <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
+        <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
         [large]
 
     syntax KItem ::= contextSwitch(K, K)
@@ -1340,11 +1599,16 @@ module LLVM-CALL-RET
     syntax KItem ::= "clearVoid"
     syntax KItem ::= clearLocalMemory(List)
 
+    rule ret T:NonVoidType V:ValueRef Ins:InstructionMetadatas
+         => ret(T,V,Ins) [structural]
+    rule ret T:VoidType Ins:InstructionMetadatas
+         => ret(T,emptyDef,Ins) [structural]
+
     // TODO rename Tail
     rule
-        <k> ret(V:KResult) ~> _
+        <k> ret(T:KResult, V:KResult, Ins:K) ~> _
             => clearLocalMemory(Locals)
-            ~> V ~> clearVoid
+            ~> initializer(T, V) ~> clearVoid
             ~> Tail
         </k>
         <callStack> ListItem(frame(Tail:K, C:Bag)) => .List ...</callStack>
@@ -1356,9 +1620,9 @@ module LLVM-CALL-RET
 
     rule clearLocalMemory(.List) => .K
 
-    rule void ~> clearVoid => .K
-    rule V:KResult ~> clearVoid => V
-         when V =/=K void
+    rule initializer(void, V:K) ~> clearVoid => .K
+    rule initializer(T:K, V:KResult) ~> clearVoid => V
+         when T =/=K void
 
 endmodule
 

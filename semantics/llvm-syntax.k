@@ -1011,7 +1011,7 @@ module LLVM-SYNTAX
                                 | "xor" [klabel('xorOfAtomicrmw)]
 
     //define the metadata in the tail of all instructions.
-    syntax InstructionMetadata ::= MetadataVar "!" UnsignedInt
+    syntax InstructionMetadata ::= MetadataVar MetadataValueInt
                                  | MetadataVar "!" "{" IndexList "}"
     syntax InstructionMetadatas ::= "" [klabel('.InstructionMetadatas),onlyLabel]
                                  | "," InstructionMetadata InstructionMetadatas

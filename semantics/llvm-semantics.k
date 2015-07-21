@@ -97,20 +97,34 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= constantString(String)
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
-    syntax KItem ::= invoke(K, K, K, K, K, K, K, K)//name, modifiers, Type, Value, Params, fromLabel toLabel Meta
+    syntax KItem ::= invoke(K, K, K, K)//operand, Params, fromLabel toLabel
     syntax KItem ::= initializer(K, K) // type, value
     syntax KItem ::= globalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(ElemList)
+    syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K) [strict] // Type, NumElements
     syntax KItem ::= load(K, K) [strict]
+    syntax LLVM ::= operand(K, K) [strict] // Type, Value
+
+    //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
+    syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
-    syntax KItem ::= unconditional(K)
-    syntax KItem ::= conditional(K, K, K) [strict(1)]
+    syntax KItem ::= instruction(K, K, K) //body, modifiers, instructionMetadatas
+
+    syntax KItem ::= "unreachable"
+    syntax KItem ::= resume(K)//operand
+    syntax KItem ::= indirectbr(K, ElemList)//operand, list of labels
+    syntax KItem ::= unconditional(K)//label
+    syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
     syntax KItem ::= switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
-    syntax KItem ::= case(K, K) [strict(1)] // value, successor
-    syntax KItem ::= caseValue(K, K)
-    rule case(K:KResult, K') => caseValue(K, K')
+    syntax Case ::= case(K, K) [strict(1)] // operand, successor
+    syntax KResult ::= caseValue(K, K)
+    syntax Cases ::= List{Case,","} [strict,klabel('caseCon)]
+    rule case(K:KResult, K') => caseValue(K, K') [structural]
+
+    syntax KItem ::= arguments(ElemList) [strict]
+    syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
 
     //@ Conversion Operations
     syntax KItem ::= trunc(K, K) [strict] // type, op
@@ -124,9 +138,6 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
-    syntax KItem ::= ret(K, K, K) [strict(1,2)]
-    syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
-    syntax KItem ::= arguments(ElemList) [strict]
     syntax KItem ::= values(K)
     syntax KItem ::= phi(K, K) // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
@@ -339,21 +350,26 @@ module LLVM-HELPERS
     rule isIntegerType(integerType(_)) => true
     rule isIntegerType(KLabel:KLabel(_)) => false
         when KLabel =/=KLabel 'integerType
+    rule isIntegerType(_) => false [owise]
 
     syntax Bool ::= isFloatType(K) [function]
     rule isFloatType(F:FPType) => true
     rule isFloatType(x86_mmx) => true
+    rule isFloatType(_) => false [owise]
 
     syntax Bool ::= isPointerType(K) [function]
     rule isPointerType(pointerType(_, _)) => true
+    rule isPointerType(_) => false [owise]
 
     syntax Bool ::= isArrayType(K) [function]
     rule isArrayType(arrayType(_, _)) => true
     rule isArrayType(arrayTypeValue(_, _)) => true
+    rule isArrayType(_) => false [owise]
 
     syntax Bool ::= isStructType(K)
     rule isStructType(structType(_)) => true
     rule isStructType(structTypeValue(_)) => true
+    rule isStructType(_) => false [owise]
 
     // fixme size should depend on architecture
     rule sizeofInBits(pointerType(_, _)) => numBytesPerPointer *Int numBitsPerByte
@@ -460,6 +476,7 @@ module LLVM-CONFIGURATION
                 <registers color="teal"> .Map </registers>
                 // TODO: this should eventually be a Set
                 <currentModifiers color="Orchid"> .ElemList </currentModifiers>
+                <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
                 <localMemory> .List </localMemory>
             </control>
             <memory color="teal" type="Map">
@@ -524,11 +541,11 @@ module LLVM-CLEAN-TREE
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-/*
-    rule <k> Operand(Type:KResult, I:Int) => signed(Type, I) ...</k>
+    rule <k> operand(Type:KResult, I:Int) => signed(Type, I) ...</k>
         when isIntegerType(Type)
-    rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
+    rule <k> operand(Type:KResult, V:KResult) => V ...</k>
         when notBool isIntegerType(Type)
+/*
     // rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
 
     rule GlobalVariables(L:KList) => KListToK(L)  [anywhere]
@@ -598,7 +615,10 @@ module LLVM-CLEAN-TREE
     rule fcmp uno T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UNO(T, V, V'),I)
 
-
+    rule
+        <k> instruction(K:K, modifiers(L:Element), insMetas(L':Element)) => K ...</k>
+        <currentModifiers> _ => L </currentModifiers>
+        <currentMetadatas> _ => L' </currentMetadatas>
 /*
     rule
         <k> Instruction(Modifiers(L:KList), K:K) => K ...</k>
@@ -1174,7 +1194,7 @@ module LLVM-PREPROCESSING
 
 endmodule
 
-module LLVM-DECLARATIONS
+module LLVM-NORMALIZING
     imports LLVM-SYNTAX
     imports LLVM-ABSTRACTSYNTAX
     imports LLVM-SETTINGS
@@ -1184,47 +1204,43 @@ module LLVM-DECLARATIONS
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-PREPROCESSING
 
-    // TODO: semantic design pattern: assignment rule
-    rule
-        <k> alias(Mod:K, X:SymbolicValueRef, K:K) => . ...</k>
-        <globalRegisters> Map:Map => Map[X <- K] </globalRegisters>
+    syntax SymbolicValueRef ::= makeVarFromLabel(LabelStringConstant)
+                                [function]
+    rule makeVarFromLabel(L:LabelStringConstant)
+              => name(substrString(#tokenToString(L), 0
+                    , lengthString(#tokenToString(L)) -Int 1))
 
-    // TODO KListToK module sections
-    // TODO: semantic design pattern: multi-arity (want multiple pieces of data at the same time like key/value pairs) vs. variadic (when you don't need to do things at the same time)
-    rule
-        <k> theModule(Label:SymbolicValueRef, TargetLayout:K, TargetTriple:K, MetaVars:K
-            , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-            => MetaVars
-            ~> Typedefs
-            ~> GlobalVars
-            ~> Aliases
-            ~> Functions
-        ...</k>
-        <currModule> _ => Label </currModule>
-        <modules>...
-            <module>...
-                <moduleName> Label </moduleName>
-                <targetLayout> _ => TargetLayout </targetLayout>
-                <targetTriple> _ => TargetTriple </targetTriple>
-            ...</module>
-        ...</modules>
+    //useful function to turn a kitem into an elemList
+    syntax KItem ::= doubleList(RetAttrs, FuncAttrs)
+    syntax ElemList ::= formElemList(K) [function]
 
-    rule [typedef-assignment]:
-        <k> typedef(X:SymbolicValueRef, UnresolvedType:K) => .K ...</k>
-        //<currentModifiers> _ => List(L) </currentModifiers> TODO not printing modifiers
-        <currModule> Label:SymbolicValueRef </currModule>
-        <moduleName> Label':SymbolicValueRef </moduleName>
-        <typedefs> M:Map => M[X <- UnresolvedType] </typedefs>
-        when Label ==K Label'
+    rule formElemList('.InstructionMetadatas(.KList)) => .ElemList
+    rule formElemList(, Mv:MetadataVar Mi:MetadataValueInt Ins:InstructionMetadatas)
+              => val(Mv Mi),formElemList(Ins)
+    rule formElemList(, Mv:MetadataVar ! { In:IndexList } Ins:InstructionMetadatas)
+              => val(Mv ! { In }),formElemList(Ins)
+    rule formElemList(.LabelValues) => .ElemList
+    rule formElemList(label Va:ValueRef, Ls:LabelValues)
+                    => val(Va),formElemList(Ls)
+    rule formElemList(doubleList(.RetAttrs,.FuncAttrs)) => .ElemList
+    rule formElemList(doubleList(.RetAttrs,F:FuncAttr Fs:FuncAttrs))
+            => val(F),formElemList(doubleList(.RetAttrs,Fs))
+    rule formElemList(doubleList(R:RetAttr Rs:RetAttrs,Fs:FuncAttrs))
+            => val(R),formElemList(doubleList(Rs,Fs))
+    rule formElemList(.ParamList) => .ElemList
+    rule formElemList(Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
+            => val(arg(modifiers(formElemList(Pa)),Ty,Va)),formElemList(Pl)
+    rule formElemList(.ParamAttrs) => .ElemList
+    rule formElemList(Pa:ParamAttr Ps:ParamAttrs) => val(Pa),formElemList(Ps)
+    rule formElemList(K:K) => K [owise]
 
-    rule [typedef-lookup]:
-        <k> namedType(X:SymbolicValueRef) => UnresolvedType ...</k>
-        <typedefs>... X |-> UnresolvedType:K ...</typedefs>
+    syntax Cases ::= formCases(K) [function]
 
-    // TODO: hack because hybrids don't seem to be working
-    rule Fields(L:ElemList) => L
-    rule Types(L:ElemList) => L
-
+    rule formCases(.JumpTable) => .Cases
+    rule formCases(It:IntType Ca:ConstValueRef,
+                 label Va:ValueRef Cs:JumpTable)
+                 => case(operand(It,Ca),Va), formCases(Cs)
+    rule formCases(K:K) => K [owise]
 
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
@@ -1232,55 +1248,82 @@ module LLVM-DECLARATIONS
     syntax KItem ::= checkSingleAssignment(K, K, Set)
                    | checkSingleAssignmentInBlock(SymbolicValueRef, K,K, Set)
 
+    //form a basicBlock finally.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .K, K:K, S:Set)
          ~> checkSingleAssignment(K1:K, K2:K, S':Set)
          => checkSingleAssignment(K1, K2 ~> basicBlock(N,K), S S')
+
+    //have dealt with all instruction list.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .InstructionList
-                               BB:BBTerminatorInstruction, K:K, S:Set)
+                               BB:K, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, BB, K, S)
+
+    //deal with termination instructions.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:NonVoidType
                                   Va:ValueRef Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> ret Nt Va Meta, S)
+         => checkSingleAssignmentInBlock(N, .K, K
+                         ~> instruction(ret(Nt,Va),modifiers(.ElemList),
+                                            insMetas(formElemList(Meta))), S)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:VoidType
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> ret Nt Meta, S)
-    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br La:LabelValue
+         => checkSingleAssignmentInBlock(N, .K, K
+                         ~> instruction(ret(Nt,emptyDef),modifiers(.ElemList),
+                                                   insMetas(formElemList(Meta))), S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br label La:ValueRef
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> br La Meta, S)
+         => checkSingleAssignmentInBlock(N, .K, K
+                   ~> instruction(unconditional(La), modifiers(.ElemList),
+                                     insMetas(formElemList(Meta))), S)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br It:IntType Va:ValueRef ,
-                                       La1:LabelValue , La2:LabelValue
+                                       label La1:ValueRef , label La2:ValueRef
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> (br It Va, La1, La2 Meta), S)
-    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, indirectbr Re:ResolvedVal ,
+         => checkSingleAssignmentInBlock(N, .K, K
+             ~> instruction(conditional(operand(It,Va), La1, La2),
+                             modifiers(.ElemList),insMetas(formElemList(Meta))), S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, resume Ty:Type Va:ValueRef
+                                    Meta:InstructionMetadatas, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, .K, K
+             ~> instruction(resume(operand(Ty,Va)),
+                             modifiers(.ElemList),insMetas(formElemList(Meta))), S)
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, indirectbr Ty:Type Va:ValueRef ,
                                        [ Las:LabelValues ]
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> (indirectbr Re, [Las] Meta), S)
+         => checkSingleAssignmentInBlock(N, .K, K
+                ~> instruction(indirectbr(operand(Ty,Va),
+                   formElemList(Las)),modifiers(.ElemList), insMetas(formElemList(Meta))), S)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, switch It:IntType Va:ValueRef ,
-                                       La:LabelValue [ Ju:JumpTable ]
+                                       label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> (switch It Va, La [Ju] Meta), S)
+         => checkSingleAssignmentInBlock(N, .K, K
+                  ~> instruction(switch(It,Va,La,formCases(Ju)),
+                                      modifiers(.ElemList),insMetas(formElemList(Meta))), S)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, unreachable
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> (unreachable Meta), S)
+         => checkSingleAssignmentInBlock(N, .K, K
+                       ~> instruction(unreachable,modifiers(.ElemList),insMetas(formElemList(Meta))), S)
+
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
-                                       to La1:LabelValue unwind La2:LabelValue 
+                                       to label La1:ValueRef unwind label La2:ValueRef 
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> invoke(name("%"+String Int2String(I)),
-                   modifiers(val(Opc),val(Re),val(Fu)),Ty,Va,Pa,La1,La2,Meta), S)
+         => checkSingleAssignmentInBlock(N, .K, K ~> assign(name("%"+String Int2String(I)),
+                   instruction(invoke(operand(Ty,Va),formElemList(Pa),La1,La2),
+                 modifiers(val(Opc),formElemList(doubleList(Re,Fu))),insMetas(formElemList(Meta)))), S)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalVar
                                        = invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> invoke(name(#tokenToString(Var)),
-                   modifiers(val(Opc),val(Re),val(Fu)),Ty,Va,Pa,La1,La2,Meta), SetItem(Var) S)
+         => checkSingleAssignmentInBlock(N, .K, K ~> assign(name(#tokenToString(Var)),
+                   instruction(invoke(operand(Ty,Va),formElemList(Pa),La1,La2),
+                 modifiers(val(Opc),formElemList(doubleList(Re,Fu))),insMetas(formElemList(Meta)))), SetItem(Var) S)
           when notBool (Var in S)
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalVar
@@ -1300,15 +1343,16 @@ module LLVM-DECLARATIONS
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K ~> invoke(name(#tokenToString(Var)),
-                   modifiers(val(Opc),val(Re),val(Fu)),Ty,Va,Pa,La1,La2,Meta), SetItem(Var) S)
+         => checkSingleAssignmentInBlock(N, .K, K ~> assign(name(#tokenToString(Var)),
+                   instruction(invoke(operand(Ty,Va),formElemList(Pa),La1,La2),
+                 modifiers(val(Opc),formElemList(doubleList(Re,Fu))),insMetas(formElemList(Meta)))), S)
          ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
-          when notBool (Var in S) andBool String2Int(substrString(#tokenToString(Var),1
+          when String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) ==Int I
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalValID
@@ -1326,11 +1370,10 @@ module LLVM-DECLARATIONS
           when String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) =/=Int I
 
-    syntax KItem ::= instruction(K, K) //name, body
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, In:InstVal Ins:InstructionList
                                BB:BBTerminatorInstruction, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, Ins BB, K
-                      ~> instruction(name("%" +String Int2String(I)),In), S)
+                      ~> assign(name("%" +String Int2String(I)),In), S)
          ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
@@ -1341,7 +1384,7 @@ module LLVM-DECLARATIONS
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar = In:InstVal
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, Ins BB, K
-                      ~> instruction(name(#tokenToString(Var)),In), SetItem(Var) S)
+                      ~> assign(name(#tokenToString(Var)),In), SetItem(Var) S)
          ...</k>
          when notBool (Var in S)
 
@@ -1356,7 +1399,7 @@ module LLVM-DECLARATIONS
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalValID = In:InstVal
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, Ins BB, K
-                      ~> instruction(name(#tokenToString(Var)),In), SetItem(Var) S)
+                      ~> assign(name(#tokenToString(Var)),In), SetItem(Var) S)
          ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
@@ -1409,6 +1452,60 @@ module LLVM-DECLARATIONS
         <functionName> FunName </functionName>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
 
+endmodule
+
+module LLVM-DECLARATIONS
+    imports LLVM-SYNTAX
+    imports LLVM-ABSTRACTSYNTAX
+    imports LLVM-SETTINGS
+    imports LLVM-HELPERS
+    imports LLVM-CONFIGURATION
+    imports LLVM-STANDARD-LIBRARY-SYNTAX
+    imports LLVM-SYSCALLS-SYNTAX
+    imports LLVM-PREPROCESSING
+    imports LLVM-NORMALIZING
+
+    // TODO: semantic design pattern: assignment rule
+    rule
+        <k> alias(Mod:K, X:SymbolicValueRef, K:K) => . ...</k>
+        <globalRegisters> Map:Map => Map[X <- K] </globalRegisters>
+
+    // TODO KListToK module sections
+    // TODO: semantic design pattern: multi-arity (want multiple pieces of data at the same time like key/value pairs) vs. variadic (when you don't need to do things at the same time)
+    rule
+        <k> theModule(Label:SymbolicValueRef, TargetLayout:K, TargetTriple:K, MetaVars:K
+            , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
+            => MetaVars
+            ~> Typedefs
+            ~> GlobalVars
+            ~> Aliases
+            ~> Functions
+        ...</k>
+        <currModule> _ => Label </currModule>
+        <modules>...
+            <module>...
+                <moduleName> Label </moduleName>
+                <targetLayout> _ => TargetLayout </targetLayout>
+                <targetTriple> _ => TargetTriple </targetTriple>
+            ...</module>
+        ...</modules>
+
+    rule [typedef-assignment]:
+        <k> typedef(X:SymbolicValueRef, UnresolvedType:K) => .K ...</k>
+        //<currentModifiers> _ => List(L) </currentModifiers> TODO not printing modifiers
+        <currModule> Label:SymbolicValueRef </currModule>
+        <moduleName> Label':SymbolicValueRef </moduleName>
+        <typedefs> M:Map => M[X <- UnresolvedType] </typedefs>
+        when Label ==K Label'
+
+    rule [typedef-lookup]:
+        <k> namedType(X:SymbolicValueRef) => UnresolvedType ...</k>
+        <typedefs>... X |-> UnresolvedType:K ...</typedefs>
+
+    // TODO: hack because hybrids don't seem to be working
+    rule Fields(L:ElemList) => L
+    rule Types(L:ElemList) => L
+
     rule
         <k> functionDef(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
             => checkSingleAssignment(F, .K, .Set) ...</k>
@@ -1437,12 +1534,6 @@ module LLVM-DECLARATIONS
                 <functionName> Label </functionName>
             ...</function>
         )
-
-    syntax SymbolicValueRef ::= makeVarFromLabel(LabelStringConstant)
-                                [function]
-    rule makeVarFromLabel(L:LabelStringConstant)
-              => name(substrString(#tokenToString(L), 0
-                    , lengthString(#tokenToString(L)) -Int 1))
 
     rule BB:BasicBlock BBL:BasicBlockList => BB ~> BBL
 /*
@@ -1599,14 +1690,9 @@ module LLVM-CALL-RET
     syntax KItem ::= "clearVoid"
     syntax KItem ::= clearLocalMemory(List)
 
-    rule ret T:NonVoidType V:ValueRef Ins:InstructionMetadatas
-         => ret(T,V,Ins) [structural]
-    rule ret T:VoidType Ins:InstructionMetadatas
-         => ret(T,emptyDef,Ins) [structural]
-
     // TODO rename Tail
     rule
-        <k> ret(T:KResult, V:KResult, Ins:K) ~> _
+        <k> ret(T:KResult, V:KResult) ~> _
             => clearLocalMemory(Locals)
             ~> initializer(T, V) ~> clearVoid
             ~> Tail
@@ -2621,6 +2707,7 @@ module LLVM-SEMANTICS
     imports LLVM-START-AND-STOP
     imports LLVM-DECLARATIONS
     imports LLVM-PREPROCESSING
+    imports LLVM-NORMALIZING
     imports LLVM-CALL-RET
     imports LLVM-VARIADICS
     imports LLVM-ARITHMETIC

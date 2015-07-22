@@ -1242,6 +1242,10 @@ module LLVM-NORMALIZING
                  => case(operand(It,Ca),Va), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
+    syntax KItem ::= instValToKItem(InstVal) [function]
+
+    
+
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
 
@@ -1416,7 +1420,9 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+         <localFunVarCounter> I:Int </localFunVarCounter>
+         <output>... .List => ListItem("error: variable expected to be numbered "
+                                         +String Int2String(I)) </output>
           when String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) =/=Int I
 

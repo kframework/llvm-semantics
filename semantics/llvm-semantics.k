@@ -104,7 +104,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K) [strict] // Type, NumElements
     syntax KItem ::= load(K, K) [strict]
-    syntax LLVM ::= operand(K, K) [strict] // Type, Value
+    syntax KItem ::= operand(K, K) [strict] // Type, Value
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
@@ -127,14 +127,19 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
 
     //@ Conversion Operations
-    syntax KItem ::= trunc(K, K) [strict] // type, op
-    syntax KItem ::= sExt(K, K) [strict] // type, op
-    syntax KItem ::= zExt(K, K) [strict] // oldtype, op
-    syntax KItem ::= bitCast(K, K) [strict] // type, op
-    syntax KItem ::= intToPtr(K, K) [strict] // type, op
-    syntax KItem ::= ptrToInt(K, K) [strict] // type, op
-    syntax KItem ::= fpToSI(K, K) [strict] // type, op
-    syntax KItem ::= fpToUI(K, K) [strict] // type, op
+    syntax KItem ::= theTrunc(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theSExt(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theZExt(K, K, K) [strict] // oldtype, op, totype
+    syntax KItem ::= theBitCast(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theIntToPtr(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= thePtrToInt(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theFpToSI(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theFpToUI(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theFPTrunc(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theFPExt(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theSIToFP(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theUIToFP(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theAddrspacecast(K, K, K) [strict]//type, op, totype
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
@@ -1282,6 +1287,13 @@ module LLVM-NORMALIZING
     rule instValToKItem(icmp ne Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(iNotEq(Ty,V1,V2),.ElemList,Ins)
 
+    //do the same for all the rules: CastOps ::= "trunc" | "zext" | "sext" | "fptrunc"
+                     //| "fpext" | "bitcast" | "uitofp" | "sitofp"
+                     //| "fptoui" | "fptosi" | "inttoptr"
+                     //| "addrspacecast" | "ptrtoint"
+    rule instValToKItem(trunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theTrunc(Ty1, V, Ty2),.ElemList,Ins)
+
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
 
@@ -2389,30 +2401,30 @@ module LLVM-CONVERSIONS
 
     // TODO only handling scalars
     rule
-        <k> trunc(Type:KResult, I:Int) => signed(Type, I) ...</k>
+        <k> theTrunc(Type:KResult, I:Int, Type2:KResult) => signed(Type, I) ...</k>
 
     // TODO only handling scalars
     rule
-        <k> zExt(Type:KResult, I:Int) => unsigned(Type, I) ...</k>
+        <k> theZExt(Type:KResult, I:Int, Type2:KResult) => unsigned(Type, I) ...</k>
     // TODO only handling scalars
     rule
-        <k> sExt(Type:KResult, I:Int) => I ...</k>
+        <k> theSExt(Type:KResult, I:Int, Type2:KResult) => I ...</k>
         when signed(Type, I) ==Int I // sanity check since this isn't supposed to change values and I is supposed to have been canonicalized
 
     // TODO need to normalize here
     rule
-        <k> bitCast(_, I:Int) => I:Int ...</k>
+        <k> theBitCast(_, I:Int, _) => I:Int ...</k>
     rule
-        <k> bitCast(_, Loc:Loc) => Loc:Loc ...</k>
+        <k> theBitCast(_, Loc:Loc, _) => Loc:Loc ...</k>
 
     //rule
         //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
 
     // TODO need to normalize here
     rule
-        <k> intToPtr(Type:KResult, K:K) => intToPtrOfLoc(Type, K:K) ...</k>
+        <k> theIntToPtr(Type:KResult, K:K, Type2:KResult) => intToPtrOfLoc(Type, K:K) ...</k>
     rule
-        <k> ptrToInt(Type:KResult, K:K) => ptrToIntOfLoc(Type, K:K) ...</k>
+        <k> thePtrToInt(Type:KResult, K:K, Type2:KResult) => ptrToIntOfLoc(Type, K:K) ...</k>
 
     // TODO needs side conditions
     rule intToPtrOfLoc(Type:KResult, intToPtrOfLoc(Type':KResult, K:K)) => K:K [anywhere]
@@ -2449,12 +2461,12 @@ module LLVM-CONVERSIONS
         [anywhere]
 
     rule
-        <k> fpToSI(Type:KResult, F:Float)
+        <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
             => signed(Type, Float2Int(F))
         ...</k>
 
     rule
-        <k> fpToUI(Type:KResult, F:Float)
+        <k> theFpToUI(Type:KResult, F:Float, Type2:KResult)
             => unsigned(Type, Float2Int(F))
         ...</k>
 

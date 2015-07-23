@@ -203,16 +203,18 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theSRem(K, K, K) [strict] // Type, Left op, Right op
 
     //@ Floating-point Binary Operations
+    //strict on all the arguments for theFSub, theFMul, theFDiv, the FRem
     syntax KItem ::= theFAdd(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theFSub(K, K, K) [strict(2,3)] // Type, Left op, Right op
-    syntax KItem ::= theFMul(K, K, K) [strict(2,3)] // Type, Left op, Right op
-    syntax KItem ::= theFDiv(K, K, K) [strict(2,3)] // Type, Left op, Right op
-    syntax KItem ::= theFRem(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFSub(K, K, K) [strict] // Type, Left op, Right op
+    syntax KItem ::= theFMul(K, K, K) [strict] // Type, Left op, Right op
+    syntax KItem ::= theFDiv(K, K, K) [strict] // Type, Left op, Right op
+    syntax KItem ::= theFRem(K, K, K) [strict] // Type, Left op, Right op
 
     //@ Bitwise Binary Operations
+    // strict on all the arguments for the LShr, AShr, 
     syntax KItem ::= theShl(K, K, K) [strict(2,3)] // Type, Left op, Right op
-    syntax KItem ::= theLShr(K, K, K) [strict(2,3)] // Type, Left op, Right op
-    syntax KItem ::= theAShr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theLShr(K, K, K) [strict] // Type, Left op, Right op
+    syntax KItem ::= theAShr(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theOr(K, K, K) [strict(2,3)] // Type, Left op, Right op
     syntax KItem ::= theAnd(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theXor(K, K, K) [strict(2,3)] // Type, Left op, Right op
@@ -1189,9 +1191,13 @@ module LLVM-NORMALIZING
     rule formElemList(nuw nsw) => val(nsw),val(nuw)
     rule formElemList('nwEmpty(.KList)) => .ElemList
     rule formElemList(.FastMathFlags) => .ElemList
-    //here
+    //here | Done
+    //do the same as fast for "nnan" | "ninf" | "nsz" | "arcp"
     rule formElemList(fast Fl:FastMathFlags) => val(fast),formElemList(Fl)
-    //do the same as above for "nnan" | "ninf" | "nsz" | "arcp"
+    rule formElemList(nnan Fl:FastMathFlags) => val(nnan),formElemList(Fl)
+    rule formElemList(ninf Fl:FastMathFlags) => val(ninf),formElemList(Fl)
+    rule formElemList(nsz Fl:FastMathFlags) => val(nsz),formElemList(Fl)
+    rule formElemList(arcp Fl:FastMathFlags) => val(arcp),formElemList(Fl)
     rule formElemList(K:K) => K [owise]
 
     syntax Cases ::= formCases(K) [function]
@@ -1205,16 +1211,42 @@ module LLVM-NORMALIZING
     syntax KItem ::= instValToKItem(InstVal) [function]
    
     //here
+    //do the same for all IntConstructors  "add" | "sub" | "mul" | "shl" | done
     rule instValToKItem(add Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theAdd(Ty,V1,V2),formElemList(Onw),Ins)
-    //do the same for all IntConstructors  "add" | "sub" | "mul" | "shl"
-
+    rule instValToKItem(sub Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theSub(Ty,V1,V2),formElemList(Onw),Ins)
+    rule instValToKItem(mul Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theMul(Ty,V1,V2),formElemList(Onw),Ins)
+    rule instValToKItem(shl Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theShl(Ty,V1,V2),formElemList(Onw),Ins)
+    //do the same for all DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr"
+    //done
     rule instValToKItem(udiv Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theUDiv(Ty,V1,V2),formElemList(Opx),Ins)
-    //do the same for all DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr"
-
+    rule instValToKItem(sdiv Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theSDiv(Ty,V1,V2),formElemList(Opx),Ins)
+    rule instValToKItem(lshr Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theLShr(Ty,V1,V2),formElemList(Opx),Ins)
+    rule instValToKItem(ashr Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theAShr(Ty,V1,V2),formElemList(Opx),Ins)
+    //do the same for all FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
     rule instValToKItem(fadd Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFAdd(Ty,V1,V2),formElemList(Fmf),Ins)
+    rule instValToKItem(fsub Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theFSub(Ty,V1,V2),formElemList(Fmf),Ins)
+    rule instValToKItem(fmul Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theFMul(Ty,V1,V2),formElemList(Fmf),Ins)
+    rule instValToKItem(fdiv Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theFDiv(Ty,V1,V2),formElemList(Fmf),Ins)
+    rule instValToKItem(frem Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theFRem(Ty,V1,V2),formElemList(Fmf),Ins)
+
+
+
+
+
+   
     //do the same for all FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
 
     rule instValToKItem(urem Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)

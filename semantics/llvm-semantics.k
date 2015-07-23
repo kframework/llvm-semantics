@@ -104,7 +104,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K) [strict] // Type, NumElements
     syntax KItem ::= load(K, K) [strict]
-    syntax KItem ::= operand(K, K) [strict] // Type, Value
+    syntax LLVM ::= operand(K, K) [strict] // Type, Value
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
@@ -127,19 +127,14 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
 
     //@ Conversion Operations
-    syntax KItem ::= theTrunc(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theSExt(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theZExt(K, K, K) [strict] // oldtype, op, totype
-    syntax KItem ::= theBitCast(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theIntToPtr(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= thePtrToInt(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theFpToSI(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theFpToUI(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theFPTrunc(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theFPExt(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theSIToFP(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theUIToFP(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theAddrspacecast(K, K, K) [strict]//type, op, totype
+    syntax KItem ::= trunc(K, K) [strict] // type, op
+    syntax KItem ::= sExt(K, K) [strict] // type, op
+    syntax KItem ::= zExt(K, K) [strict] // oldtype, op
+    syntax KItem ::= bitCast(K, K) [strict] // type, op
+    syntax KItem ::= intToPtr(K, K) [strict] // type, op
+    syntax KItem ::= ptrToInt(K, K) [strict] // type, op
+    syntax KItem ::= fpToSI(K, K) [strict] // type, op
+    syntax KItem ::= fpToUI(K, K) [strict] // type, op
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
@@ -211,13 +206,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theFRem(K, K, K) [strict] // Type, Left op, Right op
 
     //@ Bitwise Binary Operations
-    // strict on all the arguments for the LShr, AShr, 
-    syntax KItem ::= theShl(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    // strict on all the arguments for theShl, theLShr,theAShr, theOr, theXor
+    syntax KItem ::= theShl(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theLShr(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theAShr(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theOr(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theOr(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theAnd(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theXor(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theXor(K, K, K) [strict] // Type, Left op, Right op
 
 
 endmodule
@@ -1211,7 +1206,8 @@ module LLVM-NORMALIZING
     syntax KItem ::= instValToKItem(InstVal) [function]
    
     //here
-    //do the same for all IntConstructors  "add" | "sub" | "mul" | "shl" | done
+    //do the same for all IntConstructors  "add" | "sub" | "mul" | "shl"
+    //done
     rule instValToKItem(add Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theAdd(Ty,V1,V2),formElemList(Onw),Ins)
     rule instValToKItem(sub Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
@@ -1231,6 +1227,7 @@ module LLVM-NORMALIZING
     rule instValToKItem(ashr Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theAShr(Ty,V1,V2),formElemList(Opx),Ins)
     //do the same for all FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
+    //done
     rule instValToKItem(fadd Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFAdd(Ty,V1,V2),formElemList(Fmf),Ins)
     rule instValToKItem(fsub Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
@@ -1241,90 +1238,176 @@ module LLVM-NORMALIZING
            => instruction(theFDiv(Ty,V1,V2),formElemList(Fmf),Ins)
     rule instValToKItem(frem Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFRem(Ty,V1,V2),formElemList(Fmf),Ins)
-
-
-
-
-
-   
-    //do the same for all FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
-
     rule instValToKItem(urem Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theURem(Ty,V1,V2),.ElemList,Ins)
     rule instValToKItem(srem Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theSRem(Ty,V1,V2),.ElemList,Ins)
-
-    rule instValToKItem(and Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(theAnd(Ty,V1,V2),.ElemList,Ins)
     //do the same for LogicalOps ::= "and" | "or" | "xor"
+    //done
+    rule instValToKItem(and Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theAnd(Ty,V1,V2),.ElemList,In
+    rule instValToKItem(or Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theOr(Ty,V1,V2),.ElemList,In
+    rule instValToKItem(xor Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(theXor(Ty,V1,V2),.ElemList,In
 
-
-   /*
+   //do the same for all the rules below as the first case.
+/*    
     rule icmp ne T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(INotEq(T, V, V'),I)
-    rule icmp eq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(IEq(T, V, V'),I)
-    rule icmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UGT(T, V, V'),I)
-    rule icmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UGE(T, V, V'),I)
-    rule icmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ULT(T, V, V'),I)
-    rule icmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ULE(T, V, V'),I)
-    rule icmp sgt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SGT(T, V, V'),I)
-    rule icmp sge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SGE(T, V, V'),I)
-    rule icmp slt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SLT(T, V, V'),I)
-    rule icmp sle T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SLE(T, V, V'),I)
-
-    rule fcmp false _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
-         => theDefinition(0,I)
-    rule fcmp true _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
-         => theDefinition(1,I)
-    rule fcmp oeq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(OEQ(T, V, V'),I)
-    rule fcmp ogt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(OGT(T, V, V'),I)
-    rule fcmp oge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(OGE(T, V, V'),I)
-    rule fcmp olt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(OLT(T, V, V'),I)
-    rule fcmp ole T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(OLE(T, V, V'),I)
-    rule fcmp one T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ONE(T, V, V'),I)
-    rule fcmp ord T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ORD(T, V, V'),I)
-    rule fcmp ueq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UEQ(T, V, V'),I)
-    rule fcmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UGT(T, V, V'),I)
-    rule fcmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UGE(T, V, V'),I)
-    rule fcmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ULT(T, V, V'),I)
-    rule fcmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ULE(T, V, V'),I)
-    rule fcmp une T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UNE(T, V, V'),I)
-    rule fcmp uno T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UNO(T, V, V'),I)
-    */
-
-    //do the same for all the rules above.
+           => theDefinition(INotEq(T, V, V'),I)
+*/
     rule instValToKItem(icmp ne Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(iNotEq(Ty,V1,V2),.ElemList,Ins)
-
-    //do the same for all the rules: CastOps ::= "trunc" | "zext" | "sext" | "fptrunc"
-                     //| "fpext" | "bitcast" | "uitofp" | "sitofp"
-                     //| "fptoui" | "fptosi" | "inttoptr"
-                     //| "addrspacecast" | "ptrtoint"
-    rule instValToKItem(trunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
-           => instruction(theTrunc(Ty1, V, Ty2),.ElemList,Ins)
+/*
+    rule icmp eq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+        => theDefinition(IEq(T, V, V'),I)
+*/
+    rule instValToKItem(icmp eq Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(iEq(Ty,V1,V2),.ElemList,Ins)
+/*
+   rule icmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGT(T, V, V'),I)
+*/
+    rule instValToKItem(icmp ugt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uGT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGE(T, V, V'),I)
+*/
+    rule instValToKItem(icmp uge Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uGE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULT(T, V, V'),I)
+*/
+    rule instValToKItem(icmp ult Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uLT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULE(T, V, V'),I)
+*/
+    rule instValToKItem(icmp ule Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uLE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp sgt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SGT(T, V, V'),I)
+*/
+    rule instValToKItem(icmp sgt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(sGT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp sge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SGE(T, V, V'),I)
+*/
+    rule instValToKItem(icmp sge Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(sGE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp slt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SLT(T, V, V'),I)
+*/
+    rule instValToKItem(icmp slt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(sLT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule icmp sle T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(SLE(T, V, V'),I)
+*/
+    rule instValToKItem(icmp sle Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(sLE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp false _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
+         => theDefinition(0,I)
+*/
+    rule instValToKItem(fcmp false Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(0,.Elemlist,Ins)
+/*
+    rule fcmp true _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
+         => theDefinition(1,I)
+*/
+    rule instValToKItem(fcmp true Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(1,.ElemList,Ins)
+/*
+    rule fcmp oeq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OEQ(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp oeq Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oEQ(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ogt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OGT(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ogt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oGT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp oge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OGE(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp oge Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oGE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp olt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OLT(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp olt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oLT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ole T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(OLE(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ole Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oLE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp one T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ONE(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp one Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oNE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ord T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ORD(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ord Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(oRD(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGT(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ugt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uGT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UGE(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp uge Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uGE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULT(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ult Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uLT(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(ULE(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ule Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uLE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp une T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UNE(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp une Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uNE(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp uno T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UNO(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp uno Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uNO(Ty,V1,V2),.ElemList,Ins)
+/*
+    rule fcmp ueq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+         => theDefinition(UEQ(T, V, V'),I)
+*/
+    rule instValToKItem(fcmp ueq Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(uEQ(Ty,V1,V2),.ElemList,Ins)
 
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
@@ -2433,30 +2516,30 @@ module LLVM-CONVERSIONS
 
     // TODO only handling scalars
     rule
-        <k> theTrunc(Type:KResult, I:Int, Type2:KResult) => signed(Type, I) ...</k>
+        <k> trunc(Type:KResult, I:Int) => signed(Type, I) ...</k>
 
     // TODO only handling scalars
     rule
-        <k> theZExt(Type:KResult, I:Int, Type2:KResult) => unsigned(Type, I) ...</k>
+        <k> zExt(Type:KResult, I:Int) => unsigned(Type, I) ...</k>
     // TODO only handling scalars
     rule
-        <k> theSExt(Type:KResult, I:Int, Type2:KResult) => I ...</k>
+        <k> sExt(Type:KResult, I:Int) => I ...</k>
         when signed(Type, I) ==Int I // sanity check since this isn't supposed to change values and I is supposed to have been canonicalized
 
     // TODO need to normalize here
     rule
-        <k> theBitCast(_, I:Int, _) => I:Int ...</k>
+        <k> bitCast(_, I:Int) => I:Int ...</k>
     rule
-        <k> theBitCast(_, Loc:Loc, _) => Loc:Loc ...</k>
+        <k> bitCast(_, Loc:Loc) => Loc:Loc ...</k>
 
     //rule
         //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
 
     // TODO need to normalize here
     rule
-        <k> theIntToPtr(Type:KResult, K:K, Type2:KResult) => intToPtrOfLoc(Type, K:K) ...</k>
+        <k> intToPtr(Type:KResult, K:K) => intToPtrOfLoc(Type, K:K) ...</k>
     rule
-        <k> thePtrToInt(Type:KResult, K:K, Type2:KResult) => ptrToIntOfLoc(Type, K:K) ...</k>
+        <k> ptrToInt(Type:KResult, K:K) => ptrToIntOfLoc(Type, K:K) ...</k>
 
     // TODO needs side conditions
     rule intToPtrOfLoc(Type:KResult, intToPtrOfLoc(Type':KResult, K:K)) => K:K [anywhere]
@@ -2493,12 +2576,12 @@ module LLVM-CONVERSIONS
         [anywhere]
 
     rule
-        <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
+        <k> fpToSI(Type:KResult, F:Float)
             => signed(Type, Float2Int(F))
         ...</k>
 
     rule
-        <k> theFpToUI(Type:KResult, F:Float, Type2:KResult)
+        <k> fpToUI(Type:KResult, F:Float)
             => unsigned(Type, Float2Int(F))
         ...</k>
 

@@ -1245,11 +1245,11 @@ module LLVM-NORMALIZING
     //do the same for LogicalOps ::= "and" | "or" | "xor"
     //done
     rule instValToKItem(and Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(theAnd(Ty,V1,V2),.ElemList,In
+           => instruction(theAnd(Ty,V1,V2),.ElemList,Ins)
     rule instValToKItem(or Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(theOr(Ty,V1,V2),.ElemList,In
+           => instruction(theOr(Ty,V1,V2),.ElemList,Ins)
     rule instValToKItem(xor Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(theXor(Ty,V1,V2),.ElemList,In
+           => instruction(theXor(Ty,V1,V2),.ElemList,Ins)
 
    //do the same for all the rules below as the first case.
 /*    
@@ -1317,7 +1317,7 @@ module LLVM-NORMALIZING
          => theDefinition(0,I)
 */
     rule instValToKItem(fcmp false Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(0,.Elemlist,Ins)
+           => instruction(0,.ElemList,Ins)
 /*
     rule fcmp true _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
          => theDefinition(1,I)

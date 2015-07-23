@@ -1418,10 +1418,33 @@ module LLVM-NORMALIZING
                      //| "fpext" | "bitcast" | "uitofp" | "sitofp"
                      //| "fptoui" | "fptosi" | "inttoptr"
                      //| "addrspacecast" | "ptrtoint"
+    //done
     rule instValToKItem(trunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theTrunc(Ty1, V, Ty2),.ElemList,Ins)
-
-
+     rule instValToKItem(sext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theSExt(Ty1, V, Ty2),.ElemList,Ins)  
+     rule instValToKItem(zext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theZExt(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(bitcast Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theBitCast(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(inttoptr Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theIntToPtr(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(ptrtoint Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(thePtrToInt(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(fptosi Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theFpToSI(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(fptoui Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theFpToUI(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(fptrunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theFPTrunc(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(fpext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theFPExt(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(sitofp Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theSIToFP(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(uitofp Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theUIToFP(Ty1, V, Ty2),.ElemList,Ins)
+     rule instValToKItem(addrspacecast Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theAddrspacecast(Ty1, V, Ty2),.ElemList,Ins)
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
 

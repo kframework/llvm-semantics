@@ -107,7 +107,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(ElemList)
     syntax KItem ::= insMetas(ElemList)
-    syntax KItem ::= alloca(K, K) [strict] // Type, NumElements
+    syntax KItem ::= alloca(K, K, K) [strict] // Type, NumElements, align
+    syntax KItem ::= alloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
     syntax KItem ::= load(K, K) [strict]
     syntax KItem ::= operand(K, K) [strict] // Type, Value
 
@@ -607,7 +608,7 @@ module LLVM-GLOBALS
     //for the pointer type of global variable.
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), pointerType(TyK:K,Ad:K), Init:K)
-            => preInit(X, alloca(TyK:K, 1), initializer(TyK,Init))
+            => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList)), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -615,7 +616,7 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
                 , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
-            => preInit(X, alloca(TyK, Size), initializer(TyK,Init))
+            => preInit(X, alloca(TyK, Size, 'alignEmpty(.KList)), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -623,7 +624,7 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
                 , structTypeValue(TyK:KResult), Init:K)
-            => preInit(X, alloca(TyK, 1), initializer(TyK,Init))
+            => preInit(X, alloca(TyK, 1, 'alignEmpty(.KList)), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -783,7 +784,7 @@ module LLVM-START-AND-STOP
                 arguments(
                     val(funptr(name("@main"))), // address of main
                     (val(0), // argc
-                    (val(alloca(i(8), 8)), // argv
+                    (val(alloca(i(8), 8, 'alignEmpty(.KList))), // argv
                     (val('nullOfConstValueRef(.KList)), // init
                     (val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList))// ldso_fini
@@ -806,7 +807,8 @@ module LLVM-START-AND-STOP
                     val(0), // argc
                     val(
                         initEnvStructures(alloca(i(8),
-                         (sizeof(pointerType(i(8),0)) *Int 3) +Int (sizeof(i(64)) *Int 38)))
+                         (sizeof(pointerType(i(8),0)) *Int 3) +Int (sizeof(i(64)) *Int 38)
+                                             , 'alignEmpty(.KList)))
                     ),
                     val('nullOfConstValueRef(.KList)), // init
                     val('nullOfConstValueRef(.KList)), // fini
@@ -1234,6 +1236,21 @@ module LLVM-NORMALIZING
                  => case(operand(It,Ca),Va), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
+    syntax ElemList ::= toCallees(ParamList) [function]
+
+    rule toCallees(.ParamList) => .ElemList
+    rule toCallees(Ty:Type Pa:ParamAttrs V:ValueRef,Pl:ParamList)
+                => val(callee(operand(Ty,V),modifiers(formElemList(Pa)))),toCallees(Pl)
+
+    syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
+
+    rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
+    rule dealWithAllocaElem(Ty:Type, A:Align) => alloca(Ty,1,A)
+    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
+                      => alloca(Ty,It,V,'alignEmpty(.KList))
+    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, A:Align)
+                      => alloca(Ty,It,V,A)
+
     syntax KItem ::= instValToKItem(InstVal) [function]
    
     //here
@@ -1360,12 +1377,26 @@ module LLVM-NORMALIZING
 
     rule instValToKItem(call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
-           => instruction(call(operand(Ty1,V1),formElemList(ParamList))
+           => instruction(call(operand(Ty1,V1),toCallees(ParamList))
                       ,modifiers(combineElemList(combineElemList(formElemList(Ocv)
                        ,formElemList(Rat))),formElemList(Fat)),Ins)
     //do the same above for OptTailCall ::= tail call | call
 
+    rule instValToKItem(alloca Oil:OptInalloca All:AllocMetadata Ins:InstructionMetadatas)
+           => instruction(dealWithAllocaElem(All),modifiers(formElemList(Oil)),Ins)
 
+    //try to do the following:
+
+    /*
+                          | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
+                       ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+                     //The ‘atomicrmw‘ instruction is used to atomically modify memory.
+                     | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
+                       "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
+                     | "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
+                     | "insertvalue" ResolvedVal "," ResolvedVal
+                       ConstantIndexList InstructionMetadatas
+    */
 
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
@@ -2314,8 +2345,11 @@ module LLVM-MEMORY
     syntax KItem ::= "nextSym" Loc [function]
     rule nextSym loc(N:Int, 0) => loc(N:Int +Int 1, 0)
 
+    rule alloca(Ty:K, Type:KResult, N:Int, Al:OptAlign)
+              => alloca(Ty,sizeof(Type) *Int N, Al:OptAlign)
+
     rule
-        <k> alloca(Type:KResult, N:Int) => Loc ...</k>
+        <k> alloca(Type:KResult, N:Int, Al:OptAlign) => Loc ...</k>
         (. =>
             <object>...
                 <basePtr> base(Loc) </basePtr>

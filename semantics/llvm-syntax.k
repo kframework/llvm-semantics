@@ -900,7 +900,7 @@ module LLVM-SYNTAX
       not have side effects (e.g. load and call are not supported).
       The following is the syntax for constant expressions.
     */
-    syntax ConstantIndexList ::= "," UnsignedInt | ConstantIndexList "," UnsignedInt
+    syntax ConstantIndexList ::= "," UnsignedInt | UnsignedInt "," ConstantIndexList
     syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
                       | LogicalOps "(" ResolvedVal "," ResolvedVal ")"
@@ -982,7 +982,7 @@ module LLVM-SYNTAX
                          | "acq_rel" | "seq_cst"
     syntax OptSingleThread ::= "singlethread"
                              | "" [klabel('singlethreadEmpty),onlyLabel]
-    syntax OptScopeOrder ::= OptSingleThread Ordering
+    syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
                            | "" [klabel('scopeorderEmpty),onlyLabel]
     syntax OrderingList ::= Ordering | Ordering OrderingList
 

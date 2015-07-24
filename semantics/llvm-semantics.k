@@ -165,6 +165,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= shuffleVector(K, K, K) [strict]
     syntax KItem ::= landingPad(K,K,K) [strict(1,2)] // operand,operand modifiers
     syntax KItem ::= extractValue(K, ElemList) [strict]
+    syntax KItem ::= cmpxchg(K, K, K) [strict]
+    syntax KItem ::= atomicrmw(K, K) [strict]
+    syntax KItem ::= insertvalue(K, K, ElemList) [strict]
 
     syntax KItem ::= aliases(ElemList)
     syntax KItem ::= alias(K, K, K) //modifiers, Name, Aliasee
@@ -1246,6 +1249,9 @@ module LLVM-NORMALIZING
     rule formElemList(, Ui:UnsignedInt) => val(Ui)
     rule formElemList(Ui:UnsignedInt, Cil:ConstantIndexList)
                  => val(Ui),formElemList(Cil)
+    rule formElemList(X:Ordering) => val(X)
+    rule formElemList(X:Ordering Xl:OrderingList)
+                 => val(X),formElemList(Xl)
     rule formElemList(K:K) => K [owise]
 
     syntax Cases ::= formCases(K) [function]
@@ -1540,39 +1546,61 @@ module LLVM-NORMALIZING
     rule instValToKItem(landingpad Ty1:Type personality Ty2:Type V2:ValueRef
                          Oc:OptCleanup Lpfs:LandingpadFactors Ins:InstructionMetadatas)
            => instruction(landingPad(Ty1,operand(Ty2,V2),modifiers(formElemList(Lpfs))),modifiers(formElemList(Oc)),Ins)
-
+    //optTailCall ::= call
     rule instValToKItem(call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
            => instruction(call(operand(Ty1,V1),toCallees(ParamList))
                       ,modifiers(combineElemList(combineElemList(formElemList(Ocv)
                        ,formElemList(Rat)),formElemList(Fat))),Ins)
-    //do the same above for OptTailCall ::= tail call | call
+    //do the same above for OptTailCall ::= tail call
+    rule instValToKItem(tail call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
+                     V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
+           => instruction(tailCall(operand(Ty1,V1),toCallees(ParamList))
+                      ,modifiers(combineElemList(combineElemList(formElemList(Ocv)
+                       ,formElemList(Rat)),formElemList(Fat))),Ins)
 
     rule instValToKItem(alloca Oil:OptInalloca All:AllocMetadata Ins:InstructionMetadatas)
            => instruction(dealWithAllocaElem(All),modifiers(formElemList(Oil)),Ins)
 
-    rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef Oso:OptScopeOrder
-                         Ins:InstructionMetadatas)
+    rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef Oso:OptScopeOrder Ins:InstructionMetadatas)
            => instruction(load(Ty,V),modifiers(combineElemList(
                     combineElemList(formElemList(Oac),formElemList(Ovl)),formElemList(Oso))),Ins)
-    //do the same above for  "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
+    //do the same above for "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
+    rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef Oso:OptScopeOrder ,  Oal:OptAlign Ins:InstructionMetadatas)
+           => instruction(load(Ty,V),modifiers(combineElemList(combineElemList(combineElemList(formElemList(Oac),formElemList(Ovl)),formElemList(Oso)),formElemList(Oal))),Ins)
+     
     //try to do the following:
+/* 
+"extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
+*/
+    rule instValToKItem(extractvalue Ty1:Type V1:ValueRef Cil:ConstantIndexList Ins:InstructionMetadatas)
+           => instruction(extractValue(operand(Ty1,V1),formElemList(Cil)),
+                          modifiers(.ElemList),
+                          Ins)
 
-    rule instValToKItem(extractvalue Ty1:Type V1:ValueRef
-                                    Cil:ConstantIndexList Ins:InstructionMetadatas)
-           => instruction(extractValue(operand(Ty1,V1),formElemList(Cil)),modifiers(.ElemList),Ins)
 
-    /*
-                          | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
-                       ResolvedVal OptSingleThread OrderingList InstructionMetadatas
-                     //The ‘atomicrmw‘ instruction is used to atomically modify memory.
-                     | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
-                       "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
-                     *| "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
-                     | "insertvalue" ResolvedVal "," ResolvedVal
-                       ConstantIndexList InstructionMetadatas
-    */
-
+/*
+"cmpxchg" OptVolatile ResolvedVal "," ResolvedVal "," ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+*/
+    rule instValToKItem(cmpxchg Ovl:OptVolatile Ty1:Type V1:ValueRef , Ty2:Type V2:ValueRef , Ty3:Type V3:ValueRef Ost:OptSingleThread Oli:OrderingList Ins:InstructionMetadatas)
+           => instruction(cmpxchg(operand(Ty1,V1),operand(Ty2,V2),operand(Ty3,V3))
+                         ,modifiers(combineElemList(combineElemList(formElemList(Ovl),formElemList(Ost)),formElemList(Oli)))
+                         ,Ins)
+/*
+‘atomicrmw‘ instruction is used to atomically modify memory.
+"atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
+*/
+    rule instValToKItem(atomicrmw Ovl:OptVolatile Bof:BinOpsForAtomicrmw Ty1:Type V1:ValueRef , Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering Ins:InstructionMetadatas)
+          => instruction(atomicrmw(operand(Ty1,V1),operand(Ty2,V2))
+                        ,modifiers(combineElemList(combineElemList(combineElemList(formElemList(Ovl),formElemList(Bof)),formElemList(Ost)),formElemList(Ord)))
+                        ,Ins)
+/*
+"insertvalue" ResolvedVal "," ResolvedVal ConstantIndexList InstructionMetadatas
+*/
+   rule instValtoKItem(insertvalue Ty1:Type V1:ValueRef , Ty2:Type V2:ValueRef Cil:ConstantIndexList Ins:InstructionMetadatas)
+          => instruction(insertvalue(operand(Ty1,V1),operand(Ty2,V2),formElemList(Cil))
+                        ,modifiers(.ElemList)
+                        ,Ins)
 
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.

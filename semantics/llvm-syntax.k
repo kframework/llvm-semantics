@@ -1026,7 +1026,7 @@ module LLVM-SYNTAX
       with one pair for each predecessor basic block of the current block.
     */
     syntax PHIList ::= "[" ValueRef "," ValueRef "]"
-                     | PHIList "," "[" ValueRef "," ValueRef "]"
+                     | "[" ValueRef "," ValueRef "]" "," PHIList
 
     /*@
       Define jump tables for the switch instruction.

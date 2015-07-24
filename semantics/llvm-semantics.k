@@ -40,6 +40,11 @@ module LLVM-ABSTRACTSYNTAX
     rule elemListToList(.ElemList) => .List
     rule elemListToList(val(K:K), L:ElemList) => ListItem(K) elemListToList(L)
 
+    syntax ElemList ::= combineElemList(ElemList, ElemList) [function]
+
+    rule combineElemList(.ElemList,Bs:ElemList) => Bs
+    rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
+
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | structType(K) [strict]
                          | namedType(K)
@@ -102,8 +107,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(ElemList)
     syntax KItem ::= insMetas(ElemList)
-    syntax KItem ::= alloca(K, K) [strict] // Type, NumElements
-    syntax KItem ::= load(K, K) [strict]
+    syntax KItem ::= alloca(K, K, K) [strict] // Type, NumElements, align
+    syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
+    syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
 
     //instructions
@@ -144,15 +150,22 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
     syntax KItem ::= values(K)
-    syntax KItem ::= phi(K, K) // type, edge list
+    syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val
-    syntax KItem ::= call(K, K) [strict(2)] // Type, Callee
+    syntax KItem ::= tailCall(K, ElemList) [strict]//type, Callees
+    syntax KItem ::= call(K, ElemList) [strict] // Type, Callees
     syntax KItem ::= callee(K, K) [strict] // Value/Name, Arguments
     syntax KItem ::= calleeValue(K, K)
     rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
-    syntax KItem ::= getElementPtr(K, K, ElemList) [strict]
+    syntax KItem ::= getElementPtr(K, K, K) [strict]// operand, operand, modifiers
+    syntax KItem ::= extractElement(K, K) [strict]
+    syntax KItem ::= insertElement(K, K, K) [strict]
+    syntax KItem ::= shuffleVector(K, K, K) [strict]
+    syntax KItem ::= landingPad(K,K,K) [strict(1,2)] // operand,operand modifiers
+    syntax KItem ::= extractValue(K, ElemList) [strict]
+
     syntax KItem ::= aliases(ElemList)
     syntax KItem ::= alias(K, K, K) //modifiers, Name, Aliasee
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
@@ -598,7 +611,7 @@ module LLVM-GLOBALS
     //for the pointer type of global variable.
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), pointerType(TyK:K,Ad:K), Init:K)
-            => preInit(X, alloca(TyK:K, 1), initializer(TyK,Init))
+            => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList)), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -606,7 +619,7 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
                 , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
-            => preInit(X, alloca(TyK, Size), initializer(TyK,Init))
+            => preInit(X, alloca(TyK, Size, 'alignEmpty(.KList)), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -614,7 +627,7 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
                 , structTypeValue(TyK:KResult), Init:K)
-            => preInit(X, alloca(TyK, 1), initializer(TyK,Init))
+            => preInit(X, alloca(TyK, 1, 'alignEmpty(.KList)), initializer(TyK,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -728,15 +741,15 @@ module LLVM-PHI
 
     //change second argument of PHI from KLIst to listK(KList)
     rule
-        <k> phi(_:K, listK(ListItem(edge(K':K, Label:SymbolicValueRef)) _:List))
+        <k> phi(_:K, val(edge(K':K, Label:SymbolicValueRef)), _:ElemList)
             => K'
         ...</k>
         <prevBlock> Label </prevBlock>
 
     rule
         <k> phi(_:K,
-                 listK(ListItem(edge(K:K, Label:SymbolicValueRef)) L:List
-                        => L)) ...</k>
+                 val(edge(K:K, Label:SymbolicValueRef)), L:ElemList
+                        => L) ...</k>
         <prevBlock> Label':SymbolicValueRef </prevBlock>
         when Label =/=K Label'
 
@@ -770,16 +783,16 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), callee(values(name("@__libc_start_main_0")),
+            => call(i(32), val(callee(values(name("@__libc_start_main_0")),
                 arguments(
                     val(funptr(name("@main"))), // address of main
                     (val(0), // argc
-                    (val(alloca(i(8), 8)), // argv
+                    (val(alloca(i(8), 8, 'alignEmpty(.KList))), // argv
                     (val('nullOfConstValueRef(.KList)), // init
                     (val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList))// ldso_fini
                 )))))
-            ))
+            )))
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -791,19 +804,20 @@ module LLVM-START-AND-STOP
     // TODO need to make nicer
     rule
         <k> callMain
-            => call(i(32), callee(values(name("@__libc_start_main_2")),
+            => call(i(32), val(callee(values(name("@__libc_start_main_2")),
                 arguments((
                     val(funptr(name("@main"))), // address of main
                     val(0), // argc
                     val(
                         initEnvStructures(alloca(i(8),
-                         (sizeof(pointerType(i(8),0)) *Int 3) +Int (sizeof(i(64)) *Int 38)))
+                         (sizeof(pointerType(i(8),0)) *Int 3) +Int (sizeof(i(64)) *Int 38)
+                                             , 'alignEmpty(.KList)))
                     ),
                     val('nullOfConstValueRef(.KList)), // init
                     val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList)) // ldso_fini
                 ))
-            ))
+            )))
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -828,7 +842,7 @@ module LLVM-START-AND-STOP
 
     rule [terminate-exit]:
         <T>...
-            <k> I:Int => call(void, callee(values(name("@exit")), arguments(val(I)))) </k>
+            <k> I:Int => call(void, val(callee(values(name("@exit")), arguments(val(I))))) </k>
         ...</T>
 
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL
@@ -1198,6 +1212,40 @@ module LLVM-NORMALIZING
     rule formElemList(ninf Fl:FastMathFlags) => val(ninf),formElemList(Fl)
     rule formElemList(nsz Fl:FastMathFlags) => val(nsz),formElemList(Fl)
     rule formElemList(arcp Fl:FastMathFlags) => val(arcp),formElemList(Fl)
+
+    rule formElemList(inbounds) => val(inbounds)
+    rule formElemList('inBoundsEmpty(.KList)) => .ElemList
+    rule formElemList('.IntResolveVals(.KList)) => .ElemList
+    rule formElemList(, It:IntType V:ValueRef Ins:IntResolveVals)
+            => val(operand(It,V)),formElemList(Ins)
+    rule formElemList([ V1:ValueRef , V2:ValueRef ])
+            => val(edge(V1,V2))
+    rule formElemList([ V1:ValueRef , V2:ValueRef ] , Pl:PHIList)
+            => val(edge(V1,V2)),formElemList(Pl)
+    rule formElemList(cleanup) => val(cleanup)
+    rule formElemList('cleanupEmpty(.KList)) => .ElemList
+    rule formElemList(.LandingpadFactors) => .ElemList
+    rule formElemList(Lpf:LandingpadFactor Lpfs:LandingpadFactors)
+                   => val(Lpf),formElemList(Lpfs)
+    rule formElemList('callingConvEmpty(.KList)) => .ElemList
+    rule formElemList(Ocv:OptCallingConv) => val(Ocv)
+            when Ocv =/=K 'callingConvEmpty(.KList)
+    rule formElemList(.RetAttrs) => .ElemList
+    rule formElemList(A:RetAttr As:RetAttrs) => val(A),formElemList(As)
+    rule formElemList(.FuncAttrs) => .ElemList
+    rule formElemList(A:FuncAttr As:FuncAttrs) => val(A),formElemList(As)
+    rule formElemList('atomicEmpty(.KList)) => .ElemList
+    rule formElemList(atomic) => val(atomic)
+    rule formElemList('volatileEmpty(.KList)) => .ElemList
+    rule formElemList(volatile) => val(volatile)
+    rule formElemList('scopeorderEmpty(.KList)) => .ElemList
+    rule formElemList('optScopeOrder('singlethreadEmpty(.KList),, Or:Ordering))
+                       => val(Or)
+    rule formElemList(singlethread Or:Ordering)
+                       => val(singlethread),val(Or)
+    rule formElemList(, Ui:UnsignedInt) => val(Ui)
+    rule formElemList(Ui:UnsignedInt, Cil:ConstantIndexList)
+                 => val(Ui),formElemList(Cil)
     rule formElemList(K:K) => K [owise]
 
     syntax Cases ::= formCases(K) [function]
@@ -1207,6 +1255,21 @@ module LLVM-NORMALIZING
                  label Va:ValueRef Cs:JumpTable)
                  => case(operand(It,Ca),Va), formCases(Cs)
     rule formCases(K:K) => K [owise]
+
+    syntax ElemList ::= toCallees(ParamList) [function]
+
+    rule toCallees(.ParamList) => .ElemList
+    rule toCallees(Ty:Type Pa:ParamAttrs V:ValueRef,Pl:ParamList)
+                => val(callee(operand(Ty,V),modifiers(formElemList(Pa)))),toCallees(Pl)
+
+    syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
+
+    rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
+    rule dealWithAllocaElem(Ty:Type, A:Align) => alloca(Ty,1,A)
+    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
+                      => preAlloca(Ty,It,V,'alignEmpty(.KList))
+    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, A:Align)
+                      => preAlloca(Ty,It,V,A)
 
     syntax KItem ::= instValToKItem(InstVal) [function]
    
@@ -1418,9 +1481,6 @@ module LLVM-NORMALIZING
                      //| "fpext" | "bitcast" | "uitofp" | "sitofp"
                      //| "fptoui" | "fptosi" | "inttoptr"
                      //| "addrspacecast" | "ptrtoint"
-    //done
-    rule instValToKItem(trunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
-           => instruction(theTrunc(Ty1, V, Ty2),.ElemList,Ins)
      rule instValToKItem(sext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theSExt(Ty1, V, Ty2),.ElemList,Ins)  
      rule instValToKItem(zext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
@@ -1445,6 +1505,75 @@ module LLVM-NORMALIZING
            => instruction(theUIToFP(Ty1, V, Ty2),.ElemList,Ins)
      rule instValToKItem(addrspacecast Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theAddrspacecast(Ty1, V, Ty2),.ElemList,Ins)
+    //done
+
+    rule instValToKItem(trunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theTrunc(Ty1, V, Ty2),.ElemList,Ins)
+
+    rule instValToKItem(select Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef)
+           => instruction(select(Ty1,V1,operand(Ty2,V2),operand(Ty3,V3))
+                                      ,modifiers(.ElemList),'.InstructionMetadatas(.KList))
+
+    rule instValToKItem(va_arg Ty1:Type V1:ValueRef, Ty2:Type Ins:InstructionMetadatas)
+           => instruction(theVAArg(Ty2,operand(Ty1,V1)),modifiers(.ElemList),Ins)
+
+    rule instValToKItem(getelementptr Oib:OptInBounds Ty1:Type V1:ValueRef
+                                    Itr:IntResolveVals Ins:InstructionMetadatas)
+           => instruction(getElementPtr(Ty1,V1,modifiers(formElemList(Itr))),modifiers(formElemList(Oib)),Ins)
+
+    rule instValToKItem(extractelement Ty1:Type V1:ValueRef,
+                                    Ty2:Type V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(extractElement(operand(Ty1,V1),operand(Ty2,V2)),modifiers(.ElemList),Ins)
+
+    rule instValToKItem(insertelement Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef,
+                              Ty3:Type V3:ValueRef Ins:InstructionMetadatas)
+           => instruction(insertElement(operand(Ty1,V1),operand(Ty2,V2),
+                                              operand(Ty3,V3)),modifiers(.ElemList),Ins)
+
+    rule instValToKItem(shufflevector Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef,
+                              Ty3:Type V3:ValueRef Ins:InstructionMetadatas)
+           => instruction(shuffleVector(operand(Ty1,V1),operand(Ty2,V2),
+                                              operand(Ty3,V3)),modifiers(.ElemList),Ins)
+
+    rule instValToKItem(phi Ty1:Type Pl:PHIList Ins:InstructionMetadatas)
+           => instruction(phi(Ty1,formElemList(Pl)),modifiers(.ElemList),Ins)
+
+    rule instValToKItem(landingpad Ty1:Type personality Ty2:Type V2:ValueRef
+                         Oc:OptCleanup Lpfs:LandingpadFactors Ins:InstructionMetadatas)
+           => instruction(landingPad(Ty1,operand(Ty2,V2),modifiers(formElemList(Lpfs))),modifiers(formElemList(Oc)),Ins)
+
+    rule instValToKItem(call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
+                     V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
+           => instruction(call(operand(Ty1,V1),toCallees(ParamList))
+                      ,modifiers(combineElemList(combineElemList(formElemList(Ocv)
+                       ,formElemList(Rat)),formElemList(Fat))),Ins)
+    //do the same above for OptTailCall ::= tail call | call
+
+    rule instValToKItem(alloca Oil:OptInalloca All:AllocMetadata Ins:InstructionMetadatas)
+           => instruction(dealWithAllocaElem(All),modifiers(formElemList(Oil)),Ins)
+
+    rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef Oso:OptScopeOrder
+                         Ins:InstructionMetadatas)
+           => instruction(load(Ty,V),modifiers(combineElemList(
+                    combineElemList(formElemList(Oac),formElemList(Ovl)),formElemList(Oso))),Ins)
+    //do the same above for  "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
+    //try to do the following:
+
+    rule instValToKItem(extractvalue Ty1:Type V1:ValueRef
+                                    Cil:ConstantIndexList Ins:InstructionMetadatas)
+           => instruction(extractValue(operand(Ty1,V1),formElemList(Cil)),modifiers(.ElemList),Ins)
+
+    /*
+                          | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
+                       ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+                     //The ‘atomicrmw‘ instruction is used to atomically modify memory.
+                     | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
+                       "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
+                     *| "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas
+                     | "insertvalue" ResolvedVal "," ResolvedVal
+                       ConstantIndexList InstructionMetadatas
+    */
+
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
 
@@ -1846,7 +1975,7 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
 
     rule
-        <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), listK(Args:List))) ~> Tail:K
+        <k> call(_, valValue(calleeValue(funptr(FunName:SymbolicValueRef), listK(Args:List)))) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, elemListToList(Formals))
             ~> Body
@@ -2392,8 +2521,11 @@ module LLVM-MEMORY
     syntax KItem ::= "nextSym" Loc [function]
     rule nextSym loc(N:Int, 0) => loc(N:Int +Int 1, 0)
 
+    rule preAlloca(Ty:K, Type:KResult, N:Int, Al:OptAlign)
+              => alloca(Ty,sizeof(Type) *Int N, Al:OptAlign) [structural]
+
     rule
-        <k> alloca(Type:KResult, N:Int) => Loc ...</k>
+        <k> alloca(Type:KResult, N:Int, Al:OptAlign) => Loc ...</k>
         (. =>
             <object>...
                 <basePtr> base(Loc) </basePtr>
@@ -2687,44 +2819,44 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         // TODO why doesn't this work?
         // <k> Call(_, Callee(funptr(Name(S:String)), listK(L:KList)))
             // => 'memcpy`(_`,_`,_`,_`,_`)(L)
-        <k> call(_, calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
-                   ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
+        <k> call(_, valValue(calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
+                   ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult)))))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memcpy."
 
     rule
-        <k> call(_, calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
-                  ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult))))
+        <k> call(_, valValue(calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
+                  ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult)))))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memset."
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.start")), listK(ListItem(V1:KResult)
-                   ListItem(V2:KResult))))
+        <k> call(_, valValue(calleeValue(funptr(name("@llvm.lifetime.start")), listK(ListItem(V1:KResult)
+                   ListItem(V2:KResult)))))
             => lifetimeStart(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.end")), listK(ListItem(V1:KResult)
-                  ListItem(V2:KResult))))
+        <k> call(_, valValue(calleeValue(funptr(name("@llvm.lifetime.end")), listK(ListItem(V1:KResult)
+                  ListItem(V2:KResult)))))
             => lifetimeEnd(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.va_start")), listK(ListItem(V1:KResult))))
+        <k> call(_, valValue(calleeValue(funptr(name("@llvm.va_start")), listK(ListItem(V1:KResult)))))
             => vaStart(V1)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.va_copy")), listK(ListItem(V1:KResult)
-                  ListItem(V2:KResult))))
+        <k> call(_, valValue(calleeValue(funptr(name("@llvm.va_copy")), listK(ListItem(V1:KResult)
+                  ListItem(V2:KResult)))))
             => vaCopy(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.va_end")), _))
+        <k> call(_, valValue(calleeValue(funptr(name("@llvm.va_end")), _)))
             => .K
         ...</k>
 endmodule
@@ -2790,7 +2922,7 @@ module LLVM-SYSCALLS-PREPROCESS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, calleeValue(funptr(name("@__syscall")), listK(ListItem(N:Int) L:List)))
+        <k> call(_, valValue(calleeValue(funptr(name("@__syscall")), listK(ListItem(N:Int) L:List))))
             => (syscallHandler(N))(L)
         ...</k>
 endmodule
@@ -2869,7 +3001,7 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, calleeValue(funptr(name(S:String)), listK(ListItem(I:Int))))
+        <k> call(_, valValue(calleeValue(funptr(name(S:String)), listK(ListItem(I:Int)))))
             => .K
         ...</k>
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>

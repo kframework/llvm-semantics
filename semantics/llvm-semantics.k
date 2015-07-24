@@ -1754,6 +1754,19 @@ module LLVM-NORMALIZING
           when String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) =/=Int I
 
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, store Oac:OptAtomic Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef Osc:OptScopeOrder, Al:Align
+                    Inm:InstructionMetadatas Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
+         => checkSingleAssignmentInBlock(N, Ins BB, K
+                      ~> instruction(store(Ty1,V1,operand(Ty2,V2)),combineElemList(combineElemList(
+                            combineElemList(formElemList(Oac),formElemList(Ovl)),
+                             formElemList(Osc)),formElemList(Al)),Inm), S)
+    //do the same for another store operation:                          | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
+                           //OptScopeOrder InstructionMetadatas
+
+    //create an abstract for fence and do the same for fence operation.
+
+    //define checkSingleAssignment
     rule checkSingleAssignment(.K, K:K, S:Set) => K
     rule checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList, K:K, S:Set)
@@ -1925,7 +1938,18 @@ module LLVM-DECLARATIONS
                 <- (setBlock(makeVarFromLabel(L))
              ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
         when FunName ==K FunName'
-*/
+
+    syntax K ::= setBlock "(" K ")"
+    rule
+        <k> BasicBlock(Name:Id, K:K) => . ...</k>
+        <currFunction> FunName:Id </currFunction>
+        <functionName> FunName:Id </functionName>
+        <basicBlocks>... . => Name:Id |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
+
+    rule
+        <k> setBlock(Name:Id) => . ...</k>
+        <currBlock> Name':Id => Name </currBlock>
+        <prevBlock> _ => Name' </prevBlock>
     rule
         <k> Label:LabelStringConstant Ins:InstructionList
             Tem:BBTerminatorInstruction => .K ...</k>
@@ -1936,6 +1960,16 @@ module LLVM-DECLARATIONS
         <basicBlocks> M:Map => M[makeVarFromLabel(Label)
                 <- (setBlock(makeVarFromLabel(Label))
              ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
+
+*/
+
+    rule
+        <k> basicBlock(Name:SymbolicValueRef, K:K) => . ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName:SymbolicValueRef </functionName>
+        <basicBlocks>... .Map => Name:SymbolicValueRef |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
 
     rule
         <k> setBlock(Label:SymbolicValueRef) => .K ...</k>

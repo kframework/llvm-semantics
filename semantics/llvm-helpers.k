@@ -193,6 +193,7 @@ module LLVM-HELPERS
                     , lengthString(#tokenToString(L)) -Int 1))
 
     //useful function to turn a kitem into an elemList
+    //here: add addNameToString to every position where it has type or valueref
     syntax KItem ::= doubleList(RetAttrs, FuncAttrs)
     syntax ElemList ::= formElemList(K) [function]
 
@@ -211,7 +212,8 @@ module LLVM-HELPERS
             => val(R),formElemList(doubleList(Rs,Fs))
     rule formElemList(.ParamList) => .ElemList
     rule formElemList(Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
-            => val(arg(modifiers(formElemList(Pa)),Ty,Va)),formElemList(Pl)
+            => val(arg(modifiers(formElemList(Pa)),
+                     addNameToString(Ty),addNameToString(Va))),formElemList(Pl)
     rule formElemList(.ParamAttrs) => .ElemList
     rule formElemList(Pa:ParamAttr Ps:ParamAttrs) => val(Pa),formElemList(Ps)
     rule formElemList(nsw) => val(nsw)
@@ -288,5 +290,11 @@ module LLVM-HELPERS
                       => preAlloca(Ty,It,V,'alignEmpty(.KList))
     rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, A:Align)
                       => preAlloca(Ty,It,V,A)
+
+    syntax SymbolicValueRef ::= addNameToString(K) [function]
+
+    rule addNameToString(L:LocalName) => name(#tokenToString(L))
+    rule addNameToString(G:GlobalName) => name(#tokenToString(G))
+    rule addNameToString(K:K) => K [owise]
 
 endmodule

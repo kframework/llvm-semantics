@@ -1077,7 +1077,7 @@ module LLVM-SYNTAX
                        "(" ParamList ")" FuncAttrs InstructionMetadatas
                      | "alloca" OptInalloca AllocMetadata InstructionMetadatas
                      | "load" OptAtomic OptVolatile ResolvedVal
-                       OptScopeOrder "," OptAlign InstructionMetadatas
+                       OptScopeOrder "," Align InstructionMetadatas
                      | "load" OptAtomic OptVolatile ResolvedVal
                        OptScopeOrder InstructionMetadatas
                      | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","

@@ -712,7 +712,7 @@ module LLVM-LITERALS
         // TODO when 'isFloat(String2Float(S))
 
     rule
-        <k> constantString(S:String)
+        <k> c S:String
             => arrayValue(StringToList(S))
         ...</k>
 

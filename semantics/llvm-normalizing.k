@@ -22,9 +22,11 @@ module LLVM-NORMALIZING
    
     //here
     //do the same for all IntConstructors  "add" | "sub" | "mul" | "shl"
-    //done
+    //add addNameToString to every position where it has type and ValueRef
+    //for example theAdd
     rule instValToKItem(add Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(theAdd(Ty,V1,V2),modifiers(formElemList(Onw)),Ins)
+           => instruction(theAdd(addNameToString(Ty),addNameToString(V1)
+                                  ,addNameToString(V2)),modifiers(formElemList(Onw)),Ins)
     rule instValToKItem(sub Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theSub(Ty,V1,V2),modifiers(formElemList(Onw)),Ins)
     rule instValToKItem(mul Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
@@ -357,6 +359,10 @@ module LLVM-NORMALIZING
     syntax KItem ::= checkSingleAssignment(K, K, Set)
                    | checkSingleAssignmentInBlock(SymbolicValueRef, K, K, Set)
 
+    //in the checkSingleAssignment and checkSingleAssignmentInBlock
+    //to add addNameToString to every positioins where show Type and ValueRef
+    //for example the third rule
+
     //form a basicBlock finally.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .K, K:K, S:Set)
          ~> checkSingleAssignment(K1:K, K2:K, S':Set)
@@ -371,7 +377,8 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:NonVoidType
                                   Va:ValueRef Meta:InstructionMetadatas, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, .K, K
-                         ~> instruction(ret(Nt,Va),modifiers(.ElemList),
+                         ~> instruction(ret(addNameToString(Nt)
+                               ,addNameToString(Va)),modifiers(.ElemList),
                                             insMetas(formElemList(Meta))), S)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:VoidType
                                   Meta:InstructionMetadatas, K:K, S:Set)

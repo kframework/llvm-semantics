@@ -114,6 +114,7 @@ module LLVM-ABSTRACTSYNTAX
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
+    syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
     syntax KItem ::= instruction(K, K, K) //body, modifiers, instructionMetadatas

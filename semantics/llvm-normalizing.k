@@ -355,7 +355,7 @@ module LLVM-NORMALIZING
     //and normalize the llvm operators to abstract syntax.
 
     syntax KItem ::= checkSingleAssignment(K, K, Set)
-                   | checkSingleAssignmentInBlock(SymbolicValueRef, K,K, Set)
+                   | checkSingleAssignmentInBlock(SymbolicValueRef, K, K, Set)
 
     //form a basicBlock finally.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .K, K:K, S:Set)
@@ -535,14 +535,41 @@ module LLVM-NORMALIZING
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef Osc:OptScopeOrder, Al:Align
                     Inm:InstructionMetadatas Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, Ins BB, K
-                      ~> instruction(store(Ty1,V1,operand(Ty2,V2)),combineElemList(combineElemList(
+                      ~> instruction(store(Ty1,V1,operand(Ty2,V2)),modifiers(combineElemList(combineElemList(
                             combineElemList(formElemList(Oac),formElemList(Ovl)),
-                             formElemList(Osc)),formElemList(Al)),Inm), S)
-    //do the same for another store operation:                          | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                           //OptScopeOrder InstructionMetadatas
-
-    //create an abstract for fence and do the same for fence operation.
-
+                             formElemList(Osc)),formElemList(Al))),Inm), S)
+/*
+do the same for another store operation:
+"store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal OptScopeOrder InstructionMetadatas
+*/
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef
+                                      , store Oac:OptAtomic Ovl:OptVolatile Ty1:Type V1:ValueRef ,
+                                            Ty2:Type V2:ValueRef Osc:OptScopeOrder 
+                                            Ins:InstructionMetadatas Ili:InstructionList
+                                            BB:BBTerminatorInstruction
+                                      , K:K
+                                      , S:Set)
+          => checkSingleAssignmentInBlock(N, Ili BB, K
+                       ~> instruction(store(Ty1,V1,operand(Ty2,V2))
+                                      , modifiers(combineElemList(combineElemList(formElemList(Oac),
+                                            formElemList(Ovl)),formElemList(Osc)))
+                                      , Ins)
+             ,S)
+/*
+create an abstract for fence and do the same for fence operation.
+"fence" OptSingleThread Ordering InstructionMetadatas
+*/
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef
+                                      , fence Ost:OptSingleThread Ord:Ordering 
+                                            Ins:InstructionMetadatas Ili:InstructionList
+                                            BB:BBTerminatorInstruction
+                                      , K:K
+                                      , S:Set)
+          => checkSingleAssignmentInBlock(N, Ili BB, K
+                       ~> instruction(fence(ord)
+                                      , modifiers(formElemList(Ost))
+                                      , Ins)
+                          ,S)
     //define checkSingleAssignment
     rule checkSingleAssignment(.K, K:K, S:Set) => K
     rule checkSingleAssignment(L:LabelStringConstant Ins:InstructionList

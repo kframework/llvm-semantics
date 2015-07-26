@@ -21,7 +21,8 @@ module LLVM-GLOBALS
     //for the pointer type of global variable.
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), pointerType(TyK:K,Ad:K), Init:K)
-            => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList)), initializer(TyK,Init))
+            => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList))
+                                 , initializer(pointerType(TyK:K,Ad:K),Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -29,7 +30,8 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
                 , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
-            => preInit(X, alloca(TyK, Size, 'alignEmpty(.KList)), initializer(TyK,Init))
+            => preInit(X, alloca(TyK, Size, 'alignEmpty(.KList))
+                                  , initializer(arrayTypeValue(TyK,Size),Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -37,7 +39,8 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
                 , structTypeValue(TyK:KResult), Init:K)
-            => preInit(X, alloca(TyK, 1, 'alignEmpty(.KList)), initializer(TyK,Init))
+            => preInit(X, alloca(TyK, 1, 'alignEmpty(.KList))
+                                  , initializer(structTypeValue(TyK),Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 

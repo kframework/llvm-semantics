@@ -202,7 +202,7 @@ module LLVM-HELPERS
               => val(Mv ! { In }),formElemList(Ins)
     rule formElemList(.LabelValues) => .ElemList
     rule formElemList(label Va:ValueRef, Ls:LabelValues)
-                    => val(Va),formElemList(Ls)
+                    => val(addNameToString(Va)),formElemList(Ls)
     rule formElemList(doubleList(.RetAttrs,.FuncAttrs)) => .ElemList
     rule formElemList(doubleList(.RetAttrs,F:FuncAttr Fs:FuncAttrs))
             => val(F),formElemList(doubleList(.RetAttrs,Fs))
@@ -232,11 +232,11 @@ module LLVM-HELPERS
     rule formElemList('inBoundsEmpty(.KList)) => .ElemList
     rule formElemList('.IntResolveVals(.KList)) => .ElemList
     rule formElemList(, It:IntType V:ValueRef Ins:IntResolveVals)
-            => val(operand(It,V)),formElemList(Ins)
+            => val(operand(It,addNameToString(V))),formElemList(Ins)
     rule formElemList([ V1:ValueRef , V2:ValueRef ])
-            => val(edge(V1,V2))
+            => val(edge(addNameToString(V1),addNameToString(V2)))
     rule formElemList([ V1:ValueRef , V2:ValueRef ] , Pl:PHIList)
-            => val(edge(V1,V2)),formElemList(Pl)
+            => val(edge(addNameToString(V1),addNameToString(V2))),formElemList(Pl)
     rule formElemList(cleanup) => val(cleanup)
     rule formElemList('cleanupEmpty(.KList)) => .ElemList
     rule formElemList(.LandingpadFactors) => .ElemList
@@ -271,23 +271,26 @@ module LLVM-HELPERS
     rule formCases(.JumpTable) => .Cases
     rule formCases(It:IntType Ca:ConstValueRef,
                  label Va:ValueRef Cs:JumpTable)
-                 => case(operand(It,Ca),Va), formCases(Cs)
+                 => case(operand(It,addNameToString(Ca))
+                                 ,addNameToString(Va)), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
     syntax ElemList ::= toCallees(ParamList) [function]
 
     rule toCallees(.ParamList) => .ElemList
     rule toCallees(Ty:Type Pa:ParamAttrs V:ValueRef,Pl:ParamList)
-                => val(callee(operand(Ty,V),modifiers(formElemList(Pa)))),toCallees(Pl)
+                => val(callee(operand(addNameToString(Ty)
+                  ,addNameToString(V)),modifiers(formElemList(Pa)))),toCallees(Pl)
 
     syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
 
     rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, A:Align) => alloca(Ty,1,A)
+    rule dealWithAllocaElem(Ty:Type, A:Align) => alloca(addNameToString(Ty),1,A)
     rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
-                      => preAlloca(Ty,It,V,'alignEmpty(.KList))
+                      => preAlloca(addNameToString(Ty),It
+                                         ,addNameToString(V),'alignEmpty(.KList))
     rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, A:Align)
-                      => preAlloca(Ty,It,V,A)
+                      => preAlloca(addNameToString(Ty),It,addNameToString(V),A)
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 

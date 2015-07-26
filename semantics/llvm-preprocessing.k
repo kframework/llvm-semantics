@@ -93,13 +93,15 @@ module LLVM-PREPROCESSING
         ...</modules>
         [structural]
 
-    rule preModule(target triple = S DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(target triple = S:StringName DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => preModule(DL:Module, ModuleAsms, TargetLayout:K, TargetTriple:K ~> stringConstruct(S), MetaVars:K,
+         => preModule(DL:Module, ModuleAsms, TargetLayout:K, TargetTriple:K
+                                             ~> stringConstruct(#tokenToString(S)), MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-    rule preModule(target datalayout = S DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(target datalayout = S:StringName DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => preModule(DL, ModuleAsms:K, TargetLayout:K ~> stringConstruct(S), TargetTriple:K, MetaVars:K,
+         => preModule(DL, ModuleAsms:K, TargetLayout:K ~> stringConstruct(#tokenToString(S))
+                , TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
     rule preModule(declare F:FunctionProto DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)

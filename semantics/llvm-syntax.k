@@ -41,8 +41,8 @@ module LLVM-SYNTAX
                 // [regex("NaN([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
     syntax Floating ::= "NaN" | "Infinity"
     syntax FpVal ::= HexConstant | Floating
-    syntax #String ::= Token{[\"] (~[\"])* [\"]}
-    syntax Strings ::= List{String,","}
+    syntax StringName ::= Token{[\"] (~[\"])* [\"]}
+    syntax Strings ::= List{StringName,","}
 
     /*@
       LLVM identifiers come in two basic types: global and local.
@@ -430,10 +430,10 @@ module LLVM-SYNTAX
                       | "sanitize_address" | "sanitize_memory"
                       | "readonly" [klabel('readonlyOfComm)]
                       | "readnone" [klabel('readnoneOfComm)]
-                      | String "=" String | AttributeGroupId
+                      | StringName "=" StringName | AttributeGroupId
     syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
     syntax FuncAttrs ::= List{FuncAttr," "}
-    syntax GroupAttr ::= CommAttr | String | "alignstack" "=" UnsignedInt
+    syntax GroupAttr ::= CommAttr | StringName | "alignstack" "=" UnsignedInt
                        | "align" "=" UnsignedInt
     syntax GroupAttrs ::= List{GroupAttr," "} [klabel('groupAttrList)]
 
@@ -470,7 +470,7 @@ module LLVM-SYNTAX
       is restricted to generating machine code which can interoperate with a
       collector provided externally.
     */
-    syntax OptGC ::= "gc" String | "" [klabel('gcEmpty),onlyLabel]
+    syntax OptGC ::= "gc" StringName | "" [klabel('gcEmpty),onlyLabel]
 
 
     /*@
@@ -506,7 +506,7 @@ module LLVM-SYNTAX
       If the target supports it, it will emit functions to the section specified. 
       Additionally, the function can be placed in a COMDAT.
     */
-    syntax OptSection ::= "section" String | "" [klabel('sectionEmpty),onlyLabel]
+    syntax OptSection ::= "section" StringName | "" [klabel('sectionEmpty),onlyLabel]
 
 
     /*@
@@ -530,14 +530,14 @@ module LLVM-SYNTAX
     syntax Align ::= "align" UnsignedInt
     syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
     syntax OptSectionComdatAndAlign ::= "" [klabel('sectionComdatAndAlignEmpty),onlyLabel]
-                                | "," "section" String
+                                | "," "section" StringName
                                 | "," Align
                                 | "," Comdat
                                 | "," Comdat "," Align
-                                | "," "section" String "," Align
-                                | "," Align "," "section" String
-                                | "," "section" String "," Comdat
-                                | "," "section" String "," Comdat "," Align
+                                | "," "section" StringName "," Align
+                                | "," Align "," "section" StringName
+                                | "," "section" StringName "," Comdat
+                                | "," "section" StringName "," Comdat "," Align
 
 
     /*@
@@ -583,7 +583,7 @@ module LLVM-SYNTAX
     syntax OptInteldialect ::= "inteldialect"
                              | "" [klabel('inteldialectEmpty),onlyLabel]
     //define a AsmBlock to be a string constant.
-    syntax AsmBlock ::= String
+    syntax AsmBlock ::= StringName
 
     /*@
       A variable may be defined as thread_local, which means that it will not
@@ -885,7 +885,7 @@ module LLVM-SYNTAX
                            | "!" "{" MetadataValues "}"
     //define the values that appear in a metadata list
     syntax MetadataValueInt ::= "!" UnsignedInt [klabel('metaValueInVarForm)]
-    syntax MetadataValueString ::= "!" String
+    syntax MetadataValueString ::= "!" StringName
     syntax MetadataValue ::= MetadataValueInt
                            | MetadataValueString
                            | Index
@@ -1131,8 +1131,8 @@ module LLVM-SYNTAX
                   that specifies how data is to be laid out in memory.
       triple: A module may specify a target triple string that describes the target host.
     */
-    syntax TargetDefinition ::= "triple" "=" String
-                              | "datalayout" "=" String
+    syntax TargetDefinition ::= "triple" "=" StringName
+                              | "datalayout" "=" StringName
 
     //Define libraries definitions for the values of the definition of deplibs.
     syntax LibrariesDefinition ::= "[" Strings "]" [klabel('deplibsValues)]

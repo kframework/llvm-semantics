@@ -25,7 +25,7 @@ module LLVM-HELPERS
     rule StringToList("") => .List
     rule
         StringToList(S:String)
-            => ListItem(String2Char(substrString(S:String, 0, 1)))
+            => ListItem(ordChar(substrString(S:String, 0, 1)))
                 StringToList(substrString(S:String, 1, lengthString(S:String)))
         when S =/=String ""
 
@@ -125,8 +125,6 @@ module LLVM-HELPERS
 
     syntax Bool ::= isIntegerType(K) [function]
     rule isIntegerType(integerType(_)) => true
-    rule isIntegerType(KLabel:KLabel(_)) => false
-        when KLabel =/=KLabel 'integerType
     rule isIntegerType(_) => false [owise]
 
     syntax Bool ::= isFloatType(K) [function]

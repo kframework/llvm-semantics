@@ -94,7 +94,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeInfinity"
 
     //don't know how to deal with
-    syntax KItem ::= moduleAsm(String)
+    syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
     syntax KItem ::= metaConst(K, IndexList) //Type, IndexList
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
 

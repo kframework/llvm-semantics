@@ -51,9 +51,9 @@ module LLVM-PREPROCESSING
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val('sectionEmpty(.KList)),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S)
+          H:K, , section S:StringName)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
+            ,val(section S:StringName),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
@@ -67,21 +67,21 @@ module LLVM-PREPROCESSING
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
             ,val('sectionEmpty(.KList)),val(Co),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S , Al:Align)
+          H:K, , section S:StringName , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S),val('comdatEmpty(.KList)),val(Al)
+            ,val(section S:StringName),val('comdatEmpty(.KList)),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , Al:Align , section S)
+          H:K, , Al:Align , section S:StringName)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S),val('comdatEmpty(.KList)),val(Al)
+            ,val(section S:StringName),val('comdatEmpty(.KList)),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S , Co:Comdat)
+          H:K, , section S:StringName , Co:Comdat)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S),val(Co),val('alignEmpty(.KList))
+            ,val(section S:StringName),val(Co),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
-          H:K, , section S , Co:Comdat , Al:Align)
+          H:K, , section S:StringName , Co:Comdat , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S),val(Co),val(Al)
+            ,val(section S:StringName),val(Co),val(Al)
 
 
     rule <k> DefList:Module => preModule(DefList, .K, .K, .K, .K, .K, .K, .K, .K) ...</k>
@@ -93,13 +93,15 @@ module LLVM-PREPROCESSING
         ...</modules>
         [structural]
 
-    rule preModule(target triple = S DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(target triple = S:StringName DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => preModule(DL:Module, ModuleAsms, TargetLayout:K, TargetTriple:K ~> stringConstruct(S), MetaVars:K,
+         => preModule(DL:Module, ModuleAsms, TargetLayout:K, TargetTriple:K
+                                             ~> stringConstruct(#tokenToString(S)), MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-    rule preModule(target datalayout = S DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(target datalayout = S:StringName DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => preModule(DL, ModuleAsms:K, TargetLayout:K ~> stringConstruct(S), TargetTriple:K, MetaVars:K,
+         => preModule(DL, ModuleAsms:K, TargetLayout:K ~> stringConstruct(#tokenToString(S))
+                , TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
     rule preModule(declare F:FunctionProto DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
@@ -109,7 +111,7 @@ module LLVM-PREPROCESSING
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K ~> preFunctionDef(F))
-    rule preModule(module asm S DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule preModule(module asm S:StringName DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K ~> moduleAsm(S), TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)

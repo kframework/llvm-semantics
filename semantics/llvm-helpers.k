@@ -264,6 +264,19 @@ module LLVM-HELPERS
     rule formElemList(X:Ordering) => val(X)
     rule formElemList(X:Ordering Xl:OrderingList)
                  => val(X),formElemList(Xl)
+    rule formElemList('argListUnit(.KList)) => .ElemList
+    rule formElemList(...) => .ElemList
+    rule formElemList(Ty:Type Pa:ParamAttrs)
+             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty),.K))
+    rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar))
+             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty)
+                                                        ,addNameToString(Na)))
+    rule formElemList(Ty:Type Pa:ParamAttrs, Al:ArgList)
+             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty),.K))
+                                                                 ,formElemList(Al)
+    rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar), Al:ArgList)
+             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty)
+                                           ,addNameToString(Na))),formElemList(Al)
     rule formElemList(K:K) => K [owise]
 
     syntax Cases ::= formCases(K) [function]

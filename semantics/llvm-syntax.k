@@ -1140,7 +1140,7 @@ module LLVM-SYNTAX
 
     //Define argument lists for the function header.
     syntax ArgType ::= Type ParamAttrs
-                      | Type ParamAttrs LocalVar
+                      | Type ParamAttrs LocalVar [klabel('argTypeThree)]
     syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
                      | ArgType
                      | ArgType "," ArgList

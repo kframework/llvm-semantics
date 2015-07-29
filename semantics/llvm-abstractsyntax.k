@@ -15,7 +15,9 @@ module LLVM-ABSTRACTSYNTAX
                       | listK(List)  [latex({#1})]
 
     syntax Element ::= val(K) [strict]
-    syntax KResult ::= valValue(K)
+    syntax ElementResult ::= valValue(K)
+    syntax Element ::= ElementResult
+    syntax KResult ::= ElementResult
     rule val(K:KResult) => valValue(K) [structural]
 
     syntax ElemList ::= List{Element,","} [strict,klabel('elemCon)]
@@ -126,7 +128,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
     syntax KItem ::= switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
     syntax Case ::= case(K, K) [strict(1)] // operand, successor
-    syntax KResult ::= caseValue(K, K)
+    syntax CaseResult ::= caseValue(K, K)
+    syntax KResult ::= CaseResult
+    syntax Case ::= CaseResult
     syntax Cases ::= List{Case,","} [strict,klabel('caseCon)]
     rule case(K:KResult, K') => caseValue(K, K') [structural]
 

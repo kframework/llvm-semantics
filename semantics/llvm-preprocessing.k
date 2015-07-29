@@ -24,16 +24,18 @@ module LLVM-PREPROCESSING
                          Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
                          ( Ars:ArgList ) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
                          Co:OptComdat Al:OptAlign Gc:OptGC Pf:OptPrefix Pl:OptPrologue)
-          => functionDecl(modifiers(val(Ex),val('dllStorageEmpty(.KList)),val(Vi),val(Cl)
+          => functionDecl(modifiers(val(Ex),val(Vi),val(Cl)
                          ,val(Re),val(Un),val(Fu),val(Se)
-                         ,val(Co),val(Al),val(Gc),val(Pf),val(Pl)),Ty,Gl,Ars)
+                         ,val(Co),val(Al),val(Gc),val(Pf),val(Pl))
+                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars))
     rule preFunctionDecl(Dll:OptDllStorageClass Vi:OptVisibilityStyle
                          Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
                          ( Ars:ArgList ) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
                          Co:OptComdat Al:OptAlign Gc:OptGC Pf:OptPrefix Pl:OptPrologue)
-          => functionDecl(modifiers(val('nonExternalLinkageEmpty(.KList)),val(Dll),val(Vi),val(Cl)
+          => functionDecl(modifiers(val(Dll),val(Vi),val(Cl)
                          ,val(Re),val(Un),val(Fu),val(Se)
-                         ,val(Co),val(Al),val(Gc),val(Pf),val(Pl)),Ty,Gl,Ars)
+                         ,val(Co),val(Al),val(Gc),val(Pf),val(Pl))
+                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars))
 
     syntax KItem ::= preFunctionDef(Function) [function]
 
@@ -43,41 +45,39 @@ module LLVM-PREPROCESSING
                           Co:OptComdat Al:OptAlign Gc:OptGC Pf:OptPrefix Pr:OptPrologue
                         {Bl:BasicBlockList})
          => functionDef(modifiers(val(Li),val(Vi),val(Dll),val(Cl),val(Re),val(Un),val(Fu)
-                       ,val(Se),val(Co),val(Al),val(Gc),val(Pf),val(Pr)),Ty,Gl,Ars,Bl)
+                       ,val(Se),val(Co),val(Al),val(Gc),val(Pf),val(Pr))
+                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars),Bl)
 
     syntax ElemList ::= dealWithSectionComdatAndAlign(K, K, K, K, K, K, K, K, K) [function]
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, 'sectionComdatAndAlignEmpty(.KList))
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val('sectionEmpty(.KList)),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , section S:StringName)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S:StringName),val('comdatEmpty(.KList)),val('alignEmpty(.KList))
+            ,val(section S:StringName)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , Al:Align)
-         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val('sectionEmpty(.KList)),val('comdatEmpty(.KList)),val(Al)
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , Co:Comdat)
-         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val('sectionEmpty(.KList)),val(Co),val('alignEmpty(.KList))
+         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H),val(Co)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , Co:Comdat , Al:Align)
-         => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val('sectionEmpty(.KList)),val(Co),val(Al)
+         => val(A),val(B),val(C),val(D),val(E),val(F)
+           ,val(G),val(H),val(Co),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , section S:StringName , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S:StringName),val('comdatEmpty(.KList)),val(Al)
+            ,val(section S:StringName),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , Al:Align , section S:StringName)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S:StringName),val('comdatEmpty(.KList)),val(Al)
+            ,val(section S:StringName),val(Al)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , section S:StringName , Co:Comdat)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)
-            ,val(section S:StringName),val(Co),val('alignEmpty(.KList))
+            ,val(section S:StringName),val(Co)
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
           H:K, , section S:StringName , Co:Comdat , Al:Align)
          => val(A),val(B),val(C),val(D),val(E),val(F),val(G),val(H)

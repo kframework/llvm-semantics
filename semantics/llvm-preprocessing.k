@@ -27,7 +27,7 @@ module LLVM-PREPROCESSING
           => functionDecl(modifiers(val(Ex),val(Vi),val(Cl)
                          ,val(Re),val(Un),val(Fu),val(Se)
                          ,val(Co),val(Al),val(Gc),val(Pf),val(Pl))
-                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars))
+                         ,addNameToString(Ty),addNameToString(Gl),arguments(formElemList(Ars)))
     rule preFunctionDecl(Dll:OptDllStorageClass Vi:OptVisibilityStyle
                          Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
                          ( Ars:ArgList ) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
@@ -35,7 +35,7 @@ module LLVM-PREPROCESSING
           => functionDecl(modifiers(val(Dll),val(Vi),val(Cl)
                          ,val(Re),val(Un),val(Fu),val(Se)
                          ,val(Co),val(Al),val(Gc),val(Pf),val(Pl))
-                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars))
+                         ,addNameToString(Ty),addNameToString(Gl),arguments(formElemList(Ars)))
 
     syntax KItem ::= preFunctionDef(Function) [function]
 
@@ -46,7 +46,7 @@ module LLVM-PREPROCESSING
                         {Bl:BasicBlockList})
          => functionDef(modifiers(val(Li),val(Vi),val(Dll),val(Cl),val(Re),val(Un),val(Fu)
                        ,val(Se),val(Co),val(Al),val(Gc),val(Pf),val(Pr))
-                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars),Bl)
+                         ,addNameToString(Ty),addNameToString(Gl),arguments(formElemList(Ars)),Bl)
 
     syntax ElemList ::= dealWithSectionComdatAndAlign(K, K, K, K, K, K, K, K, K) [function]
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,

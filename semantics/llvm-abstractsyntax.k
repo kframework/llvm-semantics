@@ -156,7 +156,8 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
-    syntax KItem ::= values(K)
+    syntax KItem ::= values(K) [function]
+    rule values(K:K) => K
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val

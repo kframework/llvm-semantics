@@ -20,7 +20,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= ElementResult
     rule val(K:KResult) => valValue(K) [structural]
 
-    syntax ElemList ::= List{Element,","} [strict,klabel('elemCon)]
+    //syntax KItem ::= ElemList
+    syntax ElemList ::= List{Element,","} [strict]
     syntax Int ::= lengthOfList(ElemList) [function]
 
     rule lengthOfList(.ElemList) => 0
@@ -132,6 +133,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= CaseResult
     syntax Case ::= CaseResult
     syntax Cases ::= List{Case,","} [strict,klabel('caseCon)]
+    //syntax KItem ::= Cases
     rule case(K:KResult, K') => caseValue(K, K') [structural]
 
     syntax KItem ::= arguments(ElemList) [strict]

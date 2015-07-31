@@ -6,9 +6,62 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.Scanner;
 
-// Copyright (c) 2015 K Team. All Rights Reserved.
 public class DeleteLLVMComments {
-
+    
+    public static boolean isSpecifiedChar(char theChar) {
+        if (theChar == ')' || theChar == ']' || theChar == '}' || theChar == ' ') {
+            return true;
+        }
+        return false;
+    }
+    
+    public static boolean isCharC(char theChar) {
+        if (theChar == 'c') 
+            return true;
+        return false;
+    }
+    
+    public static String getCStringContent(String theLine, int theLineIndex) {
+        String cStringContent = "";
+        for(int i = theLineIndex; i < theLine.length(); ++i) {
+            cStringContent += theLine.charAt(i);
+            if(theLineIndex == '\"') {
+                cStringContent += theLine.charAt(i);
+                break;
+            }
+        }
+        return cStringContent;
+    }
+    
+    public static boolean isHexCharacter(char theChar) {
+        if ( theChar == '0'
+                || theChar == '1'
+                || theChar == '2'
+                || theChar == '3'
+                || theChar == '4'
+                || theChar == '5'
+                || theChar == '6'
+                || theChar == '7'
+                || theChar == '8'
+                || theChar == '9'
+                || theChar == 'a'
+                || theChar == 'b'
+                || theChar == 'c'
+                || theChar == 'd'
+                || theChar == 'e'
+                || theChar == 'f'
+                || theChar == 'A'
+                || theChar == 'B'
+                || theChar == 'C'
+                || theChar == 'D'
+                || theChar == 'E'
+                || theChar == 'F') {
+            return true;
+        }
+        return false;
+        
+    }
+    
     /**
      * @author LiyiLi
      * This Java program takes an LLVM program as input and eliminates
@@ -21,12 +74,12 @@ public class DeleteLLVMComments {
      */
     public static void main(String[] args) throws InterruptedException {
         
-        if(args.length == 0){
-            System.err.println("Haven't specified the input program.");
-        }
-        String fileName = args[0];
+        //if(args.length == 0){
+        //    System.err.println("Haven't specified the input program.");
+        //}
+        String fileName = "printNum.ll";
         File llvmFile = new File(fileName);
-        String newPrintLine = "";
+        String newLine = "";
         if(llvmFile.isFile()){//if input file exists.
             try {
                 Scanner scanner = new Scanner(llvmFile);
@@ -44,17 +97,62 @@ public class DeleteLLVMComments {
                 
                 while(scanner.hasNextLine()){
                     String currentLine = scanner.nextLine();
+                    
                     for(int i = 0; i < currentLine.length(); ++i){
-                        char currentChar = currentLine.charAt(i);
-                        if(currentChar == '"'){
-                            isInQuoteBlock = ! isInQuoteBlock;
-                        } else if(!isInQuoteBlock
-                                    && currentChar == ';'){
-                            break;
+                        if(isSpecifiedChar(currentLine.charAt(i))){                                           //reach to a specified character, ),],}
+                            newLine += currentLine.charAt(i);
+                            if(i+1 < currentLine.length()){                                                   //checker index 
+                                if(isCharC(currentLine.charAt(i+1))){                                         //
+                                    i++;
+                                    newLine += currentLine.charAt(i);
+                                    for(int j = i + 1; j < currentLine.length(); ++j){
+                                        if(currentLine.charAt(j) == ' '){
+                                            i++;
+                                            newLine += currentLine.charAt(j);
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    if(i+1 < currentLine.length()){
+                                        if(currentLine.charAt(i+1) == '\"'){
+                                            i++;
+                                            newLine += currentLine.charAt(i);
+                                            String content = getCStringContent(currentLine, i + 1);
+                                            for(int j = 0; j < content.length(); ++j){
+                                                newLine += content.charAt(j);
+                                                i++;
+                                                if(content.charAt(j) == '\\'){
+                                                    if(j+1 < content.length()){
+                                                        if(isHexCharacter(content.charAt(j+1))){
+                                                            newLine += 'x';
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        } else {
+                                            continue;
+                                        }
+                                    } else {
+                                        break;
+                                    }
+                                } else {
+                                    continue;
+                                }
+                            } else {                                                                          //move the index from the specified character to the next, reach to the end of the line 
+                                break;
+                            }
+                        } else {                                                                              //reach to a non-specified-character, then, just add it.
+                            char currentChar = currentLine.charAt(i);
+                            if(currentChar == '"'){
+                                isInQuoteBlock = ! isInQuoteBlock;
+                            } else if(!isInQuoteBlock
+                                        && currentChar == ';'){
+                                break;
+                            }
+                            newLine += currentChar;
                         }
-                        newPrintLine += currentChar;
-                    } //end of for loop
-                    newPrintLine += "\n";
+                    }
+                    newLine += "\n";
                 } // end of while loop
                 scanner.close();
             } catch (FileNotFoundException e) {
@@ -74,7 +172,7 @@ public class DeleteLLVMComments {
             // TODO Auto-generated catch block
             e1.printStackTrace();
         }
-        printWriter.print(newPrintLine);
+        printWriter.print(newLine);
         printWriter.close();
         Process p = null;
         try {
@@ -98,4 +196,6 @@ public class DeleteLLVMComments {
             e.printStackTrace();
         }
     }
+    
+    
 }

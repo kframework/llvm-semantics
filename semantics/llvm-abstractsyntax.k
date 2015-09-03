@@ -70,7 +70,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)
-
+    syntax ValueRef ::= Loc
 /*
     syntax List ::= list(KList) [function]
 

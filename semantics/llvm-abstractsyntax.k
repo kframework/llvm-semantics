@@ -164,7 +164,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= tailCall(K, ElemList) [strict]//type, Callees
     syntax KItem ::= call(K, ElemList) [strict] // Type, Callees
     syntax KItem ::= callee(K, K) [strict] // Value/Name, Arguments
-    syntax KItem ::= calleeValue(K, K)
+    syntax KResult ::= calleeValue(K, K)
     rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
     syntax KItem ::= getElementPtr(K, K, K) [strict]// operand, operand, modifiers

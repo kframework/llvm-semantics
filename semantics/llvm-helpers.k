@@ -33,13 +33,13 @@ module LLVM-HELPERS
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule 'nullOfConstValueRef(.KList) => loc(-1, 0) [anywhere]
 
-    syntax Int ::= base(Loc)
+    syntax Int ::= base(Loc) [function]
     rule base(loc(Base:Int, _)) => Base:Int
     
     syntax Int ::= offset(Loc)
     rule offset(loc(_, Offset:Int)) => Offset:Int
     
-    syntax Loc ::= Loc "+" Int
+    syntax Loc ::= Loc "+" Int [function]
     // TODO not checking for null
     
     rule loc(Base:Int, Offset:Int) + Offset':Int

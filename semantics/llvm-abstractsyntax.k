@@ -83,7 +83,6 @@ module LLVM-ABSTRACTSYNTAX
     //rule isNat(floatByte(_, _, _)) => true
 
     syntax KItem ::= "emptyDef"
-    syntax KItem ::= "funBegin"
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
@@ -100,6 +99,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
     syntax KItem ::= metaConst(K, IndexList) //Type, IndexList
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
+    syntax KItem ::= funBegin(K)// use to initialize the initial block name.
 
     syntax KItem ::= float(String)
     syntax KItem ::= constantString(String)

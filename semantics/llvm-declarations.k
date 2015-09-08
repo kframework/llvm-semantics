@@ -103,11 +103,12 @@ module LLVM-DECLARATIONS
                 <- (setBlock(name(Int2String(I)))
              ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
         when FunName ==K FunName'
-*/
+
     rule <k> funBegin
              => .K ...</k>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         //<currFunction> FunName:SymbolicValueRef </currFunction>
+*/
         /*<modules>...
             <module>...
                <functions>...
@@ -170,6 +171,14 @@ module LLVM-DECLARATIONS
              ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
 
 */
+    rule
+        <k> funBegin(basicBlock(Name:SymbolicValueRef, K:K) ~> K':K)
+           => basicBlock(Name, K) ~> K' ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName:SymbolicValueRef </functionName>
+        <initialBasicBlock> _ => Name </initialBasicBlock>
 
     rule
         <k> basicBlock(Name:SymbolicValueRef, K:K) => . ...</k>

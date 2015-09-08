@@ -29,25 +29,25 @@ module LLVM-NORMALIZING
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(formElemList(Onw))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(sub Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theSub(addNameToString(Ty)
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(formElemList(Onw))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(mul Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theMul(addNameToString(Ty)
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(formElemList(Onw))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(shl Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theShl(addNameToString(Ty)
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(formElemList(Onw))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     //do the same for all DivConstructors ::= "udiv" | "sdiv" | "lshr" | "ashr"
     //done
     rule instValToKItem(udiv Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
@@ -55,25 +55,25 @@ module LLVM-NORMALIZING
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Opx))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(sdiv Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theSDiv(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Opx))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(lshr Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theLShr(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Opx))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(ashr Opx:OptExact Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theAShr(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Opx))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     //do the same for all FloatOps ::= "fadd" | "fsub" | "fmul" | "fdiv" | "frem"
     //done
     rule instValToKItem(fadd Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
@@ -81,43 +81,43 @@ module LLVM-NORMALIZING
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Fmf))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(fsub Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFSub(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Fmf))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(fmul Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFMul(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Fmf))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(fdiv Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFDiv(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Fmf))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(frem Fmf:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theFRem(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(formElemList(Fmf))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(urem Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theURem(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(srem Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theSRem(addNameToString(Ty)
                                   ,addNameToString(V1)
                                   ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     //do the same for LogicalOps ::= "and" | "or" | "xor"
     //done
     rule instValToKItem(and Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
@@ -125,19 +125,19 @@ module LLVM-NORMALIZING
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(or Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theOr(addNameToString(Ty)
                                 ,addNameToString(V1)
                                 ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     rule instValToKItem(xor Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
            => instruction(theXor(addNameToString(Ty)
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
 /*    
     rule icmp ne T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
@@ -148,7 +148,7 @@ module LLVM-NORMALIZING
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp eq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
         => theDefinition(IEq(T, V, V'),I)
@@ -158,7 +158,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
    rule icmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UGT(T, V, V'),I)
@@ -168,7 +168,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UGE(T, V, V'),I)
@@ -178,7 +178,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(ULT(T, V, V'),I)
@@ -188,7 +188,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(ULE(T, V, V'),I)
@@ -198,7 +198,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp sgt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(SGT(T, V, V'),I)
@@ -208,7 +208,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp sge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(SGE(T, V, V'),I)
@@ -218,7 +218,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp slt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(SLT(T, V, V'),I)
@@ -228,7 +228,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule icmp sle T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(SLE(T, V, V'),I)
@@ -238,19 +238,19 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp false _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
          => theDefinition(0,I)
 */
     rule instValToKItem(fcmp false Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(0,modifiers(.ElemList),Ins)
+           => instruction(0,modifiers(.ElemList),insMetas(formElemList(Ins)))
 /*
     rule fcmp true _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
          => theDefinition(1,I)
 */
     rule instValToKItem(fcmp true Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(1,modifiers(.ElemList),Ins)
+           => instruction(1,modifiers(.ElemList),insMetas(formElemList(Ins)))
 /*
     rule fcmp oeq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(OEQ(T, V, V'),I)
@@ -260,7 +260,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ogt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(OGT(T, V, V'),I)
@@ -270,7 +270,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp oge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(OGE(T, V, V'),I)
@@ -280,7 +280,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp olt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(OLT(T, V, V'),I)
@@ -290,7 +290,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ole T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(OLE(T, V, V'),I)
@@ -300,7 +300,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp one T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(ONE(T, V, V'),I)
@@ -310,7 +310,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ord T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(ORD(T, V, V'),I)
@@ -320,7 +320,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UGT(T, V, V'),I)
@@ -330,7 +330,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UGE(T, V, V'),I)
@@ -340,7 +340,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(ULT(T, V, V'),I)
@@ -350,7 +350,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(ULE(T, V, V'),I)
@@ -360,7 +360,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp une T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UNE(T, V, V'),I)
@@ -370,7 +370,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp uno T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UNO(T, V, V'),I)
@@ -380,7 +380,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
     rule fcmp ueq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
          => theDefinition(UEQ(T, V, V'),I)
@@ -390,7 +390,7 @@ module LLVM-NORMALIZING
                               ,addNameToString(V1)
                               ,addNameToString(V2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     //do the same for all the rules: CastOps ::= "trunc" | "zext" | "sext" | "fptrunc"
                      //| "fpext" | "bitcast" | "uitofp" | "sitofp"
@@ -402,79 +402,79 @@ module LLVM-NORMALIZING
                                    ,addNameToString(V)
                                    ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(sext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theSExt(addNameToString(Ty1)
                                   ,addNameToString(V)
                                   ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)  
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(zext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theZExt(addNameToString(Ty1)
                                   ,addNameToString(V)
                                   ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(bitcast Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theBitCast(addNameToString(Ty1)
                                      ,addNameToString(V)
                                      ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(inttoptr Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theIntToPtr(addNameToString(Ty1)
                                       ,addNameToString(V)
                                       ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(ptrtoint Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(thePtrToInt(addNameToString(Ty1)
                                       ,addNameToString(V)
                                       ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(fptosi Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theFpToSI(addNameToString(Ty1)
                                     ,addNameToString(V)
                                     ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(fptoui Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theFpToUI(addNameToString(Ty1)
                                     ,addNameToString(V)
                                     ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(fptrunc Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theFPTrunc(addNameToString(Ty1)
                                      ,addNameToString(V)
                                      ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(fpext Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theFPExt(addNameToString(Ty1)
                                    ,addNameToString(V)
                                    ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(sitofp Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theSIToFP(addNameToString(Ty1)
                                     ,addNameToString(V)
                                     ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(uitofp Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theUIToFP(addNameToString(Ty1)
                                     ,addNameToString(V)
                                     ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      rule instValToKItem(addrspacecast Ty1:Type V:ValueRef to Ty2:Type Ins:InstructionMetadatas)
            => instruction(theAddrspacecast(addNameToString(Ty1)
                                            ,addNameToString(V)
                                            ,addNameToString(Ty2))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(select Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef)
            => instruction(select(addNameToString(Ty1)
@@ -482,13 +482,13 @@ module LLVM-NORMALIZING
                                  ,operand(addNameToString(Ty2),addNameToString(V2))
                                  ,operand(addNameToString(Ty3),addNameToString(V3)))
                           ,modifiers(.ElemList)
-                          ,'.InstructionMetadatas(.KList))
+                          ,insMetas(.ElemList))
 
     rule instValToKItem(va_arg Ty1:Type V1:ValueRef, Ty2:Type Ins:InstructionMetadatas)
            => instruction(theVAArg(addNameToString(Ty2)
                                    ,operand(addNameToString(Ty1),addNameToString(V1)))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(getelementptr Oib:OptInBounds Ty1:Type V1:ValueRef
                                     Itr:IntResolveVals Ins:InstructionMetadatas)
@@ -496,14 +496,14 @@ module LLVM-NORMALIZING
                                         ,addNameToString(V1)
                                         ,modifiers(formElemList(Itr)))
                           ,modifiers(formElemList(Oib))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(extractelement Ty1:Type V1:ValueRef,
                                     Ty2:Type V2:ValueRef Ins:InstructionMetadatas)
            => instruction(extractElement(operand(addNameToString(Ty1),addNameToString(V1))
                                          ,operand(addNameToString(Ty2),addNameToString(V2)))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(insertelement Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef,
                               Ty3:Type V3:ValueRef Ins:InstructionMetadatas)
@@ -511,7 +511,7 @@ module LLVM-NORMALIZING
                                         ,operand(addNameToString(Ty2),addNameToString(V2))
                                         ,operand(addNameToString(Ty3),addNameToString(V3)))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(shufflevector Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef,
                               Ty3:Type V3:ValueRef Ins:InstructionMetadatas)
@@ -519,13 +519,13 @@ module LLVM-NORMALIZING
                                         ,operand(addNameToString(Ty2),addNameToString(V2))
                                         ,operand(addNameToString(Ty3),addNameToString(V3)))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(phi Ty1:Type Pl:PHIList Ins:InstructionMetadatas)
            => instruction(phi(addNameToString(Ty1)
                               ,formElemList(Pl))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(landingpad Ty1:Type personality Ty2:Type V2:ValueRef
                          Oc:OptCleanup Lpfs:LandingpadFactors Ins:InstructionMetadatas)
@@ -533,7 +533,7 @@ module LLVM-NORMALIZING
                                      ,operand(addNameToString(Ty2),addNameToString(V2))
                                      ,modifiers(formElemList(Lpfs)))
                           ,modifiers(formElemList(Oc))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     //optTailCall ::= call
     rule instValToKItem(call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
@@ -541,7 +541,7 @@ module LLVM-NORMALIZING
                                ,toCallees(ParamList))
                           ,modifiers(combineElemList(combineElemList(formElemList(Ocv),formElemList(Rat))
                                                      ,formElemList(Fat)))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     //do the same above for OptTailCall ::= tail call
     rule instValToKItem(tail call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
@@ -549,10 +549,10 @@ module LLVM-NORMALIZING
                                    ,toCallees(ParamList))
                           ,modifiers(combineElemList(combineElemList(formElemList(Ocv),formElemList(Rat))
                                                      ,formElemList(Fat)))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(alloca Oil:OptInalloca All:AllocMetadata Ins:InstructionMetadatas)
-           => instruction(dealWithAllocaElem(All),modifiers(formElemList(Oil)),Ins)
+           => instruction(dealWithAllocaElem(All),modifiers(formElemList(Oil)),insMetas(formElemList(Ins)))
 
     rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef
                                  Oso:OptScopeOrder Ins:InstructionMetadatas)
@@ -560,7 +560,7 @@ module LLVM-NORMALIZING
                                ,addNameToString(V))
                           ,modifiers(combineElemList(combineElemList(formElemList(Oac),formElemList(Ovl))
                                                      ,formElemList(Oso)))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
     //do the same above for "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
     rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef
                                 Oso:OptScopeOrder,  Oal:Align Ins:InstructionMetadatas)
@@ -570,7 +570,7 @@ module LLVM-NORMALIZING
                                                                                      ,formElemList(Ovl))
                                                                      ,formElemList(Oso))
                                                      ,formElemList(Oal)))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
      
     //try to do the following:
 /* 
@@ -581,7 +581,7 @@ module LLVM-NORMALIZING
                                ,addNameToString(V1))
                                        ,formElemList(Cil))
                           ,modifiers(.ElemList)
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 
 /*
 "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal "," ResolvedVal OptSingleThread OrderingList InstructionMetadatas
@@ -594,7 +594,7 @@ module LLVM-NORMALIZING
                                   ,operand(addNameToString(Ty3),addNameToString(V3)))
                           ,modifiers(combineElemList(combineElemList(formElemList(Ovl),formElemList(Ost))
                                ,formElemList(Oli)))
-                          ,Ins)
+                          ,insMetas(formElemList(Ins)))
 /*
 ‘atomicrmw‘ instruction is used to atomically modify memory.
 "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
@@ -606,7 +606,7 @@ module LLVM-NORMALIZING
                                    ,operand(addNameToString(Ty2),addNameToString(V2)))
                          ,modifiers(combineElemList(combineElemList(formElemList(Ovl),formElemList(Ost))
                               ,formElemList(Ord)))
-                         ,Ins)
+                         ,insMetas(formElemList(Ins)))
 /*
 "insertvalue" ResolvedVal "," ResolvedVal ConstantIndexList InstructionMetadatas
 */
@@ -616,7 +616,7 @@ module LLVM-NORMALIZING
                                      ,operand(addNameToString(Ty2),addNameToString(V2))
                                      ,formElemList(Cil))
                          ,modifiers(.ElemList)
-                         ,Ins)
+                         ,insMetas(formElemList(Ins)))
 
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
@@ -888,7 +888,7 @@ create an abstract for fence and do the same for fence operation.
                                       , Ins)
                           , S)
     //define checkSingleAssignment
-    rule checkSingleAssignment(.K, K:K, S:Set) => K
+    rule checkSingleAssignment(.K, K:K, S:Set) => funBegin(K)
     rule checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList, K:K, S:Set)
          => checkSingleAssignmentInBlock(makeVarFromLabel(L),Ins BB, .K, S)

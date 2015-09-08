@@ -82,7 +82,7 @@ module LLVM-HELPERS
 
     // should be a K, but builtins can't use K :(
     // declare signed : K K -> Nat // type, value
-    syntax Int ::= signed(K, K)
+    syntax Int ::= signed(K, K) [function]
     //rule isNat(signed(_, _)) => true
 
     // case when in bounds

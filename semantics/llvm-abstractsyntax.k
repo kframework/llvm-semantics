@@ -66,8 +66,8 @@ module LLVM-ABSTRACTSYNTAX
     rule < I:UnsignedInt x T:Type > => vectorType(T,
                                     String2Int(#tokenToString(I)))         [anywhere]
     //rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
-    rule { Ts:TypeList } => structType(Ts) [macro]
-    rule < { Ts:TypeList } > => structType(Ts) [macro]
+    //rule { Ts:TypeList } => structType(Ts) [macro]
+    //rule < { Ts:TypeList } > => structType(Ts) [macro]
 
     //change IntType from LLVM syntax to K rule syntax
 

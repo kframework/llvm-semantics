@@ -685,13 +685,13 @@ module LLVM-SYNTAX
     syntax NonVoidType ::= "metadata"
                          | "x86_mmx"
                          | PrimType
-                         | Type OptAddrSpace "*"              ['klabel('pointerType)]
+                         | Type OptAddrSpace "*"              [klabel('pointerType)]
                          | LocalName
                          | Type "(" ArgList ")"
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"
-                         | "{" TypeList "}"
-                         | "<" "{" TypeList "}" ">"
+                         | "{" TypeList "}"                   [klabel('structType)]
+                         | "<" "{" TypeList "}" ">"           [klabel('structType)]
     syntax Type ::= VoidType | NonVoidType
     syntax TypeList ::= List{Type,","}
 

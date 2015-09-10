@@ -7,7 +7,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= Int | String | Floating
                       | arrayValue(List)
                       | Loc
-                      | integerType(K)
+                      | IntType
                       | pointerType(K, K) //type, address space
                       | arrayTypeValue(K, K)  // inner type, length
                       | structTypeValue(K)
@@ -49,9 +49,12 @@ module LLVM-ABSTRACTSYNTAX
     rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
 
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
+                         | vectorType(K, K) [strict]//inner type, length
                          | structType(K) [strict]
                          | namedType(K)
                          | functionType(K, K) [strict] // return type, argument types
+
+    syntax IntType ::= integerType(K)
 
     rule arrayType(K1:KResult, K2:KResult) => arrayTypeValue(K1, K2) [structural]
     rule structType(K1:KResult) => structTypeValue(K1) [structural]
@@ -59,14 +62,17 @@ module LLVM-ABSTRACTSYNTAX
 
     //uniform the types.
     rule [ I:UnsignedInt x T:Type ] => arrayType(T,
-                                    String2Int(#tokenToString(I))) [structural]
-    rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
+                                    String2Int(#tokenToString(I)))         [anywhere]
+    rule < I:UnsignedInt x T:Type > => vectorType(T,
+                                    String2Int(#tokenToString(I)))         [anywhere]
+    //rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
     rule { Ts:TypeList } => structType(Ts) [macro]
     rule < { Ts:TypeList } > => structType(Ts) [macro]
 
     //change IntType from LLVM syntax to K rule syntax
+
     rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
-                        1, lengthString(#tokenToString(I))))) [structural]
+                        1, lengthString(#tokenToString(I)))))
 
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)

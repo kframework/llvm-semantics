@@ -38,7 +38,7 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList))) ~> Tail:K
+        <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
             ~> Body

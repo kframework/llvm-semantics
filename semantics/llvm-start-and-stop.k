@@ -18,7 +18,7 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), val(callee(values(name("@__libc_start_main_0")),
+            => call(i(32), callee(values(name("@__libc_start_main_0")),
                 arguments(
                     val(funptr(name("@main"))), // address of main
                     (val(0), // argc
@@ -27,7 +27,7 @@ module LLVM-START-AND-STOP
                     (val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList))// ldso_fini
                 )))))
-            )))
+            ))
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -40,20 +40,20 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), val(callee(values(name("@__libc_start_main_2")),
+            => call(i(32), callee(values(name("@__libc_start_main_2")),
                 arguments((
                     val(funptr(name("@main"))), // address of main
                     val(0), // argc
                     val(
                         initEnvStructures(alloca(i(8),
-                         (sizeof(pointerType(i(8),0)) *Int 3) +Int (sizeof(i(64)) *Int 38)
+                         (sizeof('pointerType(i(8),, 0)) *Int 3) +Int (sizeof(i(64)) *Int 38)
                                              , 'alignEmpty(.KList)))
                     ),
                     val('nullOfConstValueRef(.KList)), // init
                     val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList)) // ldso_fini
                 ))
-            )))
+            ))
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -67,8 +67,8 @@ module LLVM-START-AND-STOP
 
     rule // argv & envp
         <k> initEnvStructures(Loc:Loc)
-            => write(arrayTypeValue(pointerType(i(8),0), 3), zeroinitializer, Loc)
-            ~> initEnvStructures'(Loc + sizeof(arrayTypeValue(pointerType(i(8),0), 3)))
+            => write(arrayTypeValue('pointerType(i(8),, 0), 3), zeroinitializer, Loc)
+            ~> initEnvStructures'(Loc + sizeof(arrayTypeValue('pointerType(i(8),, 0), 3)))
             ~> Loc
         ...</k>
 
@@ -79,7 +79,7 @@ module LLVM-START-AND-STOP
 
     rule [terminate-exit]:
         <T>...
-            <k> I:Int => call(void, val(callee(values(name("@exit")), arguments(val(I))))) </k>
+            <k> I:Int => call(void, callee(values(name("@exit")), arguments(val(I)))) </k>
         ...</T>
 
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL

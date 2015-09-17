@@ -54,7 +54,7 @@ module LLVM-DECLARATIONS
         when Label ==K Label'
 
     rule [typedef-lookup]:
-        <k> namedType(X:SymbolicValueRef) => UnresolvedType ...</k>
+        <k> 'namedType(X:SymbolicValueRef) => UnresolvedType ...</k>
         <typedefs>... X |-> UnresolvedType:K ...</typedefs>
 
     // TODO: hack because hybrids don't seem to be working

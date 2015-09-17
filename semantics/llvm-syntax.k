@@ -685,15 +685,15 @@ module LLVM-SYNTAX
     syntax NonVoidType ::= "metadata"
                          | "x86_mmx"
                          | PrimType
-                         | Type OptAddrSpace "*"              [klabel('pointerType)]
-                         | LocalName
-                         | Type "(" ArgList ")"
+                         | Type OptAddrSpace "*"              [klabel('pointerType), strict]
+                         | LocalName                          [klabel('namedType)]
+                         | Type "(" ArgList ")"               [klabel('functionType)]
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"
-                         | "{" TypeList "}"                   [klabel('structType)]
-                         | "<" "{" TypeList "}" ">"           [klabel('structType)]
+                         | "{" TypeList "}"                   [klabel('structType), strict]
+                         | "<" "{" TypeList "}" ">"           [klabel('structType), strict]
     syntax Type ::= VoidType | NonVoidType
-    syntax TypeList ::= List{Type,","}
+    syntax TypeList ::= List{Type,","}                        [strict]
 
 
     /*@
@@ -1139,7 +1139,7 @@ module LLVM-SYNTAX
     syntax LibrariesDefinition ::= "[" Strings "]" [klabel('deplibsValues)]
 
     //Define argument lists for the function header.
-    syntax ArgType ::= Type ParamAttrs
+    syntax ArgType ::= Type ParamAttrs           [klabel('argTypeTwo)]
                       | Type ParamAttrs LocalVar [klabel('argTypeThree)]
     syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
                      | ArgType

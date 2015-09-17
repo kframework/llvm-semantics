@@ -537,16 +537,16 @@ module LLVM-NORMALIZING
     //optTailCall ::= call
     rule instValToKItem(call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
-           => instruction(call(operand(addNameToString(Ty1),addNameToString(V1))
-                               ,toCallees(ParamList))
+           => instruction(call(addNameToString(Ty1),callee(addNameToString(V1),
+                               arguments(formElemList(ParamList))))
                           ,modifiers(combineElemList(combineElemList(formElemList(Ocv),formElemList(Rat))
                                                      ,formElemList(Fat)))
                           ,insMetas(formElemList(Ins)))
     //do the same above for OptTailCall ::= tail call
     rule instValToKItem(tail call Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (ParamList) Fat:FuncAttrs Ins:InstructionMetadatas)
-           => instruction(tailCall(operand(addNameToString(Ty1),addNameToString(V1))
-                                   ,toCallees(ParamList))
+           => instruction(tailCall(addNameToString(Ty1),callee(addNameToString(V1),
+                                   arguments(formElemList(ParamList))))
                           ,modifiers(combineElemList(combineElemList(formElemList(Ocv),formElemList(Rat))
                                                      ,formElemList(Fat)))
                           ,insMetas(formElemList(Ins)))
@@ -851,7 +851,7 @@ module LLVM-NORMALIZING
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
                                      ,modifiers(combineElemList(combineElemList(combineElemList(formElemList(
                                           Oac),formElemList(Ovl)),formElemList(Osc)),formElemList(Al)))
-                                     ,Inm)
+                                     ,insMetas(formElemList(Inm)))
                          , S)
 /*
 do the same for another store operation:
@@ -870,7 +870,7 @@ do the same for another store operation:
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
                                       ,modifiers(combineElemList(combineElemList(formElemList(Oac),
                                             formElemList(Ovl)),formElemList(Osc)))
-                                      ,Ins)
+                                      ,insMetas(formElemList(Ins)))
              , S)
 /*
 create an abstract for fence and do the same for fence operation.
@@ -885,7 +885,7 @@ create an abstract for fence and do the same for fence operation.
           => checkSingleAssignmentInBlock(N, Ili BB, K
                        ~> instruction(fence(ord)
                                       , modifiers(formElemList(Ost))
-                                      , Ins)
+                                      , insMetas(formElemList(Ins)))
                           , S)
     //define checkSingleAssignment
     rule checkSingleAssignment(.K, K:K, S:Set) => funBegin(K)

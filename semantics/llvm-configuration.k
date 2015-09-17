@@ -19,7 +19,7 @@ module LLVM-CONFIGURATION
             <control color="LightGoldenrod">
                 <currBlock color="Orchid"> name("Initial") </currBlock>
                 <prevBlock color="Orchid"> name("Initial") </prevBlock>
-                <currModule color="Orchid"> name("Initial") </currModule>
+                <currModule color="Orchid"> name("main") </currModule>
                 <currFunction color="Orchid"> name("Initial") </currFunction>
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>

@@ -20,9 +20,9 @@ module LLVM-GLOBALS
 
     //for the pointer type of global variable.
     rule
-        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), pointerType(TyK:K,Ad:K), Init:K)
+        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), 'pointerType(TyK:K,, Ad:K), Init:K)
             => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList))
-                                 , initializer(pointerType(TyK:K,Ad:K),Init))
+                                 , initializer('pointerType(TyK:K,, Ad:K),Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 

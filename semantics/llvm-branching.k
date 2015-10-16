@@ -17,12 +17,15 @@ module LLVM-BRANCHING
     imports LLVM-CONFIGURATION
 
     rule
-        <k> unconditional(Label:SymbolicValueRef) => M[Label] </k>
+        <k> unconditional(name(S:String)) => M[name(substrString(S,
+                        1, lengthString(S)))] </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <basicBlocks> M:Map </basicBlocks>
+        when name(substrString(S,
+                1, lengthString(S))) in keys(M)
 
     rule
         <k> conditional(I:Int, Label:K, _)

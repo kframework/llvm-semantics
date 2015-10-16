@@ -17,7 +17,7 @@ module LLVM-CALL-RET
     imports LLVM-CONFIGURATION
 
     syntax KItem ::= frame(K, Bag)
-    syntax KItem ::= bind(List, List)
+    syntax KItem ::= bind(ElemList, ElemList)
 
     rule <k> arguments(L:ElemList) => elemListToK(L) ...</k>
 
@@ -38,9 +38,9 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(FunName:SymbolicValueRef), listK(Args:List)))) ~> Tail:K
+        <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
-            ~> bind(Args, elemListToList(Formals))
+            ~> bind(Args, Formals)
             ~> Body
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -68,20 +68,20 @@ module LLVM-CALL-RET
 
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
-        <k> bind((ListItem(Arg:K) Args:List), (ListItem(arg(_, _, Formal:K)) Formals:List))
+        <k> bind((valValue(Arg:K), Args:ElemList), (val(arg(_, _, Formal:K)), Formals:ElemList))
             => assign(Formal, Arg)
             ~> bind(Args, Formals)
         ...</k>
     rule
-        <k> bind(.List, .List) => .K ...</k>
+        <k> bind(.ElemList, .ElemList) => .K ...</k>
 
     rule
-        <k> bind((ListItem(Arg:K) L:List
-                  => L), ListItem(vararg)) ...</k>
+        <k> bind((valValue(Arg:K), L:ElemList
+                  => L), val(vararg)) ...</k>
         <valist>... .List => ListItem(Arg) </valist>
 
     rule
-        <k> bind(.List, ListItem(vararg)) => .K ...</k>
+        <k> bind(.ElemList, val(vararg)) => .K ...</k>
 
     // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
     syntax KItem ::= "clearVoid"

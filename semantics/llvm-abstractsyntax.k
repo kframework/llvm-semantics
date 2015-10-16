@@ -5,14 +5,20 @@ module LLVM-ABSTRACTSYNTAX
     imports LLVM-SYNTAX
 
     syntax KResult ::= Int | String | Floating
-                      | arrayValue(List)
                       | Loc
-                      | integerType(K)
-                      | pointerType(K, K) //type, address space
-                      | arrayTypeValue(K, K)  // inner type, length
-                      | structTypeValue(K)
-                      | functionTypeValue(K, K)  // return type, argument types
+                      | OptAddrSpace
                       | listK(List)  [latex({#1})]
+                      | VoidType
+
+    syntax TypeResult ::= arrayValue(List)
+                        | IntTypeCore
+                        | pointerTypeValue(K, K) //type, address space
+                        | arrayTypeValue(K, K)  // inner type, length
+                        | structTypeValue(K)
+                        | functionTypeValue(K, K)  // return type, argument types
+
+    syntax Type ::= TypeResult
+    syntax KResult ::= TypeResult
 
     syntax Element ::= val(K) [strict]
     syntax ElementResult ::= valValue(K)
@@ -31,6 +37,7 @@ module LLVM-ABSTRACTSYNTAX
 
     rule elemListToK(.ElemList) => .K
     rule elemListToK(val(K:K), L:ElemList) => K ~> elemListToK(L)
+    rule elemListToK(valValue(K:K), L:ElemList) => K ~> elemListToK(L)
 
     syntax KItem ::= instructionListToK(InstructionList) [function]
 
@@ -49,24 +56,49 @@ module LLVM-ABSTRACTSYNTAX
     rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
 
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
-                         | structType(K) [strict]
-                         | namedType(K)
-                         | functionType(K, K) [strict] // return type, argument types
+                         | vectorType(K, K) [strict]//inner type, length
+                         | functionTypeEval(K, K) [strict]
+                         //| structType(K) [strict]
+                         //| namedType(K)
+                         //| functionType(K, K) [strict] // return type, argument types
+
+    syntax IntTypeCore ::= integerType(K)
+    syntax IntType ::= IntTypeCore
+
+    syntax TypeList ::= argListToTypeList(ArgList) [function]
+
+    rule argListToTypeList('argListUnit(.KList)) => .TypeList
+    rule argListToTypeList(...) => .TypeList
+    rule argListToTypeList('argTypeTwo(T:Type,, Pas:ParamAttrs))
+                            => T
+    rule argListToTypeList('argTypeThree(T:Type,, Pas:ParamAttrs,, L:LocalVar))
+                            => T
+    rule argListToTypeList('argTypeTwo(T:Type,, Pas:ParamAttrs), As:ArgList)
+                            => T,argListToTypeList(As)
+    rule argListToTypeList('argTypeThree(T:Type,, Pas:ParamAttrs,, L:LocalVar), As:ArgList)
+                            => T,argListToTypeList(As)
 
     rule arrayType(K1:KResult, K2:KResult) => arrayTypeValue(K1, K2) [structural]
-    rule structType(K1:KResult) => structTypeValue(K1) [structural]
-    rule functionType(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
+    rule 'structType(K1:KResult) => structTypeValue(K1) [structural]
+    rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
+                                                        [structural]
+    rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
+    rule 'pointerType(K1:KResult,, K2:KResult) => pointerTypeValue(K1, K2) [structural]
 
     //uniform the types.
     rule [ I:UnsignedInt x T:Type ] => arrayType(T,
-                                    String2Int(#tokenToString(I))) [structural]
-    rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
-    rule { Ts:TypeList } => structType(Ts) [macro]
-    rule < { Ts:TypeList } > => structType(Ts) [macro]
+                                    String2Int(#tokenToString(I)))         [anywhere]
+    rule < I:UnsignedInt x T:Type > => vectorType(T,
+                                    String2Int(#tokenToString(I)))         [anywhere]
+    //rule 'argTypeTwo(T:Type ,, Pas:ParamAttrs,, )
+    //rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
+    //rule { Ts:TypeList } => structType(Ts) [macro]
+    //rule < { Ts:TypeList } > => structType(Ts) [macro]
 
     //change IntType from LLVM syntax to K rule syntax
+
     rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
-                        1, lengthString(#tokenToString(I))))) [structural]
+                        1, lengthString(#tokenToString(I)))))
 
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)
@@ -82,8 +114,7 @@ module LLVM-ABSTRACTSYNTAX
     //rule isNat(ptrByte(_, _)) => true
     //rule isNat(floatByte(_, _, _)) => true
 
-    syntax KItem ::= "emptyDef"
-    syntax KItem ::= "funBegin"
+    syntax KResult ::= "emptyDef"
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
@@ -100,6 +131,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
     syntax KItem ::= metaConst(K, IndexList) //Type, IndexList
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
+    syntax KItem ::= funBegin(K)// use to initialize the initial block name.
 
     syntax KItem ::= float(String)
     syntax KItem ::= constantString(String)
@@ -161,10 +193,12 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val
-    syntax KItem ::= tailCall(K, ElemList) [strict]//type, Callees
-    syntax KItem ::= call(K, ElemList) [strict] // Type, Callees
+    syntax KItem ::= tailCall(K, K)
+    rule tailCall(K:K, E:K) => call(K,E) [structural] //first assume that call and tailcall are the same.    
+
+    syntax KItem ::= call(K, K) [strict] // Type, Callee
     syntax KItem ::= callee(K, K) [strict] // Value/Name, Arguments
-    syntax KItem ::= calleeValue(K, K)
+    syntax KResult ::= calleeValue(K, K)
     rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
     syntax KItem ::= getElementPtr(K, K, K) [strict]// operand, operand, modifiers

@@ -165,15 +165,15 @@ module LLVM-GEP
     // TODO this is pretty ugly
     // these rules make sure the body of a pointer type is a result
     syntax KItem ::= "typing"
-    syntax KItem ::= evalPointerType(K, K) [strict(1)]
+    //syntax KItem ::= evalPointerType(K, K) [strict(1)]
     
-    rule pointerType(T:K, A:K) ~> gep => evalPointerType(T, A) ~> gep
-         when notBool 'isKResult(T)
+    //rule 'pointerType(T:K,, A:K) ~> gep => evalPointerType(T, A) ~> gep
+         //when notBool 'isKResult(T)
 
-    rule evalPointerType(T:KResult, A:K) => pointerType(T, A)
+    //rule evalPointerType(T:KResult, A:K) => 'pointerType(T,, A)
 
     rule
-        <k> pointerType(Type:KResult, _:K) => Type ...</k>
+        <k> pointerTypeValue(Type:KResult, _:K) => Type ...</k>
         <gepIndices> I:Int => . ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
 
@@ -511,7 +511,7 @@ module LLVM-MEMORY
         <k> writeBytes(listK(.List), _) => . ...</k>
 
     rule
-        <k> load(pointerType(TyK:K,A:K), Loc:Loc)
+        <k> load('pointerType(TyK:K,, A:K), Loc:Loc)
             => read(TyK:K, Loc:Loc)
         ...</k>
 
@@ -762,44 +762,44 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         // TODO why doesn't this work?
         // <k> Call(_, Callee(funptr(Name(S:String)), listK(L:KList)))
             // => 'memcpy`(_`,_`,_`,_`,_`)(L)
-        <k> call(_, valValue(calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
-                   ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult)))))
+        <k> call(_, calleeValue(funptr(name(S:String)), (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memcpy."
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name(S:String)), listK(ListItem(V1:KResult)
-                  ListItem(V2:KResult) ListItem(V3:KResult) ListItem(V4:KResult) ListItem(V5:KResult)))))
+        <k> call(_, calleeValue(funptr(name(S:String)), (valValue(V1:KResult),
+                  valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
         when substrString(S, 0, 13) ==String "@llvm.memset."
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name("@llvm.lifetime.start")), listK(ListItem(V1:KResult)
-                   ListItem(V2:KResult)))))
+        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.start")), (valValue(V1:KResult),
+                   valValue(V2:KResult))))
             => lifetimeStart(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name("@llvm.lifetime.end")), listK(ListItem(V1:KResult)
-                  ListItem(V2:KResult)))))
+        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.end")), (valValue(V1:KResult),
+                  valValue(V2:KResult))))
             => lifetimeEnd(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name("@llvm.va_start")), listK(ListItem(V1:KResult)))))
+        <k> call(_, calleeValue(funptr(name("@llvm.va_start")), (valValue(V1:KResult))))
             => vaStart(V1)
         ...</k>
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name("@llvm.va_copy")), listK(ListItem(V1:KResult)
-                  ListItem(V2:KResult)))))
+        <k> call(_, calleeValue(funptr(name("@llvm.va_copy")), (valValue(V1:KResult),
+                  valValue(V2:KResult))))
             => vaCopy(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name("@llvm.va_end")), _)))
+        <k> call(_, calleeValue(funptr(name("@llvm.va_end")), _))
             => .K
         ...</k>
 endmodule
@@ -816,7 +816,7 @@ module LLVM-STANDARD-LIBRARY
     // memcpy
     rule
         <k> memcpy(Dest:Loc, Src:Loc, Len:Int, K1:K, K2:K)
-            => store(byteType, load(pointerType(byteType,0), Src), Dest)
+            => store(byteType, load('pointerType(byteType,, 0), Src), Dest)
             ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
         ...</k>
         when Len >Int 0
@@ -865,7 +865,7 @@ module LLVM-SYSCALLS-PREPROCESS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name("@__syscall")), listK(ListItem(N:Int) L:List))))
+        <k> call(_, calleeValue(funptr(name("@__syscall")), (valValue(N:Int), L:ElemList)))
             => (syscallHandler(N))(L)
         ...</k>
 endmodule
@@ -944,7 +944,7 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, valValue(calleeValue(funptr(name(S:String)), listK(ListItem(I:Int)))))
+        <k> call(_, calleeValue(funptr(name(S:String)), (valValue(I:Int))))
             => .K
         ...</k>
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>

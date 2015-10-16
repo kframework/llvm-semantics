@@ -33,13 +33,13 @@ module LLVM-HELPERS
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule 'nullOfConstValueRef(.KList) => loc(-1, 0) [anywhere]
 
-    syntax Int ::= base(Loc)
+    syntax Int ::= base(Loc) [function]
     rule base(loc(Base:Int, _)) => Base:Int
     
     syntax Int ::= offset(Loc)
     rule offset(loc(_, Offset:Int)) => Offset:Int
     
-    syntax Loc ::= Loc "+" Int
+    syntax Loc ::= Loc "+" Int [function]
     // TODO not checking for null
     
     rule loc(Base:Int, Offset:Int) + Offset':Int
@@ -65,7 +65,7 @@ module LLVM-HELPERS
     syntax KItem ::= write(K, K, K) [strict] // type, value, location
 
     syntax Kitem ::= innerType(K) [function]
-    rule innerType(pointerType(K:K, _)) => K:K
+    rule innerType('pointerType(K:K,, _)) => K:K
     rule innerType(arrayType(K:K, _)) => K:K
     rule innerType(arrayTypeValue(K:K, _)) => K:K
 
@@ -82,7 +82,7 @@ module LLVM-HELPERS
 
     // should be a K, but builtins can't use K :(
     // declare signed : K K -> Nat // type, value
-    syntax Int ::= signed(K, K)
+    syntax Int ::= signed(K, K) [function]
     //rule isNat(signed(_, _)) => true
 
     // case when in bounds
@@ -133,7 +133,8 @@ module LLVM-HELPERS
     rule isFloatType(_) => false [owise]
 
     syntax Bool ::= isPointerType(K) [function]
-    rule isPointerType(pointerType(_, _)) => true
+    rule isPointerType('pointerType(_,, _)) => true
+    rule isPointerType(pointerTypeValue(_, _)) => true
     rule isPointerType(_) => false [owise]
 
     syntax Bool ::= isArrayType(K) [function]
@@ -142,12 +143,13 @@ module LLVM-HELPERS
     rule isArrayType(_) => false [owise]
 
     syntax Bool ::= isStructType(K)
-    rule isStructType(structType(_)) => true
+    rule isStructType('structType(_)) => true
     rule isStructType(structTypeValue(_)) => true
     rule isStructType(_) => false [owise]
 
     // fixme size should depend on architecture
-    rule sizeofInBits(pointerType(_, _)) => numBytesPerPointer *Int numBitsPerByte
+    rule sizeofInBits('pointerType(_,, _)) => numBytesPerPointer *Int numBitsPerByte
+    rule sizeofInBits(pointerTypeValue(_, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(arrayType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
     rule sizeofInBits(arrayTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
 
@@ -159,9 +161,9 @@ module LLVM-HELPERS
     rule sizeofInBits(structTypeValue(listK((ListItem(Type:KResult) L:List))))
       => sizeofInBits(Type) +Int sizeofInBits(structTypeValue(listK(L)))
     rule sizeofInBits(structTypeValue(listK(.List))) => 0
-    rule sizeofInBits(structType(listK((ListItem(Type:KResult) L:List))))
-      => sizeofInBits(Type) +Int sizeofInBits(structType(listK(L)))
-    rule sizeofInBits(structType(listK(.List))) => 0
+    rule sizeofInBits('structType(listK((ListItem(Type:KResult) L:List))))
+      => sizeofInBits(Type) +Int sizeofInBits('structType(listK(L)))
+    rule sizeofInBits('structType(listK(.List))) => 0
 
     syntax Int ::= sizeof(K) [function]
     rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
@@ -214,6 +216,7 @@ module LLVM-HELPERS
                      addNameToString(Ty),addNameToString(Va))),formElemList(Pl)
     rule formElemList(.ParamAttrs) => .ElemList
     rule formElemList(Pa:ParamAttr Ps:ParamAttrs) => val(Pa),formElemList(Ps)
+    rule formElemList(A:Align) => val(A)
     rule formElemList(nsw) => val(nsw)
     rule formElemList(nuw) => val(nuw)
     rule formElemList(nsw nuw) => val(nsw),val(nuw)
@@ -288,13 +291,14 @@ module LLVM-HELPERS
                                  ,addNameToString(Va)), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
+/*
     syntax ElemList ::= toCallees(ParamList) [function]
 
     rule toCallees(.ParamList) => .ElemList
     rule toCallees(Ty:Type Pa:ParamAttrs V:ValueRef,Pl:ParamList)
                 => val(callee(operand(addNameToString(Ty)
                   ,addNameToString(V)),modifiers(formElemList(Pa)))),toCallees(Pl)
-
+*/
     syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
 
     rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))

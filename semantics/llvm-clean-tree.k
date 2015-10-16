@@ -38,7 +38,7 @@ module LLVM-CLEAN-TREE
 
 
     rule
-        <k> instruction(K:K, modifiers(L:Element), insMetas(L':Element)) => K ...</k>
+        <k> instruction(K:K, modifiers(L:ElemList), insMetas(L':ElemList)) => K ...</k>
         <currentModifiers> _ => L </currentModifiers>
         <currentMetadatas> _ => L' </currentMetadatas>
 /*

@@ -1,0 +1,3 @@
+java -classpath ../ DeleteLLVMComments "$1" > "$1".temp
+kast "$1".temp
+

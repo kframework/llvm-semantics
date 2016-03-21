@@ -1,0 +1,7 @@
+Error: B1
+Description: types of function call arguments aren't compatible with declared types after promotions.
+Type: Undefined behavior.
+See also: C11 sec. 6.5.2.2:6
+  at f(j040b.c:8)
+  at main(j040b.c:8)
+  at <file-scope>(<unknown>)

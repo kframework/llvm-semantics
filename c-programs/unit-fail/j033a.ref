@@ -1,0 +1,6 @@
+Error: EIO4
+Description: Trying to modify a string literal.
+Type: Undefined behavior.
+See also: C11 sec. 6.4.5:7
+  at main(j033a.c:2)
+  at <file-scope>(<unknown>)

@@ -1,0 +1,6 @@
+Error: EIO8
+Description: unsequenced side effect on scalar object with value computation of same object.
+Type: Undefined behavior.
+See also: C11 sec. 6.5
+  at main(j035d.c:3)
+  at <file-scope>(<unknown>)

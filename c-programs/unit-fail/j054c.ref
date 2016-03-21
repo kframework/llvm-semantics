@@ -1,0 +1,7 @@
+Error: EEA1
+Description: assignment from non-exactly-overlapping overlapping read.
+Type: Undefined behavior.
+See also: C11 sec. 6.5.16.2
+  at copy(j054c.c:8)
+  at main(j054c.c:13)
+  at <file-scope>(<unknown>)

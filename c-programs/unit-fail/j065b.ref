@@ -1,0 +1,7 @@
+Error: EIO10
+Description: Type of lvalue not compatible with the effective type of the object being accessed.
+Type: Undefined behavior.
+See also: C11 sec. 6.5:7
+  at f(j065b.c:2)
+  at main(j065b.c:6)
+  at <file-scope>(<unknown>)

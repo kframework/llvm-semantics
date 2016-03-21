@@ -63,6 +63,7 @@ module LLVM-CONFIGURATION
                 </module>
             </modules>
             <functions color="teal">
+                 <builtinFunctions> .Set </builtinFunctions>
                  <function multiplicity="*" color="LightSkyBlue">
                        <funModuleName color="orange"> name("") </funModuleName>
                        <functionName color="orange"> name("") </functionName>

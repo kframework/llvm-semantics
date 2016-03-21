@@ -57,7 +57,28 @@ module LLVM-GLOBALS
         <savedGlobals>... .K => store(TK:K, K:K, Loc) </savedGlobals>
         <globalRegisters> M:Map => M[X <- Loc] </globalRegisters>
 
-    rule <k> initGlobals => K:K ...</k>
+    rule <k> initGlobals => initBuiltins(ListItem(name("@__libc_start_main_0")) ListItem(name("@__libc_start_main_2"))
+                                         ListItem(name("@exit")) ListItem(name("@llvm.memcpy.")) ListItem(name("@llvm.memset."))
+                                         ListItem(name("@llvm.lifetime.start")) ListItem(name("@llvm.lifetime.end"))
+                                         ListItem(name("@llvm.va_start")) ListItem(name("@llvm.va_copy")) ListItem(name("@llvm.va_end"))
+                                         ListItem(name("@__syscall")) ListItem(name("@vprintf"))) ~> K:K ...</k>
         <savedGlobals> K:K => .K </savedGlobals>
+
+    rule initBuiltins(.List) => .K
+    rule <k> initBuiltins(ListItem(X:SymbolicValueRef) Ls:List => Ls) ...</k>
+         <globalRegisters> M:Map => M[X <- funptr(X)] </globalRegisters>
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 endmodule

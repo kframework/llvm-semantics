@@ -1,0 +1,6 @@
+Error: EEA2
+Description: Attempt to alias restrict qualified pointers associated with the same block.
+Type: Undefined behavior.
+See also: C11 sec. 6.7.3.1:4
+  at main(j069c.c:7)
+  at <file-scope>(<unknown>)

@@ -1,0 +1,6 @@
+Error: CEB3
+Description: the right operand in a bitwise shift is greater than or equal to the bit width of the left operand.
+Type: Undefined behavior.
+See also: C11 sec. 6.5.7:3
+  at main(j051c.c:6)
+  at <file-scope>(<unknown>)

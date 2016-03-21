@@ -1,0 +1,6 @@
+Error: CEM1
+Description: Division by 0.
+Type: Undefined behavior.
+See also: C11 sec. 6.5.5:5
+  at main(j045c.c:3)
+  at <file-scope>(<unknown>)

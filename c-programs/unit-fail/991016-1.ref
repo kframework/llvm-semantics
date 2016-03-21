@@ -1,0 +1,7 @@
+Error: CCV11
+Description: conversion to a pointer type with a stricter alignment requirement (possibly undefined).
+Type: Undefined behavior.
+See also: C11 sec. 6.3.2.3:7
+  at doit(991016-1.c:15)
+  at main(991016-1.c:46)
+  at <file-scope>(<unknown>)

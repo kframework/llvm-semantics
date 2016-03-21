@@ -1,0 +1,6 @@
+Error: CID2
+Description: No definition found for identifier f.
+Type: Undefined behavior.
+See also: C11 sec. 6.3.2.1:1
+  at main(j060c.c:3)
+  at <file-scope>(<unknown>)

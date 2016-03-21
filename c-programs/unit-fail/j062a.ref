@@ -1,0 +1,6 @@
+Error: EIO7
+Description: reading outside the bounds of an object.
+Type: Undefined behavior.
+See also: C11 sec. 6.2.4
+  at main(j062a.c:7)
+  at <file-scope>(<unknown>)

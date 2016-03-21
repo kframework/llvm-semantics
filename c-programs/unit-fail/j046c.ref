@@ -1,0 +1,6 @@
+Error: CEA1
+Description: A pointer (or array subscript) outside the bounds of an object.
+Type: Undefined behavior.
+See also: C11 sec. 6.5.6:8
+  at main(j046c.c:3)
+  at <file-scope>(<unknown>)

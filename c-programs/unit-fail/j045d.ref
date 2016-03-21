@@ -1,0 +1,6 @@
+Error: CEM2
+Description: Modulus by 0.
+Type: Undefined behavior.
+See also: C11 sec. 6.5.5:5
+  at main(j045d.c:3)
+  at <file-scope>(<unknown>)

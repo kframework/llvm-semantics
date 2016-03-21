@@ -1,0 +1,8 @@
+# Copyright (c) 2013-2014 K Team. All Rights Reserved.
+
+#compile LLVM syntax first
+for i in `find . -name '*.c'`;
+do 
+   clang $i -S -emit-llvm -o $i.ll;
+   echo "$i.out" > cil/$i.ll;
+done

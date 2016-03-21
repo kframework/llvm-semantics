@@ -264,7 +264,7 @@ module LLVM-PREPROCESSING
          <attributeGroups> M:Map => M[Av <- Gas] </attributeGroups>
          when Gas =/=K .GroupAttrs
 
-    rule <k> preModule(! I:UnsignedInt = Ty:Type ! { Ins:IndexList } DL:Module
+    rule <k> preModule(! I:UnsignedInt = Ty:OptDistinct ! { Ins:MetadataValues } DL:Module
            , ModuleAsms:K, TargetLayout:K, TargetTriple:K
            , MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
             => preModule(DL,ModuleAsms,TargetLayout,TargetTriple
@@ -272,7 +272,7 @@ module LLVM-PREPROCESSING
          <attributeGroups> M:Map => M[I <- metaConst(Ty, Ins)] </attributeGroups>
          when notBool (I in keys(M))
 
-    rule <k> preModule(! I:UnsignedInt = Ty:Type ! { Ins:IndexList } DL:Module
+    rule <k> preModule(! I:UnsignedInt = Ty:OptDistinct ! { Ins:MetadataValues } DL:Module
            , ModuleAsms:K, TargetLayout:K, TargetTriple:K
            , MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K) ~> K:K
             => .K </k>

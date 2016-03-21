@@ -118,6 +118,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
+    syntax KItem ::= initBuiltins(List)
     syntax ElemList ::= "vararg"
 
     //LLVM builtin values
@@ -129,7 +130,7 @@ module LLVM-ABSTRACTSYNTAX
 
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
-    syntax KItem ::= metaConst(K, IndexList) //Type, IndexList
+    syntax KItem ::= metaConst(K, MetadataValues) //Distinct_or_not, IndexList
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
     syntax KItem ::= funBegin(K)// use to initialize the initial block name.
 

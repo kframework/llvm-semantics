@@ -987,6 +987,7 @@ module LLVM-SYNTAX
     syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
                            | "" [klabel('scopeorderEmpty),onlyLabel]
     syntax OrderingList ::= Ordering | Ordering OrderingList
+    syntax OptDistinct ::= "distinct" | "" [klabel('distinctEmpty),onlyLabel]
 
     /*@
       There are three arguments to the ‘atomicrmw‘ instruction: an operation to apply,
@@ -1014,7 +1015,7 @@ module LLVM-SYNTAX
 
     //define the metadata in the tail of all instructions.
     syntax InstructionMetadata ::= MetadataVar MetadataValueInt
-                                 | MetadataVar "!" "{" IndexList "}"
+                                 | MetadataVar "!" "{" MetadataValues "}"
     syntax InstructionMetadatas ::= "" [klabel('.InstructionMetadatas),onlyLabel]
                                  | "," InstructionMetadata InstructionMetadatas
 
@@ -1223,7 +1224,7 @@ module LLVM-SYNTAX
                           "alias" OptLinkage AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
-                        | "!" UnsignedInt "=" Type "!" "{" IndexList "}"
+                        | "!" UnsignedInt "=" OptDistinct "!" "{" MetadataValues "}"
                         | MetadataVar "=" "!" "{" MetadataInts "}"
                         | ComdatVar "=" "comdat" SelectionKind
                         | "attributes" AttributeGroupId "=" "{" GroupAttrs "}"

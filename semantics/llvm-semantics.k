@@ -782,6 +782,18 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         ...</k>
 
     rule
+        <k> call(_, calleeValue(funptr(name("@__libc_start_main_0")), (valValue(V1:KResult),
+                   Vl:ElemList)))
+            => call(i(32), callee(V1,arguments(.ElemList)))
+        ...</k>
+
+    rule
+        <k> call(_, calleeValue(funptr(name("@__libc_start_main_2")), (valValue(V1:KResult),
+                   Vl:ElemList)))
+            => call(i(32), callee(V1,arguments(.ElemList)))
+        ...</k>
+
+    rule
         <k> call(_, calleeValue(funptr(name("@llvm.lifetime.end")), (valValue(V1:KResult),
                   valValue(V2:KResult))))
             => lifetimeEnd(V1, V2)
@@ -802,6 +814,12 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         <k> call(_, calleeValue(funptr(name("@llvm.va_end")), _))
             => .K
         ...</k>
+
+    rule
+        <k> call(_, calleeValue(funptr(name("@exit")), _))
+            => .K
+        ...</k>
+
 endmodule
 
 module LLVM-STANDARD-LIBRARY

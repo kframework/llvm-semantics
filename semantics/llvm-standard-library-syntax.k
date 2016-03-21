@@ -7,6 +7,7 @@ module LLVM-STANDARD-LIBRARY-SYNTAX
 
     syntax KItem ::= lifetimeStart(K, K)
     syntax KItem ::= lifetimeEnd(K, K)
+    syntax KItem ::= libcStartMainZero(K, K, K, K, K, K)
 
     syntax KItem ::= vaStart(K)
     syntax KItem ::= vaCopy(K, K)

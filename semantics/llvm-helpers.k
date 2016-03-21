@@ -200,7 +200,7 @@ module LLVM-HELPERS
     rule formElemList('.InstructionMetadatas(.KList)) => .ElemList
     rule formElemList(, Mv:MetadataVar Mi:MetadataValueInt Ins:InstructionMetadatas)
               => val(Mv Mi),formElemList(Ins)
-    rule formElemList(, Mv:MetadataVar ! { In:IndexList } Ins:InstructionMetadatas)
+    rule formElemList(, Mv:MetadataVar ! { In:MetadataValues } Ins:InstructionMetadatas)
               => val(Mv ! { In }),formElemList(Ins)
     rule formElemList(.LabelValues) => .ElemList
     rule formElemList(label Va:ValueRef, Ls:LabelValues)

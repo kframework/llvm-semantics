@@ -130,7 +130,8 @@ module LLVM-SYNTAX
       load instructions. Atomic loads produce defined results when they may see
       multiple atomic stores.
     */
-    syntax OptAtomic ::= "atomic" | "" [klabel('atomicEmpty),onlyLabel]
+    syntax Atomic ::= "atomic"
+    syntax OptAtomic ::= Atomic | "" [klabel('atomicEmpty),onlyLabel]
 
 
     /*@
@@ -911,7 +912,7 @@ module LLVM-SYNTAX
                       | "extractvalue" "(" ResolvedVal ConstantIndexList ")"
                       | "insertvalue" "(" ResolvedVal "," ResolvedVal ConstantIndexList ")"
                       | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
-                      | "getelementptr" OptInBounds "(" ReturnedVal ")"
+                      | "getelementptr" OptInBounds "(" Type "," ReturnedVal ")"
                       | select(ResolvedVal, ResolvedVal, ResolvedVal)
                       | extractelement(ResolvedVal, ResolvedVal)
                       | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
@@ -1064,7 +1065,7 @@ module LLVM-SYNTAX
                      | CastOps ResolvedVal "to" Type InstructionMetadatas
                      | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
                      | "va_arg" ResolvedVal "," Type InstructionMetadatas
-                     | "getelementptr" OptInBounds ResolvedVal
+                     | "getelementptr" OptInBounds Type "," ResolvedVal
                        IntResolveVals InstructionMetadatas
                      | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "insertelement" ResolvedVal "," ResolvedVal
@@ -1077,10 +1078,12 @@ module LLVM-SYNTAX
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
                        "(" ParamList ")" FuncAttrs InstructionMetadatas
                      | "alloca" OptInalloca AllocMetadata InstructionMetadatas
-                     | "load" OptAtomic OptVolatile ResolvedVal
+                     | "load" Atomic OptVolatile ResolvedVal
                        OptScopeOrder "," Align InstructionMetadatas
-                     | "load" OptAtomic OptVolatile ResolvedVal
-                       OptScopeOrder InstructionMetadatas
+                     | "load" OptVolatile Type "," ResolvedVal
+                        "," Align InstructionMetadatas
+                     | "load" OptVolatile Type "," ResolvedVal
+                        InstructionMetadatas
                      | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
                        ResolvedVal OptSingleThread OrderingList InstructionMetadatas
                      //The ‘atomicrmw‘ instruction is used to atomically modify memory.
@@ -1124,7 +1127,7 @@ module LLVM-SYNTAX
     */
     syntax AliaseeRef ::= ResolvedVal
                         | "bitcast" "(" AliaseeRef "to" Type ")"
-                        | "getelementptr" OptInBounds "(" IndexList ")" [klabel('elemPtrAliasee)]
+                        | "getelementptr" OptInBounds "(" Type "," IndexList ")" [klabel('elemPtrAliasee)]
 
     /*@
       Define target definitions for the target definition.

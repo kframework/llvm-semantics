@@ -490,7 +490,7 @@ module LLVM-NORMALIZING
                           ,modifiers(.ElemList)
                           ,insMetas(formElemList(Ins)))
 
-    rule instValToKItem(getelementptr Oib:OptInBounds Ty1:Type V1:ValueRef
+    rule instValToKItem(getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
                                     Itr:IntResolveVals Ins:InstructionMetadatas)
            => instruction(getElementPtr(addNameToString(Ty1)
                                         ,addNameToString(V1)
@@ -554,16 +554,9 @@ module LLVM-NORMALIZING
     rule instValToKItem(alloca Oil:OptInalloca All:AllocMetadata Ins:InstructionMetadatas)
            => instruction(dealWithAllocaElem(All),modifiers(formElemList(Oil)),insMetas(formElemList(Ins)))
 
-    rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef
-                                 Oso:OptScopeOrder Ins:InstructionMetadatas)
-           => instruction(load(addNameToString(Ty)
-                               ,addNameToString(V))
-                          ,modifiers(combineElemList(combineElemList(formElemList(Oac),formElemList(Ovl))
-                                                     ,formElemList(Oso)))
-                          ,insMetas(formElemList(Ins)))
-    //do the same above for "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
-    rule instValToKItem(load Oac:OptAtomic Ovl:OptVolatile Ty:Type V:ValueRef
-                                Oso:OptScopeOrder,  Oal:Align Ins:InstructionMetadatas)
+
+    rule instValToKItem(load Oac:Atomic Ovl:OptVolatile Ty:Type V:ValueRef
+                                 Oso:OptScopeOrder,  Oal:Align Ins:InstructionMetadatas)
            => instruction(load(addNameToString(Ty)
                                ,addNameToString(V))
                           ,modifiers(combineElemList(combineElemList(combineElemList(formElemList(Oac)
@@ -571,7 +564,19 @@ module LLVM-NORMALIZING
                                                                      ,formElemList(Oso))
                                                      ,formElemList(Oal)))
                           ,insMetas(formElemList(Ins)))
+    //do the same above for "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
+    rule instValToKItem(load Ovl:OptVolatile T:Type, Ty:Type V:ValueRef ,Oal:Align Ins:InstructionMetadatas)
+           => instruction(load(addNameToString(Ty)
+                               ,addNameToString(V))
+                          ,modifiers(combineElemList(formElemList(Ovl),formElemList(Oal)))
+                          ,insMetas(formElemList(Ins)))
      
+    rule instValToKItem(load Ovl:OptVolatile T:Type, Ty:Type V:ValueRef Ins:InstructionMetadatas)
+           => instruction(load(addNameToString(Ty)
+                               ,addNameToString(V))
+                          ,modifiers(formElemList(Ovl))
+                          ,insMetas(formElemList(Ins)))
+
     //try to do the following:
 /* 
 "extractvalue" ResolvedVal ConstantIndexList InstructionMetadatas

@@ -3,14 +3,14 @@ The previous version of the LLVM semantics (using K version 2) is now located at
 Versions of tools used to generate the .ll files:
 
 LLVM (http://llvm.org/):
-  LLVM version 3.4
+  LLVM version 3.7.1
   
   Optimized build.
   Built Mar  5 2014 (17:05:10).
   Default target: x86_64-pc-linux-gnu
   Host CPU: core-avx-i
 
-Ubuntu clang version 3.4-1ubuntu3 (tags/RELEASE_34/final) (based on LLVM 3.4)
+Ubuntu clang version 3.7.1-1ubuntu3 (tags/RELEASE_37/final) (based on LLVM 3.7.1)
 Target: x86_64-pc-linux-gnu
 Thread model: posix
 

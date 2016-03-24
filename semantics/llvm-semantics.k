@@ -28,10 +28,37 @@ module LLVM-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
+    rule <k> flagStage(integerType(I:Int), V:Int) => flagStage2(integerType(I:Int), V:Int) ...</k>
+         <currentModifiers> S:Set </currentModifiers>
+         requires (nuw in S andBool V <Int (2 ^Int I))
+                   orBool (notBool nuw in S)
+    rule <k> flagStage(integerType(I:Int), V:Int) => intValue(integerType(I:Int), poisonVal) ...</k>
+         <currentModifiers> S:Set </currentModifiers>
+         requires nuw in S andBool V >=Int (2 ^Int I)
+    rule <k> flagStage2(integerType(I:Int), V:Int) => intValue(integerType(I:Int), V:Int) ...</k>
+         <currentModifiers> S:Set </currentModifiers>
+         requires (nsw in S andBool V <Int (2 ^Int (I -Int 1))
+                            andBool V >=Int (0 -Int (2 ^Int (I -Int 1))))
+                   orBool (notBool nsw in S)
+    rule <k> flagStage2(integerType(I:Int), V:Int) => intValue(integerType(I:Int), poisonVal) ...</k>
+         <currentModifiers> S:Set </currentModifiers>
+         requires nsw in S andBool 
+                           (V >=Int (2 ^Int (I -Int 1))
+                            orBool V <Int (0 -Int (2 ^Int (I -Int 1))))
+
     rule [add]:
-        <k> theAdd(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, I1 +Int I2)
-        ...</k>
+        theAdd(Type:KResult, intValue(Type, I1:Int), intValue(Type, I2:Int))
+            => flagStage(Type, I1 +Int I2)
+    rule [add1]:
+        theAdd(Type:KResult, I1:KResult, I2:KResult)
+            => intValue(Type, poisonVal)
+        requires I1 ==K poisonVal orBool I2 ==K poisonVal
+    rule [add2]:
+        theAdd(Type:KResult, I1:KResult, I2:KResult)
+            => intValue(Type, undef)
+        requires (I1 ==K undef orBool I2 ==K undef)
+                  andBool I1 =/=K poisonVal
+                  andBool I2 =/=K poisonVal
     rule
         <k> theSub(Type:KResult, I1:Int, I2:Int)
             => signed(Type, I1 -Int I2)

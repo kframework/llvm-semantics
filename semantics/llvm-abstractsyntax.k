@@ -4,7 +4,7 @@ requires "llvm-syntax.k"
 module LLVM-ABSTRACTSYNTAX
     imports LLVM-SYNTAX
 
-    syntax KResult ::= Int | String | Floating
+    syntax KResult ::= String | Floating
                       | Loc
                       | OptAddrSpace
                       | listK(List)  [latex({#1})]
@@ -115,6 +115,7 @@ module LLVM-ABSTRACTSYNTAX
     //rule isNat(floatByte(_, _, _)) => true
 
     syntax KResult ::= "emptyDef"
+    syntax KResult ::= "poisonVal"
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
@@ -140,8 +141,8 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= invoke(K, K, K, K)//operand, Params, fromLabel toLabel
     syntax KItem ::= initializer(K, K) // type, value
-    syntax KItem ::= globalVariable(K, K, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
-    syntax KItem ::= modifiers(ElemList)
+    syntax KItem ::= globalVariable(K, Set, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
+    syntax KItem ::= modifiers(Set)
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K, K) [strict] // Type, NumElements, align
     syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
@@ -153,7 +154,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
-    syntax KItem ::= instruction(K, K, K) //body, modifiers, instructionMetadatas
+    syntax KItem ::= instruction(K, Set, K) //body, modifiers, instructionMetadatas
 
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
@@ -170,7 +171,7 @@ module LLVM-ABSTRACTSYNTAX
     rule case(K:KResult, K') => caseValue(K, K') [structural]
 
     syntax KItem ::= arguments(ElemList) [strict]
-    syntax KItem ::= arg(K, K, K) // Modifiers, Type, Value/Name
+    syntax KItem ::= arg(Set, K, K) // Modifiers, Type, Value/Name
 
     //@ Conversion Operations
     syntax KItem ::= theTrunc(K, K, K) [strict] // type, op, totype
@@ -213,12 +214,12 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insertValue(K, K, ElemList) [strict]
 
     syntax KItem ::= aliases(ElemList)
-    syntax KItem ::= alias(K, K, K) //modifiers, Name, Aliasee
+    syntax KItem ::= alias(ElemList, K, K) //modifiers, Name, Aliasee
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= functionDef(K, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
-    syntax KItem ::= functionDecl(K, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
+    syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
+    syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K) // name, type TODO: modifiers
     syntax KItem ::= fields(ElemList) [strict]
     syntax KItem ::= types(ElemList)  [strict]
@@ -253,7 +254,10 @@ module LLVM-ABSTRACTSYNTAX
 
 
     //@ Binary Operations
-    syntax KItem ::= theAdd(K, K, K) [strict] // Type, Left op, Right op
+    syntax KItem ::= flagStage(K, K) //int type, int value, flags
+    syntax KItem ::= flagStage2(K, K) //int type, int value, flags
+    syntax KResult ::= intValue(K, K) //int type, int value, flags
+    syntax KItem ::= theAdd(K, K, K) [strict] // Type, Left op, Right op, flags
     syntax KItem ::= theSub(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theMul(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theUDiv(K, K, K) [strict] // Type, Left op, Right op

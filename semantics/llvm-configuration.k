@@ -24,7 +24,7 @@ module LLVM-CONFIGURATION
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
                 // TODO: this should eventually be a Set
-                <currentModifiers color="Orchid"> .ElemList </currentModifiers>
+                <currentModifiers color="Orchid"> .Set </currentModifiers>
                 <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
                 <localMemory> .List </localMemory>
             </control>
@@ -67,6 +67,7 @@ module LLVM-CONFIGURATION
                  <function multiplicity="*" color="LightSkyBlue">
                        <funModuleName color="orange"> name("") </funModuleName>
                        <functionName color="orange"> name("") </functionName>
+                       <funModifiers> .Set </funModifiers>
                        <returnType> .K </returnType>
                        <formalParameters> .K </formalParameters>
                        <basicBlocks> .Map </basicBlocks>

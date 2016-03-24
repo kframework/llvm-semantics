@@ -212,7 +212,7 @@ module LLVM-HELPERS
             => val(R),formElemList(doubleList(Rs,Fs))
     rule formElemList(.ParamList) => .ElemList
     rule formElemList(Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
-            => val(arg(modifiers(formElemList(Pa)),
+            => val(arg(formSet(Pa),
                      addNameToString(Ty),addNameToString(Va))),formElemList(Pl)
     rule formElemList(.ParamAttrs) => .ElemList
     rule formElemList(Pa:ParamAttr Ps:ParamAttrs) => val(Pa),formElemList(Ps)
@@ -270,17 +270,98 @@ module LLVM-HELPERS
     rule formElemList('argListUnit(.KList)) => .ElemList
     rule formElemList(...) => .ElemList
     rule formElemList(Ty:Type Pa:ParamAttrs)
-             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty),.K))
+             => val(arg(formSet(Pa),addNameToString(Ty),.K))
     rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar))
-             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty)
+             => val(arg(formSet(Pa),addNameToString(Ty)
                                                         ,addNameToString(Na)))
     rule formElemList(Ty:Type Pa:ParamAttrs, Al:ArgList)
-             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty),.K))
+             => val(arg(formSet(Pa),addNameToString(Ty),.K))
                                                                  ,formElemList(Al)
     rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar), Al:ArgList)
-             => val(arg(modifiers(formElemList(Pa)),addNameToString(Ty)
+             => val(arg(formSet(Pa),addNameToString(Ty)
                                            ,addNameToString(Na))),formElemList(Al)
     rule formElemList(K:K) => K [owise]
+
+
+
+    syntax Set ::= formSet(K) [function]
+    rule formSet('nwEmpty(.KList)) => .Set
+    rule formSet(nuw nsw) => SetItem(nuw) SetItem(nsw)
+    rule formSet(nsw nuw) => SetItem(nuw) SetItem(nsw)
+    rule formSet(nuw) => SetItem(nuw)
+    rule formSet(nsw) => SetItem(nsw)
+    rule formSet(A:NonExternalLinkage) => SetItem(A)
+         requires A =/=K 'nonExternalLinkageEmpty(.KList)
+    rule formSet('nonExternalLinkageEmpty(.KList)) => .Set
+    rule formSet(A:GlobalType) => SetItem(A)
+    rule formSet(, section S:StringName , C:Comdat , A:Align)
+                                          => SetItem(section S) SetItem(C) SetItem(A)
+    rule formSet(, section S:StringName , C:Comdat) => SetItem(section S) SetItem(C)
+    rule formSet(, A:Align , section S:StringName) => SetItem(section S) SetItem(A)
+    rule formSet(, section S:StringName , A:Align) => SetItem(section S) SetItem(A)
+    rule formSet(, C:Comdat , A:Align) => SetItem(C) SetItem(A)
+    rule formSet(, C:Comdat) => SetItem(C)
+    rule formSet(, A:Align) => SetItem(A)
+    rule formSet(, section S:StringName) => SetItem(section S)
+    rule formSet('sectionComdatAndAlignEmpty(.KList)) => .Set
+    rule formSet(section S:StringName) => SetItem(section S)
+    rule formSet('sectionEmpty(.KList)) => .Set
+    rule formSet(externally_initialized) => SetItem(externally_initialized)
+    rule formSet('externallyInitEmpty(.KList)) => .Set
+    rule formSet(unnamed_addr) => SetItem(unnamed_addr)
+    rule formSet('unnamedEmpty(.KList)) => .Set
+    rule formSet(prefix T:Type V:ValueRef) => SetItem(prefix T V)
+    rule formSet('prefixEmpty(.KList)) => .Set
+    rule formSet(prologue T:Type V:ValueRef) => SetItem(prologue T V)
+    rule formSet('prologueEmpty(.KList)) => .Set
+    rule formSet(E:OptAddrSpace) => SetItem(E)
+         requires E =/=K 'addrEmpty(.KList)
+    rule formSet('addrEmpty(.KList)) => .Set
+    rule formSet(E:OptThreadLocal) => SetItem(E)
+         requires E =/=K 'threadLocalEmpty(.KList)
+    rule formSet('threadLocalEmpty(.KList)) => .Set
+    rule formSet(E:OptDllStorageClass) => SetItem(E)
+         requires E =/=K 'dllStorageEmpty(.KList)
+    rule formSet('dllStorageEmpty(.KList)) => .Set
+    rule formSet(E:OptVisibilityStyle) => SetItem(E)
+         requires E =/=K 'visibilityEmpty(.KList)
+    rule formSet('visibilityEmpty(.KList)) => .Set
+    rule formSet(E:ExternalLinkage) => SetItem(E)
+    rule formSet('exactEmpty(.KList)) => .Set
+    rule formSet(exact) => SetItem(exact)
+    rule formSet('inallocaOfAlloca(.KList)) => SetItem('inallocaOfAlloca(.KList))
+    rule formSet('inallocaEmpty(.KList)) => .Set
+    rule formSet('atomicEmpty(.KList)) => .Set
+    rule formSet(atomic) => SetItem(atomic)
+    rule formSet(A:Align) => SetItem(A)
+    rule formSet('alignEmpty(.KList)) => .Set
+    rule formSet(C:Comdat) => SetItem(C)
+    rule formSet('comdatEmpty(.KList)) => .Set
+    rule formSet(gc S:StringName) => SetItem(gc S)
+    rule formSet('gcEmpty(.KList)) => .Set
+    rule formSet('volatileEmpty(.KList)) => .Set
+    rule formSet(volatile) => SetItem(volatile)
+    rule formSet('scopeorderEmpty(.KList)) => .Set
+    rule formSet('optScopeOrder('singlethreadEmpty(.KList),, S:Ordering)) => SetItem(S)
+    rule formSet(singlethread S:Ordering) => SetItem(singlethread) SetItem(S)
+    rule formSet(S:Ordering) => SetItem(S)
+    rule formSet(S:Ordering Ss:OrderingList) => SetItem(S) formSet(Ss)
+    rule formSet(.FastMathFlags) => .Set
+    rule formSet(F:FastMathFlag Fl:FastMathFlags) => SetItem(F) formSet(Fl)
+    rule formSet(inbounds) => SetItem(inbounds)
+    rule formSet('inBoundsEmpty(.KList)) => .Set
+    rule formSet(cleanup) => SetItem(cleanup)
+    rule formSet('cleanupEmpty(.KList)) => .Set
+    rule formSet('callingConvEmpty(.KList)) => .Set
+    rule formSet(X:OptCallingConv) => SetItem(X)
+         requires X =/=K 'callingConvEmpty(.KList)
+    rule formSet(R:RetAttr Rs:RetAttrs) => SetItem(R) formSet(Rs)
+    rule formSet(.RetAttrs) => .Set
+    rule formSet(R:FuncAttr Rs:FuncAttrs) => SetItem(R) formSet(Rs)
+    rule formSet(.FuncAttrs) => .Set
+    rule formSet(R:ParamAttr Rs:ParamAttrs) => SetItem(R) formSet(Rs)
+    rule formSet(.ParamAttrs) => .Set
+    rule formSet(K:K) => SetItem(K) [owise]
 
     syntax Cases ::= formCases(K) [function]
 
@@ -314,5 +395,11 @@ module LLVM-HELPERS
     rule addNameToString(L:LocalName) => name(#tokenToString(L))
     rule addNameToString(G:GlobalName) => name(#tokenToString(G))
     rule addNameToString(K:K) => K [owise]
+
+    syntax Int ::= mod(Int, Int)   [function]
+    rule mod(I1:Int, I2:Int) => I1 %Int I2
+        requires I1 >=Int 0
+    rule mod(I1:Int, I2:Int) => I1 %Int I2 +Int I2
+        requires I1 <Int 0
 
 endmodule

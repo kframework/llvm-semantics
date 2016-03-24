@@ -20,7 +20,7 @@ module LLVM-GLOBALS
 
     //for the pointer type of global variable.
     rule
-        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList), 'pointerType(TyK:K,, Ad:K), Init:K)
+        <k> globalVariable(X:SymbolicValueRef, L:Set, 'pointerType(TyK:K,, Ad:K), Init:K)
             => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList))
                                  , initializer('pointerType(TyK:K,, Ad:K),Init))
         ...</k>
@@ -28,7 +28,7 @@ module LLVM-GLOBALS
 
     //for the array type of global variable.
     rule
-        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
+        <k> globalVariable(X:SymbolicValueRef, L:Set
                 , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
             => preInit(X, alloca(TyK, Size, 'alignEmpty(.KList))
                                   , initializer(arrayTypeValue(TyK,Size),Init))
@@ -37,7 +37,7 @@ module LLVM-GLOBALS
 
     //for the struct type of global variable.
     rule
-        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
+        <k> globalVariable(X:SymbolicValueRef, L:Set
                 , structTypeValue(TyK:KResult), Init:K)
             => preInit(X, alloca(TyK, 1, 'alignEmpty(.KList))
                                   , initializer(structTypeValue(TyK),Init))
@@ -46,7 +46,7 @@ module LLVM-GLOBALS
 
     //for the function type of global variable - an error.
     rule
-        <k> globalVariable(X:SymbolicValueRef, modifiers(L:ElemList)
+        <k> globalVariable(X:SymbolicValueRef, L:Set
                 , functionTypeValue(TyK:K, K':K), Init:K) ~> K
             => .K
         </k>

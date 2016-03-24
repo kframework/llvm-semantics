@@ -62,7 +62,7 @@ module LLVM-DECLARATIONS
     rule Types(L:ElemList) => L
 
     rule
-        <k> functionDef(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
+        <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
             => checkSingleAssignment(F, .K, .Set) ...</k>
         <currFunction> _ => Label </currFunction>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
@@ -70,6 +70,7 @@ module LLVM-DECLARATIONS
         (.Bag =>
             <function>...
                 <funModuleName> ModName </funModuleName>
+                <funModifiers> Attributes </funModifiers>
                 <returnType> RetType </returnType>
                 <formalParameters> Arguments:K </formalParameters>
                 <functionName> Label </functionName>
@@ -77,13 +78,14 @@ module LLVM-DECLARATIONS
         )
 
     rule
-        <k> functionDecl(Attributes:K,RetType:KResult, Label:SymbolicValueRef, Arguments:K)
+        <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K)
             => .K ...</k>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
         (.Bag =>
             <function>...
                 <funModuleName> ModName </funModuleName>
+                <funModifiers> Attributes </funModifiers>
                 <returnType> RetType </returnType>
                 <formalParameters> Arguments:K </formalParameters>
                 <functionName> Label </functionName>

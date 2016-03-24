@@ -32,30 +32,30 @@ module LLVM-ARITHMETIC
          <currentModifiers> S:Set </currentModifiers>
          requires (nuw in S andBool V <Int (2 ^Int I))
                    orBool (notBool nuw in S)
-    rule <k> flagStage(integerType(I:Int), V:Int) => intValue(integerType(I:Int), poisonVal) ...</k>
+    rule <k> flagStage(integerType(I:Int), V:Int) => value(integerType(I:Int), poisonVal) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires nuw in S andBool V >=Int (2 ^Int I)
-    rule <k> flagStage2(integerType(I:Int), V:Int) => intValue(integerType(I:Int), V:Int) ...</k>
+    rule <k> flagStage2(integerType(I:Int), V:Int) => value(integerType(I:Int), V:Int) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires (nsw in S andBool V <Int (2 ^Int (I -Int 1))
                             andBool V >=Int (0 -Int (2 ^Int (I -Int 1))))
                    orBool (notBool nsw in S)
-    rule <k> flagStage2(integerType(I:Int), V:Int) => intValue(integerType(I:Int), poisonVal) ...</k>
+    rule <k> flagStage2(integerType(I:Int), V:Int) => value(integerType(I:Int), poisonVal) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires nsw in S andBool 
                            (V >=Int (2 ^Int (I -Int 1))
                             orBool V <Int (0 -Int (2 ^Int (I -Int 1))))
 
     rule [add]:
-        theAdd(Type:KResult, intValue(Type, I1:Int), intValue(Type, I2:Int))
+        theAdd(Type:KResult, value(Type, I1:Int), value(Type, I2:Int))
             => flagStage(Type, I1 +Int I2)
     rule [add1]:
         theAdd(Type:KResult, I1:KResult, I2:KResult)
-            => intValue(Type, poisonVal)
+            => value(Type, poisonVal)
         requires I1 ==K poisonVal orBool I2 ==K poisonVal
     rule [add2]:
         theAdd(Type:KResult, I1:KResult, I2:KResult)
-            => intValue(Type, undef)
+            => value(Type, undef)
         requires (I1 ==K undef orBool I2 ==K undef)
                   andBool I1 =/=K poisonVal
                   andBool I2 =/=K poisonVal
@@ -489,13 +489,29 @@ module LLVM-MEMORY
     imports LLVM-SYSCALLS-SYNTAX
 
     syntax KItem ::= "nextSym" Loc [function]
+
     rule nextSym loc(N:Int, 0) => loc(N:Int +Int 1, 0)
 
     rule preAlloca(Ty:K, Type:KResult, N:Int, Al:OptAlign)
               => alloca(Ty,sizeof(Type) *Int N, Al:OptAlign) [structural]
 
+
+    //use to alloc the memory for gloable variables.
     rule
-        <k> alloca(Type:KResult, N:Int, Al:OptAlign) => Loc ...</k>
+        <k> globalAlloca(Type:KResult, N:Int, Al:OptAlign)
+                          => value(pointerTypeValue(Type, 'addrEmpty(.KList)) ,Loc) ...</k>
+        (. =>
+            <object>...
+                <basePtr> base(Loc) </basePtr>
+                <type> Type </type>
+                <size> sizeof(Type) *Int N </size>
+            ...</object>
+        )
+        <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
+
+    rule
+        <k> alloca(Type:KResult, N:Int, Al:OptAlign)
+                          => value(pointerTypeValue(Type, 'addrEmpty(.KList)) ,Loc) ...</k>
         (. =>
             <object>...
                 <basePtr> base(Loc) </basePtr>
@@ -506,6 +522,7 @@ module LLVM-MEMORY
         <localMemory>... .List => ListItem(base(Loc)) </localMemory>
         <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
 
+    //TODO: store must save to a pointer type
     rule
         <k> store(Type:KResult, V:KResult, Loc:Loc)
             => write(Type:KResult, V:KResult, Loc:Loc)

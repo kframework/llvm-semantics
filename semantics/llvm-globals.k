@@ -20,9 +20,9 @@ module LLVM-GLOBALS
 
     //for the pointer type of global variable.
     rule
-        <k> globalVariable(X:SymbolicValueRef, L:Set, 'pointerType(TyK:K,, Ad:K), Init:K)
-            => preInit(X, alloca(TyK:K, 1, 'alignEmpty(.KList))
-                                 , initializer('pointerType(TyK:K,, Ad:K),Init))
+        <k> globalVariable(X:SymbolicValueRef, L:Set, Ty:SimpleTypeResult, Init:KResult)
+            => preInit(X, globalAlloca(Ty, 1, 'alignEmpty(.KList))
+                                 , initializer(Ty ,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
 
@@ -55,7 +55,8 @@ module LLVM-GLOBALS
     rule
         <k> preInit(X:SymbolicValueRef, Loc:Loc, initializer(TK:K, K:K)) => .K ...</k>
         <savedGlobals>... .K => store(TK:K, K:K, Loc) </savedGlobals>
-        <globalRegisters> M:Map => M[X <- Loc] </globalRegisters>
+        <globalRegisters> M:Map
+                   => M[X <- value(pointerTypeValue(TK, 'addrEmpty(.KList)),Loc)] </globalRegisters>
 
     rule <k> initGlobals => initBuiltins(ListItem(name("@__libc_start_main_0")) ListItem(name("@__libc_start_main_2"))
                                          ListItem(name("@exit")) ListItem(name("@llvm.memcpy.")) ListItem(name("@llvm.memset."))

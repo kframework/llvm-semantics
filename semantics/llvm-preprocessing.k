@@ -120,12 +120,12 @@ module LLVM-PREPROCESSING
     rule preModule(N:LocalName = type Ty:Type DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K ~> typedef(name(#tokenToString(N)),Ty)
+               Typedefs:K ~> typedef(N,Ty)
                , GlobalVars:K, Aliases:K, Functions:K)
     rule preModule(N:LocalName = type opaque DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K ~> typedef(name(#tokenToString(N)),opaque)
+               Typedefs:K ~> typedef(N,opaque)
                , GlobalVars:K, Aliases:K, Functions:K)
     rule preModule(N:GlobalVar = Ex:ExternalLinkage Vi:OptVisibilityStyle
                           Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
@@ -135,7 +135,7 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),formSet(Ex) formSet(Vi)
                           formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,emptyDef), Aliases:K, Functions:K)
+              ,Ty,undef), Aliases:K, Functions:K)
 
     rule <k> preModule(N:GlobalValID = Ex:ExternalLinkage Vi:OptVisibilityStyle
                           Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
@@ -145,7 +145,7 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),formSet(Ex) formSet(Vi)
                           formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,emptyDef), Aliases:K, Functions:K)
+              ,Ty,undef), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          when String2Int(substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))) ==Int Count
@@ -168,7 +168,7 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString("@" +String Int2String(Count)))
              ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,emptyDef), Aliases:K, Functions:K)
+              ,Ty,undef), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
 
     rule preModule(N:GlobalVar = Ex:NonExternalLinkage Vi:OptVisibilityStyle
@@ -227,26 +227,28 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K
            , MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
 
-    rule preModule(N:GlobalVar = Ex:OptLinkage Vi:OptVisibilityStyle
-                     alias Exi:OptLinkage Al:AliaseeRef DL:Module
+    rule preModule(N:GlobalVar = Ex:OptLinkage Vi:OptVisibilityStyle Exi:OptDllStorageClass
+                     Th:OptThreadLocal Un:OptUnnamedAddr alias Al:AliaseeRef DL:Module
                      , ModuleAsms:K, TargetLayout:K,TargetTriple:K
                      , MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K, Typedefs:K
-           , GlobalVars, Aliases:K ~> alias(val(Ex),val(Vi),val(Exi)
+           , GlobalVars, Aliases:K ~> alias(formSet(Ex) formSet(Vi) formSet(Exi) formSet(Th) formSet(Un)
            ,name(#tokenToString(N)),Al), Functions:K)
 
-    rule <k> preModule(N:GlobalValID = Ex:OptLinkage Vi:OptVisibilityStyle
-                     alias Exi:OptLinkage Al:AliaseeRef DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule <k> preModule(N:GlobalValID = Ex:OptLinkage Vi:OptVisibilityStyle Exi:OptDllStorageClass
+                     Th:OptThreadLocal Un:OptUnnamedAddr alias Al:AliaseeRef
+                        DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars, Aliases:K ~> alias(val(Ex),val(Vi),val(Exi)
+               Typedefs:K, GlobalVars, Aliases:K
+                    ~> alias(formSet(Ex) formSet(Vi) formSet(Exi) formSet(Th) formSet(Un)
                ,name(#tokenToString(N)),Al), Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          when String2Int(substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))) ==Int Count
 
-    rule <k> preModule(N:GlobalValID = Ex:OptLinkage Vi:OptVisibilityStyle
-                     alias Exi:OptLinkage Al:AliaseeRef DL:Module, ModuleAsms:K, TargetLayout:K,
+    rule <k> preModule(N:GlobalValID = Ex:OptLinkage Vi:OptVisibilityStyle Exi:OptDllStorageClass
+                     Th:OptThreadLocal Un:OptUnnamedAddr alias Al:AliaseeRef DL:Module, ModuleAsms:K, TargetLayout:K,
                TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K) ~> K:K
          => .K </k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          <output>... .List => ListItem("error: variable expected to be numbered " +String Int2String(Count)) </output>

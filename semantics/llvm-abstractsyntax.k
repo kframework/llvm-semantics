@@ -56,7 +56,7 @@ module LLVM-ABSTRACTSYNTAX
     rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
 
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
-                         | vectorType(K, K) [strict]//inner type, length
+                         | vectorType(K, K) [strict(1)]//inner type, length
                          | functionTypeEval(K, K) [strict]
                          //| structType(K) [strict]
                          //| namedType(K)

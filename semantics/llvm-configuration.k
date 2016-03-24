@@ -23,6 +23,7 @@ module LLVM-CONFIGURATION
                 <currFunction color="Orchid"> name("Initial") </currFunction>
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
+                <varTypes color="teal"> .Map </varTypes>
                 // TODO: this should eventually be a Set
                 <currentModifiers color="Orchid"> .Set </currentModifiers>
                 <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
@@ -53,6 +54,7 @@ module LLVM-CONFIGURATION
                     <globalFunVarCounter> 0 </globalFunVarCounter>
                     <attributeGroups> .Map </attributeGroups>
                     <metaGroups> .Map </metaGroups>
+                    <globalTypes color="teal"> .Map </globalTypes>
                     <globalRegisters color="teal"> .Map </globalRegisters>
                     <typeInfos color="teal">
                         <typeInfo multiplicity="*" color="LightSkyBlue">

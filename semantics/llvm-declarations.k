@@ -46,12 +46,11 @@ module LLVM-DECLARATIONS
         ...</modules>
 
     rule [typedef-assignment]:
-        <k> typedef(X:SymbolicValueRef, UnresolvedType:K) => .K ...</k>
+        <k> typedef(X:SymbolicValueRef, UnresolvedType:KResult) => .K ...</k>
         //<currentModifiers> _ => List(L) </currentModifiers> TODO not printing modifiers
         <currModule> Label:SymbolicValueRef </currModule>
-        <moduleName> Label':SymbolicValueRef </moduleName>
+        <moduleName> Label:SymbolicValueRef </moduleName>
         <typedefs> M:Map => M[X <- UnresolvedType] </typedefs>
-        when Label ==K Label'
 
     rule [typedef-lookup]:
         <k> 'namedType(X:SymbolicValueRef) => UnresolvedType ...</k>

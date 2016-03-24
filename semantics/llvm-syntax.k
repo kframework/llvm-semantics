@@ -871,9 +871,10 @@ module LLVM-SYNTAX
              “!{!0, !{!2, !0}, !"test"}”.
     */
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
+    syntax Undef ::= "undef"
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
                            | "null" [klabel('nullOfConstValueRef)]
-                           | "undef" | "zeroinitializer"
+                           | Undef | "zeroinitializer"
                            | "<" ReturnedVal ">"
                            | "[" ReturnedVal "]"
                            | "{" ReturnedVal "}"
@@ -1220,8 +1221,8 @@ module LLVM-SYNTAX
                           OptDllStorageClass OptThreadLocal OptAddrSpace
                           OptUnnamedAddr OptExternallyInitialized GlobalType
                           Type ValueRef OptSectionComdatAndAlign
-                        | GlobalAssign OptLinkage OptVisibilityStyle
-                          "alias" OptLinkage AliaseeRef
+                        | GlobalAssign OptLinkage OptVisibilityStyle OptDllStorageClass
+                          OptThreadLocal OptUnnamedAddr "alias" AliaseeRef
                         | "target" TargetDefinition
                         | "deplibs" "=" LibrariesDefinition
                         | "!" UnsignedInt "=" OptDistinct "!" "{" MetadataValues "}"

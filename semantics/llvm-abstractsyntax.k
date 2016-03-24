@@ -10,16 +10,19 @@ module LLVM-ABSTRACTSYNTAX
                       | listK(List)  [latex({#1})]
                       | VoidType
 
-    syntax TypeResult ::= arrayValue(List)
-                        | IntTypeCore
-                        | pointerTypeValue(K, K) //type, address space
-                        | arrayTypeValue(K, K)  // inner type, length
-                        | structTypeValue(K)
-                        | functionTypeValue(K, K)  // return type, argument types
+    syntax SimpleTypeResult ::= IntTypeCore
+                              | pointerTypeValue(K, K) //type, address space
+                              | FPType
+                              | OpaqueType
+    syntax AggregatedTypeResult ::= structTypeValue(K)
+                                  | arrayTypeValue(K, K)  // inner type, length
+                                  | functionTypeValue(K, K)  // return type, argument types
+                                  | arrayValue(List)
+    syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
 
     syntax Type ::= TypeResult
     syntax KResult ::= TypeResult
-
+    syntax KResult ::= value(K, K) //type, value
     syntax Element ::= val(K) [strict]
     syntax ElementResult ::= valValue(K)
     syntax Element ::= ElementResult
@@ -114,7 +117,7 @@ module LLVM-ABSTRACTSYNTAX
     //rule isNat(ptrByte(_, _)) => true
     //rule isNat(floatByte(_, _, _)) => true
 
-    syntax KResult ::= "emptyDef"
+    syntax KResult ::= Undef
     syntax KResult ::= "poisonVal"
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
@@ -141,10 +144,11 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= invoke(K, K, K, K)//operand, Params, fromLabel toLabel
     syntax KItem ::= initializer(K, K) // type, value
-    syntax KItem ::= globalVariable(K, Set, K, K) [strict(3)]// Value/Name, Modifiers, Type, Initializer
+    syntax KItem ::= globalVariable(K, Set, K, K) [strict(3,4)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(Set)
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K, K) [strict] // Type, NumElements, align
+    syntax KItem ::= globalAlloca(K, K, K)
     syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
@@ -214,13 +218,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insertValue(K, K, ElemList) [strict]
 
     syntax KItem ::= aliases(ElemList)
-    syntax KItem ::= alias(ElemList, K, K) //modifiers, Name, Aliasee
+    syntax KItem ::= alias(Set, K, K) //modifiers, Name, Aliasee
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
-    syntax KItem ::= typedef(K, K) // name, type TODO: modifiers
+    syntax KItem ::= typedef(K, K)    [strict(2)]// name, type TODO: modifiers
     syntax KItem ::= fields(ElemList) [strict]
     syntax KItem ::= types(ElemList)  [strict]
     syntax KItem ::= setBlock(K)

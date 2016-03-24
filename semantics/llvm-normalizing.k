@@ -647,7 +647,7 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:VoidType
                                   Meta:InstructionMetadatas, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, .K, K
-                         ~> instruction(ret(addNameToString(Nt),emptyDef)
+                         ~> instruction(ret(addNameToString(Nt),undef)
                                         ,.Set
                                         ,insMetas(formElemList(Meta)))
                             , S)

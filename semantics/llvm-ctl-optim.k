@@ -2,20 +2,12 @@
 
 module CTL-SYNTAX
 
-    /* Labels */
-    /*--------*/
-    syntax Label        ::= Id
-
-    /* CTL atomic predicates (plug in language specific here) */
-    /*--------------------------------------------------------*/
-    syntax CTLAtomic    ::= Label
-                          | "true"
+    /* Node labels */
+    /*-------------*/
+    syntax NodeLabel    ::= Id
                           | "enter"
                           | "exit"
                           | "skip"
-                          | "not" CTLAtomic
-                          > CTLAtomic "|" CTLAtomic
-                          > CTLAtomic " " CTLAtomic
 
     /* CTL spatial connectives */
     /*-------------------------*/
@@ -24,13 +16,15 @@ module CTL-SYNTAX
 
     /* CTL patterns */
     /*--------------*/
+    syntax CTLAtomic    ::= NodeLabel
     syntax CTLPattern   ::= CTLAtomic                                   /* atomic patterns */
+                          | "ct-true"                                   /* true symbol */
                           | PatternName                                 /* defined pattern */
-                          | "(" CTLPattern ")" [bracket]                /* allow parens */
-                          | Label ":" CTLPattern                        /* label and pattern */
+                          | NodeLabel ":" PatternName                   /* label and pattern */
+                          | "(" CTLPattern ")" [bracket]                /* parenthesis */
                           | "not" CTLPattern                            /* `not` */
                           > CTLPattern "|" CTLPattern [left]            /* `or` */
-                          > CTLPattern " " CTLPattern [left]            /* `and` */
+                          > CTLPattern "&" CTLPattern [left]            /* `and` */
                           > "--" CTLQuant             ">" CTLPattern    /* `next` */
                           | "--" CTLQuant            "->" CTLPattern    /* `eventually` */
                           | "--" CTLQuant CTLPattern "->" CTLPattern    /* `until` */
@@ -41,51 +35,76 @@ module CTL-SYNTAX
     /* Syntax for defining patterns */
     /*------------------------------*/
     syntax PatternArgs  ::= List{CTLPattern, ","}
-    syntax PatternName  ::= Label
-                          | Label "(" PatternArgs ")"
-    syntax PatternDef   ::= "pattern" PatternName "=" CTLPattern "."
+    syntax PatternName  ::= NodeLabel
+                          | NodeLabel "(" PatternArgs ")"
+    syntax PatternDef   ::= PatternName "=" CTLPattern "."
+    syntax PatternDefs  ::= List{PatternDef, " "} [klabel('patternDefs)]
 
+    /* CTL specification */
+    /*-------------------*/
+    syntax CTLSatis     ::= NodeLabel "|=" CTLPattern
+    syntax CTLSpec      ::= List{CTLSatis, " "} [klabel('CTLSpec)]
+    syntax CTLQuery     ::= CTLSpec "|=" NodeLabel "|=" CTLPattern "?"
+endmodule
+
+
+module CTL-SIMPLIFICATION
+    imports CTL-SYNTAX
+
+    /* rules for `not` */
+    rule not not C:CTLPattern           => C            [structural]
+
+    /* rules for `and` */
+    rule C:CTLPattern & C               => C            [structural]
+    rule ct-true & C:CTLPattern         => C            [structural]
+    rule (not ct-true) & C:CTLPattern   => not ct-true  [structural]
+
+    /* rules for `or` */
+    rule C:CTLPattern | C               => C            [structural]
+    rule ct-true | C:CTLPattern         => ct-true      [structural]
+    rule (not ct-true) | C:CTLPattern   => C            [structural]
 endmodule
 
 module CTL-OPTIM
     imports CTL-SYNTAX
 
+    /* Rule/Strategy Names */
+    /*---------------------*/
+    syntax RuleName     ::= Id
+
     /* Transformation rule syntax */
     /*----------------------------*/
     syntax Rule         ::= CTLPattern "=>" CTLAtomic
                           /* | CTLPattern "=>" CTLPattern "if" CTLPattern */
-    syntax RuleName     ::= Label
     syntax Rules        ::= List{Rule, " "}
-    syntax RuleDef      ::= "rule" RuleName ":" Rules "."
+    syntax RuleDef      ::= RuleName ":=" Rules "."
+    syntax RuleDefs     ::= List{RuleDef, " "} [klabel('ruleDefs)]
 
-    /* How to build composite transformations */
-    /*----------------------------------------*/
+    /* Build composite transformations */
+    /*---------------------------------*/
     syntax StrategyName ::= RuleName
-    syntax Strategy     ::= RuleName                                /* apply rule once */
-                          | StrategyName                            /* apply strategy once */
+    syntax Strategy     ::= StrategyName                            /* apply once */
                           | "(" Strategy ")" [bracket]              /* parenthesis */
                           | Strategy "*"                            /* apply many */
                           > Strategy ";" Strategy [left]            /* sequence */
-
-    /* Name a list of rules as belonging to a transformation */
-    /*-------------------------------------------------------*/
-    syntax StrategyDef  ::= "strategy" StrategyName ":" Strategy "."
+    syntax StrategyDef  ::= StrategyName ":=" Strategy "."
+    syntax StrategyDefs ::= List{StrategyDef, " "} [klabel('strategyDefs)]
 
     /* Program transformation specification */
     /*--------------------------------------*/
-    syntax OptimTools   ::= PatternDef
-                          | RuleDef
-                          | StrategyDef
-    syntax OptimSpec    ::= List{OptimTools, " "}
-                          | OptimSpec
-                            "run" StrategyName "on"
-                            Program
-    syntax Program      ::= "program here"
+    syntax Program      ::= "skip"
+    syntax OptimSpec    ::= "patterns"   "::" PatternDefs
+                            "rules"      "::" RuleDefs
+                            "strategies" "::" StrategyDefs
+                            "program"    "::" Program
 
 endmodule
 
 
 module LLVM-CTL-OPTIM
     imports CTL-OPTIM
+    imports CTL-SIMPLIFICATION
     /*imports LLVM-SYNTAX*/
+
+    /*syntax Program      ::= Function*/
 endmodule

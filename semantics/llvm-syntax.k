@@ -434,7 +434,7 @@ module LLVM-SYNTAX
                       | "readnone" [klabel('readnoneOfComm)]
                       | StringName "=" StringName | AttributeGroupId
     syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
-    syntax FuncAttrs ::= List{FuncAttr," "}
+    syntax FuncAttrs ::= List{FuncAttr," "} [klabel('funcAttrs)]
     syntax GroupAttr ::= CommAttr | StringName | "alignstack" "=" UnsignedInt
                        | "align" "=" UnsignedInt
     syntax GroupAttrs ::= List{GroupAttr," "} [klabel('groupAttrList)]

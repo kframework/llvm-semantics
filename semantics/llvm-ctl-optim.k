@@ -1,66 +1,91 @@
-requires "llvm-semantics.k"
+/*requires "llvm-semantics.k"*/
 
 module CTL-SYNTAX
 
-    /* Stuff I haven't thought about yet */
-    /*-----------------------------------*/
-    syntax Var          ::= String
-    syntax Name         ::= String
+    /* Labels */
+    /*--------*/
+    syntax Label        ::= Id
 
-    /* CTL spatial quantifiers */
+    /* CTL atomic predicates (plug in language specific here) */
+    /*--------------------------------------------------------*/
+    syntax CTLAtomic    ::= Label
+                          | "true"
+                          | "enter"
+                          | "exit"
+                          | "skip"
+                          | "not" CTLAtomic
+                          > CTLAtomic "|" CTLAtomic
+                          > CTLAtomic " " CTLAtomic
+
+    /* CTL spatial connectives */
     /*-------------------------*/
     syntax CTLQuant     ::= "A"                                         /* for all paths */
                           | "E"                                         /* exists a path */
 
-    /* CTL Logic Connectives */
-    /*-----------------------*/
-    syntax InstPattern  ::= Var ":" InstPattern                         /* name a pattern */
-                          | "enter"                                     /* entrance node */
-                          | "exit"                                      /* exit nodes */
-                          | "skip"                                      /* identity nodes */
-                          | "not" InstPattern                           /* `not` */
-                          | InstPattern " " InstPattern [left]          /* `and` */
-                          | InstPattern "|" InstPattern [left]          /* `or` */
-                          | InstPattern ";" InstPattern [right]         /* same as `--A>` */
-                          | "--" CTLQuant ">" InstPattern               /* `next` */
-                          | InstPattern "<" CTLQuant "--"               /* backwards `next` */
-                          | "--" CTLQuant InstPattern "->" InstPattern  /* `until` */
-                          | InstPattern "<-" CTLQuant InstPattern "--"  /* backwards `until` */
-                          | "--" CTLQuant "->"                          /* `eventually` */
-                          | "<-" CTLQuant "--"                          /* backwards `eventually` */
+    /* CTL patterns */
+    /*--------------*/
+    syntax CTLPattern   ::= CTLAtomic                                   /* atomic patterns */
+                          | PatternName                                 /* defined pattern */
+                          | "(" CTLPattern ")" [bracket]                /* allow parens */
+                          | Label ":" CTLPattern                        /* label and pattern */
+                          | "not" CTLPattern                            /* `not` */
+                          > CTLPattern "|" CTLPattern [left]            /* `or` */
+                          > CTLPattern " " CTLPattern [left]            /* `and` */
+                          > "--" CTLQuant             ">" CTLPattern    /* `next` */
+                          | "--" CTLQuant            "->" CTLPattern    /* `eventually` */
+                          | "--" CTLQuant CTLPattern "->" CTLPattern    /* `until` */
+                          | CTLPattern "<"  CTLQuant            "--"    /* `pred` */
+                          | CTLPattern "<-" CTLQuant            "--"    /* `was` */
+                          | CTLPattern "<-" CTLQuant CTLPattern "--"    /* `since` */
 
     /* Syntax for defining patterns */
     /*------------------------------*/
-    syntax PatternArgs  ::= List{InstPattern, " "}
-    syntax PatternName  ::= Name PatternArgs
-    syntax PatternDef   ::= "pattern" "[" PatternName "]" ":" InstPattern
+    syntax PatternArgs  ::= List{CTLPattern, ","}
+    syntax PatternName  ::= Label
+                          | Label "(" PatternArgs ")"
+    syntax PatternDef   ::= "pattern" PatternName "=" CTLPattern "."
+
+endmodule
+
+module CTL-OPTIM
+    imports CTL-SYNTAX
 
     /* Transformation rule syntax */
     /*----------------------------*/
-    syntax Rule         ::= InstPattern "=>" InstPattern
-                          | InstPattern "=>" InstPattern "if" InstPattern
-
-    /* Define a transformation rule */
-    /*------------------------------*/
-    syntax RuleName     ::= Name
+    syntax Rule         ::= CTLPattern "=>" CTLAtomic
+                          /* | CTLPattern "=>" CTLPattern "if" CTLPattern */
+    syntax RuleName     ::= Label
     syntax Rules        ::= List{Rule, " "}
-    syntax RuleDef      ::= "rule" "[" RuleName "]" ":" Rules
+    syntax RuleDef      ::= "rule" RuleName ":" Rules "."
 
     /* How to build composite transformations */
     /*----------------------------------------*/
     syntax StrategyName ::= RuleName
-    syntax Strategy     ::= RuleName                                    /* apply rule once */
-                          | StrategyName                                /* apply strategy once */
-                          | Strategy "*"                                /* apply many */
-                          | Strategy ";" Strategy [left]                /* sequence */
+    syntax Strategy     ::= RuleName                                /* apply rule once */
+                          | StrategyName                            /* apply strategy once */
+                          | "(" Strategy ")" [bracket]              /* parenthesis */
+                          | Strategy "*"                            /* apply many */
+                          > Strategy ";" Strategy [left]            /* sequence */
 
     /* Name a list of rules as belonging to a transformation */
     /*-------------------------------------------------------*/
-    syntax StrategyDef  ::= "strategy" "[" StrategyName "]" ":" Strategy
+    syntax StrategyDef  ::= "strategy" StrategyName ":" Strategy "."
+
+    /* Program transformation specification */
+    /*--------------------------------------*/
+    syntax OptimTools   ::= PatternDef
+                          | RuleDef
+                          | StrategyDef
+    syntax OptimSpec    ::= List{OptimTools, " "}
+                          | OptimSpec
+                            "run" StrategyName "on"
+                            Program
+    syntax Program      ::= "program here"
 
 endmodule
 
 
 module LLVM-CTL-OPTIM
-    imports CTL-SYNTAX
+    imports CTL-OPTIM
+    /*imports LLVM-SYNTAX*/
 endmodule

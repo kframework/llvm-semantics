@@ -1,5 +1,11 @@
 
+pattern deadCode        = I1 (--A I2-> exit) .
+pattern dominatedBy(I)  = I <-A-- .
 
-pattern [ d ] : exit <--A--
+rule deadElim       : deadCode => skip .
 
-pattern [ p ] : --A--> enter
+strategy DEADCODE   : deadElim* .
+
+run DEADCODE on
+
+    program here

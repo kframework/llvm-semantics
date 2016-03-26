@@ -119,33 +119,18 @@ module LLVM-CTL-OPTIM
     imports CTL-SEMANTICS
     imports LLVM-SYNTAX
 
+    /* Make specific to LLVM */
+    /*-----------------------*/
+
+    /* subsorts */
     syntax Program      ::= Function
-
-
-    syntax CTLGraph     ::= "to_ctl_graph" "(" BasicBlockList ")"
-
     syntax NodeLabel    ::= LabelStringConstant
                           | LabelValue
     syntax CTLData      ::= "{" InstructionList BBTerminatorInstruction "}"
-
     syntax NodeLabels   ::= "get_successors" "(" BBTerminatorInstruction ")"
                           | "get_successors" "(" JumpTable ")"
 
-    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
-            => to_ctl_graph(BB) to_ctl_graph(BBL)
-
-    rule to_ctl_graph ( L:LabelStringConstant
-                        I:InstructionList
-                        T:BBTerminatorInstruction
-                      )
-            =>
-            block L ::
-                pred : enter
-                succ : get_successors(T)
-                patt : ct-true
-                data : { I T }
-
-
+    /* calculating succesors of a BasicBlock */
     /*TODO: No idea if this is the correct way to do this case analysis in K */
     /*TODO: No idea if these rules capture the semantics of LLVM */
     rule get_successors ( ret N:NonVoidType V:ValueRef IM:InstructionMetadatas )
@@ -177,6 +162,24 @@ module LLVM-CTL-OPTIM
     rule get_successors ( unreachable InstructionMetadatas )
             => exit
 
+
+    /* Computer CTL Graph */
+    /*--------------------*/
+    syntax CTLGraph     ::= "to_ctl_graph" "(" BasicBlockList ")"
+
+    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
+            => to_ctl_graph(BB) to_ctl_graph(BBL)
+
+    rule to_ctl_graph ( L:LabelStringConstant
+                        I:InstructionList
+                        T:BBTerminatorInstruction
+                      )
+            =>
+            block L ::
+                pred : enter
+                succ : get_successors(T)
+                patt : ct-true
+                data : { I T }
 
     /*rule O:OptimTools
          program    :: OL:OptLinkage

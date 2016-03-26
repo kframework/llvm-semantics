@@ -1,4 +1,4 @@
-/*requires "llvm-semantics.k"*/
+requires "llvm-semantics.k"
 
 module CTL-SYNTAX
 
@@ -8,6 +8,7 @@ module CTL-SYNTAX
                           | "enter"
                           | "exit"
                           | "skip"
+    syntax NodeLabels   ::= List{NodeLabel, ","} [klabel('nodeLabels)]
 
     /* CTL spatial connectives */
     /*-------------------------*/
@@ -40,16 +41,13 @@ module CTL-SYNTAX
     syntax PatternDef   ::= PatternName "=" CTLPattern "."
     syntax PatternDefs  ::= List{PatternDef, " "} [klabel('patternDefs)]
 
-    /* CTL specification */
-    /*-------------------*/
-    syntax CTLSatis     ::= NodeLabel "|=" CTLPattern
-    syntax CTLSpec      ::= List{CTLSatis, " "} [klabel('CTLSpec)]
-    syntax CTLQuery     ::= CTLSpec "|=" NodeLabel "|=" CTLPattern "?"
 endmodule
 
-
-module CTL-SIMPLIFICATION
+module CTL-SEMANTICS
     imports CTL-SYNTAX
+
+    /* Simplification rules (should we use the builtin #Bool for efficiency?) */
+    /*------------------------------------------------------------------------*/
 
     /* rules for `not` */
     rule not not C:CTLPattern           => C            [structural]
@@ -63,10 +61,23 @@ module CTL-SIMPLIFICATION
     rule C:CTLPattern | C               => C            [structural]
     rule ct-true | C:CTLPattern         => ct-true      [structural]
     rule (not ct-true) | C:CTLPattern   => C            [structural]
+
+    /* CTL Nodes */
+    /*-----------*/
+
+    syntax CTLData      ::= NodeLabel
+    syntax CTLNode      ::= "block" NodeLabel "::"
+                                "pred" ":" NodeLabels
+                                "succ" ":" NodeLabels
+                                "patt" ":" CTLPattern
+                                "data" ":" CTLData
+    syntax CTLGraph     ::= CTLNode
+                          | CTLNode CTLGraph
+
 endmodule
 
 module CTL-OPTIM
-    imports CTL-SYNTAX
+    imports CTL-SEMANTICS
 
     /* Rule/Strategy Names */
     /*---------------------*/
@@ -93,18 +104,88 @@ module CTL-OPTIM
     /* Program transformation specification */
     /*--------------------------------------*/
     syntax Program      ::= "skip"
-    syntax OptimSpec    ::= "patterns"   "::" PatternDefs
+    syntax OptimTools   ::= "patterns"   "::" PatternDefs
                             "rules"      "::" RuleDefs
                             "strategies" "::" StrategyDefs
+    syntax OptimProgram ::= OptimTools
                             "program"    "::" Program
+    syntax OptimSpec    ::= OptimTools
+                            "ctl-graph"  "::" CTLGraph
 
 endmodule
 
 
 module LLVM-CTL-OPTIM
-    imports CTL-OPTIM
-    imports CTL-SIMPLIFICATION
-    /*imports LLVM-SYNTAX*/
+    imports CTL-SEMANTICS
+    imports LLVM-SYNTAX
 
-    /*syntax Program      ::= Function*/
+    syntax Program      ::= Function
+
+
+    syntax CTLGraph     ::= "to_ctl_graph" "(" BasicBlockList ")"
+
+    syntax NodeLabel    ::= LabelStringConstant
+                          | LabelValue
+    syntax CTLData      ::= "{" InstructionList BBTerminatorInstruction "}"
+
+    syntax NodeLabels   ::= "get_successors" "(" BBTerminatorInstruction ")"
+                          | "get_successors" "(" JumpTable ")"
+
+    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
+            => to_ctl_graph(BB) to_ctl_graph(BBL)
+
+    rule to_ctl_graph ( L:LabelStringConstant
+                        I:InstructionList
+                        T:BBTerminatorInstruction
+                      )
+            =>
+            block L ::
+                pred : enter
+                succ : get_successors(T)
+                patt : ct-true
+                data : { I T }
+
+
+    /*TODO: No idea if this is the correct way to do this case analysis in K */
+    /*TODO: No idea if these rules capture the semantics of LLVM */
+    rule get_successors ( ret N:NonVoidType V:ValueRef IM:InstructionMetadatas )
+            => exit
+    rule get_successors ( ret V:VoidType IM:InstructionMetadatas )
+            => exit
+    rule get_successors ( br LV:LabelValue IM:InstructionMetadatas )
+            => LV
+    rule get_successors ( br I:IntType V:ValueRef , L1:LabelValue , L2:LabelValue IM:InstructionMetadatas )
+            => L1, L2
+    rule get_successors ( resume R:ResolvedVal IM:InstructionMetadatas )
+            => exit
+    rule get_successors ( indirectbr R:ResolvedVal , [ LVS:LabelValues ] IM:InstructionMetadatas )
+            => LVS
+    rule get_successors ( switch I:IntType V:ValueRef , DEF:LabelValue
+                            [ JT:JumpTable ] IM:InstructionMetadatas )
+            => DEF, get_successors(JT)
+    rule get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue )
+            => LV
+    rule get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue JT:JumpTable )
+            => LV, get_successors(JT)
+    rule get_successors ( invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef ( PL:ParamList )
+                                FA:FuncAttrs to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
+            => LV1, LV2
+    rule get_successors ( LA:LocalAssign invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef
+                                ( PL:ParamList ) FA:FuncAttrs
+                                to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
+            => LV1, LV2
+    rule get_successors ( unreachable InstructionMetadatas )
+            => exit
+
+
+    /*rule O:OptimTools
+         program    :: OL:OptLinkage
+                       OVS:OptVisibilityStyle
+                       ODSC:OptDllStorageClass
+                       FH:FunctionHeader
+                       { BBL:BasicBlockList }
+            =>
+            O
+            ctl-graph   :: to_ctl_graph(BBL)*/
+
 endmodule

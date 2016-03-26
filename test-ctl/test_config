@@ -1,5 +1,0 @@
-
-
-pattern [ d ] : exit <--A--
-
-pattern [ p ] : --A--> enter

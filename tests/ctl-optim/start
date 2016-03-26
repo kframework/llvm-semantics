@@ -1,0 +1,58 @@
+patterns ::
+
+    deadCode        = I1 (--A I2-> exit) .
+    dominatedBy(I)  = I <-A-- .
+
+
+
+rules ::
+
+    deadElim        := deadCode => skip .
+
+
+
+strategies ::
+
+    DEADCODE        := deadElim* .
+
+
+
+program ::
+
+i32 @main() nounwind uwtable {
+entry:
+	%val00 = add i2 0, 0
+	call void @__fsl.print.i2(i2 %val00)
+	%val01 = add i2 1, 0
+	call void @__fsl.print.i2(i2 %val01)
+	%val02 = add i2 2, 0
+	call void @__fsl.print.i2(i2 %val02)
+	%val03 = add i2 3, 0
+	call void @__fsl.print.i2(i2 %val03)
+	%val04 = add i2 0, 1
+	call void @__fsl.print.i2(i2 %val04)
+	%val05 = add i2 1, 1
+	call void @__fsl.print.i2(i2 %val05)
+	%val06 = add i2 2, 1
+	call void @__fsl.print.i2(i2 %val06)
+	%val07 = add i2 3, 1
+	call void @__fsl.print.i2(i2 %val07)
+	%val08 = add i2 0, 2
+	call void @__fsl.print.i2(i2 %val08)
+	%val09 = add i2 1, 2
+	call void @__fsl.print.i2(i2 %val09)
+	%val10 = add i2 2, 2
+	call void @__fsl.print.i2(i2 %val10)
+	%val11 = add i2 3, 2
+	call void @__fsl.print.i2(i2 %val11)
+	%val12 = add i2 0, 3
+	call void @__fsl.print.i2(i2 %val12)
+	%val13 = add i2 1, 3
+	call void @__fsl.print.i2(i2 %val13)
+	%val14 = add i2 2, 3
+	call void @__fsl.print.i2(i2 %val14)
+	%val15 = add i2 3, 3
+	call void @__fsl.print.i2(i2 %val15)
+	
+	ret i32 0
+}

@@ -434,7 +434,7 @@ module LLVM-SYNTAX
                       | "readnone" [klabel('readnoneOfComm)]
                       | StringName "=" StringName | AttributeGroupId
     syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
-    syntax FuncAttrs ::= List{FuncAttr," "}
+    syntax FuncAttrs ::= List{FuncAttr," "} [klabel('funcAttrs)]
     syntax GroupAttr ::= CommAttr | StringName | "alignstack" "=" UnsignedInt
                        | "align" "=" UnsignedInt
     syntax GroupAttrs ::= List{GroupAttr," "} [klabel('groupAttrList)]
@@ -1172,8 +1172,9 @@ module LLVM-SYNTAX
       return). If an explicit label is not provided, a block is assigned an implicit numbered
       label, using the next value from the same counter as used for unnamed temporaries.
     */
-    syntax BasicBlock ::= InstructionList BBTerminatorInstruction
-                        | LabelStringConstant InstructionList BBTerminatorInstruction
+    /*syntax BasicBlock ::= InstructionList BBTerminatorInstruction*/
+    /* TODO: ignoring unlabeled BBlocks for now */
+    syntax BasicBlock ::= LabelStringConstant InstructionList BBTerminatorInstruction
     syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
 
     /*@

@@ -22,15 +22,11 @@ module LLVM-REGISTERS
 
     // TODO using constructors in the AST instead of matching on a string
     rule [lookup-register]:
-        <k> name(S:String) => searchElemInMap(M,.K,name(S)) ...</k>
-        <registers> M:Map </registers>
-        when substrString(S, 0, 1) ==String "%"
-           andBool searchElemInMap(M,.K,name(S)) =/=K none
+        <k> name(localVar, S:String) => V ...</k>
+        <registers>... name(localVar, S:String) |-> V:K ...</registers>
 
     rule [lookup-global-register]:
-        <k> name(S:String) => searchElemInMap(M,.K,name(S)) ...</k>
-        <globalRegisters> M:Map </globalRegisters>
-        when substrString(S, 0, 1) ==String "@"
-           andBool searchElemInMap(M,.K,name(S)) =/=K none
+        <k> name(globalVar, S:String) => V ...</k>
+        <globalRegisters>... name(globalVar, S:String) |-> V:K ...</globalRegisters>
 
 endmodule

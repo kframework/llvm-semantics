@@ -18,9 +18,9 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), callee(values(name("@__libc_start_main_0")),
+            => call(i(32), callee(values(name(globalVar, "__libc_start_main_0")),
                 arguments(
-                    val(funptr(name("@main"))), // address of main
+                    val(funptr(name(globalVar, "main"))), // address of main
                     (val(0), // argc
                     (val(alloca(i(8), 8, 'alignEmpty(.KList))), // argv
                     (val('nullOfConstValueRef(.KList)), // init
@@ -31,7 +31,7 @@ module LLVM-START-AND-STOP
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
-        <functionName> name("@main") </functionName>
+        <functionName> name(globalVar, "main") </functionName>
         <formalParameters> arguments(L:ElemList) </formalParameters>
         when lengthOfList(L) ==Int 0
 
@@ -40,9 +40,9 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), callee(values(name("@__libc_start_main_2")),
+            => call(i(32), callee(values(name(globalVar, "__libc_start_main_2")),
                 arguments((
-                    val(funptr(name("@main"))), // address of main
+                    val(funptr(name(globalVar, "main"))), // address of main
                     val(0), // argc
                     val(
                         initEnvStructures(alloca(i(8),
@@ -57,7 +57,7 @@ module LLVM-START-AND-STOP
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
-        <functionName> name("@main") </functionName>
+        <functionName> name(globalVar, "main") </functionName>
         <formalParameters> arguments(L:ElemList) </formalParameters>
         when lengthOfList(L) ==Int 2
 
@@ -79,7 +79,7 @@ module LLVM-START-AND-STOP
 
     rule [terminate-exit]:
         <T>...
-            <k> I:Int => call(void, callee(values(name("@exit")), arguments(val(I)))) </k>
+            <k> I:Int => call(void, callee(values(name(globalVar, "exit")), arguments(val(I)))) </k>
         ...</T>
 
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL

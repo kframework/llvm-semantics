@@ -804,63 +804,63 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
 
     rule
         // TODO why doesn't this work?
-        // <k> Call(_, Callee(funptr(Name(S:String)), listK(L:KList)))
+        // <k> Call(_, Callee(funptr(Name(globalVar, S:String)), listK(L:KList)))
             // => 'memcpy`(_`,_`,_`,_`,_`)(L)
-        <k> call(_, calleeValue(funptr(name(S:String)), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(V1:KResult),
                    valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
-        when substrString(S, 0, 13) ==String "@llvm.memcpy."
+        when substrString(S, 0, 13) ==String "llvm.memcpy."
 
     rule
-        <k> call(_, calleeValue(funptr(name(S:String)), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(V1:KResult),
                   valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
-        when substrString(S, 0, 13) ==String "@llvm.memset."
+        when substrString(S, 0, 13) ==String "llvm.memset."
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.start")), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.lifetime.start")), (valValue(V1:KResult),
                    valValue(V2:KResult))))
             => lifetimeStart(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@__libc_start_main_0")), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, "__libc_start_main_0")), (valValue(V1:KResult),
                    Vl:ElemList)))
             => call(i(32), callee(V1,arguments(.ElemList)))
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@__libc_start_main_2")), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, "__libc_start_main_2")), (valValue(V1:KResult),
                    Vl:ElemList)))
             => call(i(32), callee(V1,arguments(.ElemList)))
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.lifetime.end")), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.lifetime.end")), (valValue(V1:KResult),
                   valValue(V2:KResult))))
             => lifetimeEnd(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.va_start")), (valValue(V1:KResult))))
+        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.va_start")), (valValue(V1:KResult))))
             => vaStart(V1)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.va_copy")), (valValue(V1:KResult),
+        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.va_copy")), (valValue(V1:KResult),
                   valValue(V2:KResult))))
             => vaCopy(V1, V2)
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@llvm.va_end")), _))
+        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.va_end")), _))
             => .K
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name("@exit")), _))
+        <k> call(_, calleeValue(funptr(name(globalVar, "exit")), _))
             => .K
         ...</k>
 
@@ -927,7 +927,7 @@ module LLVM-SYSCALLS-PREPROCESS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, calleeValue(funptr(name("@__syscall")), (valValue(N:Int), L:ElemList)))
+        <k> call(_, calleeValue(funptr(name(globalVar, "__syscall")), (valValue(N:Int), L:ElemList)))
             => (syscallHandler(N))(L)
         ...</k>
 endmodule
@@ -1006,11 +1006,11 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
     imports LLVM-SYSCALLS-SYNTAX
 
     rule
-        <k> call(_, calleeValue(funptr(name(S:String)), (valValue(I:Int))))
+        <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(I:Int))))
             => .K
         ...</k>
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>
-        when substrString(S, 0, 14) ==String "@__fsl.print.i"
+        when substrString(S, 0, 14) ==String "__fsl.print.i"
         andBool (I >=Int 0 orBool I <=Int 0) // real integer
 endmodule
 
@@ -1026,7 +1026,7 @@ module LLVM-EXCEPTIONS
 
 /*
     rule
-        <k> Call(_, calleeValue(funptr(Name("@__cxa")), listK(V1:KResult,, V2:KResult)))
+        <k> Call(_, calleeValue(funptr(Name(globalVar, "__cxa")), listK(V1:KResult,, V2:KResult)))
             => @__cxa_allocate_exception
         ...</k>
 */

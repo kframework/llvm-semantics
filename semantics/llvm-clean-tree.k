@@ -30,7 +30,7 @@ module LLVM-CLEAN-TREE
     rule <k> Aliases(L:KList) => KListToK(L) ...</k>
     //rule Body(L:KList) => KListToK(L)
     rule Instructions(L:KList) => KListToK(L)     [anywhere]
-    rule ModuleID(S:String) => name(S)               [anywhere]
+    rule ModuleID(S:String) => name(globalVar, S)               [anywhere]
     rule values(K:K) => K                              [anywhere]
     rule Br(K:K) => K:K                               [anywhere]
     rule ReturnType(K:K) => K [anywhere]

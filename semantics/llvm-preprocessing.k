@@ -90,7 +90,7 @@ module LLVM-PREPROCESSING
          <modules>...
             .Bag =>
             <module>...
-                <moduleName> name("main") </moduleName>
+                <moduleName> name(globalVar, "main") </moduleName>
             ...</module>
         ...</modules>
         [structural]
@@ -133,7 +133,8 @@ module LLVM-PREPROCESSING
                           Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),formSet(Ex) formSet(Vi)
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
                           formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
               ,Ty,undef), Aliases:K, Functions:K)
 
@@ -143,7 +144,8 @@ module LLVM-PREPROCESSING
                           Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),formSet(Ex) formSet(Vi)
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
                           formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
               ,Ty,undef), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
@@ -166,7 +168,7 @@ module LLVM-PREPROCESSING
                           Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString("@" +String Int2String(Count)))
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, Int2String(Count))
              ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
               ,Ty,undef), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
@@ -178,7 +180,8 @@ module LLVM-PREPROCESSING
                      , ModuleAsms:K, TargetLayout:K,
                     TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),formSet(Ex) formSet(Vi)
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
                formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
               ,Ty,Vl), Aliases:K, Functions:K)
 
@@ -188,7 +191,8 @@ module LLVM-PREPROCESSING
                  Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString(N)),formSet(Ex) formSet(Vi)
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
                formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
               ,Ty,Vl), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
@@ -211,7 +215,7 @@ module LLVM-PREPROCESSING
                Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(#tokenToString("@" +String Int2String(Count)))
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, Int2String(Count))
              ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
               ,Ty,Vl), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
@@ -233,7 +237,8 @@ module LLVM-PREPROCESSING
                      , MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K, Typedefs:K
            , GlobalVars, Aliases:K ~> alias(formSet(Ex) formSet(Vi) formSet(Exi) formSet(Th) formSet(Un)
-           ,name(#tokenToString(N)),Al), Functions:K)
+           ,name(globalVar, substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))),Al), Functions:K)
 
     rule <k> preModule(N:GlobalValID = Ex:OptLinkage Vi:OptVisibilityStyle Exi:OptDllStorageClass
                      Th:OptThreadLocal Un:OptUnnamedAddr alias Al:AliaseeRef
@@ -242,7 +247,8 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars, Aliases:K
                     ~> alias(formSet(Ex) formSet(Vi) formSet(Exi) formSet(Th) formSet(Un)
-               ,name(#tokenToString(N)),Al), Functions:K)
+               ,name(globalVar, substrString(#tokenToString(N),1
+               ,lengthString(#tokenToString(N)))),Al), Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          when String2Int(substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))) ==Int Count
@@ -293,7 +299,7 @@ module LLVM-PREPROCESSING
 
     rule preModule(.Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K
             , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => theModule(name("main"),TargetLayout, TargetTriple, MetaVars
+         => theModule(name(globalVar, "main"),TargetLayout, TargetTriple, MetaVars
             ,Typedefs, GlobalVars,Aliases, Functions) [structural]
 
     rule <k> metaVar(N:MetadataVar, Mis:MetadataInts) => .K ...</k>

@@ -189,7 +189,7 @@ module LLVM-HELPERS
     syntax SymbolicValueRef ::= makeVarFromLabel(LabelStringConstant)
                                 [function]
     rule makeVarFromLabel(L:LabelStringConstant)
-              => name(substrString(#tokenToString(L), 0
+              => name(labelVar, substrString(#tokenToString(L), 0
                     , lengthString(#tokenToString(L)) -Int 1))
 
     //useful function to turn a kitem into an elemList
@@ -392,8 +392,10 @@ module LLVM-HELPERS
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 
-    rule addNameToString(L:LocalName) => name(#tokenToString(L))
-    rule addNameToString(G:GlobalName) => name(#tokenToString(G))
+    rule addNameToString(Var:LocalName) => name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var))))
+    rule addNameToString(Var:GlobalName) => name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var))))
     rule addNameToString(K:K) => K [owise]
 
     syntax Int ::= mod(Int, Int)   [function]
@@ -401,5 +403,16 @@ module LLVM-HELPERS
         requires I1 >=Int 0
     rule mod(I1:Int, I2:Int) => I1 %Int I2 +Int I2
         requires I1 <Int 0
+
+    syntax Bool ::= isTheInt(K)            [function]
+                  | isTheBool(K)           [function]
+                  | isTheLocalName(K)      [function]
+
+    rule isTheInt(I:Int) => true
+    rule isTheInt(K:K) => false [owise]
+    rule isTheBool(I:Bool) => true
+    rule isTheBool(K:K) => false [owise]
+    rule isTheLocalName(I:LocalName) => true
+    rule isTheLocalName(K:K) => false [owise]
 
 endmodule

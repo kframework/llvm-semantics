@@ -58,11 +58,17 @@ module LLVM-GLOBALS
         <globalRegisters> M:Map
                    => M[X <- value(pointerTypeValue(TK, 'addrEmpty(.KList)),Loc)] </globalRegisters>
 
-    rule <k> initGlobals => initBuiltins(ListItem(name("@__libc_start_main_0")) ListItem(name("@__libc_start_main_2"))
-                                         ListItem(name("@exit")) ListItem(name("@llvm.memcpy.")) ListItem(name("@llvm.memset."))
-                                         ListItem(name("@llvm.lifetime.start")) ListItem(name("@llvm.lifetime.end"))
-                                         ListItem(name("@llvm.va_start")) ListItem(name("@llvm.va_copy")) ListItem(name("@llvm.va_end"))
-                                         ListItem(name("@__syscall")) ListItem(name("@vprintf"))) ~> K:K ...</k>
+    rule <k> initGlobals => initBuiltins(ListItem(name(globalVar, "__libc_start_main_0"))
+                                         ListItem(name(globalVar, "__libc_start_main_2"))
+                                         ListItem(name(globalVar, "exit")) ListItem(name(globalVar, "llvm.memcpy."))
+                                         ListItem(name(globalVar, "llvm.memset."))
+                                         ListItem(name(globalVar, "llvm.lifetime.start"))
+                                         ListItem(name(globalVar, "llvm.lifetime.end"))
+                                         ListItem(name(globalVar, "llvm.va_start"))
+                                         ListItem(name(globalVar, "llvm.va_copy"))
+                                         ListItem(name(globalVar, "llvm.va_end"))
+                                         ListItem(name(globalVar, "__syscall"))
+                                         ListItem(name(globalVar, "vprintf"))) ~> K:K ...</k>
         <savedGlobals> K:K => .K </savedGlobals>
 
     rule initBuiltins(.List) => .K

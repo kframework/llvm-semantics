@@ -4,11 +4,12 @@ requires "llvm-syntax.k"
 module LLVM-ABSTRACTSYNTAX
     imports LLVM-SYNTAX
 
-    syntax KResult ::= String | Floating
+    syntax KResult ::= Int | String | Floating
                       | Loc
                       | OptAddrSpace
                       | listK(List)  [latex({#1})]
                       | VoidType
+                      | vectorValue(ElemList)
 
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
@@ -108,6 +109,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
+
+    syntax KItem ::= vector(ElemList)
+    rule vector(E:KResult) => vectorValue(E)
+
 /*
     syntax List ::= list(KList) [function]
 
@@ -149,7 +154,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalVariable(K, Set, K, K) [strict(3,4)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(Set)
     syntax KItem ::= insMetas(ElemList)
-    syntax KItem ::= alloca(K, K, K) [strict] // Type, NumElements, align
+    syntax KItem ::= alloca(K, K, K) [strict(1,2)] // Type, NumElements, align
     syntax KItem ::= globalAlloca(K, K, K)
     syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
     syntax KItem ::= load(K, K) [strict]//type value
@@ -260,8 +265,8 @@ module LLVM-ABSTRACTSYNTAX
 
 
     //@ Binary Operations
-    syntax KItem ::= flagStage(K, K) //int type, int value, flags
-    syntax KItem ::= flagStage2(K, K) //int type, int value, flags
+    syntax KItem ::= flagStage(K, K, K, K) //type, int op1, int op2, int value
+    syntax KItem ::= flagStage2(K, K, K, K) //type, int op1, int op2, int value
     syntax KResult ::= intValue(K, K) //int type, int value, flags
     syntax KItem ::= theAdd(K, K, K) [strict] // Type, Left op, Right op, flags
     syntax KItem ::= theSub(K, K, K) [strict] // Type, Left op, Right op

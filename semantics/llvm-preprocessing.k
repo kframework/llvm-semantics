@@ -90,7 +90,7 @@ module LLVM-PREPROCESSING
          <modules>...
             .Bag =>
             <module>...
-                <moduleName> name(globalVar, "main") </moduleName>
+                <moduleName> name(labelVar, "main") </moduleName>
             ...</module>
         ...</modules>
         [structural]
@@ -299,7 +299,7 @@ module LLVM-PREPROCESSING
 
     rule preModule(.Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K
             , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
-         => theModule(name(globalVar, "main"),TargetLayout, TargetTriple, MetaVars
+         => theModule(name(labelVar, "main"),TargetLayout, TargetTriple, MetaVars
             ,Typedefs, GlobalVars,Aliases, Functions) [structural]
 
     rule <k> metaVar(N:MetadataVar, Mis:MetadataInts) => .K ...</k>

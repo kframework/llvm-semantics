@@ -182,7 +182,7 @@ module LLVM-DECLARATIONS
         <initialBasicBlock> _ => Name </initialBasicBlock>
 
     rule
-        <k> basicBlock(Name:SymbolicValueRef, K:K) => . ...</k>
+        <k> basicBlock(Name:SymbolicValueRef, K:K) => .K ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>

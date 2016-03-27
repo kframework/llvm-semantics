@@ -17,13 +17,12 @@ module LLVM-CONFIGURATION
             <nextLoc color="gray"> loc(1, 0) </nextLoc>
             <brk> loc(0, 0) </brk>
             <control color="LightGoldenrod">
-                <currBlock color="Orchid"> name("Initial") </currBlock>
-                <prevBlock color="Orchid"> name("Initial") </prevBlock>
-                <currModule color="Orchid"> name("main") </currModule>
-                <currFunction color="Orchid"> name("Initial") </currFunction>
+                <currBlock color="Orchid"> name(labelVar, "Initial") </currBlock>
+                <prevBlock color="Orchid"> name(labelVar, "Initial") </prevBlock>
+                <currModule color="Orchid"> name(labelVar, "main") </currModule>
+                <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
-                <varTypes color="teal"> .Map </varTypes>
                 // TODO: this should eventually be a Set
                 <currentModifiers color="Orchid"> .Set </currentModifiers>
                 <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
@@ -46,7 +45,7 @@ module LLVM-CONFIGURATION
             <output stream="stdout" color="DodgerBlue"> .List </output>
             <modules color="teal">
                 <module multiplicity="*" color="LightSkyBlue">
-                    <moduleName color="orange"> name("") </moduleName>
+                    <moduleName color="orange"> name(labelVar, "") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
@@ -58,7 +57,7 @@ module LLVM-CONFIGURATION
                     <globalRegisters color="teal"> .Map </globalRegisters>
                     <typeInfos color="teal">
                         <typeInfo multiplicity="*" color="LightSkyBlue">
-                            <typeName color="orange"> name("") </typeName>
+                            <typeName color="orange"> name(globalVar, "") </typeName>
                             <offsets> .Map </offsets>
                         </typeInfo>
                     </typeInfos>
@@ -67,9 +66,10 @@ module LLVM-CONFIGURATION
             <functions color="teal">
                  <builtinFunctions> .Set </builtinFunctions>
                  <function multiplicity="*" color="LightSkyBlue">
-                       <funModuleName color="orange"> name("") </funModuleName>
-                       <functionName color="orange"> name("") </functionName>
+                       <funModuleName color="orange"> name(labelVar, "") </funModuleName>
+                       <functionName color="orange"> name(globalVar, "") </functionName>
                        <funModifiers> .Set </funModifiers>
+                       <varTypes color="teal"> .Map </varTypes>
                        <returnType> .K </returnType>
                        <formalParameters> .K </formalParameters>
                        <basicBlocks> .Map </basicBlocks>

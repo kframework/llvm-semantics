@@ -18,6 +18,7 @@ module LLVM-ABSTRACTSYNTAX
                                   | arrayTypeValue(K, K)  // inner type, length
                                   | functionTypeValue(K, K)  // return type, argument types
                                   | arrayValue(List)
+                                  | vectorTypeValue(K, K)//inner type, length
     syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
 
     syntax Type ::= TypeResult
@@ -93,6 +94,7 @@ module LLVM-ABSTRACTSYNTAX
                                     String2Int(#tokenToString(I)))         [anywhere]
     rule < I:UnsignedInt x T:Type > => vectorType(T,
                                     String2Int(#tokenToString(I)))         [anywhere]
+    rule vectorType(K:KResult, I:Int) => vectorTypeValue(K, I)
     //rule 'argTypeTwo(T:Type ,, Pas:ParamAttrs,, )
     //rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
     //rule { Ts:TypeList } => structType(Ts) [macro]
@@ -159,7 +161,6 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
     syntax KItem ::= instruction(K, Set, K) //body, modifiers, instructionMetadatas
-
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
     syntax KItem ::= indirectbr(K, ElemList)//operand, list of labels
@@ -230,7 +231,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setBlock(K)
     syntax KItem ::= body(ElemList)
 
-    syntax SymbolicValueRef ::= name(String)
+    syntax SymbolicValueRef ::= name(K, String)//label, name
+    syntax KItem ::= "globalVar" | "localVar" | "labelVar"
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= iNotEq(K, K, K) [strict] // type, left op, right op

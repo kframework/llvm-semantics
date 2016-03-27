@@ -107,10 +107,8 @@ module CTL-OPTIM
     syntax OptimTools   ::= "patterns"   "::" PatternDefs
                             "rules"      "::" RuleDefs
                             "strategies" "::" StrategyDefs
-    syntax OptimSpec    ::= OptimTools
-                            "program"    "::" Program
-                          | OptimTools
-                            "ctl-graph"  "::" CTLGraph
+    syntax OptimProgram ::= "program"    "::" Program
+    syntax OptimSpec    ::= OptimTools OptimProgram
 
 endmodule
 

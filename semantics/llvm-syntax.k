@@ -1174,7 +1174,7 @@ module LLVM-SYNTAX
     */
     /*syntax BasicBlock ::= InstructionList BBTerminatorInstruction*/
     /* TODO: ignoring unlabeled BBlocks for now */
-    syntax BasicBlock ::= LabelStringConstant InstructionList BBTerminatorInstruction
+    syntax BasicBlock ::= LabelStringConstant ":" InstructionList BBTerminatorInstruction
     syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
 
     /*@

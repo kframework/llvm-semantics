@@ -86,11 +86,12 @@ endmodule
 module CTL-CFG
     imports CTL
 
-    syntax NodeLabel    ::= "skip"
-                          | "enter"
+    syntax BasicBlock   ::= "skip"
+    syntax NodeLabel    ::= "enter"
                           | "exit"
+    syntax Model        ::= List{BasicBlock, " "}
 
-    /* TODO: Define semantics of these NodeLabels */
+    /* TODO: Define semantics of CFGs */
 
 endmodule
 
@@ -124,7 +125,8 @@ module CTL-CFG-DEFUSE-LLVM
 
     /* What are the NodeLabel and Model for LLVM? */
     syntax NodeLabel    ::= LabelStringConstant
-    syntax Model        ::= BasicBlockList
+    /* The below is already defined */
+    /* syntax BasicBlock    ::= BasicBlock */
 
     /* So how do we get successors and precessors in these models? */
     rule <k> succ(N, (M : I T):BasicBlock BBL) => get_successors (T) ... </k>

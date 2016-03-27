@@ -38,7 +38,7 @@ module CTL-SYNTAX
     syntax PatternArgs  ::= List{CTLPattern, ","}
     syntax PatternName  ::= NodeLabel
                           | NodeLabel "(" PatternArgs ")"
-    syntax PatternDef   ::= PatternName "=" CTLPattern "."
+    syntax PatternDef   ::= PatternName "=" CTLPattern
     syntax PatternDefs  ::= List{PatternDef, " "} [klabel('patternDefs)]
 
 endmodule
@@ -62,22 +62,13 @@ module CTL-SEMANTICS
     rule ct-true | C:CTLPattern         => ct-true      [structural]
     rule (not ct-true) | C:CTLPattern   => C            [structural]
 
-    /* CTL Nodes */
-    /*-----------*/
-
     syntax CTLData      ::= NodeLabel
-    syntax CTLNode      ::= "block" NodeLabel "::"
-                                "pred" ":" NodeLabels
-                                "succ" ":" NodeLabels
-                                "patt" ":" CTLPattern
-                                "data" ":" CTLData
-    syntax CTLGraph     ::= CTLNode
-                          | CTLNode CTLGraph
 
 endmodule
 
-module CTL-OPTIM
+module LLVM-CTL-OPTIM
     imports CTL-SEMANTICS
+    imports LLVM-SYNTAX
 
     /* Rule/Strategy Names */
     /*---------------------*/
@@ -85,110 +76,51 @@ module CTL-OPTIM
 
     /* Transformation rule syntax */
     /*----------------------------*/
-    syntax Rule         ::= CTLPattern "=>" CTLAtomic
-                          /* | CTLPattern "=>" CTLPattern "if" CTLPattern */
+    syntax Rule         ::= CTLPattern "=>" CTLAtomic       /* basic rule */
+                          | "(" Rule ")" [bracket]          /* parenthesis */
+                          | Rule "*"                        /* apply many */
+                          | Rule ";" Rule [left]            /* sequence rules */
+                          | Rule "|" Rule [left]            /* left-biased choice */
     syntax Rules        ::= List{Rule, " "}
-    syntax RuleDef      ::= RuleName ":=" Rules "."
+    syntax RuleDef      ::= RuleName ":=" Rule
     syntax RuleDefs     ::= List{RuleDef, " "} [klabel('ruleDefs)]
-
-    /* Build composite transformations */
-    /*---------------------------------*/
-    syntax StrategyName ::= RuleName
-    syntax Strategy     ::= StrategyName                            /* apply once */
-                          | "(" Strategy ")" [bracket]              /* parenthesis */
-                          | Strategy "*"                            /* apply many */
-                          > Strategy ";" Strategy [left]            /* sequence */
-    syntax StrategyDef  ::= StrategyName ":=" Strategy "."
-    syntax StrategyDefs ::= List{StrategyDef, " "} [klabel('strategyDefs)]
 
     /* Program transformation specification */
     /*--------------------------------------*/
     syntax Program      ::= "skip"
-    syntax OptimTools   ::= "patterns"   "::" PatternDefs
-                            "rules"      "::" RuleDefs
-                            "strategies" "::" StrategyDefs
-    syntax OptimProgram ::= "program"    "::" Program
-    syntax OptimSpec    ::= OptimTools OptimProgram
+    syntax OptimTools   ::= "patterns"  "::" PatternDefs
+                            "rules"     "::" RuleDefs
+    syntax OptimRun     ::= "run" RuleName
+                          | "run" RuleName "on" Program
+                          | OptimTools OptimRun
 
-endmodule
+    /* Our computation configuration */
+    /*-------------------------------*/
+    configuration <T>
+                    <k> $PGM:OptimRun </k>
+                    <patterns> .Map </patterns>
+                    <rules> .Map </rules>
+                    <ctl-data> .Map </ctl-data>
+                  </T>
 
+    /* Split up into correct configuration */
+    /*-------------------------------------*/
+    rule <k> (PN = P):PatternDef => . ... </k>
+         <patterns> ... . => (PN |-> P) ... </patterns>
 
-module LLVM-CTL-OPTIM
-    imports CTL-SEMANTICS
-    imports LLVM-SYNTAX
+    rule <k> (RN := R):RuleDef => . ... </k>
+         <rules> ... . => (RN |-> R) ... </rules>
 
-    /* Make specific to LLVM */
-    /*-----------------------*/
+    syntax CTLData      ::= InstructionList BBTerminatorInstruction
+    rule <k> (NL IL T):BasicBlock => . ... </k>
+         <ctl-data> ... . => (NL |-> IL T) ... </ctl-data>
 
-    /* subsorts */
+    rule <k> patterns   :: .PatternDefs
+             rules      :: .RuleDefs
+            => . ... </k>
+
     syntax Program      ::= Function
-    syntax NodeLabel    ::= LabelStringConstant
-                          | LabelValue
-    syntax CTLData      ::= "{" InstructionList BBTerminatorInstruction "}"
-    syntax NodeLabels   ::= "get_successors" "(" BBTerminatorInstruction ")"
-                          | "get_successors" "(" JumpTable ")"
-
-    /* calculating succesors of a BasicBlock */
-    /*TODO: No idea if this is the correct way to do this case analysis in K */
-    /*TODO: No idea if these rules capture the semantics of LLVM */
-    rule get_successors ( ret N:NonVoidType V:ValueRef IM:InstructionMetadatas )
-            => exit
-    rule get_successors ( ret V:VoidType IM:InstructionMetadatas )
-            => exit
-    rule get_successors ( br LV:LabelValue IM:InstructionMetadatas )
-            => LV
-    rule get_successors ( br I:IntType V:ValueRef , L1:LabelValue , L2:LabelValue IM:InstructionMetadatas )
-            => L1, L2
-    rule get_successors ( resume R:ResolvedVal IM:InstructionMetadatas )
-            => exit
-    rule get_successors ( indirectbr R:ResolvedVal , [ LVS:LabelValues ] IM:InstructionMetadatas )
-            => LVS
-    rule get_successors ( switch I:IntType V:ValueRef , DEF:LabelValue
-                            [ JT:JumpTable ] IM:InstructionMetadatas )
-            => DEF, get_successors(JT)
-    rule get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue )
-            => LV
-    rule get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue JT:JumpTable )
-            => LV, get_successors(JT)
-    rule get_successors ( invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef ( PL:ParamList )
-                                FA:FuncAttrs to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
-            => LV1, LV2
-    rule get_successors ( LA:LocalAssign invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef
-                                ( PL:ParamList ) FA:FuncAttrs
-                                to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
-            => LV1, LV2
-    rule get_successors ( unreachable InstructionMetadatas )
-            => exit
-
-
-    /* Compute CTL Graph */
-    /*-------------------*/
-    syntax CTLNode      ::= "to_ctl_node" "(" BasicBlock ")"
-    syntax CTLGraph     ::= "to_ctl_graph" "(" BasicBlockList ")"
-
-    rule to_ctl_graph ( BB:BasicBlock )
-            => to_ctl_node(BB)
-
-    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
-            => to_ctl_node(BB) to_ctl_graph(BBL)
-
-    rule to_ctl_node  ( L:LabelStringConstant
-                        I:InstructionList
-                        T:BBTerminatorInstruction
-                      )
-            =>
-            block L ::
-                pred : enter
-                succ : get_successors(T)
-                patt : ct-true
-                data : { I T }
-
-
-    rule O:OptimTools
-         program :: OL:OptLinkage OVS:OptVisibilityStyle ODSC:OptDllStorageClass
-                    FH:FunctionHeader { BBL:BasicBlockList }
-            =>
-            O
-            ctl-graph :: to_ctl_graph(BBL)
+    rule <k> run RN on OL OVS ODSC FH { .BasicBlockList }
+            => run RN </k>
 
 endmodule

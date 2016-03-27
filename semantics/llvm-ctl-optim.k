@@ -1,194 +1,189 @@
 requires "llvm-semantics.k"
 
-module CTL-SYNTAX
+module CTL
 
-    /* Node labels */
+    /* CTL* models */
     /*-------------*/
+
+    /* TODO: Perhaps we have a `Model` configuration which must have some
+     * ability to query for `succ(NodeLabel)` and `pred(NodeLabel)` from. Then
+     * someone must just specify how the `Model` configuration is structured.
+     */
+
+    /*configuration <T>
+                    <k> </k>
+                    <model> .Map </model>
+                  </T>*/
+
+    /* a CTL* model defines the NodeLabels and succ/pred functions */
+    syntax Model        ::= Id
     syntax NodeLabel    ::= Id
-                          | "enter"
-                          | "exit"
-                          | "skip"
     syntax NodeLabels   ::= List{NodeLabel, ","} [klabel('nodeLabels)]
+                          | succ(NodeLabel,Model)               /* query for successors */
+                          | pred(NodeLabel,Model)               /* query for predecessors */
 
-    /* CTL spatial connectives */
-    /*-------------------------*/
-    syntax CTLQuant     ::= "A"                                         /* for all paths */
-                          | "E"                                         /* exists a path */
+    /* CTL* predicates */
+    /*-----------------*/
 
-    /* CTL patterns */
-    /*--------------*/
-    syntax CTLAtomic    ::= NodeLabel
-    syntax CTLPattern   ::= CTLAtomic                                   /* atomic patterns */
-                          | "ct-true"                                   /* true symbol */
-                          | PatternName                                 /* defined pattern */
-                          | NodeLabel ":" PatternName                   /* label and pattern */
-                          | "(" CTLPattern ")" [bracket]                /* parenthesis */
-                          | "not" CTLPattern                            /* `not` */
-                          > CTLPattern "|" CTLPattern [left]            /* `or` */
-                          > CTLPattern "&" CTLPattern [left]            /* `and` */
-                          > "--" CTLQuant             ">" CTLPattern    /* `next` */
-                          | "--" CTLQuant            "->" CTLPattern    /* `eventually` */
-                          | "--" CTLQuant CTLPattern "->" CTLPattern    /* `until` */
-                          | CTLPattern "<"  CTLQuant            "--"    /* `pred` */
-                          | CTLPattern "<-" CTLQuant            "--"    /* `was` */
-                          | CTLPattern "<-" CTLQuant CTLPattern "--"    /* `since` */
+    /* extend `State` with atomic predicates via sub-sorting */
+    syntax State        ::= NodeLabel                           /* implicit `is-state` */
+                          | "(" State ")"           [bracket]
+                          | "ctl-false"
+                          | "ctl-true"
+                          | "not" State
+                          > State "or" State
+                          > State "and" State
+                          > State "implies" State
+                          > State "iff" State
+                          > "A" Path
+                          | "E" Path
 
-    /* Syntax for defining patterns */
-    /*------------------------------*/
-    syntax PatternArgs  ::= List{CTLPattern, ","}
-    syntax PatternName  ::= NodeLabel
-                          | NodeLabel "(" PatternArgs ")"
-    syntax PatternDef   ::= PatternName "=" CTLPattern "."
-    syntax PatternDefs  ::= List{PatternDef, " "} [klabel('patternDefs)]
+    syntax Path         ::= "(" Path ")"            [bracket]
+                          | State
+                          | "not" Path
+                          > Path "or" Path
+                          > Path "and" Path
+                          > Path "implies" Path
+                          > Path "iff" Path
+                          | "--" Path  ">" Path                         /* `next` */
+                          | "--" Path "->" Path                         /* `until` */
+                          | Path "<"  Path "--"                         /* `pred` */
+                          | Path "<-" Path "--"                         /* `since` */
 
-endmodule
-
-module CTL-SEMANTICS
-    imports CTL-SYNTAX
-
-    /* Simplification rules (should we use the builtin #Bool for efficiency?) */
-    /*------------------------------------------------------------------------*/
-
-    /* rules for `not` */
-    rule not not C:CTLPattern           => C            [structural]
-
-    /* rules for `and` */
-    rule C:CTLPattern & C               => C            [structural]
-    rule ct-true & C:CTLPattern         => C            [structural]
-    rule (not ct-true) & C:CTLPattern   => not ct-true  [structural]
-
-    /* rules for `or` */
-    rule C:CTLPattern | C               => C            [structural]
-    rule ct-true | C:CTLPattern         => ct-true      [structural]
-    rule (not ct-true) | C:CTLPattern   => C            [structural]
-
-    /* CTL Nodes */
-    /*-----------*/
-
-    syntax CTLData      ::= NodeLabel
-    syntax CTLNode      ::= "block" NodeLabel "::"
-                                "pred" ":" NodeLabels
-                                "succ" ":" NodeLabels
-                                "patt" ":" CTLPattern
-                                "data" ":" CTLData
-    syntax CTLGraph     ::= CTLNode
-                          | CTLNode CTLGraph
-
-endmodule
-
-module CTL-OPTIM
-    imports CTL-SEMANTICS
-
-    /* Rule/Strategy Names */
+    /* CTL* simplification */
     /*---------------------*/
-    syntax RuleName     ::= Id
 
-    /* Transformation rule syntax */
-    /*----------------------------*/
-    syntax Rule         ::= CTLPattern "=>" CTLAtomic
-                          /* | CTLPattern "=>" CTLPattern "if" CTLPattern */
-    syntax Rules        ::= List{Rule, " "}
-    syntax RuleDef      ::= RuleName ":=" Rules "."
-    syntax RuleDefs     ::= List{RuleDef, " "} [klabel('ruleDefs)]
+    /* `not` */
+    rule not not C          => C                                    [structural]
+    rule not ctl-true       => ctl-false                            [structural]
+    rule not ctl-false      => ctl-true                             [structural]
 
-    /* Build composite transformations */
-    /*---------------------------------*/
-    syntax StrategyName ::= RuleName
-    syntax Strategy     ::= StrategyName                            /* apply once */
-                          | "(" Strategy ")" [bracket]              /* parenthesis */
-                          | Strategy "*"                            /* apply many */
-                          > Strategy ";" Strategy [left]            /* sequence */
-    syntax StrategyDef  ::= StrategyName ":=" Strategy "."
-    syntax StrategyDefs ::= List{StrategyDef, " "} [klabel('strategyDefs)]
+    /* `and` */
+    rule C and C            => C                                    [structural]
+    rule ctl-true and C     => C                                    [structural]
+    rule ctl-false and C    => ctl-false                            [structural]
 
-    /* Program transformation specification */
-    /*--------------------------------------*/
-    syntax Program      ::= "skip"
-    syntax OptimTools   ::= "patterns"   "::" PatternDefs
-                            "rules"      "::" RuleDefs
-                            "strategies" "::" StrategyDefs
-    syntax OptimProgram ::= OptimTools
-                            "program"    "::" Program
-    syntax OptimSpec    ::= OptimTools
-                            "ctl-graph"  "::" CTLGraph
+
+    /* `or` */
+    rule C or C             => C                                    [structural]
+    rule ctl-true or C      => ctl-true                             [structural]
+    rule ctl-false or C     => C                                    [structural]
+
+    /* `implies` and `iff` */
+    rule C1 implies C2      => (not C1) or C2                       [structural]
+    rule C1 iff C2          => (C1 and C2) or (not C1 and not C2)   [structural]
+
+
+    /* CTL* semantics */
+    syntax Satis        ::= "satis"
+                          | "unsatis"
+                          | "(" Model "," NodeLabel ")" "|=" State
+    /* TODO: Add notion of Path "|=" Path */
+    /* TODO: Define CTL* semantics */
 
 endmodule
 
+module CTL-CFG
+    imports CTL
 
-module LLVM-CTL-OPTIM
-    imports CTL-SEMANTICS
+    syntax BasicBlock   ::= "skip"
+    syntax NodeLabel    ::= "enter"
+                          | "exit"
+    syntax Model        ::= List{BasicBlock, " "}
+
+    /* TODO: Define semantics of CFGs */
+
+endmodule
+
+module CTL-CFG-DEFUSE
+    imports CTL-CFG
+
+    syntax VarId        ::= Id                              /* VarId < ExpId in future? */
+    syntax NodeLabel    ::= "uses" VarId
+                          | "defines" VarId
+
+endmodule
+
+module CTL-CFG-DEFUSE-DEADCODE
+    imports CTL-CFG-DEFUSE
+
+    syntax NodeLabel    ::= "deadcode"
+    syntax State        ::= "deadcode?"
+    rule <k> deadcode? =>   ( (defines V:VarId) and
+                              (A --not uses V-> exit)
+                            ) implies deadcode ... </k>
+    rule <k> N:Label => skip ... </k>
+        when (M:Model, N:Label) |= deadcode
+
+    /* TODO: Fix this by using configurations for Model */
+
+endmodule
+
+module CTL-CFG-DEFUSE-LLVM
+    imports CTL-CFG-DEFUSE-DEADCODE
     imports LLVM-SYNTAX
 
-    /* Make specific to LLVM */
-    /*-----------------------*/
-
-    /* subsorts */
-    syntax Program      ::= Function
+    /* What are the NodeLabel and Model for LLVM? */
     syntax NodeLabel    ::= LabelStringConstant
-                          | LabelValue
-    syntax CTLData      ::= "{" InstructionList BBTerminatorInstruction "}"
-    syntax NodeLabels   ::= "get_successors" "(" BBTerminatorInstruction ")"
-                          | "get_successors" "(" JumpTable ")"
+    /* The below is already defined */
+    /* syntax BasicBlock    ::= BasicBlock */
 
-    /* calculating succesors of a BasicBlock */
-    /*TODO: No idea if this is the correct way to do this case analysis in K */
-    /*TODO: No idea if these rules capture the semantics of LLVM */
-    rule get_successors ( ret N:NonVoidType V:ValueRef IM:InstructionMetadatas )
-            => exit
-    rule get_successors ( ret V:VoidType IM:InstructionMetadatas )
-            => exit
-    rule get_successors ( br LV:LabelValue IM:InstructionMetadatas )
-            => LV
-    rule get_successors ( br I:IntType V:ValueRef , L1:LabelValue , L2:LabelValue IM:InstructionMetadatas )
-            => L1, L2
-    rule get_successors ( resume R:ResolvedVal IM:InstructionMetadatas )
-            => exit
-    rule get_successors ( indirectbr R:ResolvedVal , [ LVS:LabelValues ] IM:InstructionMetadatas )
-            => LVS
-    rule get_successors ( switch I:IntType V:ValueRef , DEF:LabelValue
-                            [ JT:JumpTable ] IM:InstructionMetadatas )
-            => DEF, get_successors(JT)
-    rule get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue )
-            => LV
-    rule get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue JT:JumpTable )
-            => LV, get_successors(JT)
-    rule get_successors ( invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef ( PL:ParamList )
-                                FA:FuncAttrs to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
-            => LV1, LV2
-    rule get_successors ( LA:LocalAssign invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef
-                                ( PL:ParamList ) FA:FuncAttrs
-                                to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
-            => LV1, LV2
-    rule get_successors ( unreachable InstructionMetadatas )
-            => exit
+    /* So how do we get successors and precessors in these models? */
+    rule <k> succ(N, (M : I T):BasicBlock BBL) => get_successors (T) ... </k>
+            when N ==K M
+    rule <k> succ(N, (M : I T):BasicBlock BBL) => succ(N, BBL) ... </k>
+            when N =/=K M
+    /* TODO: Handle unlabeled BasicBlock from LLVM syntax */
+    /* TODO: Handle predecessors */
+
+    /* Now we have to provide the semantics of "uses" and "defines" */
+    syntax VarId        ::= LocalVar
+                          | GlobalVar
+    rule <k> (M:Model, N:NodeLabel) |= uses V:VarId => unsatis ... </k>
+    rule <k> (M:Model, N:NodeLabel) |= defines V:VarId => satis ... </k>
+    /* TODO: These definitions are a bit conservative */
+
+    /* Helper for getting successors above */
+    syntax NodeLabels   ::= get_successors(BBTerminatorInstruction)
+    rule <k> get_successors ( ret N:NonVoidType V:ValueRef IM:InstructionMetadatas )
+                => exit ... </k>
+    rule <k> get_successors ( ret V:VoidType IM:InstructionMetadatas )
+                => exit ... </k>
+    rule <k> get_successors ( br LV:LabelValue IM:InstructionMetadatas )
+                => LV ... </k>
+    rule <k> get_successors ( br I:IntType V:ValueRef , L1:LabelValue , L2:LabelValue IM:InstructionMetadatas )
+                => L1, L2, .NodeLabels ... </k>
+    rule <k> get_successors ( resume R:ResolvedVal IM:InstructionMetadatas )
+                => exit ... </k>
+    rule <k> get_successors ( indirectbr R:ResolvedVal , [ LVS:LabelValues ] IM:InstructionMetadatas )
+                => LVS ... </k>
+    rule <k> get_successors ( switch I:IntType V:ValueRef , DEF:LabelValue
+                                [ JT:JumpTable ] IM:InstructionMetadatas )
+                => DEF, get_successors(JT) ... </k>
+    rule <k> get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue )
+                => LV ... </k>
+    rule <k> get_successors ( I:IntType CVR:ConstValueRef , LV:LabelValue JT:JumpTable )
+                => LV, get_successors(JT) ... </k>
+    rule <k> get_successors ( invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef ( PL:ParamList )
+                                    FA:FuncAttrs to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
+                => LV1, LV2, .NodeLabels ... </k>
+    rule <k> get_successors ( LA:LocalAssign invoke OCC:OptCallingConv RA:RetAttrs T:Type VR:ValueRef
+                                    ( PL:ParamList ) FA:FuncAttrs
+                                    to LV1:LabelValue unwind LV2:LabelValue IM:InstructionMetadatas )
+                => LV1, LV2, .NodeLabels ... </k>
+    rule <k> get_successors ( unreachable InstructionMetadatas )
+                => exit ... </k>
 
 
-    /* Computer CTL Graph */
-    /*--------------------*/
-    syntax CTLGraph     ::= "to_ctl_graph" "(" BasicBlockList ")"
+    /* Take a program and generate appropriate instance of CTL-CFG for it */
+    rule <k> D:Function => to_ctl_spec(D) </k>
+    /* TODO: Only handling functions. Should handle any program by sequencing
+     * through each function in turn
+     */
 
-    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
-            => to_ctl_graph(BB) to_ctl_graph(BBL)
-
-    rule to_ctl_graph ( L:LabelStringConstant
-                        I:InstructionList
-                        T:BBTerminatorInstruction
-                      )
-            =>
-            block L ::
-                pred : enter
-                succ : get_successors(T)
-                patt : ct-true
-                data : { I T }
-
-    /*rule O:OptimTools
-         program    :: OL:OptLinkage
-                       OVS:OptVisibilityStyle
-                       ODSC:OptDllStorageClass
-                       FH:FunctionHeader
-                       { BBL:BasicBlockList }
-            =>
-            O
-            ctl-graph   :: to_ctl_graph(BBL)*/
+    rule <k> (OL OVS ODSC FH { BBL }):Function => BBL </k>
+    rule <k> (BB BBL):BasicBlockList => BBL </k>
+         <model> . => BB ... </model>
+    /* TODO: Make models work above so this works here */
 
 endmodule

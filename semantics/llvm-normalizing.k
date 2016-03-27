@@ -8,7 +8,7 @@ requires "llvm-syscalls-syntax.k"
 requires "llvm-configuration.k"
 requires "llvm-preprocessing.k"
 
-module LLVM-TYPE-CHECKING
+module LLVM-NORMALIZING
     imports LLVM-SYNTAX
     imports LLVM-ABSTRACTSYNTAX
     imports LLVM-SETTINGS
@@ -19,7 +19,7 @@ module LLVM-TYPE-CHECKING
     imports LLVM-PREPROCESSING
 
     syntax KItem ::= typeCheckOp(K, K)
-                   | typeCheckIntOp(K, K, ElemList) [strict(2)]
+                   | typeCheckIntOp(K, K, ElemList)    [strict(2)]
                    | typeCheckIntArgs(K, ElemList)
                    | typeCheckIntArg(K, K)
                    | typeCheckIntArg(K, K, K, K, K)    [strict(4)]
@@ -151,18 +151,6 @@ module LLVM-TYPE-CHECKING
          <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
          requires T =/=K T'
 
-endmodule
-
-module LLVM-NORMALIZING
-    imports LLVM-SYNTAX
-    imports LLVM-ABSTRACTSYNTAX
-    imports LLVM-SETTINGS
-    imports LLVM-HELPERS
-    imports LLVM-STANDARD-LIBRARY-SYNTAX
-    imports LLVM-SYSCALLS-SYNTAX
-    imports LLVM-CONFIGURATION
-    imports LLVM-PREPROCESSING
-    imports LLVM-TYPE-CHECKING
 
     syntax KItem ::= instValToKItem(InstVal) [function]
 
@@ -171,7 +159,7 @@ module LLVM-NORMALIZING
     //add addNameToString to every position where it has type and ValueRef
     //for example theAdd
     rule instValToKItem(add Onw:OptNW Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(theSub(addNameToString(Ty)
+           => instruction(theAdd(addNameToString(Ty)
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,formSet(Onw)
@@ -855,7 +843,8 @@ module LLVM-NORMALIZING
          => typeCheckOp(name(localVar, Int2String(I)), invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to label La1:ValueRef unwind label La2:ValueRef 
-                                  Meta:InstructionMetadatas) ~> checkSingleAssignmentInBlock(N, .K, K 
+                                  Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K 
                 ~> assign(name(localVar, Int2String(I))
                           ,instruction(invoke(operand(addNameToString(Ty),addNameToString(Va))
                                               ,formElemList(Pa)

@@ -46,14 +46,14 @@ module LLVM-DECLARATIONS
         ...</modules>
 
     rule [typedef-assignment]:
-        <k> typedef(X:SymbolicValueRef, UnresolvedType:KResult) => .K ...</k>
+        <k> typedef(X:LocalName, UnresolvedType:KResult) => .K ...</k>
         //<currentModifiers> _ => List(L) </currentModifiers> TODO not printing modifiers
         <currModule> Label:SymbolicValueRef </currModule>
         <moduleName> Label:SymbolicValueRef </moduleName>
         <typedefs> M:Map => M[X <- UnresolvedType] </typedefs>
 
     rule [typedef-lookup]:
-        <k> 'namedType(X:SymbolicValueRef) => UnresolvedType ...</k>
+        <k> 'namedType(X:LocalName) => UnresolvedType ...</k>
         <typedefs>... X |-> UnresolvedType:K ...</typedefs>
 
     // TODO: hack because hybrids don't seem to be working

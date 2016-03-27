@@ -28,37 +28,26 @@ module LLVM-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule <k> flagStage(integerType(I:Int), V:Int) => flagStage2(integerType(I:Int), V:Int) ...</k>
+    rule <k> flagStage(T:K, I1:K, I2:K, V:K) => flagStage2(T, I1, I2, checkNuw(T, V)) ...</k>
          <currentModifiers> S:Set </currentModifiers>
-         requires (nuw in S andBool V <Int (2 ^Int I))
-                   orBool (notBool nuw in S)
-    rule <k> flagStage(integerType(I:Int), V:Int) => value(integerType(I:Int), poisonVal) ...</k>
+         requires nuw in S
+    rule <k> flagStage(T:K, I1:K, I2:K, V:K) => flagStage2(T, I1, I2, V) ...</k>
          <currentModifiers> S:Set </currentModifiers>
-         requires nuw in S andBool V >=Int (2 ^Int I)
-    rule <k> flagStage2(integerType(I:Int), V:Int) => value(integerType(I:Int), V:Int) ...</k>
+         requires notBool nuw in S
+    rule <k> flagStage2(T:K,I1:K, I2:K, V:K) => checkNsw(T, I1, I2, V) ...</k>
          <currentModifiers> S:Set </currentModifiers>
-         requires (nsw in S andBool V <Int (2 ^Int (I -Int 1))
-                            andBool V >=Int (0 -Int (2 ^Int (I -Int 1))))
-                   orBool (notBool nsw in S)
-    rule <k> flagStage2(integerType(I:Int), V:Int) => value(integerType(I:Int), poisonVal) ...</k>
+         requires nsw in S
+    rule <k> flagStage2(T:K,I1:K, I2:K, V:K) => V ...</k>
          <currentModifiers> S:Set </currentModifiers>
-         requires nsw in S andBool 
-                           (V >=Int (2 ^Int (I -Int 1))
-                            orBool V <Int (0 -Int (2 ^Int (I -Int 1))))
+         requires notBool nsw in S
 
     rule [add]:
-        theAdd(Type:KResult, value(Type, I1:Int), value(Type, I2:Int))
-            => flagStage(Type, I1 +Int I2)
-    rule [add1]:
-        theAdd(Type:KResult, I1:KResult, I2:KResult)
-            => value(Type, poisonVal)
-        requires I1 ==K poisonVal orBool I2 ==K poisonVal
-    rule [add2]:
-        theAdd(Type:KResult, I1:KResult, I2:KResult)
-            => value(Type, undef)
-        requires (I1 ==K undef orBool I2 ==K undef)
-                  andBool I1 =/=K poisonVal
-                  andBool I2 =/=K poisonVal
+        theAdd(Type:KResult, I1:KResult , I2:KResult)
+            => flagStage(getIntType(Type), normalizingInt(getIntType(Type), I1),
+                       normalizingInt(getIntType(Type), I2), plusInts(getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
+
+
     rule
         <k> theSub(Type:KResult, I1:Int, I2:Int)
             => signed(Type, I1 -Int I2)
@@ -500,7 +489,7 @@ module LLVM-MEMORY
     rule
         <k> globalAlloca(Type:KResult, N:Int, Al:OptAlign)
                           => value(pointerTypeValue(Type, 'addrEmpty(.KList)) ,Loc) ...</k>
-        (. =>
+        (.Bag =>
             <object>...
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
@@ -512,7 +501,7 @@ module LLVM-MEMORY
     rule
         <k> alloca(Type:KResult, N:Int, Al:OptAlign)
                           => value(pointerTypeValue(Type, 'addrEmpty(.KList)) ,Loc) ...</k>
-        (. =>
+        (.Bag =>
             <object>...
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
@@ -530,10 +519,8 @@ module LLVM-MEMORY
 
     syntax KItem ::= writeBytes(K, K) [strict(1)] // list of bytes, location
 
-    rule
-        <k> write(Type:KResult, V:KResult, Loc:Loc)
+    rule write(Type:KResult, V:KResult, Loc:Loc)
             => writeBytes(splitBytes(V, Type), Loc)
-        ...</k>
     // rule
         // <k> writeBytes(listK((N:Int,, L:KList)), Base:Int +Int Offset:Int)
         // <basePtr> Base:Int </basePtr>
@@ -551,23 +538,19 @@ module LLVM-MEMORY
         // when Offset < Len
         // i guess
 
-    rule
-        <k> writeBytes(listK(.List), _) => . ...</k>
+    rule writeBytes(listK(.List), _) => .K
 
     rule
         <k> load('pointerType(TyK:K,, A:K), Loc:Loc)
             => read(TyK:K, Loc:Loc)
         ...</k>
 
-    rule
-        <k> read(Type:KResult, Loc:Loc)
-            => joinBytes(readBytes(sizeof(Type:KResult), Loc:Loc), Type:KResult)
-        ...</k>
 
-    rule
-        <k> readBytes(Len:Int, Loc:Loc)
+    rule read(Type:KResult, Loc:Loc)
+            => joinBytes(readBytes(sizeof(Type:KResult), Loc:Loc), Type:KResult)
+
+    rule readBytes(Len:Int, Loc:Loc)
             => readBytes'(Len:Int, Loc:Loc, .List)
-        ...</k>
 
     rule
         <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int), L:List)
@@ -577,10 +560,8 @@ module LLVM-MEMORY
         <bytes>... Offset |-> V:KResult ...</bytes>
         when Len:Int >Int 0
 
-    rule
-        <k> readBytes'(0, _, L:List)
+    rule readBytes'(0, _, L:List)
             => listK(L)
-        ...</k>
 
     syntax KItem ::= readBytes(K, K)
     syntax KItem ::= "readBytes'" "(" K "," K "," List ")"
@@ -810,14 +791,14 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
                    valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
             => memcpy(V1, V2, V3, V4, V5)
         ...</k>
-        when substrString(S, 0, 13) ==String "llvm.memcpy."
+        when substrString(S, 0, 12) ==String "llvm.memcpy."
 
     rule
         <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(V1:KResult),
                   valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
             => memset(V1, V2, V3, V4, V5)
         ...</k>
-        when substrString(S, 0, 13) ==String "llvm.memset."
+        when substrString(S, 0, 12) ==String "llvm.memset."
 
     rule
         <k> call(_, calleeValue(funptr(name(globalVar, "llvm.lifetime.start")), (valValue(V1:KResult),
@@ -1010,7 +991,7 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
             => .K
         ...</k>
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>
-        when substrString(S, 0, 14) ==String "__fsl.print.i"
+        when substrString(S, 0, 13) ==String "__fsl.print.i"
         andBool (I >=Int 0 orBool I <=Int 0) // real integer
 endmodule
 
@@ -1053,18 +1034,26 @@ module LLVM-SEMANTICS
     imports LLVM-CALL-RET
     imports LLVM-VARIADICS
     imports LLVM-ARITHMETIC
+
     imports LLVM-FLOATING-POINT-ARITHMETIC
     imports LLVM-GEP
+
     imports LLVM-HELPERS-SPLIT-BYTES
+
     imports LLVM-HELPERS-JOIN-BYTES
+
     imports LLVM-MEMORY
+
     imports LLVM-COMPARISONS
     imports LLVM-CONVERSIONS
+
     imports LLVM-LITERALS
     imports LLVM-STANDARD-LIBRARY-PREPROCESS
     imports LLVM-STANDARD-LIBRARY
+
     imports LLVM-SYSCALLS-PREPROCESS
     imports LLVM-SYSCALLS
+
     imports LLVM-INTERNAL-TESTING-FUNCTIONS
     imports LLVM-EXCEPTIONS
 endmodule

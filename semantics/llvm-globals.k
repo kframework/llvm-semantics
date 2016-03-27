@@ -76,16 +76,4 @@ module LLVM-GLOBALS
          <globalRegisters> M:Map => M[X <- funptr(X)] </globalRegisters>
 
 
-
-
-
-
-
-
-
-
-
-
-
-
 endmodule

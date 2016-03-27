@@ -107,9 +107,9 @@ module CTL-OPTIM
     syntax OptimTools   ::= "patterns"   "::" PatternDefs
                             "rules"      "::" RuleDefs
                             "strategies" "::" StrategyDefs
-    syntax OptimProgram ::= OptimTools
-                            "program"    "::" Program
     syntax OptimSpec    ::= OptimTools
+                            "program"    "::" Program
+                          | OptimTools
                             "ctl-graph"  "::" CTLGraph
 
 endmodule
@@ -163,14 +163,18 @@ module LLVM-CTL-OPTIM
             => exit
 
 
-    /* Computer CTL Graph */
-    /*--------------------*/
+    /* Compute CTL Graph */
+    /*-------------------*/
+    syntax CTLNode      ::= "to_ctl_node" "(" BasicBlock ")"
     syntax CTLGraph     ::= "to_ctl_graph" "(" BasicBlockList ")"
 
-    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
-            => to_ctl_graph(BB) to_ctl_graph(BBL)
+    rule to_ctl_graph ( BB:BasicBlock )
+            => to_ctl_node(BB)
 
-    rule to_ctl_graph ( L:LabelStringConstant
+    rule to_ctl_graph ( BB:BasicBlock BBL:BasicBlockList )
+            => to_ctl_node(BB) to_ctl_graph(BBL)
+
+    rule to_ctl_node  ( L:LabelStringConstant
                         I:InstructionList
                         T:BBTerminatorInstruction
                       )
@@ -181,14 +185,12 @@ module LLVM-CTL-OPTIM
                 patt : ct-true
                 data : { I T }
 
-    /*rule O:OptimTools
-         program    :: OL:OptLinkage
-                       OVS:OptVisibilityStyle
-                       ODSC:OptDllStorageClass
-                       FH:FunctionHeader
-                       { BBL:BasicBlockList }
+
+    rule O:OptimTools
+         program :: OL:OptLinkage OVS:OptVisibilityStyle ODSC:OptDllStorageClass
+                    FH:FunctionHeader { BBL:BasicBlockList }
             =>
             O
-            ctl-graph   :: to_ctl_graph(BBL)*/
+            ctl-graph :: to_ctl_graph(BBL)
 
 endmodule

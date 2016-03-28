@@ -1,4 +1,4 @@
-requires "llvm-semantics.k"
+requires "llvm-syntax.k"
 
 module CTL
 
@@ -16,18 +16,19 @@ module CTL
                   </T>*/
 
     /* a CTL* model defines the NodeLabels and succ/pred functions */
-    syntax Model        ::= Id
     syntax NodeLabel    ::= Id
-    syntax NodeLabels   ::= List{NodeLabel, ","} [klabel('nodeLabels)]
-                          | succ(NodeLabel,Model)               /* query for successors */
-                          | pred(NodeLabel,Model)               /* query for predecessors */
+    syntax NodeLabels   ::= NodeLabel
+                          | NodeLabel "," NodeLabels
+                          | succ(NodeLabel,Model)                   /* query for successors */
+                          | pred(NodeLabel,Model)                   /* query for predecessors */
+    syntax Model        ::= NodeLabels
 
     /* CTL* predicates */
     /*-----------------*/
 
     /* extend `State` with atomic predicates via sub-sorting */
-    syntax State        ::= NodeLabel                           /* implicit `is-state` */
-                          | "(" State ")"           [bracket]
+    syntax State        ::= NodeLabel                               /* implicit `is-state` */
+                          | "(" State ")"                               [bracket]
                           | "ctl-false"
                           | "ctl-true"
                           | "not" State
@@ -38,48 +39,83 @@ module CTL
                           > "A" Path
                           | "E" Path
 
-    syntax Path         ::= "(" Path ")"            [bracket]
+    syntax Path         ::= "(" Path ")"                                [bracket]
                           | State
                           | "not" Path
                           > Path "or" Path
                           > Path "and" Path
                           > Path "implies" Path
                           > Path "iff" Path
-                          | "--" Path  ">" Path                         /* `next` */
-                          | "--" Path "->" Path                         /* `until` */
-                          | Path "<"  Path "--"                         /* `pred` */
-                          | Path "<-" Path "--"                         /* `since` */
+                          | "-->" Path                              /* `next` */
+                          | "--" Path "->" Path                     /* `until` */
+                          | Path "<--"                              /* `pred` */
+                          | Path "<-" Path "--"                     /* `since` */
 
     /* CTL* simplification */
     /*---------------------*/
 
     /* `not` */
-    rule not not C          => C                                    [structural]
-    rule not ctl-true       => ctl-false                            [structural]
-    rule not ctl-false      => ctl-true                             [structural]
+    rule not not C          => C                                        [structural]
+    rule not ctl-true       => ctl-false                                [structural]
+    rule not ctl-false      => ctl-true                                 [structural]
 
     /* `and` */
-    rule C and C            => C                                    [structural]
-    rule ctl-true and C     => C                                    [structural]
-    rule ctl-false and C    => ctl-false                            [structural]
+    rule C and C            => C                                        [structural]
+    rule ctl-true and C     => C                                        [structural]
+    rule ctl-false and C    => ctl-false                                [structural]
 
 
     /* `or` */
-    rule C or C             => C                                    [structural]
-    rule ctl-true or C      => ctl-true                             [structural]
-    rule ctl-false or C     => C                                    [structural]
+    rule C or C             => C                                        [structural]
+    rule ctl-true or C      => ctl-true                                 [structural]
+    rule ctl-false or C     => C                                        [structural]
 
     /* `implies` and `iff` */
-    rule C1 implies C2      => (not C1) or C2                       [structural]
-    rule C1 iff C2          => (C1 and C2) or (not C1 and not C2)   [structural]
+    rule C1 implies C2      => (not C1) or C2                           [structural]
+    rule C1 iff C2          => (C1 and C2) or (not C1 and not C2)       [structural]
 
 
     /* CTL* semantics */
-    syntax Satis        ::= "satis"
-                          | "unsatis"
-                          | "(" Model "," NodeLabel ")" "|=" State
-    /* TODO: Add notion of Path "|=" Path */
-    /* TODO: Define CTL* semantics */
+    /*----------------*/
+
+    /* Satsifaction relation */
+    syntax Bool         ::= "(" Model "," NodeLabel ")" "|=" State
+                          | "(" Model "," NodeLabels ")" "|=" Path
+
+    /* Satisfaction calculation over State */
+    rule (M, N:NodeLabel) |= ctl-true => true                           [structural]
+    rule (M, N:NodeLabel) |= ctl-false => false                         [structural]
+    rule (M, N:NodeLabel) |= (N':NodeLabel):State => N ==K N'           [structural]
+    rule (M, N:NodeLabel) |= (not S):State => notBool ((M,N) |= S)      [structural]
+    rule (M, N:NodeLabel) |= (S1 and S2):State
+                            => ((M,N) |= S1) andBool ((M,N) |= S2)      [structural]
+    rule (M, N:NodeLabel) |= (S1 or S2):State
+                            => ((M,N) |= S1) orBool ((M,N) |= S2)       [structural]
+    /* rule (M, N:NodeLabel) |= A P => ... */
+    /* rule (M, N:NodeLabel) |= E P => ... */
+    /* TODO: finish A P and E P rules. Perhaps have to break it up into `or`s
+     * and `and`s over paths starting at the pred/succ nodes? */
+
+    /* Satisfaction calculation over Path */
+    /*rule (M, Ns:NodeLabels) |= P:Path => false when not (Ns isPathIn M)   [structural]*/
+    rule (M, (N0,Ns):NodeLabels) |= S:State => (M, N0) |= S             [structural]
+    rule (M, Ns:NodeLabels) |= (not P):Path => notBool ((M,Ns) |= P)    [structural]
+    rule (M, Ns:NodeLabels) |= (P1 and P2):Path
+                            => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)    [structural]
+    rule (M, Ns:NodeLabels) |= (P1 or P2):Path
+                            => ((M,Ns) |= P1) orBool ((M,Ns) |= P2)     [structural]
+    rule (M, (N0, Ns):NodeLabels) |= (--> P):Path => (M, Ns) |= P       [structural]
+    rule (M, (N0, Ns):NodeLabels) |= (-- P1 -> P2):Path
+                            => ((M, (N0,Ns)) |= P2)
+                                orBool
+                               (((M, (N0, Ns)) |= P1)
+                                    andBool
+                                ((M, Ns) |= (-- P1 -> P2)))             [structural]
+
+    /* TODO: Should we just switch to regural CTL? CTL* can express more
+     * properties, but also seems harder to implement. The claim is it is as
+     * efficient as LTL or CTL to implement though.
+     */
 
 endmodule
 
@@ -89,7 +125,6 @@ module CTL-CFG
     syntax BasicBlock   ::= "skip"
     syntax NodeLabel    ::= "enter"
                           | "exit"
-    syntax Model        ::= List{BasicBlock, " "}
 
     /* TODO: Define semantics of CFGs */
 

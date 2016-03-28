@@ -25,9 +25,16 @@ optimizations using CTL[@ptrans-verif-opt].
 CTL Specification
 -----------------
 
-The syntax of CTL is defined K, which allows us to parse CTL formulae as
-side-conditions on graph-rewrites. We're working on defining the semantics of
-CTL which is necessary for extracting executables and verification.
+The syntax of CTL is defined K[^actuallyCTLStar], which allows us to parse CTL
+formulae as side-conditions on graph-rewrites. The semantics are mostly defined
+as well, though they still need testing.
+
+[^actuallyCTLStar]: Right now we are actually using CTL*. CTL* is a logic that's
+    able to express both CTL and LTL (linear temporal logic) formulas, making it
+    a strict superset of both CTL and LTL. We're debating switching back to pure
+    CTL for simplicity (though the satisfaction-decision algorithms for each are
+    the same complexity), but it would be nice to have the semantics of CTL*
+    defined in K as anyway.
 
 In order to make some target language usable, you must provide what is used as
 the `NodeLabel` for that language (eg. the names of the basic blocks for CFG
@@ -38,10 +45,13 @@ We have a simple system for plugging in predicates specific to the language and
 optimization. We have defined a sort `State` in CTL which can be extended with
 subsort inclusion to include predicates over the target language's syntax.
 
-As an example, CFG analysis often assumes the use of `enter`, `exit`, and `skip`
-nodes with expected properties to work. Thus, we declare these three nodes as
-sort `NodeLabel`. Ofter it's also assumed that we have predicates `defines` and
-`uses` for variables and expressions, so we declare these as sort `State`.
+As an example, CFG analysis often assumes the use of `enter` and `exit` labeled
+nodes, and `skip` basic blocks with some specific properties. Thus, we declare
+new constants `enter` and `exit` as `NodeLabel`s and add a `BasicBlock` sort
+which one pre-defined constant `skip`. Taking it one step further, many analysis
+use def-use predicates, so we have a skeleton of a `CTL-CFG-DEFUSE` module which
+defines the predicates `defines VARIABLE` and `uses VARIABLE` which can be used
+for these types of analysis.
 
 
 LLVM Integration
@@ -53,7 +63,7 @@ though extending to a whole program should not be difficult.
 
 So we will operate on individual files with just a `Function` definition in
 them. The basic blocks of the function are split up into a CFG, which serves as
-the model for our CTL semantics. We also extend the sort `NodeLabel` with the
+the `Model` for our CTL semantics. We also extend the sort `NodeLabel` with the
 sort `LabelStringConstant` (this is the sort used to label basic blocks in the
 LLVM syntax defined in K).
 
@@ -61,12 +71,17 @@ We also have to define how to insert a `skip` instruction into the LLVM rules,
 because we assume implicitly that it exists for CFG analysis. This hasn't been
 done yet.
 
+In order to actually perform optimizations, we'll have to take pre-defined CTL
+analysis from above (for example the `CTL-CFG-DEFUSE` module), and tell K how to
+interpret the `defines` and `uses` predicates for LLVM. We are still working on
+this part as well.
+
 
 Testing
 -------
 
 We have downloaded a large bank of tests from various sources, including the
-LLVM test-suite and gcc-torture tests (converted to LLVM with clang). So far
+LLVM test-suite and gcc-torture tests (converted to LLVM IR with clang). So far
 we've used a few simple hand-written tests which just include a single function
 definition - these are just pulled at random from our large bank of tests. Once
 we extend our ability to test to entire programs, we should be able to use the

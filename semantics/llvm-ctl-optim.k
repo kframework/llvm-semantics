@@ -46,9 +46,9 @@ module CTL
                           > Path "and" Path
                           > Path "implies" Path
                           > Path "iff" Path
-                          | "-->" Path                              /* `next` */
+                          | "->" Path                               /* `next` */
                           | "--" Path "->" Path                     /* `until` */
-                          | Path "<--"                              /* `pred` */
+                          | Path "<-"                               /* `pred` */
                           | Path "<-" Path "--"                     /* `since` */
 
     /* CTL* simplification */
@@ -104,7 +104,7 @@ module CTL
                             => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)    [structural]
     rule (M, Ns:NodeLabels) |= (P1 or P2):Path
                             => ((M,Ns) |= P1) orBool ((M,Ns) |= P2)     [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (--> P):Path => (M, Ns) |= P       [structural]
+    rule (M, (N0, Ns):NodeLabels) |= (-> P):Path => (M, Ns) |= P        [structural]
     rule (M, (N0, Ns):NodeLabels) |= (-- P1 -> P2):Path
                             => ((M, (N0,Ns)) |= P2)
                                 orBool

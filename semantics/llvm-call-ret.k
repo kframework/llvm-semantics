@@ -19,7 +19,7 @@ module LLVM-CALL-RET
     syntax KItem ::= frame(K, Bag)
     syntax KItem ::= bind(ElemList, ElemList)
 
-    rule <k> arguments(L:ElemList) => elemListToK(L) ...</k>
+    rule arguments(L:ElemList) => L
 
     // TODO: rename tail
     // grabbing argument names

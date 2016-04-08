@@ -426,8 +426,45 @@ module LLVM-HELPERS
 
 
     syntax KItem ::= normalizingInt(K, K) [function]// type, int
-                   | plusInts(K, K, K)    [function]//type int, int
-                   | plusInt(K, K, K)     [function]//type int, int
+                   | deNormalizingInt(K, K) [function]
+                   | applyInts(K, K, K, K) [function] // op, type, int, int
+                   | applyInt(K, K, K, K) [function] // op, type, int, int
+                   | applyOp(K, K, K)     [function] // op, int, int
+
+    rule deNormalizingInt(integerType(N:Int), V:Int) => V
+         requires V <Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), V:Int) => 0 -Int (V -Int (2 ^Int (N -Int 1)))
+         requires V >=Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
+                       => vectorValue(valValue(I),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList))
+         requires I <Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
+                       => vectorValue(valValue(0 -Int (I -Int (2 ^Int (N -Int 1)))),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList))
+         requires I >=Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), valValue(I:Int),Es:ElemList)
+                       => valValue(I),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList)
+         requires I <Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), valValue(I:Int),Es:ElemList)
+                       => valValue(0 -Int (I -Int (2 ^Int (N -Int 1)))),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList)
+         requires I  >=Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(K:K),Es:ElemList))
+                       => vectorValue(valValue(K),
+                           deNormalizingInt(integerType(N:Int), vectorValue(Es:ElemList)))
+         requires notBool isTheInt(K)
+    rule deNormalizingInt(integerType(N:Int), valValue(K:K),Es:ElemList)
+                       => valValue(K),
+                           deNormalizingInt(integerType(N:Int), vectorValue(Es:ElemList))
+         requires notBool isTheInt(K)
+    rule deNormalizingInt(A:K, .ElemList) => .ElemList
+    rule deNormalizingInt(A:K, K:K) => K
+         requires getKLabel(K) ==KLabel 'poisonVal
+                             orBool getKLabel(K) ==KLabel 'undef
+
+
     rule normalizingInt(integerType(N:Int), V:Int) => mod(V, 2 ^Int N)
     rule normalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
                        => vectorValue(valValue(mod(I, 2 ^Int N)),
@@ -445,33 +482,40 @@ module LLVM-HELPERS
          requires notBool isTheInt(K)
     rule normalizingInt(A:K, .ElemList) => .ElemList
     rule normalizingInt(A:K, K:K) => K
-         requires notBool isTheInt(K)
+         requires getKLabel(K) ==KLabel 'poisonVal
+                             orBool getKLabel(K) ==KLabel 'undef
  
-    rule plusInt(integerType(N:Int), V1:Int, V2:Int) => mod(V1 +Int V2, 2 ^Int N)
-    rule plusInt(integerType(N:Int), A:K, A':K) => poisonVal
+    rule applyOp('add(.KList), V1:Int, V2:Int) => V1 +Int V2
+    rule applyOp('sub(.KList), V1:Int, V2:Int) => V1 -Int V2
+    rule applyOp('mul(.KList), V1:Int, V2:Int) => V1 *Int V2
+
+    rule applyInt(Op:K, integerType(N:Int), V1:Int, V2:Int) => mod(applyOp(Op, V1, V2), 2 ^Int N)
+    rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => poisonVal
          requires A ==K poisonVal orBool A' ==K poisonVal
-    rule plusInt(integerType(N:Int), A:K, A':K) => undef
+    rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => undef
          requires (A ==K undef orBool A' ==K undef)
                    andBool A =/=K poisonVal
                    andBool A' =/=K poisonVal
 
-    rule plusInts(integerType(N:Int), .ElemList, .ElemList) => .ElemList
-    rule plusInts(integerType(N:Int), vectorValue(Es:ElemList)
+    rule applyInts(Op:K, integerType(N:Int), .ElemList, .ElemList) => .ElemList
+    rule applyInts(Op:K, integerType(N:Int), vectorValue(Es:ElemList)
                                        , vectorValue(Es':ElemList))
-               => vectorValue(plusInts(integerType(N:Int), Es, Es'))
-    rule plusInts(integerType(N:Int), (valValue(K:K),Es:ElemList)
+               => vectorValue(applyInts(Op, integerType(N:Int), Es, Es'))
+    rule applyInts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList)
                                        , (valValue(K':K),Es':ElemList))
-               => valValue(plusInt(integerType(N:Int), K, K')),plusInts(integerType(N:Int), Es, Es')
-    rule plusInts(A:K, I1:K, I2:K) => plusInt(A, I1, I2)        [owise]
+               => valValue(applyInt(Op, integerType(N:Int), K, K')),applyInts(Op, integerType(N:Int), Es, Es')
+    rule applyInts(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+
 
     syntax KItem ::= checkNuw(K, K)          [function]//type,  int value
-                   | checkNsw(K, K, K, K)    [function]//type, int op1, int op2, int value
+                   | checkNsw(K, K, K)    [function]//type, int signed value, int value
     rule checkNuw(integerType(N:Int), V:Int) => V
-         requires V <Int (2 ^Int N)
+         requires V <Int (2 ^Int N) andBool V >=Int 0
     rule checkNuw(integerType(N:Int), V:Int) => poisonVal
-         requires V >=Int (2 ^Int N)
+         requires V >=Int (2 ^Int N) orBool V <Int 0
     rule checkNuw(integerType(N:Int), V:K) => V
-         requires notBool isTheInt(V)
+         requires getKLabel(V) ==KLabel 'poisonVal
+                             orBool getKLabel(V) ==KLabel 'undef
     rule checkNuw(integerType(N:Int), .ElemList) => .ElemList
     rule checkNuw(integerType(N:Int), vectorValue(Es:ElemList))
             => vectorValue(checkNuw(integerType(N:Int), Es:ElemList))
@@ -480,46 +524,34 @@ module LLVM-HELPERS
          requires notBool isTheInt(K)
     rule checkNuw(integerType(N:Int), valValue(V:Int), Es:ElemList)
             => valValue(V), checkNuw(integerType(N:Int), Es:ElemList)
-         requires V <Int (2 ^Int N)
+         requires V <Int (2 ^Int N) andBool V >=Int 0
     rule checkNuw(integerType(N:Int), valValue(V:Int), Es:ElemList)
             => valValue(poisonVal), checkNuw(integerType(N:Int), Es:ElemList)
-         requires V >=Int (2 ^Int N)
+         requires V >=Int (2 ^Int N) orBool V <Int 0
 
-    rule checkNsw(integerType(N:Int), I1:Int, I2:Int, V:Int) => poisonVal
-         requires (I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1))))
-    rule checkNsw(integerType(N:Int), I1:Int, I2:Int, V:Int) => V
-         requires notBool ((I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1)))))
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, V:K) => V
-         requires notBool isTheInt(V)
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, .ElemList) => .ElemList
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, vectorValue(Es:ElemList))
-            => vectorValue(checkNsw(integerType(N:Int), I1:K, I2:K, Es:ElemList))
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, valValue(V:K), Es:ElemList)
-            => valValue(V), checkNsw(integerType(N:Int), I1:K, I2:K, Es:ElemList)
+    rule checkNsw(integerType(N:Int), I1:Int, V:Int) => poisonVal
+         requires I1 <Int (0 -Int (2 ^Int (N -Int 1))) orBool I1 >=Int (2 ^Int (N -Int 1))
+    rule checkNsw(integerType(N:Int), I1:Int, V:Int) => V
+         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
+    rule checkNsw(integerType(N:Int), I1:K, V:K) => V
+         requires getKLabel(V) ==KLabel 'poisonVal
+                             orBool getKLabel(V) ==KLabel 'undef
+    rule checkNsw(integerType(N:Int), I1:K, .ElemList) => .ElemList
+    rule checkNsw(integerType(N:Int), I1:K, vectorValue(Es:ElemList))
+            => vectorValue(checkNsw(integerType(N:Int), I1:K, Es:ElemList))
+    rule checkNsw(integerType(N:Int), I1:K, valValue(V:K), Es:ElemList)
+            => valValue(V), checkNsw(integerType(N:Int), I1:K, Es:ElemList)
          requires notBool isTheInt(V)
 
-    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                    vectorValue(valValue(I2:Int), Is2:ElemList), valValue(V:Int), Es:ElemList)
-            => valValue(poisonVal), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                                                vectorValue(valValue(I2:Int), Is2:ElemList), Es:ElemList)
-         requires (I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1))))
+    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList)
+                                                           , valValue(V:Int), Es:ElemList)
+            => valValue(poisonVal),
+                   checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList)
+                 , Es:ElemList)
+         requires I1 <Int (0 -Int (2 ^Int (N -Int 1))) orBool I1 >=Int (2 ^Int (N -Int 1))
 
-    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                    vectorValue(valValue(I2:Int), Is2:ElemList), valValue(V:Int), Es:ElemList)
-            => valValue(V), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                                                vectorValue(valValue(I2:Int), Is2:ElemList), Es:ElemList)
-         requires notBool ((I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1)))))
+    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), valValue(V:Int), Es:ElemList)
+            => valValue(V), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), Es:ElemList)
+         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
 
 endmodule

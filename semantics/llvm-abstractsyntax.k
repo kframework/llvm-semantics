@@ -110,7 +110,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
 
-    syntax KItem ::= vector(ElemList)
+    syntax KItem ::= vector(ElemList)           [strict]
     rule vector(E:KResult) => vectorValue(E)
 
 /*
@@ -265,8 +265,8 @@ module LLVM-ABSTRACTSYNTAX
 
 
     //@ Binary Operations
-    syntax KItem ::= flagStage(K, K, K, K) //type, int op1, int op2, int value
-    syntax KItem ::= flagStage2(K, K, K, K) //type, int op1, int op2, int value
+    syntax KItem ::= flagStage(K, K, K) //type, int singed value, int unsined value
+    syntax KItem ::= flagStage2(K, K, K) //type, int singed value, int unsined value
     syntax KResult ::= intValue(K, K) //int type, int value, flags
     syntax KItem ::= theAdd(K, K, K) [strict] // Type, Left op, Right op, flags
     syntax KItem ::= theSub(K, K, K) [strict] // Type, Left op, Right op

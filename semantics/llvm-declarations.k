@@ -57,8 +57,9 @@ module LLVM-DECLARATIONS
         <typedefs>... X |-> UnresolvedType:K ...</typedefs>
 
     // TODO: hack because hybrids don't seem to be working
-    rule Fields(L:ElemList) => L
-    rule Types(L:ElemList) => L
+    rule fields(L:ElemList) => L
+    rule types(L:ElemList) => L
+    //rule funptr(A:SymbolicValueRef) => A
 
     rule
         <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)

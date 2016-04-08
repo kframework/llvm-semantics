@@ -66,6 +66,7 @@ module LLVM-NORMALIZING
     rule typeCheckIntArgs(T:Type, val(V:K),Vs:ElemList)
                     => typeCheckIntArg(T, V) ~> typeCheckIntArgs(T, Vs)
 
+    rule typeCheckIntArg(T:K, undef) => .K
     rule typeCheckIntArg(integerType(N:Int), I:Int) => .K
     rule typeCheckIntArg(integerType(1), B:Bool) => .K
     rule <k> typeCheckIntArg(T:K, X:LocalName) => .K ...</k>

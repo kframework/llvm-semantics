@@ -28,34 +28,42 @@ module LLVM-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule <k> flagStage(T:K, I1:K, I2:K, V:K) => flagStage2(T, I1, I2, checkNuw(T, V)) ...</k>
+    rule <k> flagStage(T:K, I1:K, V:K) => flagStage2(T, I1, checkNuw(T, V)) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires nuw in S
-    rule <k> flagStage(T:K, I1:K, I2:K, V:K) => flagStage2(T, I1, I2, V) ...</k>
+    rule <k> flagStage(T:K, I1:K, V:K) => flagStage2(T, I1, V) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires notBool nuw in S
-    rule <k> flagStage2(T:K,I1:K, I2:K, V:K) => checkNsw(T, I1, I2, V) ...</k>
+    rule <k> flagStage2(T:K, I1:K, V:K) => normalizingInt(T,checkNsw(T, I1, V)) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires nsw in S
-    rule <k> flagStage2(T:K,I1:K, I2:K, V:K) => V ...</k>
+    rule <k> flagStage2(T:K,I1:K, V:K) => normalizingInt(T, V) ...</k>
          <currentModifiers> S:Set </currentModifiers>
          requires notBool nsw in S
 
     rule [add]:
         theAdd(Type:KResult, I1:KResult , I2:KResult)
-            => flagStage(getIntType(Type), normalizingInt(getIntType(Type), I1),
-                       normalizingInt(getIntType(Type), I2), plusInts(getIntType(Type),
+            => flagStage(getIntType(Type), applyInts('add(.KList), getIntType(Type),
+                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
+                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
+                            , applyInts('add(.KList), getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
+    rule [sub]:
+        theSub(Type:KResult, I1:KResult , I2:KResult)
+            => flagStage(getIntType(Type), applyInts('sub(.KList), getIntType(Type),
+                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
+                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
+                            , applyInts('sub(.KList), getIntType(Type),
                              normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
 
+    rule [mul]:
+        theMul(Type:KResult, I1:KResult , I2:KResult)
+            => flagStage(getIntType(Type), applyInts('mul(.KList), getIntType(Type),
+                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
+                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
+                            , applyInts('mul(.KList), getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
 
-    rule
-        <k> theSub(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, I1 -Int I2)
-        ...</k>
-    rule
-        <k> theMul(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, I1 *Int I2)
-        ...</k>
     rule
         <k> theSDiv(Type:KResult, I1:Int, I2:Int)
             => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))

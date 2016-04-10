@@ -64,6 +64,35 @@ module LLVM-ARITHMETIC
                             , applyInts('mul(.KList), getIntType(Type),
                              normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
 
+    rule [shl]:
+        theShl(Type:KResult, I1:KResult , I2:KResult)
+            => flagStage(getIntType(Type), applyInts('shl(.KList), getIntType(Type),
+                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
+                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
+                            , applyInts('shl(.KList), getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
+        requires I2 <Int getIntInIntType(getIntType(Type))
+
+    rule [shl-failed]:
+        <k> theShl(Type:KResult, I1:KResult , I2:KResult) ~> K => .K </k>
+         <output>... .List => ListItem("error: undefined behavior") </output>
+        requires I2 >=Int getIntInIntType(getIntType(Type))
+
+    rule [or]:
+        theOr(Type:KResult, I1:KResult , I2:KResult)
+            => applyInts('or(.KList), getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2))
+
+    rule [xor]:
+        theXor(Type:KResult, I1:KResult , I2:KResult)
+            => applyInts('xor(.KList), getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2))
+
+    rule [and]:
+        theAnd(Type:KResult, I1:KResult , I2:KResult)
+            => applyInts('and(.KList), getIntType(Type),
+                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2))
+
     rule
         <k> theSDiv(Type:KResult, I1:Int, I2:Int)
             => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))
@@ -86,11 +115,6 @@ module LLVM-ARITHMETIC
         when unsigned(Type, I2) =/=Int 0 // catch undefined
 
     rule
-        <k> theShl(Type:KResult, I:Int, Len:Int)
-            => signed(Type, I <<Int Len)
-        ...</k>
-        when Len >=Int 0
-    rule
         <k> theLShr(Type:KResult, I:Int, Len:Int)
             => signed(Type, unsigned(Type, I) >>Int Len)
         ...</k>
@@ -100,18 +124,6 @@ module LLVM-ARITHMETIC
             => signed(Type, signed(Type, I:Int) >>Int Len)
         ...</k>
         when Len >=Int 0
-    rule
-        <k> theOr(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, I1 |Int I2)
-        ...</k>
-    rule
-        <k> theAnd(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, I1 &Int I2)
-        ...</k>
-    rule
-        <k> theXor(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, I1 xorInt I2)
-        ...</k>
 
 
     // weave into add
@@ -659,8 +671,10 @@ module LLVM-CONVERSIONS
     imports LLVM-SYSCALLS-SYNTAX
 
     // TODO only handling scalars
-    rule
-        <k> theTrunc(Type:KResult, I:Int, Type2:KResult) => signed(Type, I) ...</k>
+    rule [trunc]:
+        theTrunc(Type:KResult, I:KResult, Type2:KResult)
+                  => applyCasts(trunc, getIntType(Type),
+                             normalizingInt(getIntType(Type), I), Type2)
 
     // TODO only handling scalars
     rule

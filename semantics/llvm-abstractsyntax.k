@@ -23,6 +23,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
 
     syntax Type ::= TypeResult
+    syntax Type ::= "badType"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
     syntax Element ::= val(K) [strict]
@@ -105,6 +106,16 @@ module LLVM-ABSTRACTSYNTAX
 
     rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))))
+         requires String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) >Int 0
+               andBool String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) <Int (2 ^Int 23)
+
+    rule I:IntType => badType
+         requires String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) <=Int 0
+               orBool String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
     syntax Loc ::= loc(Int, Int)    // TODO [semantic]
     syntax Loc ::= funptr(K)

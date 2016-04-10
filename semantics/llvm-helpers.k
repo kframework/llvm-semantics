@@ -420,16 +420,21 @@ module LLVM-HELPERS
     rule isTheLocalName(K:K) => false [owise]
 
     syntax KItem ::= getIntType(K)    [function]
+                   | getIntInIntType(K) [function]
     rule getIntType(integerType(N:Int)) => integerType(N:Int)
     rule getIntType(vectorTypeValue(T:K, N:Int)) => T
     rule getIntType(K:K) => K [owise]
-
+    rule getIntInIntType(integerType(N:Int)) => N
+    rule getIntInIntType(vectorTypeValue(T:K, N:Int)) => T
+    rule getIntInIntType(K:K) => K [owise]
 
     syntax KItem ::= normalizingInt(K, K) [function]// type, int
                    | deNormalizingInt(K, K) [function]
                    | applyInts(K, K, K, K) [function] // op, type, int, int
                    | applyInt(K, K, K, K) [function] // op, type, int, int
                    | applyOp(K, K, K)     [function] // op, int, int
+                   | applyCast(K, K, K, K)   [function] //op, type ints, type
+                   | applyCasts(K, K, K, K)   [function] //op, type ints, type
 
     rule deNormalizingInt(integerType(N:Int), V:Int) => V
          requires V <Int (2 ^Int (N -Int 1))
@@ -488,6 +493,10 @@ module LLVM-HELPERS
     rule applyOp('add(.KList), V1:Int, V2:Int) => V1 +Int V2
     rule applyOp('sub(.KList), V1:Int, V2:Int) => V1 -Int V2
     rule applyOp('mul(.KList), V1:Int, V2:Int) => V1 *Int V2
+    rule applyOp('shl(.KList), V1:Int, V2:Int) => V1 *Int (2 ^Int V2)
+    rule applyOp('or(.KList), V1:Int, V2:Int) => V1 |Int V2
+    rule applyOp('and(.KList), V1:Int, V2:Int) => V1 &Int V2
+    rule applyOp('xor(.KList), V1:Int, V2:Int) => V1 xorInt V2
 
     rule applyInt(Op:K, integerType(N:Int), V1:Int, V2:Int) => mod(applyOp(Op, V1, V2), 2 ^Int N)
     rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => poisonVal
@@ -503,8 +512,22 @@ module LLVM-HELPERS
                => vectorValue(applyInts(Op, integerType(N:Int), Es, Es'))
     rule applyInts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList)
                                        , (valValue(K':K),Es':ElemList))
-               => valValue(applyInt(Op, integerType(N:Int), K, K')),applyInts(Op, integerType(N:Int), Es, Es')
+               => valValue(applyInt(Op, integerType(N:Int), K, K')),
+                                       applyInts(Op, integerType(N:Int), Es, Es')
     rule applyInts(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+
+
+    rule applyCast(trunc, integerType(N:Int), V1:Int, integerType(N':Int)) => mod(V1, 2 ^Int N')
+    rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
+    rule applyCast(Op:K, T:K, undef, T':K) => undef
+
+    rule applyCasts(Op:K, integerType(N:Int), .ElemList, T:K) => .ElemList
+    rule applyCasts(Op:K, integerType(N:Int), vectorValue(Es:ElemList), T:K)
+               => vectorValue(applyCasts(Op, integerType(N:Int), Es, T:K))
+    rule applyCasts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList), T:K)
+               => valValue(applyCast(Op, integerType(N:Int), K, getIntType(T))),
+                                       applyCasts(Op, integerType(N:Int), Es, T)
+    rule applyCasts(Op:K, A:K, I1:K, I2:K) => applyCast(Op, A, I1, I2)        [owise]
 
 
     syntax KItem ::= checkNuw(K, K)          [function]//type,  int value

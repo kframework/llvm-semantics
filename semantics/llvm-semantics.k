@@ -670,15 +670,19 @@ module LLVM-CONVERSIONS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    // TODO only handling scalars
     rule [trunc]:
         theTrunc(Type:KResult, I:KResult, Type2:KResult)
                   => applyCasts(trunc, getIntType(Type),
-                             normalizingInt(getIntType(Type), I), Type2)
+                             normalizingInt(getIntType(Type), I), getIntType(Type2))
+    rule [zext]:
+        theZExt(Type:KResult, I:KResult, Type2:KResult)
+                  => applyCasts(sext, getIntType(Type),
+                             normalizingInt(getIntType(Type), I), getIntType(Type2))
 
-    // TODO only handling scalars
-    rule
-        <k> theZExt(Type:KResult, I:Int, Type2:KResult) => unsigned(Type, I) ...</k>
+    rule [sext]:
+        theSExt(Type:KResult, I:KResult, Type2:KResult)
+                  => applyCasts(sext, getIntType(Type),
+                             normalizingInt(getIntType(Type), I), getIntType(Type2))
     // TODO only handling scalars
     rule
         <k> theSExt(Type:KResult, I:Int, Type2:KResult) => I ...</k>

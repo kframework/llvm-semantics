@@ -19,8 +19,9 @@ module CTL
     syntax NodeLabel    ::= Id
     syntax NodeLabels   ::= NodeLabel
                           | NodeLabel "," NodeLabels
-                          | succ(NodeLabel,Model)                   /* query for successors */
-                          | pred(NodeLabel,Model)                   /* query for predecessors */
+                          | "succ" "(" Model "," NodeLabel ")"      /* query for successors */
+                          | "pred" "(" Model "," NodeLabel ")"      /* query for predecessors */
+                          | "paths" "(" Model "," NodeLabel ")"     /* query for paths through node */
     syntax Model        ::= NodeLabels
 
     /* CTL* predicates */
@@ -91,30 +92,49 @@ module CTL
                             => ((M,N) |= S1) andBool ((M,N) |= S2)      [structural]
     rule (M, N:NodeLabel) |= (S1 or S2):State
                             => ((M,N) |= S1) orBool ((M,N) |= S2)       [structural]
-    /* rule (M, N:NodeLabel) |= A P => ... */
-    /* rule (M, N:NodeLabel) |= E P => ... */
-    /* TODO: finish A P and E P rules. Perhaps have to break it up into `or`s
-     * and `and`s over paths starting at the pred/succ nodes? */
+    rule (M, N:NodeLabel) |= (A P):Path
+                            => (M, N) |= not (E not P)                  [structural]
+    rule (M, N:NodeLabel) |= (E P):Path
+                            => (M, paths(M, N)) |= P                    [structural]
+    /*rule (M, N:NodeLabel) |= (E P):Path
+                            => ? */
+    /* TODO: finish E P rule. Perhaps have to break it up into `or`s over paths
+     * starting at the pred/succ nodes? */
 
     /* Satisfaction calculation over Path */
     /*rule (M, Ns:NodeLabels) |= P:Path => false when not (Ns isPathIn M)   [structural]*/
-    rule (M, (N0,Ns):NodeLabels) |= S:State => (M, N0) |= S             [structural]
-    rule (M, Ns:NodeLabels) |= (not P):Path => notBool ((M,Ns) |= P)    [structural]
+    rule (M, (N0,Ns):NodeLabels) |= S:State
+            => (M, N0) |= S
+            if N0,Ns is path in M                                       [structural]
+    rule (M, Ns:NodeLabels) |= (not P):Path
+            => notBool ((M,Ns) |= P)
+            if Ns is path in M                                          [structural]
     rule (M, Ns:NodeLabels) |= (P1 and P2):Path
-                            => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)    [structural]
+            => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)
+            if Ns is path in M                                          [structural]
     rule (M, Ns:NodeLabels) |= (P1 or P2):Path
-                            => ((M,Ns) |= P1) orBool ((M,Ns) |= P2)     [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (-> P):Path => (M, Ns) |= P        [structural]
+            => ((M,Ns) |= P1) orBool ((M,Ns) |= P2)
+            if Ns is path in M                                          [structural]
+    rule (M, (N0, Ns):NodeLabels) |= (-> P):Path
+            => (M, Ns) |= P
+            if Ns is path in M                                          [structural]
     rule (M, (N0, Ns):NodeLabels) |= (-- P1 -> P2):Path
-                            => ((M, (N0,Ns)) |= P2)
-                                orBool
-                               (((M, (N0, Ns)) |= P1)
-                                    andBool
-                                ((M, Ns) |= (-- P1 -> P2)))             [structural]
+            => ((M, (N0,Ns)) |= P2)
+                    orBool
+               (((M, (N0, Ns)) |= P1) andBool ((M, Ns) |= (-- P1 -> P2)))
+            if Ns is path in M                                          [structural]
+    rule (M, (N0, Ns):NodeLabels) |= (P <-):Path
+            => (M, Ns) |= P
+            if Ns is path in M                                          [structural]
+    rule (M, (N0,Ns):NodeLabels) |= (P2 <- P1 --):Path
+            => ((M, (N0,Ns)) |= P2)
+                    orBool
+               (((M, (N0, Ns)) |= P1) andBool ((M, Ns) |= (P2 <- P1 --)))
+            if N0,Ns is path in M                                       [structural]
 
-    /* TODO: Should we just switch to regural CTL? CTL* can express more
+    /* TODO: Should we just switch to regular CTL? CTL* can express more
      * properties, but also seems harder to implement. The claim is it is as
-     * efficient as LTL or CTL to implement though.
+     * efficient as LTL though (PSPACE).
      */
 
 endmodule
@@ -142,15 +162,14 @@ endmodule
 module CTL-CFG-DEFUSE-DEADCODE
     imports CTL-CFG-DEFUSE
 
-    syntax NodeLabel    ::= "deadcode"
-    syntax State        ::= "deadcode?"
-    rule <k> deadcode? =>   ( (defines V:VarId) and
-                              (A --not uses V-> exit)
-                            ) implies deadcode ... </k>
-    rule <k> N:Label => skip ... </k>
-        when (M:Model, N:Label) |= deadcode
+    syntax State        ::= "deadcode"
+    rule deadcode => defines V:VarId
+                        and
+                     A (-- not uses V -> exit)                          [structural]
+    /*rule <k> N:Label => skip ... </k>
+        when (M:Model, N:Label) |= deadcode*/
 
-    /* TODO: Fix this by using configurations for Model */
+    /* TODO: Fix this by using configurations from LLVM */
 
 endmodule
 
@@ -164,22 +183,22 @@ module CTL-CFG-DEFUSE-LLVM
     /* syntax BasicBlock    ::= BasicBlock */
 
     /* So how do we get successors and precessors in these models? */
-    rule <k> succ(N, (M : I T):BasicBlock BBL) => get_successors (T) ... </k>
+    /*rule <k> succ(N, (M : I T):BasicBlock BBL) => get_successors (T) ... </k>
             when N ==K M
     rule <k> succ(N, (M : I T):BasicBlock BBL) => succ(N, BBL) ... </k>
-            when N =/=K M
+            when N =/=K M*/
     /* TODO: Handle unlabeled BasicBlock from LLVM syntax */
     /* TODO: Handle predecessors */
 
     /* Now we have to provide the semantics of "uses" and "defines" */
     syntax VarId        ::= LocalVar
                           | GlobalVar
-    rule <k> (M:Model, N:NodeLabel) |= uses V:VarId => unsatis ... </k>
-    rule <k> (M:Model, N:NodeLabel) |= defines V:VarId => satis ... </k>
+    rule <k> (M:Model, N:NodeLabel) |= uses V:VarId => false ... </k>
+    rule <k> (M:Model, N:NodeLabel) |= defines V:VarId => false ... </k>
     /* TODO: These definitions are a bit conservative */
 
     /* Helper for getting successors above */
-    syntax NodeLabels   ::= get_successors(BBTerminatorInstruction)
+    /*syntax NodeLabels   ::= get_successors(BBTerminatorInstruction)
     rule <k> get_successors ( ret N:NonVoidType V:ValueRef IM:InstructionMetadatas )
                 => exit ... </k>
     rule <k> get_successors ( ret V:VoidType IM:InstructionMetadatas )
@@ -208,10 +227,10 @@ module CTL-CFG-DEFUSE-LLVM
                 => LV1, LV2, .NodeLabels ... </k>
     rule <k> get_successors ( unreachable InstructionMetadatas )
                 => exit ... </k>
-
+    */
 
     /* Take a program and generate appropriate instance of CTL-CFG for it */
-    rule <k> D:Function => to_ctl_spec(D) </k>
+    /*rule <k> D:Function => to_ctl_spec(D) </k>*/
     /* TODO: Only handling functions. Should handle any program by sequencing
      * through each function in turn
      */
@@ -221,4 +240,9 @@ module CTL-CFG-DEFUSE-LLVM
          <model> . => BB ... </model>
     /* TODO: Make models work above so this works here */
 
+endmodule
+
+
+module LLVM-CTL-OPTIM
+    imports CTL-CFG-DEFUSE-LLVM
 endmodule

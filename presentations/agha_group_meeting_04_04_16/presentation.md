@@ -2,7 +2,7 @@
 title: Expressing Compiler Optimizations in CTL
 author: Everett Hildenbrandt
 format: beamer
-theme: Boadilla
+theme: CambridgeUS
 fontsize: 9pt
 linestretch: 1.25
 header-includes:

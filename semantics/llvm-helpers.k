@@ -516,8 +516,18 @@ module LLVM-HELPERS
                                        applyInts(Op, integerType(N:Int), Es, Es')
     rule applyInts(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
 
+    syntax Int ::= seqAdds(Int, Int) [function]
+    rule seqAdds(N:Int, N':Int) => 2 ^Int N
+         requires N >=Int N'
+    rule seqAdds(N:Int, N':Int) => (2 ^Int N) +Int seqAdds(N +Int 1, N')
+         requires N <Int N'
 
     rule applyCast(trunc, integerType(N:Int), V1:Int, integerType(N':Int)) => mod(V1, 2 ^Int N')
+    rule applyCast(zext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1
+    rule applyCast(sext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1
+         requires V1 <Int (2 ^Int (N -Int 1))
+    rule applyCast(sext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1 +Int seqAdds(N, N')
+         requires V1 >=Int (2 ^Int (N -Int 1))
     rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
     rule applyCast(Op:K, T:K, undef, T':K) => undef
 
@@ -525,7 +535,7 @@ module LLVM-HELPERS
     rule applyCasts(Op:K, integerType(N:Int), vectorValue(Es:ElemList), T:K)
                => vectorValue(applyCasts(Op, integerType(N:Int), Es, T:K))
     rule applyCasts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList), T:K)
-               => valValue(applyCast(Op, integerType(N:Int), K, getIntType(T))),
+               => valValue(applyCast(Op, integerType(N:Int), K, T)),
                                        applyCasts(Op, integerType(N:Int), Es, T)
     rule applyCasts(Op:K, A:K, I1:K, I2:K) => applyCast(Op, A, I1, I2)        [owise]
 

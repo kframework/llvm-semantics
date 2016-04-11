@@ -499,7 +499,12 @@ module LLVM-MEMORY
 
     syntax KItem ::= "nextSym" Loc [function]
 
-    rule nextSym loc(N:Int, 0) => loc(N:Int +Int 1, 0)
+    rule nextSym loc(N:Int, 0, Limit:Int, Align:Int)
+                                       => loc(N:Int +Int Align, 0, Limit, Align)
+         requires Align >Int Limit andBool isPowOfTwo(Align, 1) andBool Limit >Int 0
+    rule nextSym loc(N:Int, 0, Limit:Int, Align:Int)
+                                       => loc(N:Int +Int Limit, 0, Limit, Align)
+         requires Align <=Int Limit
 
     rule preAlloca(Ty:K, Type:KResult, N:Int, Al:OptAlign)
               => alloca(Ty,sizeof(Type) *Int N, Al:OptAlign) [structural]
@@ -549,14 +554,27 @@ module LLVM-MEMORY
 
     // TODO similar problem as sNat; want to match through a deconstructor
     rule
-        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int))
-            => writeBytes(listK(L:List), loc(Base:Int, Offset:Int) + 1)
+        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:Int))
+            => writeBytes(listK(L:List), loc(Base:Int, Offset:Int, Limit, Align) + 1)
         ...</k>
         <basePtr> Base:Int </basePtr>
         <bytes> M:Map => M:Map[Offset <- N] </bytes>
+        requires Offset <Int Limit
         // <size> Len:Int </size>
         // when Offset < Len
         // i guess
+
+
+    rule
+        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:Int)) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires Offset >=Int Limit
+
+    rule
+        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, undef, undef)) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
 
     rule writeBytes(listK(.List), _) => .K
 
@@ -573,12 +591,23 @@ module LLVM-MEMORY
             => readBytes'(Len:Int, Loc:Loc, .List)
 
     rule
-        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int), L:List)
-            => readBytes'(Len:Int -Int 1, loc(Base:Int, Offset:Int) + 1, (L:List ListItem(V:KResult)))
+        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List)
+            => readBytes'(Len:Int -Int 1, loc(Base:Int, Offset:Int, Limit, Align) + 1, (L:List ListItem(V:KResult)))
         ...</k>
         <basePtr> Base:Int </basePtr>
         <bytes>... Offset |-> V:KResult ...</bytes>
-        when Len:Int >Int 0
+        when Len:Int >Int 0 andBool Offset <Int Limit
+
+    rule
+        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires Limit >=Int Offset
+
+    rule
+        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, undef, undef), L:List) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
 
     rule readBytes'(0, _, L:List)
             => listK(L)
@@ -683,10 +712,6 @@ module LLVM-CONVERSIONS
         theSExt(Type:KResult, I:KResult, Type2:KResult)
                   => applyCasts(sext, getIntType(Type),
                              normalizingInt(getIntType(Type), I), getIntType(Type2))
-    // TODO only handling scalars
-    rule
-        <k> theSExt(Type:KResult, I:Int, Type2:KResult) => I ...</k>
-        when signed(Type, I) ==Int I // sanity check since this isn't supposed to change values and I is supposed to have been canonicalized
 
     // TODO need to normalize here
     rule
@@ -720,6 +745,7 @@ module LLVM-CONVERSIONS
 
     // definitely misses problems with null
     // TODO assumes types are same and are big enough
+/*
     rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) >Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
         => Offset >Int Offset'
         [anywhere]
@@ -736,7 +762,7 @@ module LLVM-CONVERSIONS
                   -Int ptrToIntOfLoc(Type:KResult, loc(I:Int, Offset':Int))
         => signed(Type, Offset -Int Offset')
         [anywhere]
-
+*/
     rule
         <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
             => signed(Type, Float2Int(F))
@@ -763,8 +789,8 @@ module LLVM-LITERALS
         // TODO when 'isFloat(String2Float(S))
 
     rule
-        <k> c S:String
-            => arrayValue(StringToList(S))
+        <k> c S:StringName
+            => arrayValue(StringToList(#tokenToString(S)))
         ...</k>
 
     rule

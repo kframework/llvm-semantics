@@ -117,7 +117,7 @@ module LLVM-ABSTRACTSYNTAX
                orBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
-    syntax Loc ::= loc(Int, Int)    // TODO [semantic]
+    syntax Loc ::= loc(K, K, K, K)    // TODO [semantic] base, offset, offset limit, alignment
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
 

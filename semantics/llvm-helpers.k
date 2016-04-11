@@ -31,19 +31,27 @@ module LLVM-HELPERS
 
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
-    rule 'nullOfConstValueRef(.KList) => loc(-1, 0) [anywhere]
+    rule 'nullOfConstValueRef(.KList) => loc(startMemoryLoc -Int 1, 0, undef, undef) [anywhere]
 
     syntax Int ::= base(Loc) [function]
-    rule base(loc(Base:Int, _)) => Base:Int
+    rule base(loc(Base:Int, _, _, _)) => Base:Int
     
     syntax Int ::= offset(Loc)
-    rule offset(loc(_, Offset:Int)) => Offset:Int
+    rule offset(loc(_, Offset:Int, _, _)) => Offset:Int
     
+    syntax Int ::= offsetLimit(Loc)
+    rule offset(loc(_, _, OffsetLimit:Int, _)) => OffsetLimit
+    rule offset(loc(_, _, OffsetLimit:K, _)) => -1 [owise]
+
+    syntax Int ::= alignment(Loc)
+    rule offset(loc(_, _, _, Align:Int)) => Align
+    rule offset(loc(_, _, _, Align:K)) => -1 [owise]
+
     syntax Loc ::= Loc "+" Int [function]
     // TODO not checking for null
     
-    rule loc(Base:Int, Offset:Int) + Offset':Int
-            => loc(Base:Int, Offset:Int +Int Offset':Int)
+    rule loc(Base:Int, Offset:Int, Limit:K, Align:K) + Offset':Int
+            => loc(Base:Int, Offset:Int +Int Offset':Int, Limit, Align)
 
     syntax KItem ::= splitBytes(K, K) // value, type
     syntax KItem ::= joinBytes(K, K) [strict(1)]
@@ -586,5 +594,13 @@ module LLVM-HELPERS
     rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), valValue(V:Int), Es:ElemList)
             => valValue(V), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), Es:ElemList)
          requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
+
+    syntax Bool ::= isPowOfTwo(Int, Int)  [function]
+    rule isPowOfTwo(A:Int, B:Int) => false
+         requires A <Int B
+    rule isPowOfTwo(A:Int, B:Int) => true
+         requires A ==Int B
+    rule isPowOfTwo(A:Int, B:Int) => isPowOfTwo(A, B *Int 2)
+         requires A >Int B
 
 endmodule

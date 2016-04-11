@@ -48,7 +48,7 @@ module LLVM-NORMALIZING
            => typeCheckCastOp(X, sext,  Ty1, V, Ty2)
 
     rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K, integerType(N:Int), V:K, integerType(N':Int))
-              => typeCheckIntArgs(integerType(N), V) ...</k>
+              => typeCheckIntArg(integerType(N), V) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -66,7 +66,7 @@ module LLVM-NORMALIZING
     rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int), V:K,
                vectorTypeValue(integerType(N':Int), I:Int))
-              => typeCheckIntArgs(vectorTypeValue(integerType(N:Int), I:Int), V) ...</k>
+              => typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), V) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -87,7 +87,7 @@ module LLVM-NORMALIZING
 
 
     rule <k> typeCheckCastOp(X:SymbolicValueRef, trunc, integerType(N:Int), V:K, integerType(N':Int))
-              => typeCheckIntArgs(integerType(N), V) ...</k>
+              => typeCheckIntArg(integerType(N), V) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -105,7 +105,7 @@ module LLVM-NORMALIZING
     rule <k> typeCheckCastOp(X:SymbolicValueRef, trunc,
                vectorTypeValue(integerType(N:Int), I:Int), V:K,
                vectorTypeValue(integerType(N':Int), I:Int))
-              => typeCheckIntArgs(vectorTypeValue(integerType(N:Int), I:Int), V) ...</k>
+              => typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), V) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>

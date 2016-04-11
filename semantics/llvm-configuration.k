@@ -14,8 +14,8 @@ module LLVM-CONFIGURATION
         <T multiplicity="?">
             <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
             <callStack color="Goldenrod"> .List </callStack>
-            <nextLoc color="gray"> loc(1, 0) </nextLoc>
-            <brk> loc(0, 0) </brk>
+            <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
+            <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
             <control color="LightGoldenrod">
                 <currBlock color="Orchid"> name(labelVar, "Initial") </currBlock>
                 <prevBlock color="Orchid"> name(labelVar, "Initial") </prevBlock>

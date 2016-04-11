@@ -879,7 +879,7 @@ module LLVM-SYNTAX
                            | "[" ReturnedVal "]"
                            | "{" ReturnedVal "}"
                            | "<" "{" ReturnedVal "}" ">"
-                           | "c" String
+                           | "c" StringName
                            | "asm" OptSideEffect OptAlignstack OptInteldialect
                              String "," String
                            | MetadataValueInt

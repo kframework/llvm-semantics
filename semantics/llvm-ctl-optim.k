@@ -16,41 +16,46 @@ module CTL
                   </T>*/
 
     /* a CTL* model defines the NodeLabels and succ/pred functions */
-    syntax NodeLabel    ::= Id
-    syntax NodeLabels   ::= NodeLabel
-                          | NodeLabel "," NodeLabels
-                          | "succ" "(" Model "," NodeLabel ")"      /* query for successors */
-                          | "pred" "(" Model "," NodeLabel ")"      /* query for predecessors */
-                          | "paths" "(" Model "," NodeLabel ")"     /* query for paths through node */
-    syntax Model        ::= NodeLabels
+    syntax State        ::= Id
+    syntax SetState     ::= State
+                          | State SetState
+                          | "succ" "(" Model "," State ")"
+                          | "pred" "(" Model "," State ")"
+    syntax Path         ::= State
+                          | State ";" Path
+    syntax SetPath      ::= Path
+                          | Path SetPath
+                          | "<--" State PathQuant
+                          | PathQuant State "-->"
+    syntax Model        ::= SetState
 
     /* CTL* predicates */
     /*-----------------*/
 
-    /* extend `State` with atomic predicates via sub-sorting */
-    syntax State        ::= NodeLabel                               /* implicit `is-state` */
-                          | "(" State ")"                               [bracket]
+    /* extend `StatePred` with atomic predicates via sub-sorting */
+    syntax PathQuant    ::= "A" | "E"
+    syntax StatePred    ::= State                                           /* implicit `is-state` */
+                          | "(" StatePred ")"   [bracket]
                           | "ctl-false"
                           | "ctl-true"
-                          | "not" State
-                          > State "or" State
-                          > State "and" State
-                          > State "implies" State
-                          > State "iff" State
-                          > "A" Path
-                          | "E" Path
+                          | "not" StatePred
+                          > StatePred "or" StatePred
+                          > StatePred "and" StatePred
+                          > StatePred "implies" StatePred
+                          > StatePred "iff" StatePred
+                          > PathQuant PathPred
 
-    syntax Path         ::= "(" Path ")"                                [bracket]
-                          | State
-                          | "not" Path
-                          > Path "or" Path
-                          > Path "and" Path
-                          > Path "implies" Path
-                          > Path "iff" Path
-                          | "->" Path                               /* `next` */
-                          | "--" Path "->" Path                     /* `until` */
-                          | Path "<-"                               /* `pred` */
-                          | Path "<-" Path "--"                     /* `since` */
+    syntax PathPred     ::= "(" PathPred ")"    [bracket]
+                          | StatePred
+                          | "not" PathPred
+                          > PathPred "or" PathPred
+                          > PathPred "and" PathPred
+                          > PathPred "implies" PathPred
+                          > PathPred "iff" PathPred
+                          | "->" PathPred                                   /* `next` */
+                          | "--" PathPred "->" PathPred                     /* `until` */
+                          | PathPred "<-"                                   /* `pred` */
+                          | PathPred "<-" PathPred "--"                     /* `since` */
 
     /* CTL* simplification */
     /*---------------------*/
@@ -80,53 +85,54 @@ module CTL
     /*----------------*/
 
     /* Satsifaction relation */
-    syntax Bool         ::= "(" Model "," NodeLabel ")" "|=" State
-                          | "(" Model "," NodeLabels ")" "|=" Path
+    syntax Bool         ::= "(" Model "," State ")" "|=" StatePred
+                          | "(" Model "," SetState ")" "|=" StatePred       /* implicit and */
+                          | "(" Model "," Path ")" "|=" PathPred
+                          | "(" Model "," SetPath ")" "|=" PathPred         /* implicit and */
 
-    /* Satisfaction calculation over State */
+    /* Satisfaction calculation over StatePred */
     rule (M, N:NodeLabel) |= ctl-true => true                           [structural]
     rule (M, N:NodeLabel) |= ctl-false => false                         [structural]
-    rule (M, N:NodeLabel) |= (N':NodeLabel):State => N ==K N'           [structural]
-    rule (M, N:NodeLabel) |= (not S):State => notBool ((M,N) |= S)      [structural]
-    rule (M, N:NodeLabel) |= (S1 and S2):State
+    rule (M, N:NodeLabel) |= (N':NodeLabel):StatePred => N ==K N'           [structural]
+    rule (M, N:NodeLabel) |= (not S):StatePred => notBool ((M,N) |= S)      [structural]
+    rule (M, N:NodeLabel) |= (S1 and S2):StatePred
                             => ((M,N) |= S1) andBool ((M,N) |= S2)      [structural]
-    rule (M, N:NodeLabel) |= (S1 or S2):State
+    rule (M, N:NodeLabel) |= (S1 or S2):StatePred
                             => ((M,N) |= S1) orBool ((M,N) |= S2)       [structural]
-    rule (M, N:NodeLabel) |= (A P):Path
+    rule (M, N:NodeLabel) |= (A P):PathPred
                             => (M, N) |= not (E not P)                  [structural]
-    rule (M, N:NodeLabel) |= (E P):Path
+    rule (M, N:NodeLabel) |= (E P):PathPred
                             => (M, paths(M, N)) |= P                    [structural]
-    /*rule (M, N:NodeLabel) |= (E P):Path
+    /*rule (M, N:NodeLabel) |= (E P):PathPred
                             => ? */
     /* TODO: finish E P rule. Perhaps have to break it up into `or`s over paths
      * starting at the pred/succ nodes? */
 
-    /* Satisfaction calculation over Path */
-    /*rule (M, Ns:NodeLabels) |= P:Path => false when not (Ns isPathIn M)   [structural]*/
-    rule (M, (N0,Ns):NodeLabels) |= S:State
+    /* Satisfaction calculation over PathPred */
+    rule (M, (N0,Ns):NodeLabels) |= S:StatePred
             => (M, N0) |= S
             if N0,Ns is path in M                                       [structural]
-    rule (M, Ns:NodeLabels) |= (not P):Path
+    rule (M, Ns:NodeLabels) |= (not P):PathPred
             => notBool ((M,Ns) |= P)
             if Ns is path in M                                          [structural]
-    rule (M, Ns:NodeLabels) |= (P1 and P2):Path
+    rule (M, Ns:NodeLabels) |= (P1 and P2):PathPred
             => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)
             if Ns is path in M                                          [structural]
-    rule (M, Ns:NodeLabels) |= (P1 or P2):Path
+    rule (M, Ns:NodeLabels) |= (P1 or P2):PathPred
             => ((M,Ns) |= P1) orBool ((M,Ns) |= P2)
             if Ns is path in M                                          [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (-> P):Path
+    rule (M, (N0, Ns):NodeLabels) |= (-> P):PathPred
             => (M, Ns) |= P
             if Ns is path in M                                          [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (-- P1 -> P2):Path
+    rule (M, (N0, Ns):NodeLabels) |= (-- P1 -> P2):PathPred
             => ((M, (N0,Ns)) |= P2)
                     orBool
                (((M, (N0, Ns)) |= P1) andBool ((M, Ns) |= (-- P1 -> P2)))
             if Ns is path in M                                          [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (P <-):Path
+    rule (M, (N0, Ns):NodeLabels) |= (P <-):PathPred
             => (M, Ns) |= P
             if Ns is path in M                                          [structural]
-    rule (M, (N0,Ns):NodeLabels) |= (P2 <- P1 --):Path
+    rule (M, (N0,Ns):NodeLabels) |= (P2 <- P1 --):PathPred
             => ((M, (N0,Ns)) |= P2)
                     orBool
                (((M, (N0, Ns)) |= P1) andBool ((M, Ns) |= (P2 <- P1 --)))
@@ -146,6 +152,7 @@ module CTL-CFG
     syntax NodeLabel    ::= "enter"
                           | "exit"
 
+
     /* TODO: Define semantics of CFGs */
 
 endmodule
@@ -162,7 +169,7 @@ endmodule
 module CTL-CFG-DEFUSE-DEADCODE
     imports CTL-CFG-DEFUSE
 
-    syntax State        ::= "deadcode"
+    syntax StatePred        ::= "deadcode"
     rule deadcode => defines V:VarId
                         and
                      A (-- not uses V -> exit)                          [structural]

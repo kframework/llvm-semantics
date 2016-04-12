@@ -28,7 +28,9 @@ module LLVM-NORMALIZING
                    | typeCheckIntArgs(K, ElemList)
                    | typeCheckIntArg(K, K)
                    | typeCheckIntArg(K, K, K, K, K)    [strict(4)]
+                   | typeCheckGepOp(K, K, K, K, ElemList)  [strict(2,3,5)]//var, t, t*, v, (t,v)list
                    | typeCheckIntArg(K, K, K)
+                   | typeCheckIntArgList(ElemList)
 
     rule typeCheckOp(X:SymbolicValueRef, IntOp:IntConstructors
                              Onw:OptNW Ty:Type V1:ValueRef,
@@ -46,6 +48,39 @@ module LLVM-NORMALIZING
     rule typeCheckOp(X:SymbolicValueRef, sext Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
            => typeCheckCastOp(X, sext,  Ty1, V, Ty2)
+
+    rule typeCheckOp(X:SymbolicValueRef, getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
+                                    Itr:IntResolveVals Ins:InstructionMetadatas)
+           => typeCheckGepOp(X, Ty, Ty1, V1, formTypeCheckList(Itr))
+
+    //TODO: deal with other constant expr cases
+    rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
+              => typeCheckIntArg(pointerTypeValue(T, A), V) ~> typeCheckIntArgList(L) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> _:Map (.Map => X |-> pointerTypeValue(T, A)) </varTypes>
+
+    rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, pointerTypeValue(T', A:K), V:K, L:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: explicit pointee type doesn't match operand's pointee type") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, T', V:K, L:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: base of getelementptr must be a pointer") </output>
+         requires getKLabel(T') =/=KLabel 'pointerTypeValue
+
+
+    rule typeCheckIntArgList(.ElemList) => .K
+    rule typeCheckIntArgList(valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+                    => typeCheckIntArg(T, V) ~> typeCheckIntArgList(Vs)
+         requires getKLabel(T) ==KLabel 'integerType
+    rule <k> typeCheckIntArgList(valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: integer constant must have integer type") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
 
     rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K, integerType(N:Int), V:K, integerType(N':Int))
               => typeCheckIntArg(integerType(N), V) ...</k>
@@ -173,6 +208,7 @@ module LLVM-NORMALIZING
                     => typeCheckIntArg(T, V) ~> typeCheckIntArgs(T, Vs)
 
     rule typeCheckIntArg(T:K, undef) => .K
+    rule typeCheckIntArg(pointerTypeValue(T:K, A:K), zeroinitializer) => .K
     rule typeCheckIntArg(integerType(N:Int), I:Int) => .K
     rule typeCheckIntArg(integerType(1), B:Bool) => .K
     rule <k> typeCheckIntArg(T:K, X:LocalName) => .K ...</k>

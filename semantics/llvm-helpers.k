@@ -175,7 +175,9 @@ module LLVM-HELPERS
 
     syntax Int ::= sizeof(K) [function]
     rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
-        when numBitsPerByte dividesInt sizeofInBits(Type)
+        requires numBitsPerByte dividesInt sizeofInBits(Type)
+    rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte +Int 1
+        requires notBool (numBitsPerByte dividesInt sizeofInBits(Type))
 
     syntax KItem ::= zeroOfType(K)
     rule zeroOfType(Type:KResult) => 0
@@ -293,6 +295,12 @@ module LLVM-HELPERS
                             => val(operand(T, V)),formElemList(R)
     rule formElemList(K:K) => K [owise]
 
+
+    syntax ElemList ::= formTypeCheckList(K)   [function]
+    rule formTypeCheckList('.IntResolveVals(.KList)) => .ElemList
+    rule formTypeCheckList(, It:IntType V:ValueRef Ins:IntResolveVals)
+            => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList(K:K) => K [owise]
 
 
     syntax Set ::= formSet(K) [function]

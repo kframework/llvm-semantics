@@ -170,6 +170,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
+    syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
+    syntax KItem ::= typeOperandResult(K, K)
+    rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination

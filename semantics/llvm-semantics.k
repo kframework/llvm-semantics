@@ -171,12 +171,12 @@ module LLVM-GEP
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    syntax KItem ::= "gep"
+    syntax KItem ::= gep(K)    [strict]
 
     // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
     rule
         <k> getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
-            => Type ~> gep
+            => gep(Type)
         ...</k>
         (. =>
             <gepInfo>...
@@ -187,7 +187,7 @@ module LLVM-GEP
         )
 
     rule
-        <k> _:KResult ~> gep => Loc ...</k>
+        <k> gep(_:KResult) => Loc ...</k>
         (
             <gepInfo>...
                 <gepIndices> .K </gepIndices>
@@ -209,25 +209,25 @@ module LLVM-GEP
     //rule evalPointerType(T:KResult, A:K) => 'pointerType(T,, A)
 
     rule
-        <k> pointerTypeValue(Type:KResult, _:K) => Type ...</k>
-        <gepIndices> I:Int => . ...</gepIndices>
+        <k> gep(pointerTypeValue(Type:KResult, _:K)) => gep(Type) ...</k>
+        <gepIndices> I:Int => .K ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
 
     rule
-        <k> arrayTypeValue(Type:KResult, _) => Type ...</k>
+        <k> gep(arrayTypeValue(Type:KResult, _)) => gep(Type) ...</k>
         <gepIndices> N:Int => . ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int N) </gepResult>
         when N >=Int 0
 
     // WARNING TODO: _ may match more than one result (ask Traian)
     rule
-        <k> structTypeValue(listK(ListItem(Type:KResult) L:List => L)) ...</k>
+        <k> gep(structTypeValue(listK(ListItem(Type:KResult) L:List => L))) ...</k>
         <gepIndices> N:Int => N -Int 1 ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
         when N >Int 0
 
     rule
-        <k> structTypeValue(listK(ListItem(Type:KResult) L:List)) => Type ...</k>
+        <k> gep(structTypeValue(listK(ListItem(Type:KResult) L:List))) => gep(Type) ...</k>
         <gepIndices> 0 => . ...</gepIndices>
 
 endmodule

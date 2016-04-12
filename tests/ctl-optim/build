@@ -1,9 +1,0 @@
-#!/bin/zsh
-
-pushd ../../semantics >/dev/null
-kompile llvm-ctl-optim.k
-popd >/dev/null
-echo "ready, press enter ..."
-read -k 1
-rm -rf llvm-ctl-optim-kompiled
-cp -r ../../semantics/llvm-ctl-optim-kompiled ./

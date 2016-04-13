@@ -529,7 +529,7 @@ module LLVM-SYNTAX
       specified, the function is forced to have at least that much alignment.
       All alignments must be a power of 2.
     */
-    syntax Align ::= "align" UnsignedInt
+    syntax Align ::= "align" UnsignedInt         [klabel('align)]
     syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
     syntax OptSectionComdatAndAlign ::= "" [klabel('sectionComdatAndAlignEmpty),onlyLabel]
                                 | "," "section" StringName

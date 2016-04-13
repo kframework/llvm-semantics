@@ -506,30 +506,38 @@ module LLVM-MEMORY
                                        => loc(N:Int +Int Limit, 0, Limit, Align)
          requires Align <=Int Limit
 
-    rule preAlloca(Ty:K, Type:KResult, N:Int, Al:OptAlign)
-              => alloca(Ty,sizeof(Type) *Int N, Al:OptAlign) [structural]
+    syntax KItem ::= insertLimit(Loc, K) [function]
+    rule insertLimit(loc(A:K, B:K, Limit:K, Align:K), K:K) => loc(A, B, K, Align)
+    syntax KItem ::= insertAlign(Loc, K) [function]
+    rule insertAlign(loc(A:K, B:K, Limit:K, Align:K), I:Int) => loc(A, B, Limit, I)
+    rule insertAlign(Loc:K, I:K) => Loc [owise]
+
+    rule preAlloca(Ty:K, Type:KResult, N:Int, Al:K)
+              => alloca(Ty,sizeof(Type) *Int N, Al) [structural]
 
 
     //use to alloc the memory for gloable variables.
     rule
-        <k> globalAlloca(Type:KResult, N:Int, Al:OptAlign)
-                          => value(pointerTypeValue(Type, 'addrEmpty(.KList)) ,Loc) ...</k>
+        <k> globalAlloca(Type:KResult, N:Int, Al:K)
+                          => insertAlign(insertLimit(Loc, sizeof(Type) *Int N),Al) ...</k>
         (.Bag =>
             <object>...
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
+                <align> Al </align>
                 <size> sizeof(Type) *Int N </size>
             ...</object>
         )
         <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
 
     rule
-        <k> alloca(Type:KResult, N:Int, Al:OptAlign)
-                          => value(pointerTypeValue(Type, 'addrEmpty(.KList)) ,Loc) ...</k>
+        <k> alloca(Type:KResult, N:Int, Al:K)
+                          => insertAlign(insertLimit(Loc, sizeof(Type) *Int N),Al) ...</k>
         (.Bag =>
             <object>...
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
+                <align> Al </align>
                 <size> sizeof(Type) *Int N </size>
             ...</object>
         )
@@ -790,7 +798,8 @@ module LLVM-LITERALS
 
     rule
         <k> c S:StringName
-            => arrayValue(StringToList(#tokenToString(S)))
+            => arrayValue(StringToList(substrString(#tokenToString(S),
+                                    1, lengthString(#tokenToString(S)) -Int 1)))
         ...</k>
 
     rule

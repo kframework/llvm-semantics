@@ -21,7 +21,7 @@ module LLVM-GLOBALS
     //for the pointer type of global variable.
     rule
         <k> globalVariable(X:SymbolicValueRef, L:Set, Ty:SimpleTypeResult, Init:KResult)
-            => preInit(X, globalAlloca(Ty, 1, 'alignEmpty(.KList))
+            => preInit(X, globalAlloca(Ty, 1, getAlign(L, .K))
                                  , initializer(Ty ,Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
@@ -30,7 +30,7 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, L:Set
                 , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
-            => preInit(X, alloca(TyK, Size, 'alignEmpty(.KList))
+            => preInit(X, alloca(TyK, Size, getAlign(L, .K))
                                   , initializer(arrayTypeValue(TyK,Size),Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>
@@ -39,7 +39,7 @@ module LLVM-GLOBALS
     rule
         <k> globalVariable(X:SymbolicValueRef, L:Set
                 , structTypeValue(TyK:KResult), Init:K)
-            => preInit(X, alloca(TyK, 1, 'alignEmpty(.KList))
+            => preInit(X, alloca(TyK, 1, getAlign(L, .K))
                                   , initializer(structTypeValue(TyK),Init))
         ...</k>
         <currentModifiers> _ => L </currentModifiers>

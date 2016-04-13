@@ -33,6 +33,7 @@ module LLVM-CONFIGURATION
                     <basePtr color="orange" type="Key"> -1 </basePtr>
                     <type> .K </type>
                     <size> 0 </size>
+                    <align> 'alignEmpty(.KList) </align>
                     <bytes> .Map </bytes>
                 </object>
             </memory>

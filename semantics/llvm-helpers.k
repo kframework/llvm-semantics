@@ -21,13 +21,39 @@ module LLVM-HELPERS
          => searchElemInMap(removeAll(M,SetItem(Key)),.K,Key')
          when Key =/=K Key' andBool Key =/=K .K
 
+    syntax Bool ::= isHexDigit(String) [function]
+    rule isHexDigit(A:String) =>
+          ((ordChar(A) >=Int ordChar("0"))
+           andBool (ordChar(A) <=Int ordChar("9")))
+             orBool ((ordChar(A) >=Int ordChar("A"))
+                     andBool (ordChar(A) <=Int ordChar("F")))
+         requires lengthString(A) ==Int 1
+    rule isHexDigit(A:String) => false [owise]
+
     syntax List ::= StringToList(String) [function]
     rule StringToList("") => .List
     rule
         StringToList(S:String)
             => ListItem(ordChar(substrString(S:String, 0, 1)))
                 StringToList(substrString(S:String, 1, lengthString(S:String)))
-        when S =/=String ""
+        requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) =/=Int 92
+    rule
+        StringToList(S:String)
+            => ListItem(ordChar(substrString(S:String, 0, 1)))
+                StringToList(substrString(S:String, 2, lengthString(S:String)))
+        requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
+             andBool lengthString(S:String) >Int 1
+             andBool ordChar(substrString(S, 1, 2)) ==Int 92
+
+    rule
+        StringToList(S:String)
+            => ListItem(String2Int(substrString(S, 1, 2))
+                        *Int 16 +Int String2Int(substrString(S, 2, 3)))
+                StringToList(substrString(S:String, 3, lengthString(S:String)))
+        requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
+             andBool lengthString(S:String) >Int 2
+             andBool isHexDigit(substrString(S, 1, 2))
+             andBool isHexDigit(substrString(S, 2, 3))
 
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
@@ -610,5 +636,12 @@ module LLVM-HELPERS
          requires A ==Int B
     rule isPowOfTwo(A:Int, B:Int) => isPowOfTwo(A, B *Int 2)
          requires A >Int B
+
+    syntax KItem ::= getAlign(Set, K) [function]
+    rule getAlign(.Set, .K) => 'alignEmpty(.KList)
+    rule getAlign(SetItem(K:K) S:Set, .K) => getAlign(S, K)
+    rule getAlign(S:Set, align N:UnsignedInt) => String2Int(#tokenToString(N))
+    rule getAlign(S:Set, K:K => .K)
+         requires getKLabel(K) =/=KLabel 'align
 
 endmodule

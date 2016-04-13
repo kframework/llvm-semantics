@@ -528,7 +528,8 @@ module LLVM-MEMORY
                 <size> sizeof(Type) *Int N </size>
             ...</object>
         )
-        <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
+        <nextLoc> Loc:Loc => nextSym insertAlign(
+                       insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
 
     rule
         <k> alloca(Type:KResult, N:Int, Al:K)
@@ -542,7 +543,8 @@ module LLVM-MEMORY
             ...</object>
         )
         <localMemory>... .List => ListItem(base(Loc)) </localMemory>
-        <nextLoc> Loc:Loc => nextSym Loc </nextLoc>
+        <nextLoc> Loc:Loc => nextSym insertAlign(
+                              insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
 
     //TODO: store must save to a pointer type
     rule

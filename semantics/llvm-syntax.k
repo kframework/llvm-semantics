@@ -1050,10 +1050,11 @@ module LLVM-SYNTAX
     */
     syntax InstructionList ::= List{Instruction," "} [klabel('instList)]
     syntax Instruction ::= LocalAssign InstVal | InstVal
-                         | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                           OptScopeOrder  "," Align InstructionMetadatas
-                         | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                           OptScopeOrder InstructionMetadatas
+                         | "store" OptVolatile ResolvedVal "," ResolvedVal
+                           "," Align InstructionMetadatas
+                         | "store" OptVolatile ResolvedVal "," ResolvedVal InstructionMetadatas
+                         | "store" Atomic OptVolatile ResolvedVal "," ResolvedVal
+                           OptScopeOrder "," Align InstructionMetadatas
                          | "fence" OptSingleThread Ordering InstructionMetadatas
 
     /*@

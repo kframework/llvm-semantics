@@ -428,12 +428,14 @@ module LLVM-HELPERS
     syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
 
     rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, A:Align) => alloca(addNameToString(Ty),1,A)
+    rule dealWithAllocaElem(Ty:Type, align I:UnsignedInt)
+                      => alloca(addNameToString(Ty),1,String2Int(#tokenToString(I)))
     rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
                       => preAlloca(addNameToString(Ty),It
                                          ,addNameToString(V),'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, A:Align)
-                      => preAlloca(addNameToString(Ty),It,addNameToString(V),A)
+    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, align I:UnsignedInt)
+                      => preAlloca(addNameToString(Ty),It,
+                                   addNameToString(V),String2Int(#tokenToString(I)))
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 

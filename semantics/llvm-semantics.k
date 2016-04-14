@@ -500,11 +500,13 @@ module LLVM-MEMORY
     syntax KItem ::= "nextSym" Loc [function]
 
     rule nextSym loc(N:Int, 0, Limit:Int, Align:Int)
-                                       => loc(N:Int +Int Align, 0, Limit, Align)
+                                       => loc(N:Int +Int Align, 0, undef, undef)
          requires Align >Int Limit andBool isPowOfTwo(Align, 1) andBool Limit >Int 0
     rule nextSym loc(N:Int, 0, Limit:Int, Align:Int)
-                                       => loc(N:Int +Int Limit, 0, Limit, Align)
+                                       => loc(N:Int +Int Limit, 0, undef, undef)
          requires Align <=Int Limit
+    rule nextSym loc(N:Int, 0, Limit:Int, undef)
+                                       => loc(N:Int +Int Limit, 0, undef, undef)
 
     syntax KItem ::= insertLimit(Loc, K) [function]
     rule insertLimit(loc(A:K, B:K, Limit:K, Align:K), K:K) => loc(A, B, K, Align)
@@ -512,8 +514,8 @@ module LLVM-MEMORY
     rule insertAlign(loc(A:K, B:K, Limit:K, Align:K), I:Int) => loc(A, B, Limit, I)
     rule insertAlign(Loc:K, I:K) => Loc [owise]
 
-    rule preAlloca(Ty:K, Type:KResult, N:Int, Al:K)
-              => alloca(Ty,sizeof(Type) *Int N, Al) [structural]
+    rule preAlloca(Ty:K, integerType(I:Int), N:Int, Al:K)
+              => alloca(Ty,normalizingInt(integerType(I:Int), N), Al) [structural]
 
 
     //use to alloc the memory for gloable variables.
@@ -530,6 +532,19 @@ module LLVM-MEMORY
         )
         <nextLoc> Loc:Loc => nextSym insertAlign(
                        insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
+        requires N >Int 0
+
+    rule
+        <k> globalAlloca(Type:KResult, N:Int, Al:K) ~> K:K
+                          => .K </k>
+         <output>... .List => ListItem("error: undefined behavior") </output>
+        requires N ==Int 0
+
+    rule
+        <k> alloca(Type:KResult, N:Int, Al:K) ~> K:K
+                          => .K </k>
+         <output>... .List => ListItem("error: undefined behavior") </output>
+        requires N ==Int 0
 
     rule
         <k> alloca(Type:KResult, N:Int, Al:K)
@@ -545,6 +560,7 @@ module LLVM-MEMORY
         <localMemory>... .List => ListItem(base(Loc)) </localMemory>
         <nextLoc> Loc:Loc => nextSym insertAlign(
                               insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
+        requires N >Int 0
 
     //TODO: store must save to a pointer type
     rule

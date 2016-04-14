@@ -28,7 +28,9 @@ module LLVM-NORMALIZING
                    | typeCheckIntArgs(K, ElemList)
                    | typeCheckIntArg(K, K)
                    | typeCheckIntArg(K, K, K, K, K)    [strict(4)]
-                   | typeCheckGepOp(K, K, K, K, ElemList)  [strict(2,3,5)]//var, t, t*, v, (t,v)list
+                   | typeCheckGepOp(K, K, K, K, ElemList)  [strict(2,3,5)]//var, t, t*, v, (t,v)lists
+                   | typeCheckAllocaOp(K, K, K, K, K)  [strict(2,3)]//var, t, int-t, v, align
+                   | typeCheckStore(K, K, K, K, K)  [strict(1,3)]//t, v, pt, v, align
                    | typeCheckIntArg(K, K, K)
                    | typeCheckIntArgList(ElemList)
 
@@ -52,6 +54,72 @@ module LLVM-NORMALIZING
     rule typeCheckOp(X:SymbolicValueRef, getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
                                     Itr:IntResolveVals Ins:InstructionMetadatas)
            => typeCheckGepOp(X, Ty, Ty1, V1, formTypeCheckList(Itr))
+
+    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(X,Ty, undef, undef, 1)
+    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca
+                                          Ty:Type, align A:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(X,Ty,undef,undef, String2Int(#tokenToString(A)))
+    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca Ty:Type,
+                                        It:IntType V:ValueRef Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(X,Ty,It,V, 1)
+    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca Ty:Type,
+                       It:IntType V:ValueRef, align A:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(X,Ty,It,V, String2Int(#tokenToString(A)))
+    rule typeCheckOp(K:K, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, align I:UnsignedInt
+                    Inm:InstructionMetadatas)
+           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)))
+    rule typeCheckOp(K:K, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
+                    Inm:InstructionMetadatas)
+           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, 1)
+    rule typeCheckOp(K:K, store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef,
+                 Ty2:Type V2:ValueRef Osc:OptScopeOrder, align I:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)))
+
+    //deal with type of store
+    rule typeCheckStore(T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int)
+              => typeCheckIntArg(T, V1) ~> typeCheckIntArg(pointerTypeValue(T:KResult, A:K), V2)
+         requires isPowOfTwo(Align, 1)
+
+    rule <k> typeCheckStore(T:KResult, V1:K,
+                     pointerTypeValue(T':KResult, A:K), V2:K, Align:Int) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckStore(T:KResult, V1:K,
+                     T':KResult, V2:K, Align:Int) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: store operand must be a pointer") </output>
+         requires getKLabel(T') =/=KLabel 'pointerTypeValue
+
+    rule <k> typeCheckStore(X:SymbolicValueRef, T:KResult, T':KResult, V:K, Align:Int)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment is not a power of two") </output>
+         requires notBool isPowOfTwo(Align, 1)
+
+
+    //deal with type of alloca
+    rule <k> typeCheckAllocaOp(X:SymbolicValueRef, T:KResult, integerType(I:Int), V:K, Align:Int)
+              => typeCheckIntArg(integerType(I:Int), V) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> _:Map (.Map => X |-> pointerTypeValue(T, 'addrEmpty(.KList))) </varTypes>
+         requires isPowOfTwo(Align, 1)
+
+    rule <k> typeCheckAllocaOp(X:SymbolicValueRef, T:KResult, T':KResult, V:K, Align:Int)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: element count must have integer type") </output>
+         requires getKLabel(T') =/=KLabel 'integerType
+
+    rule <k> typeCheckAllocaOp(X:SymbolicValueRef, T:KResult, T':KResult, V:K, Align:Int)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment is not a power of two") </output>
+         requires notBool isPowOfTwo(Align, 1)
+
 
     //TODO: deal with other constant expr cases
     rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
@@ -1137,14 +1205,29 @@ module LLVM-NORMALIZING
           when String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) =/=Int I
 
-    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, store Oac:OptAtomic Ovl:OptVolatile
-                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef Osc:OptScopeOrder, Al:Align
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Al:Align
                     Inm:InstructionMetadatas Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(.K, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Al:Align
+                    Inm:InstructionMetadatas) ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> instruction(store(addNameToString(Ty1)
                                            ,addNameToString(V1)
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
-                                     ,formSet(Oac) formSet(Ovl) formSet(Osc) formSet(Al)
+                                     ,formSet(Ovl) formSet(Al)
+                                     ,insMetas(formElemList(Inm)))
+                         , S)
+
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
+                    Inm:InstructionMetadatas Ins:InstructionList BB:BBTerminatorInstruction, K:K, S:Set)
+         => typeCheckOp(.K, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
+                    Inm:InstructionMetadatas) ~> checkSingleAssignmentInBlock(N, Ins BB, K
+                      ~> instruction(store(addNameToString(Ty1)
+                                           ,addNameToString(V1)
+                                           ,operand(addNameToString(Ty2),addNameToString(V2)))
+                                     ,formSet(Ovl)
                                      ,insMetas(formElemList(Inm)))
                          , S)
 /*
@@ -1152,17 +1235,19 @@ do the same for another store operation:
 "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal OptScopeOrder InstructionMetadatas
 */
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef
-                                      , store Oac:OptAtomic Ovl:OptVolatile Ty1:Type V1:ValueRef ,
-                                            Ty2:Type V2:ValueRef Osc:OptScopeOrder 
+                                      , store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef ,
+                                            Ty2:Type V2:ValueRef Osc:OptScopeOrder, Al:Align
                                             Ins:InstructionMetadatas Ili:InstructionList
                                             BB:BBTerminatorInstruction
                                       , K:K
                                       , S:Set)
-          => checkSingleAssignmentInBlock(N, Ili BB, K
+          => typeCheckOp(.K, store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef ,
+                          Ty2:Type V2:ValueRef Osc:OptScopeOrder, Al:Align
+                          Ins:InstructionMetadatas) ~> checkSingleAssignmentInBlock(N, Ili BB, K
                        ~> instruction(store(addNameToString(Ty1)
                                            ,addNameToString(V1)
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
-                                      ,formSet(Oac) formSet(Ovl) formSet(Osc)
+                                      ,formSet(Oac) formSet(Ovl) formSet(Osc) formSet(Al)
                                       ,insMetas(formElemList(Ins)))
              , S)
 /*

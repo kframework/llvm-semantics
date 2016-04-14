@@ -532,6 +532,8 @@ module LLVM-MEMORY
         )
         <nextLoc> Loc:Loc => nextSym insertAlign(
                        insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
+        <memoryRange> value(I:Int, F:Int) => value(I, base(nextSym insertAlign(
+                       insertLimit(Loc, sizeof(Type) *Int N),Al)))      </memoryRange>
         requires N >Int 0
 
     rule
@@ -560,13 +562,32 @@ module LLVM-MEMORY
         <localMemory>... .List => ListItem(base(Loc)) </localMemory>
         <nextLoc> Loc:Loc => nextSym insertAlign(
                               insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
+        <memoryRange> value(I:Int, F:Int) => value(I, base(nextSym insertAlign(
+                       insertLimit(Loc, sizeof(Type) *Int N),Al)))      </memoryRange>
         requires N >Int 0
 
-    //TODO: store must save to a pointer type
+    //DONE: TODO: store must save to a pointer type
     rule
-        <k> store(Type:KResult, V:KResult, Loc:Loc)
-            => write(Type:KResult, V:KResult, Loc:Loc)
+        <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int, Limit:K, Align:K))
+            => write(Type:KResult, V:KResult, loc(Base:Int, Offset:Int, Limit:K, Align:K))
         ...</k>
+        <memoryRange> value(I:Int, F:Int) </memoryRange>
+        requires Base <=Int F andBool Base >=Int I
+                 andBool Base +Int Offset <=Int F andBool Base +Int Offset >=Int I
+
+    rule
+        <k> store(Type:KResult, V:KResult, A:KResult) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires getKLabel(A) =/=KLabel 'loc
+
+    rule
+        <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int, Limit:K, Align:K))
+            ~> K:K  => .K </k>
+        <memoryRange> value(I:Int, F:Int) </memoryRange>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires Base >Int F orBool Base <Int I
+                 orBool Base +Int Offset >Int F orBool Base +Int Offset <Int I
 
     syntax KItem ::= writeBytes(K, K) [strict(1)] // list of bytes, location
 

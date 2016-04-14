@@ -16,6 +16,7 @@ module LLVM-CONFIGURATION
             <callStack color="Goldenrod"> .List </callStack>
             <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <control color="LightGoldenrod">
                 <currBlock color="Orchid"> name(labelVar, "Initial") </currBlock>
                 <prevBlock color="Orchid"> name(labelVar, "Initial") </prevBlock>

@@ -626,10 +626,26 @@ module LLVM-MEMORY
     rule writeBytes(listK(.List), _) => .K
 
     rule
-        <k> load('pointerType(TyK:K,, A:K), Loc:Loc)
-            => read(TyK:K, Loc:Loc)
+        <k> load('pointerTypeValue(TyK:K,, A:K), loc(Base:Int, Offset:Int, Limit:K, Align:K))
+            => read(TyK:K, loc(Base:Int, Offset:Int, Limit:K, Align:K))
         ...</k>
+        <memoryRange> value(I:Int, F:Int) </memoryRange>
+        requires Base <=Int F andBool Base >=Int I
+                 andBool Base +Int Offset <=Int F andBool Base +Int Offset >=Int I
 
+    rule
+        <k> load(Type:KResult, A:KResult) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires getKLabel(A) =/=KLabel 'loc
+
+    rule
+        <k> load(Type:KResult, loc(Base:Int, Offset:Int, Limit:K, Align:K))
+            ~> K:K  => .K </k>
+        <memoryRange> value(I:Int, F:Int) </memoryRange>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires Base >Int F orBool Base <Int I
+                 orBool Base +Int Offset >Int F orBool Base +Int Offset <Int I
 
     rule read(Type:KResult, Loc:Loc)
             => joinBytes(readBytes(sizeof(Type:KResult), Loc:Loc), Type:KResult)
@@ -649,7 +665,7 @@ module LLVM-MEMORY
         <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior") </output>
-        requires Limit >=Int Offset
+        requires Limit >=Int Offset andBool Len =/=Int 0
 
     rule
         <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, undef, undef), L:List) ~> K:K

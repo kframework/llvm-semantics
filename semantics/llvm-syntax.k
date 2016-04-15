@@ -1081,7 +1081,9 @@ module LLVM-SYNTAX
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
                        "(" ParamList ")" FuncAttrs InstructionMetadatas
                      | "alloca" OptInalloca AllocMetadata InstructionMetadatas
-                     | "load" Atomic OptVolatile ResolvedVal
+                     // LLVM syntax 3.7.1 has a typo on this significantly without the first return type
+                     //of load for atomic operator.
+                     | "load" Atomic OptVolatile Type "," ResolvedVal
                        OptScopeOrder "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal
                         "," Align InstructionMetadatas

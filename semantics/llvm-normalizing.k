@@ -30,7 +30,8 @@ module LLVM-NORMALIZING
                    | typeCheckIntArg(K, K, K, K, K)    [strict(4)]
                    | typeCheckGepOp(K, K, K, K, ElemList)  [strict(2,3,5)]//var, t, t*, v, (t,v)lists
                    | typeCheckAllocaOp(K, K, K, K, K)  [strict(2,3)]//var, t, int-t, v, align
-                   | typeCheckStore(K, K, K, K, K)  [strict(1,3)]//t, v, pt, v, align
+                   | typeCheckStore(K, K, K, K, K, K)  [strict(1,3)]//t, v, pt, v, align, atomic
+                   | typeCheckLoad(K, K, K, K, K, K)  [strict(2,3)]//var, t, pt, v, align, atomic
                    | typeCheckIntArg(K, K, K)
                    | typeCheckIntArgList(ElemList)
 
@@ -69,33 +70,110 @@ module LLVM-NORMALIZING
     rule typeCheckOp(K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
-           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)))
+           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
     rule typeCheckOp(K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
-           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, 1)
+           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, 1, .K)
     rule typeCheckOp(K:K, store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef,
                  Ty2:Type V2:ValueRef Osc:OptScopeOrder, align I:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)))
+           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+    rule typeCheckOp(X:SymbolicValueRef, load Ovl:OptVolatile
+                  Ty1:Type, Ty2:Type V2:ValueRef, align I:UnsignedInt
+                    Inm:InstructionMetadatas)
+           => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
+    rule typeCheckOp(X:SymbolicValueRef, load Ovl:OptVolatile
+                  Ty1:Type, Ty2:Type V2:ValueRef
+                    Inm:InstructionMetadatas)
+           => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, 1, .K)
+    rule typeCheckOp(X:SymbolicValueRef, load Oac:Atomic Ovl:OptVolatile Ty1:Type,
+                 Ty2:Type V2:ValueRef Osc:OptScopeOrder, align I:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+
+
+    //deal with type of load
+    rule <k> typeCheckLoad(X:SymbolicValueRef, T:KResult,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, At:K)
+              => typeCheckIntArg(pointerTypeValue(T:KResult, A:K), V2)
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> _:Map (.Map => X |-> T) </varTypes>
+         requires isPowOfTwo(Align, 1) andBool At =/=K atomic
+
+    rule <k> typeCheckLoad(X:SymbolicValueRef, integerType(N:Int),
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic)
+              => typeCheckIntArg(pointerTypeValue(integerType(N:Int), A:K), V2)
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> _:Map (.Map => X |-> integerType(N:Int)) </varTypes>
+         requires isPowOfTwo(Align, 1) andBool N >=Int 8
+
+    rule <k> typeCheckLoad(X:K, T:KResult,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+
+    rule <k> typeCheckLoad(X:K, integerType(N:Int),
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
+         requires N <Int 8
+
+    rule <k> typeCheckLoad(X:K, T:KResult,
+                     pointerTypeValue(T':KResult, A:K), V2:K, Align:Int, At:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckLoad(X:K, T:KResult,
+                     T':KResult, V2:K, Align:Int, At:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: store operand must be a pointer") </output>
+         requires getKLabel(T') =/=KLabel 'pointerTypeValue
+
+    rule <k> typeCheckLoad(X:K, T:KResult, T':KResult, V:K, Align:Int, At:K)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment is not a power of two") </output>
+         requires notBool isPowOfTwo(Align, 1)
+
 
     //deal with type of store
     rule typeCheckStore(T:KResult, V1:K,
-                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int)
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, At:K)
               => typeCheckIntArg(T, V1) ~> typeCheckIntArg(pointerTypeValue(T:KResult, A:K), V2)
-         requires isPowOfTwo(Align, 1)
+         requires isPowOfTwo(Align, 1) andBool At =/=K atomic
+
+    rule typeCheckStore(integerType(N:Int), V1:K,
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic)
+              => typeCheckIntArg(integerType(N:Int), V1)
+                    ~> typeCheckIntArg(pointerTypeValue(integerType(N:Int), A:K), V2)
+         requires isPowOfTwo(Align, 1) andBool N >=Int 8
 
     rule <k> typeCheckStore(T:KResult, V1:K,
-                     pointerTypeValue(T':KResult, A:K), V2:K, Align:Int) ~> K:K => .K </k>
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+
+    rule <k> typeCheckStore(integerType(N:Int), V1:K,
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
+         requires N <Int 8
+
+    rule <k> typeCheckStore(T:KResult, V1:K,
+                     pointerTypeValue(T':KResult, A:K), V2:K, Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
          requires T =/=K T'
 
     rule <k> typeCheckStore(T:KResult, V1:K,
-                     T':KResult, V2:K, Align:Int) ~> K:K => .K </k>
+                     T':KResult, V2:K, Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: store operand must be a pointer") </output>
          requires getKLabel(T') =/=KLabel 'pointerTypeValue
 
-    rule <k> typeCheckStore(X:SymbolicValueRef, T:KResult, T':KResult, V:K, Align:Int)
-             ~> K:K => .K </k>
+    rule <k> typeCheckStore(X:SymbolicValueRef, T:KResult, T':KResult, V:K,
+             Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isPowOfTwo(Align, 1)
 
@@ -894,7 +972,7 @@ module LLVM-NORMALIZING
            => instruction(dealWithAllocaElem(All),formSet(Oil),insMetas(formElemList(Ins)))
 
 
-    rule instValToKItem(load Oac:Atomic Ovl:OptVolatile Ty:Type V:ValueRef
+    rule instValToKItem(load Oac:Atomic Ovl:OptVolatile T:Type, Ty:Type V:ValueRef
                                  Oso:OptScopeOrder,  Oal:Align Ins:InstructionMetadatas)
            => instruction(load(addNameToString(Ty)
                                ,addNameToString(V))

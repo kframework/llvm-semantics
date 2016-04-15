@@ -995,7 +995,7 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br label La:ValueRef
                                   Meta:InstructionMetadatas, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, .K, K
-                   ~> instruction(unconditional(addNameToString(La))
+                   ~> instruction(unconditional(addNameToString('labelValue(La)))
                                   ,.Set
                                   ,insMetas(formElemList(Meta)))
                       , S)
@@ -1004,8 +1004,8 @@ module LLVM-NORMALIZING
                                   Meta:InstructionMetadatas, K:K, S:Set)
          => checkSingleAssignmentInBlock(N, .K, K
              ~> instruction(conditional(operand(addNameToString(It),addNameToString(Va))
-                                        ,addNameToString(La1)
-                                        ,addNameToString(La2))
+                                        ,addNameToString('labelValue(La1))
+                                        ,addNameToString('labelValue(La2)))
                             ,.Set
                             ,insMetas(formElemList(Meta)))
                 , S)

@@ -12,7 +12,7 @@ module LLVM-CONFIGURATION
 
     configuration
         <T multiplicity="?">
-            <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+            <k color="LightGreen"> $PGM:Module ~> initGlobals </k>
             <callStack color="Goldenrod"> .List </callStack>
             <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>

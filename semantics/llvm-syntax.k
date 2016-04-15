@@ -1039,7 +1039,7 @@ module LLVM-SYNTAX
     */
     syntax JumpTableEntry ::= IntType ConstValueRef "," LabelValue
     syntax JumpTable ::= List{JumpTableEntry," "}
-    syntax LabelValue ::= "label" ValueRef
+    syntax LabelValue ::= "label" ValueRef             [klabel('labelValue)]
     syntax LabelValues ::= List{LabelValue,","}
 
 

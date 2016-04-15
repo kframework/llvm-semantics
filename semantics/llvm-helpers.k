@@ -443,6 +443,8 @@ module LLVM-HELPERS
                           ,lengthString(#tokenToString(Var))))
     rule addNameToString(Var:GlobalName) => name(globalVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var))))
+    rule addNameToString('labelValue(Var:LocalName)) => name(labelVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var))))
     rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
     rule addNameToString(K:K) => K [owise]
 

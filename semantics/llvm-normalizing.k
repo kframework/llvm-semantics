@@ -34,6 +34,7 @@ module LLVM-NORMALIZING
                    | typeCheckLoad(K, K, K, K, K, K)  [strict(2,3)]//var, t, pt, v, align, atomic
                    | typeCheckIntArg(K, K, K)
                    | typeCheckIntArgList(ElemList)
+                   | typeCheckBr(K, K, K, K)    [strict(1)]
 
     rule typeCheckOp(X:SymbolicValueRef, IntOp:IntConstructors
                              Onw:OptNW Ty:Type V1:ValueRef,
@@ -89,7 +90,62 @@ module LLVM-NORMALIZING
     rule typeCheckOp(X:SymbolicValueRef, load Oac:Atomic Ovl:OptVolatile Ty1:Type,
                  Ty2:Type V2:ValueRef Osc:OptScopeOrder, align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+    rule typeCheckOp(K:K, br label La:ValueRef Meta:InstructionMetadatas)
+           => typeCheckBr(undef, undef, addNameToString('labelValue(La)), undef)
 
+    //deal with brs
+    rule <k> typeCheckBr(undef, _:K, A:K, _:K) => .K ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... A |-> _:K ...</basicBlocks>
+
+    rule <k> typeCheckBr(undef, _:K, name(labelVar, S:String), _:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: use of undefined value '%"
+                               +String S +String "'") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires notBool name(labelVar, S:String) in keys(M)
+
+    rule <k> typeCheckBr(integerType(1), A:K, L1:K, L2:K)
+                 => typeCheckIntArg(integerType(1), A) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires L1 in keys(M) andBool L2 in keys(M)
+
+    rule <k> typeCheckBr(integerType(N:Int), A:K, L1:K, L2:K) ~> K:K
+                 => .K </k>
+         <output>... .List => ListItem("error: branch condition must have 'i1' type") </output>
+         requires N =/=Int 1
+
+    rule <k> typeCheckBr(integerType(1), A:K, name(labelVar, S:String), _:K) ~> K:K
+                 => .K </k>
+         <output>... .List => ListItem("error: use of undefined value '%"
+                               +String S +String "'") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires notBool (name(labelVar, S:String) in keys(M))
+
+    rule <k> typeCheckBr(integerType(1), A:K, _:K, name(labelVar, S:String)) ~> K:K
+                 => .K </k>
+         <output>... .List => ListItem("error: use of undefined value '%"
+                               +String S +String "'") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires notBool (name(labelVar, S:String) in keys(M))
 
     //deal with type of load
     rule <k> typeCheckLoad(X:SymbolicValueRef, T:KResult,
@@ -1072,7 +1128,9 @@ module LLVM-NORMALIZING
                             , S)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br label La:ValueRef
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(.K, br label La:ValueRef
+                          Meta:InstructionMetadatas)
+                              ~> checkSingleAssignmentInBlock(N, .K, K
                    ~> instruction(unconditional(addNameToString('labelValue(La)))
                                   ,.Set
                                   ,insMetas(formElemList(Meta)))
@@ -1080,8 +1138,11 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br It:IntType Va:ValueRef ,
                                        label La1:ValueRef , label La2:ValueRef
                                   Meta:InstructionMetadatas, K:K, S:Set)
-         => checkSingleAssignmentInBlock(N, .K, K
-             ~> instruction(conditional(operand(addNameToString(It),addNameToString(Va))
+         => typeCheckOp(.K, br It:IntType Va:ValueRef ,
+                   label La1:ValueRef , label La2:ValueRef
+                                  Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K
+               ~> instruction(conditional(operand(addNameToString(It),addNameToString(Va))
                                         ,addNameToString('labelValue(La1))
                                         ,addNameToString('labelValue(La2)))
                             ,.Set

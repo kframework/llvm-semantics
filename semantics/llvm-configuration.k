@@ -18,9 +18,9 @@ module LLVM-CONFIGURATION
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <control color="LightGoldenrod">
-                <currBlock color="Orchid"> name(labelVar, "Initial") </currBlock>
-                <prevBlock color="Orchid"> name(labelVar, "Initial") </prevBlock>
-                <currModule color="Orchid"> name(labelVar, "main") </currModule>
+                <currBlock color="Orchid"> name(localVar, "Initial") </currBlock>
+                <prevBlock color="Orchid"> name(localVar, "Initial") </prevBlock>
+                <currModule color="Orchid"> name(globalVar, "main") </currModule>
                 <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
@@ -47,7 +47,7 @@ module LLVM-CONFIGURATION
             <output stream="stdout" color="DodgerBlue"> .List </output>
             <modules color="teal">
                 <module multiplicity="*" color="LightSkyBlue">
-                    <moduleName color="orange"> name(labelVar, "") </moduleName>
+                    <moduleName color="orange"> name(globalVar, "") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
@@ -68,7 +68,7 @@ module LLVM-CONFIGURATION
             <functions color="teal">
                  <builtinFunctions> .Set </builtinFunctions>
                  <function multiplicity="*" color="LightSkyBlue">
-                       <funModuleName color="orange"> name(labelVar, "") </funModuleName>
+                       <funModuleName color="orange"> name(globalVar, "") </funModuleName>
                        <functionName color="orange"> name(globalVar, "") </functionName>
                        <funModifiers> .Set </funModifiers>
                        <varTypes color="teal"> .Map </varTypes>

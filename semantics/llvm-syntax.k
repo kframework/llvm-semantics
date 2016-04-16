@@ -681,7 +681,8 @@ module LLVM-SYNTAX
     syntax IntType ::= Token{[i][1-9][0-9]*} [onlyLabel, function]
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
                      | "x86_fp80" | "half"
-    syntax PrimType ::= FPType | IntType | "label"
+    syntax LabelType ::= "label"
+    syntax PrimType ::= FPType | IntType | LabelType
     syntax VoidType ::= "void"
     syntax NonVoidType ::= "metadata"
                          | "x86_mmx"

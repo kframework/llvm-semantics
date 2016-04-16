@@ -28,12 +28,12 @@ module LLVM-BRANCHING
         <k> conditional(I:Int, Label:K, _)
             => unconditional(Label:K)
         </k>
-        when unsigned(i(1), I) ==Int 1
+        when normalizingInt(integerType(1), I) ==Int 1
     rule
         <k> conditional(I:Int, _, Label:K)
             => unconditional(Label:K)
         </k>
-        when unsigned(i(1), I) ==Int 0
+        when normalizingInt(integerType(1), I) ==Int 0
 
     // TODO put static switch information into a map like with phi nodes
     // TODO semantic design pattern: list traversal -> statically storing info and using simple rules later

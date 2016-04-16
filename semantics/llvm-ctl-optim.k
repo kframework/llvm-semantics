@@ -91,17 +91,17 @@ module CTL
                           | "(" Model "," SetPath ")" "|=" PathPred         /* implicit and */
 
     /* Satisfaction calculation over StatePred */
-    rule (M, N:NodeLabel) |= ctl-true => true                           [structural]
-    rule (M, N:NodeLabel) |= ctl-false => false                         [structural]
-    rule (M, N:NodeLabel) |= (N':NodeLabel):StatePred => N ==K N'           [structural]
-    rule (M, N:NodeLabel) |= (not S):StatePred => notBool ((M,N) |= S)      [structural]
-    rule (M, N:NodeLabel) |= (S1 and S2):StatePred
-                            => ((M,N) |= S1) andBool ((M,N) |= S2)      [structural]
-    rule (M, N:NodeLabel) |= (S1 or S2):StatePred
-                            => ((M,N) |= S1) orBool ((M,N) |= S2)       [structural]
-    rule (M, N:NodeLabel) |= (A P):PathPred
-                            => (M, N) |= not (E not P)                  [structural]
-    rule (M, N:NodeLabel) |= (E P):PathPred
+    rule (M, S:State) |= ctl-true => true                           [structural]
+    rule (M, S:State) |= ctl-false => false                         [structural]
+    rule (M, S:State) |= (N':NodeLabel):StatePred => N ==K N'           [structural]
+    rule (M, S:State) |= (not S):StatePred => notBool ((M,N) |= S)      [structural]
+    rule (M, S:State) |= (S1 and S2):StatePred
+                 => ((M,N) |= S1) andBool ((M,N) |= S2)      [structural]
+    rule (M, S:State) |= (S1 or S2):StatePred
+                 => ((M,N) |= S1) orBool ((M,N) |= S2)       [structural]
+    rule (M, S:State) |= (A P):PathPred
+                 => (M, N) |= not (E not P)                  [structural]
+    rule (M, S:State) |= (E P):PathPred
                             => (M, paths(M, N)) |= P                    [structural]
     /*rule (M, N:NodeLabel) |= (E P):PathPred
                             => ? */

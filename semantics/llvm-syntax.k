@@ -1076,7 +1076,7 @@ module LLVM-SYNTAX
                        "," ResolvedVal InstructionMetadatas
                      | "shufflevector" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas
-                     | "phi" Type PHIList InstructionMetadatas
+                     | "phi" Type PHIList InstructionMetadatas              [klabel('phiFun)]
                      | "landingpad" Type "personality" ResolvedVal OptCleanup
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal

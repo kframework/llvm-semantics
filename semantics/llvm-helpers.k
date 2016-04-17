@@ -37,12 +37,12 @@ module LLVM-HELPERS
          requires lengthString(A) ==Int 1
                   andBool ((ordChar(A) >=Int ordChar("0"))
                   andBool (ordChar(A) <=Int ordChar("9")))
-    rule isIntString(A) => isIntString(substrString(S:String,
-                                          1, lengthString(S:String)))
+    rule isIntString(A) => isIntString(substrString(A,
+                                          1, lengthString(A)))
          requires lengthString(A) >Int 1
-                  andBool ((ordChar(substrString(S:String, 0, 1))
+                  andBool ((ordChar(substrString(A, 0, 1))
                                                  >=Int ordChar("0"))
-                  andBool (ordChar(substrString(S:String, 0, 1))
+                  andBool (ordChar(substrString(A, 0, 1))
                                                 <=Int ordChar("9")))
 
 
@@ -454,11 +454,6 @@ module LLVM-HELPERS
                                    addNameToString(V),String2Int(#tokenToString(I)))
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
-                              | addNameToLabel(K)  [function]
-
-    rule addNameToLabel(Var:LocalName) => name(labelVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var))))
-    rule addNameToLabel(K:K) => K [owise]
 
     rule addNameToString(Var:LocalName) => name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var))))
@@ -466,8 +461,6 @@ module LLVM-HELPERS
                           ,lengthString(#tokenToString(Var))))
     rule addNameToString(Var:LabelStringConstant) => name(localVar, substrString(#tokenToString(Var),0
                           ,lengthString(#tokenToString(Var)) -Int 1))
-    rule addNameToString('labelValue(Var:LocalName)) => name(labelVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var))))
     rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
     rule addNameToString(K:K) => K [owise]
 

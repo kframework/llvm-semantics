@@ -71,6 +71,7 @@ module LLVM-CONFIGURATION
                        <funModuleName color="orange"> name(globalVar, "") </funModuleName>
                        <functionName color="orange"> name(globalVar, "") </functionName>
                        <funModifiers> .Set </funModifiers>
+                       <concreteSyntax> .K </concreteSyntax>
                        <varTypes color="teal"> .Map </varTypes>
                        <returnType> .K </returnType>
                        <formalParameters> .K </formalParameters>

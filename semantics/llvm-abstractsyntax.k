@@ -14,6 +14,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
                               | FPType
+                              | LabelType
                               | OpaqueType
     syntax AggregatedTypeResult ::= structTypeValue(K)
                                   | arrayTypeValue(K, K)  // inner type, length
@@ -251,7 +252,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= body(ElemList)
 
     syntax SymbolicValueRef ::= name(K, String)//label, name
-    syntax KItem ::= "globalVar" | "localVar" | "labelVar"
+    syntax KItem ::= "globalVar" | "localVar"
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= iNotEq(K, K, K) [strict] // type, left op, right op

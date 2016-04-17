@@ -30,6 +30,22 @@ module LLVM-HELPERS
          requires lengthString(A) ==Int 1
     rule isHexDigit(A:String) => false [owise]
 
+    syntax Bool ::= isIntString(String) [function]
+    rule isIntString(A) => false
+         requires lengthString(A) ==Int 0
+    rule isIntString(A) => true
+         requires lengthString(A) ==Int 1
+                  andBool ((ordChar(A) >=Int ordChar("0"))
+                  andBool (ordChar(A) <=Int ordChar("9")))
+    rule isIntString(A) => isIntString(substrString(A,
+                                          1, lengthString(A)))
+         requires lengthString(A) >Int 1
+                  andBool ((ordChar(substrString(A, 0, 1))
+                                                 >=Int ordChar("0"))
+                  andBool (ordChar(substrString(A, 0, 1))
+                                                <=Int ordChar("9")))
+
+
     syntax List ::= StringToList(String) [function]
     rule StringToList("") => .List
     rule
@@ -225,7 +241,7 @@ module LLVM-HELPERS
     syntax SymbolicValueRef ::= makeVarFromLabel(LabelStringConstant)
                                 [function]
     rule makeVarFromLabel(L:LabelStringConstant)
-              => name(labelVar, substrString(#tokenToString(L), 0
+              => name(localVar, substrString(#tokenToString(L), 0
                     , lengthString(#tokenToString(L)) -Int 1))
 
     //useful function to turn a kitem into an elemList
@@ -443,8 +459,8 @@ module LLVM-HELPERS
                           ,lengthString(#tokenToString(Var))))
     rule addNameToString(Var:GlobalName) => name(globalVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var))))
-    rule addNameToString('labelValue(Var:LocalName)) => name(labelVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var))))
+    rule addNameToString(Var:LabelStringConstant) => name(localVar, substrString(#tokenToString(Var),0
+                          ,lengthString(#tokenToString(Var)) -Int 1))
     rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
     rule addNameToString(K:K) => K [owise]
 

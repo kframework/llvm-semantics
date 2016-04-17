@@ -63,7 +63,7 @@ module LLVM-DECLARATIONS
 
     rule
         <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
-            => checkSingleAssignment(F, .K, .Set) ...</k>
+            => checkSingleAssignment(F, .K) ...</k>
         <currFunction> _ => Label </currFunction>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -175,9 +175,10 @@ module LLVM-DECLARATIONS
 */
     rule
         <k> funBegin(basicBlock(Name:SymbolicValueRef, K:K) ~> K':K)
-           => basicBlock(Name, K) ~> K' ...</k>
+           => basicBlock(Name, K) ~> typeCheckBasicBlock(K, CK) ~> K' ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
+         <concreteSyntax> basicBlock(Name, CK:K) ...</concreteSyntax>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName:SymbolicValueRef </functionName>
         <initialBasicBlock> _ => Name </initialBasicBlock>

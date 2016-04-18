@@ -624,7 +624,7 @@ module LLVM-NORMALIZING
 
     rule typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int), L:ElemList)
               => typeCheckIntArgs(Name:SymbolicValueRef, integerType(N), L)
-                 ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int))
+                 ~> assignType(Name, X, integerType(N:Int))
 
     rule typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                vectorTypeValue(integerType(N:Int), I:Int), L:ElemList)
@@ -1464,8 +1464,7 @@ module LLVM-NORMALIZING
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <basicBlocks>... name(localVar, Int2String(I))
-             |-> blockContent((.K => setBlock(N)
+         <basicBlocks>... N |-> blockContent((_:K => setBlock(N)
                    ~> basicBlock(N,K)), _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //have dealt with all instruction list.
@@ -1552,7 +1551,7 @@ module LLVM-NORMALIZING
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
-                                       to label La1:LabelValue unwind label La2:LabelValue 
+                                       to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, K:K, _:Bool)
          => typeCheckOp(N, name(localVar, Int2String(I)), invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
@@ -1940,6 +1939,7 @@ create an abstract for fence and do the same for fence operation.
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>

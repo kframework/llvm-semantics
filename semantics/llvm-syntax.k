@@ -1055,7 +1055,7 @@ module LLVM-SYNTAX
                            "," Align InstructionMetadatas
                          | "store" OptVolatile ResolvedVal "," ResolvedVal InstructionMetadatas
                          | "store" Atomic OptVolatile ResolvedVal "," ResolvedVal
-                           OptScopeOrder "," Align InstructionMetadatas
+                           OptSingleThread Ordering "," Align InstructionMetadatas
                          | "fence" OptSingleThread Ordering InstructionMetadatas
 
     /*@
@@ -1085,7 +1085,7 @@ module LLVM-SYNTAX
                      // LLVM syntax 3.7.1 has a typo on this significantly without the first return type
                      //of load for atomic operator.
                      | "load" Atomic OptVolatile Type "," ResolvedVal
-                       OptScopeOrder "," Align InstructionMetadatas
+                       OptSingleThread Ordering "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal
                         "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal

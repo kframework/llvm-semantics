@@ -63,7 +63,7 @@ module LLVM-DECLARATIONS
 
     rule
         <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
-            => checkSingleAssignment(F, .K) ...</k>
+            => setInitBlock(F) ~> checkSingleAssignment(F, .K) ...</k>
         <currFunction> _ => Label </currFunction>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -93,6 +93,42 @@ module LLVM-DECLARATIONS
         )
 
     rule BB:BasicBlock BBL:BasicBlockList => BB ~> BBL
+
+    rule <k> setInitBlock(I:InstructionList B:BBTerminatorInstruction) => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int </localFunVarCounter>
+        <initialBasicBlock> _ => name(localVar, Int2String(I)) </initialBasicBlock>
+
+    rule <k> setInitBlock(L:LabelStringConstant
+                     I:InstructionList B:BBTerminatorInstruction) => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int </localFunVarCounter>
+        <initialBasicBlock> _ => addNameToString(L) </initialBasicBlock>
+
+    rule <k> setInitBlock(I:InstructionList B:BBTerminatorInstruction
+                            BBL:BasicBlockList) => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int </localFunVarCounter>
+        <initialBasicBlock> _ => name(localVar, Int2String(I)) </initialBasicBlock>
+
+    rule <k> setInitBlock(L:LabelStringConstant I:InstructionList
+                  B:BBTerminatorInstruction BBL:BasicBlockList) => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <localFunVarCounter> I:Int </localFunVarCounter>
+        <initialBasicBlock> _ => addNameToString(L) </initialBasicBlock>
+
 /*
     rule <k> funBegin ~> Ins:InstructionList Tem:BBTerminatorInstruction
                            BBL:BasicBlockList
@@ -173,15 +209,6 @@ module LLVM-DECLARATIONS
              ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
 
 */
-    rule
-        <k> funBegin(basicBlock(Name:SymbolicValueRef, K:K) ~> K':K)
-           => basicBlock(Name, K) ~> typeCheckBasicBlock(K, CK) ~> K' ...</k>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-         <concreteSyntax> basicBlock(Name, CK:K) ...</concreteSyntax>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName:SymbolicValueRef </functionName>
-        <initialBasicBlock> _ => Name </initialBasicBlock>
 
     rule
         <k> basicBlock(Name:SymbolicValueRef, K:K) => .K ...</k>

@@ -243,6 +243,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
+    syntax KItem ::= blockContent(K, Set, Set, Set, Set, Set) //instructions,outgoing edges, incoming edges, all defs about vars,
+                                   // all uses of var in phi without defs in cur, all uses of var in others without def in cur. 
+    syntax KItem ::= setOutEdge(K, ElemList) //name, outEdges
+    syntax KItem ::= setInEdges(Set)
+    syntax KItem ::= setInEdgesForNode(K)
+    syntax KItem ::= setInEdgesForNode(K, K, Set)
+    syntax KItem ::= setInitBlock(K)
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K)    [strict(2)]// name, type TODO: modifiers
@@ -250,6 +257,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= types(ElemList)  [strict]
     syntax KItem ::= setBlock(K)
     syntax KItem ::= body(ElemList)
+
+    syntax KItem ::= assignType(K, K, K) //block, var, t
 
     syntax SymbolicValueRef ::= name(K, String)//label, name
     syntax KItem ::= "globalVar" | "localVar"

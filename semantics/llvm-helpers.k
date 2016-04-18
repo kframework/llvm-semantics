@@ -664,4 +664,11 @@ module LLVM-HELPERS
     rule getAlign(S:Set, K:K => .K)
          requires getKLabel(K) =/=KLabel 'align
 
+    syntax ElemList ::= getOutEdges(K) [function]
+    rule getOutEdges(I:IntType C:ConstValueRef,
+              'labelValue(V:ValueRef) Ju:JumpTable) => val(addNameToString(V)),getOutEdges(Ju)
+    rule getOutEdges(.JumpTable) => .ElemList
+    rule getOutEdges('labelValue(V:ValueRef), Ju:LabelValues) => val(addNameToString(V)),getOutEdges(Ju)
+    rule getOutEdges(.LabelValues) => .ElemList
+
 endmodule

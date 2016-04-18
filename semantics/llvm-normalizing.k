@@ -22,23 +22,22 @@ module LLVM-NORMALIZING
     rule <k> badType ~> K => .K </k>
          <output>... .List => ListItem("error: expected type") </output>
 
-    syntax KItem ::= typeCheckOp(K, K)
-                   | typeCheckBasicBlock(K, K)  //abstract, concrete
-                   | typeCheckIntOp(K, K, ElemList)    [strict(2)]
-                   | typeCheckCastOp(K, K, K, K, K)    [strict(3, 5)]//variable, operator, T1, V, T2
-                   | typeCheckIntArgs(K, ElemList)
-                   | typeCheckIntArg(K, K)
-                   | typeCheckIntArg(K, K, K, K, K)    [strict(4)]
-                   | typeCheckGepOp(K, K, K, K, ElemList)  [strict(2,3,5)]//var, t, t*, v, (t,v)lists
-                   | typeCheckAllocaOp(K, K, K, K, K)  [strict(2,3)]//var, t, int-t, v, align
-                   | typeCheckStore(K, K, K, K, K, K)  [strict(1,3)]//t, v, pt, v, align, atomic
-                   | typeCheckLoad(K, K, K, K, K, K)  [strict(2,3)]//var, t, pt, v, align, atomic
+    syntax KItem ::= typeCheckOp(K, K, K) //block name, var name, op
+                   | typeCheckIntOp(K, K, K, ElemList)    [strict(3)]
+                   | typeCheckCastOp(K, K, K, K, K, K)    [strict(4, 6)]//block, variable, operator, T1, V, T2
+                   | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckIntArg(K, K, K)
-                   | typeCheckIntArgList(ElemList)
-                   | typeCheckBr(K, K, K, K)    [strict(1)]
-                   | typeCheckCmp(K, K, K, K)    [strict(2)]//var, type, v1, v2
-                   | typeCheckFCmp(K, K, K, K)    [strict(2)]//var, type, v1, v2
-                   | typeCheckPhi(K, K, ElemList, ElemList)  [strict(2)]//var, type, value-list, label-list
+                   | typeCheckIntArg(K, K, K, K)
+                   | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
+                   | typeCheckGepOp(K, K, K, K, K, ElemList)  [strict(3,4,6)]//block, var, t, t*, v, (t,v)lists
+                   | typeCheckAllocaOp(K, K, K, K, K, K)  [strict(3,4)]//block,var, t, int-t, v, align
+                   | typeCheckStore(K, K, K, K, K, K, K)  [strict(2,4)]//block, t, v, pt, v, align, atomic
+                   | typeCheckLoad(K, K, K, K, K, K, K)  [strict(3,4)]//block, var, t, pt, v, align, atomic
+                   | typeCheckIntArgList(K, ElemList)
+                   | typeCheckBr(K, K, K, K, K)    [strict(2)]//block, t, ...
+                   | typeCheckCmp(K, K, K, K, K)    [strict(3)]//block, var, type, v1, v2
+                   | typeCheckFCmp(K, K, K, K, K)    [strict(3)]//block, var, type, v1, v2
+                   | typeCheckPhi(K, K, K, ElemList, ElemList)  [strict(3)]//block, var, type, value-list, label-list
 
 
     syntax KItem ::= getValueOfPhi(PHIList) [function]
@@ -56,103 +55,130 @@ module LLVM-NORMALIZING
     rule getVar(K:K) => .K [owise]
 
     //maybe a bug for LLVM, LLVM actually allows that a variable to be used then assign
-    rule typeCheckBasicBlock(B:KItem ~> K:K, .InstructionList R:BBTerminatorInstruction)
-         => typeCheckOp(getVar(B), R)
-    rule typeCheckBasicBlock(B:KItem ~> K:K, A:Instruction
-                                  L:InstructionList R:BBTerminatorInstruction)
-         => typeCheckOp(getVar(B), A) ~> typeCheckBasicBlock(K, L R)
+    //br might have the problem to jump to two basic blocks by a phi functions
 
-    rule typeCheckOp(X:SymbolicValueRef, IntOp:IntConstructors
+    rule typeCheckOp(Name:SymbolicValueRef,X:SymbolicValueRef, IntOp:IntConstructors
                              Onw:OptNW Ty:Type V1:ValueRef,
                              V2:ValueRef Ins:InstructionMetadatas)
-           => typeCheckIntOp(X, Ty, val(V1), val(V2))
-    rule typeCheckOp(X:SymbolicValueRef, L:LogicalOps Ty:Type V1:ValueRef,
+           => typeCheckIntOp(Name:SymbolicValueRef, X, Ty, val(V1), val(V2))
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, L:LogicalOps Ty:Type V1:ValueRef,
                   V2:ValueRef Ins:InstructionMetadatas)
-           => typeCheckIntOp(X, Ty, val(V1), val(V2))
-    rule typeCheckOp(X:SymbolicValueRef, trunc Ty1:Type V:ValueRef
+           => typeCheckIntOp(Name:SymbolicValueRef, X, Ty, val(V1), val(V2))
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(X, trunc,  Ty1, V, Ty2)
-    rule typeCheckOp(X:SymbolicValueRef, zext Ty1:Type V:ValueRef
+           => typeCheckCastOp(Name:SymbolicValueRef, X, trunc,  Ty1, V, Ty2)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, zext Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(X, zext,  Ty1, V, Ty2)
-    rule typeCheckOp(X:SymbolicValueRef, sext Ty1:Type V:ValueRef
+           => typeCheckCastOp(Name:SymbolicValueRef, X, zext,  Ty1, V, Ty2)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, sext Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(X, sext,  Ty1, V, Ty2)
+           => typeCheckCastOp(Name:SymbolicValueRef, X, sext,  Ty1, V, Ty2)
 
-    rule typeCheckOp(X:SymbolicValueRef, getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
                                     Itr:IntResolveVals Ins:InstructionMetadatas)
-           => typeCheckGepOp(X, Ty, Ty1, V1, formTypeCheckList(Itr))
+           => typeCheckGepOp(Name:SymbolicValueRef, X, Ty, Ty1, V1, formTypeCheckList(Itr))
 
-    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(X,Ty, undef, undef, 1)
-    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca
-                                          Ty:Type, align A:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(X,Ty,undef,undef, String2Int(#tokenToString(A)))
-    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca Ty:Type,
-                                        It:IntType V:ValueRef Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(X,Ty,It,V, 1)
-    rule typeCheckOp(X:SymbolicValueRef, alloca Oil:OptInalloca Ty:Type,
-                       It:IntType V:ValueRef, align A:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(X,Ty,It,V, String2Int(#tokenToString(A)))
-    rule typeCheckOp(K:K, store Ovl:OptVolatile
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                         alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty, undef, undef, 1)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                            alloca Oil:OptInalloca
+                                   Ty:Type, align A:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef,
+                               X,Ty,undef,undef, String2Int(#tokenToString(A)))
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                        alloca Oil:OptInalloca Ty:Type,
+                           It:IntType V:ValueRef Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It,V, 1)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+               alloca Oil:OptInalloca Ty:Type, It:IntType V:ValueRef,
+                                   align A:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It,V, String2Int(#tokenToString(A)))
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
-           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
-    rule typeCheckOp(K:K, store Ovl:OptVolatile
+           => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
+                  V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
-           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, 1, .K)
-    rule typeCheckOp(K:K, store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef,
-                 Ty2:Type V2:ValueRef Osc:OptScopeOrder, align I:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckStore(Ty1:Type, V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
-    rule typeCheckOp(X:SymbolicValueRef, load Ovl:OptVolatile
+           => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
+                                    V1:ValueRef, Ty2:Type, V2:ValueRef, 1, .K)
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, store Oac:Atomic
+                                                    Ovl:OptVolatile Ty1:Type V1:ValueRef,
+                 Ty2:Type V2:ValueRef _:OptSingleThread _:Ordering,
+                                          align I:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
+                          V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+    rule typeCheckOp(Name:SymbolicValueRef,
+              X:SymbolicValueRef, load Ovl:OptVolatile
                   Ty1:Type, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
-           => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
-    rule typeCheckOp(X:SymbolicValueRef, load Ovl:OptVolatile
+           => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
+                                Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, load Ovl:OptVolatile
                   Ty1:Type, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
-           => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, 1, .K)
-    rule typeCheckOp(X:SymbolicValueRef, load Oac:Atomic Ovl:OptVolatile Ty1:Type,
-                 Ty2:Type V2:ValueRef Osc:OptScopeOrder, align I:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckLoad(X, Ty1:Type, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
-    rule typeCheckOp(K:K, br label La:ValueRef Meta:InstructionMetadatas)
-           => typeCheckBr(undef, undef, addNameToString(La), undef)
-    rule typeCheckOp(K:K, br It:IntType Va:ValueRef ,
+           => typeCheckLoad(Name:SymbolicValueRef, X,
+                                         Ty1:Type, Ty2:Type, V2:ValueRef, 1, .K)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                         load Oac:Atomic Ovl:OptVolatile Ty1:Type,
+                 Ty2:Type V2:ValueRef _:OptSingleThread _:Ordering,
+                                               align I:UnsignedInt Ins:InstructionMetadatas)
+           => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
+                                       Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, br label La:ValueRef Meta:InstructionMetadatas)
+           => typeCheckBr(Name:SymbolicValueRef, undef, undef, addNameToString(La), undef)
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, br It:IntType Va:ValueRef ,
                    label La1:ValueRef , label La2:ValueRef
                                   Meta:InstructionMetadatas)
-           => typeCheckBr(K, It, addNameToString(La1), addNameToString(La2))
-    rule typeCheckOp(X:SymbolicValueRef, icmp Op:IPredicate
+           => typeCheckBr(Name:SymbolicValueRef, K, It, addNameToString(La1), addNameToString(La2))
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, icmp Op:IPredicate
                    Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-         => typeCheckCmp(X, Ty, V1, V2)
-    rule typeCheckOp(X:SymbolicValueRef, fcmp Op:FPredicate
+         => typeCheckCmp(Name:SymbolicValueRef, X, Ty, V1, V2)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, fcmp Op:FPredicate
                    Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-         => typeCheckFCmp(X, Ty, V1, V2)
-    rule typeCheckOp(X:SymbolicValueRef, phi Ty:Type Pl:PHIList Ins:InstructionMetadatas)
-         => typeCheckPhi(X, Ty, getValueOfPhi(Pl), getLabelOfPhi(Pl))
+         => typeCheckFCmp(Name:SymbolicValueRef, X, Ty, V1, V2)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                     phi Ty:Type Pl:PHIList Ins:InstructionMetadatas)
+         => typeCheckPhi(Name:SymbolicValueRef, X, Ty, getValueOfPhi(Pl), getLabelOfPhi(Pl))
+
+
 
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function
 
-    rule typeCheckPhi(X:SymbolicValueRef, T:KResult, val(A:K), E1:ElemList, E2:ElemList)
-                => typeCheckIntArgs(T, E1)
-                  ~> typeCheckPhi(X:SymbolicValueRef,
-                                T:KResult, E1:ElemList, E2:ElemList)
-         requires getKLabel(A) =/=KLabel 'name
+    rule (.K => typeCheckIntArg(Name, T, V))
+            ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                  (val(V:ConstValueRef), E1:ElemList => E1), _:ElemList)
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult,
-                          val(name(localVar, S:String)), E1:ElemList, .ElemList)
-                => .K ...</k>
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                  (val(name(localVar, S:String)), E1:ElemList => E1), _:ElemList) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes>... name(localVar, S:String) |-> (T' => T) ...</varTypes>
-         requires T' ==K undef orBool T' ==K T
+         <varTypes>... name(localVar, S:String) |-> T ...</varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires operand(name(localVar, S:String), T) in Def
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult,
-                          val(name(localVar, S:String)), E1:ElemList, .ElemList)
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                  (val(name(localVar, S:String)), E1:ElemList => E1), _:ElemList) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set,
+                  UsePhi:Set (.Set => SetItem(operand(name(localVar, S:String), T))), _:Set) ...</basicBlocks>
+         requires (notBool name(localVar, S:String) in keys(M))
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+             T:KResult, val(name(localVar, S:String)), E1:ElemList, E2:ElemList)
              ~> K:K => .K </k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
@@ -160,110 +186,89 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          <varTypes>... name(localVar, S:String) |-> T' ...</varTypes>
-         requires T' =/=K undef andBool T' =/=K T
+         requires T' =/=K T
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult, .ElemList, .ElemList)
-                => .K ...</k>
+    rule typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+             T:KResult, .ElemList, .ElemList) => assignType(Name, X, T)
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T:KResult, E1:ElemList, val(name(localVar, S:String)), L:ElemList)
+                => typeCheckPhi(Name, X, T, E1, L) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => T) ...</varTypes>
-         requires T' ==K undef orBool T' ==K T
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set
+                  => SetItem(operand(name(localVar, S:String), label)))) ...</basicBlocks>
+         requires notBool name(localVar, S:String) in keys(M)
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult, E1:ElemList, E2:ElemList)
-             ~> K:K => .K </k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         <varTypes>... X |-> T' ...</varTypes>
-         requires T' =/=K undef andBool T' =/=K T
-
-
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult, E1:ElemList
-                         , val(name(localVar, S:String)), L:ElemList)
-                => typeCheckPhi(X, T, E1, L) ...</k>
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T:KResult, E1:ElemList, val(name(localVar, S:String)), L:ElemList)
+                => typeCheckPhi(Name, X, T, E1, L) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... name(localVar, S:String) |-> label ...</varTypes>
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult, E1:ElemList
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, E1:ElemList
                , val(name(localVar, S:String)), L:ElemList) ~> K:K
                 => .K </k>
-         <output>... .List => ListItem("error: use of undefined value '%"
-                               +String S +String "'") </output>
+         <output>... .List => ListItem("error: '%"
+                   +String S +String "' is not a basic block") </output>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes> M:Map </varTypes>
-         requires notBool name(localVar, S:String) in keys(M)
+         <varTypes>... name(localVar, S:String) |-> T' ...</varTypes>
+         requires T' =/=K label
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult, E1:ElemList
-               , val(name(A:K, S:String)), L:ElemList) ~> K:K
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+             T:KResult, E1:ElemList, val(name(A:K, S:String)), L:ElemList) ~> K:K
                 => .K </k>
          <output>... .List => ListItem("error: use of undefined value '%"
                                +String S +String "'") </output>
          requires A =/=K localVar
 
-    rule <k> typeCheckPhi(X:SymbolicValueRef, T:KResult, E1:ElemList
-               , val(K:K), L:ElemList) ~> K:K
-                => .K </k>
+    rule <k> typeCheckPhi(Name:SymbolicValueRef,
+               X:SymbolicValueRef, T:KResult, E1:ElemList
+               , val(K:K), L:ElemList) ~> K':K => .K </k>
          <output>... .List => ListItem("error: '" +String #tokenToString(K)
                                +String "' is not a basic block") </output>
          requires getKLabel(K) =/=KLabel 'name
 
     //deal with fcmp
-    rule <k> typeCheckFCmp(X:SymbolicValueRef, T:KResult, V1:K, V2:K)
-               => typeCheckIntArg(T, V1) ~> typeCheckIntArg(T, V2)
-         ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => T) ...</varTypes>
+    rule typeCheckFCmp(Name:SymbolicValueRef,
+              X:SymbolicValueRef, T:KResult, V1:K, V2:K)
+               => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
+                   ~> assignType(Name, X, T)
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
-                  andBool (T' ==K undef orBool T' ==K T)
 
-    rule <k> typeCheckFCmp(X:SymbolicValueRef, vectorTypeValue(T:KResult, I:Int), V1:K, V2:K)
-               => typeCheckIntArg(vectorTypeValue(T:KResult, I:Int), V1)
-                     ~> typeCheckIntArg(vectorTypeValue(T:KResult, I:Int), V2)
-         ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => vectorTypeValue(T:KResult, I:Int)) ...</varTypes>
+    rule typeCheckFCmp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                     vectorTypeValue(T:KResult, I:Int), V1:K, V2:K)
+               => typeCheckIntArg(Name:SymbolicValueRef,
+                              vectorTypeValue(T:KResult, I:Int), V1)
+                     ~> typeCheckIntArg(Name:SymbolicValueRef,
+                            vectorTypeValue(T:KResult, I:Int), V2)
+                     ~> assignType(Name, X, vectorTypeValue(T:KResult, I:Int))
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
-                  andBool (T' ==K undef orBool T' ==K vectorTypeValue(T:KResult, I:Int))
 
-    rule <k> typeCheckFCmp(X:SymbolicValueRef, T:KResult, V1:K, V2:K) ~> K:K
-               => .K </k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> T' ...</varTypes>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires (T' =/=K undef andBool T' =/=K T)
-
-    rule <k> typeCheckFCmp(X, T:KResult, V1:K, V2:K) ~> K:K
-               => .K </k>
+    rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:K,
+                 T:KResult, V1:K, V2:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: fcmp requires floating point operands") </output>
          requires T =/=K float andBool T =/=K double
                   andBool T =/=K ppc_fp128 andBool T =/=K half
                   andBool T =/=K fp128 andBool T =/=K x86_fp80
 
-    rule <k> typeCheckFCmp(X, vectorTypeValue(T:K, I:Int), V1:K, V2:K) ~> K:K
-               => .K </k>
+    rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:K,
+                 vectorTypeValue(T:K, I:Int), V1:K, V2:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: fcmp requires floating point operands") </output>
          requires T =/=K float andBool T =/=K double
                   andBool T =/=K ppc_fp128 andBool T =/=K half
@@ -271,286 +276,294 @@ module LLVM-NORMALIZING
 
 
     //deal with icmp
-    rule <k> typeCheckCmp(X:SymbolicValueRef, T:KResult, V1:K, V2:K)
-               => typeCheckIntArg(T, V1) ~> typeCheckIntArg(T, V2)
-         ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => T) ...</varTypes>
+    rule typeCheckCmp(Name:SymbolicValueRef, X:SymbolicValueRef,
+               T:KResult, V1:K, V2:K)
+               => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
+                  ~> assignType(Name, X, T)
          requires (getKLabel(T) ==KLabel 'integerType
                orBool getKLabel(T) ==KLabel 'pointerTypeValue)
-               andBool ( T' ==K undef orBool T' ==K T)
          
-    rule <k> typeCheckCmp(X:SymbolicValueRef,
+    rule typeCheckCmp(Name:SymbolicValueRef, X:SymbolicValueRef,
                      vectorTypeValue(integerType(N:Int), I:Int), V1:K, V2:K)
-               => typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), V1)
-                     ~> typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), V2)
-         ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => vectorTypeValue(integerType(N:Int), I:Int)) ...</varTypes>
-         requires ( T' ==K undef orBool T' ==K vectorTypeValue(integerType(N:Int), I:Int))
+               => typeCheckIntArg(Name:SymbolicValueRef,
+                                  vectorTypeValue(integerType(N:Int), I:Int), V1)
+                     ~> typeCheckIntArg(Name:SymbolicValueRef,
+                                    vectorTypeValue(integerType(N:Int), I:Int), V2)
+                     ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int))
 
-    rule <k> typeCheckCmp(X:SymbolicValueRef, T:KResult, V1:K, V2:K) ~> K:K
-               => .K </k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> T' ...</varTypes>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires (T' =/=K undef andBool T' =/=K T)
-
-    rule <k> typeCheckCmp(X, T:KResult, V1:K, V2:K) ~> K:K
-               => .K </k>
+    rule <k> typeCheckCmp(Name:SymbolicValueRef, X,
+              T:KResult, V1:K, V2:K) ~> K:K  => .K </k>
          <output>... .List => ListItem("error: icmp requires integer operands") </output>
          requires getKLabel(T) =/=KLabel 'integerType
                andBool getKLabel(T) =/=KLabel 'pointerTypeValue
                andBool getKLabel(T) =/=KLabel 'vectorTypeValue
 
-    rule <k> typeCheckCmp(X, vectorTypeValue(T:K, I:Int), V1:K, V2:K) ~> K:K
-               => .K </k>
+    rule <k> typeCheckCmp(Name:SymbolicValueRef, X,
+             vectorTypeValue(T:K, I:Int), V1:K, V2:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: icmp requires integer operands") </output>
          requires getKLabel(T) =/=KLabel 'integerType
 
     //deal with brs
-    rule <k> typeCheckBr(undef, _:K, A:K, _:K) => .K ...</k>
+    rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
+                   _:K, A:SymbolicValueRef, _:K) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks>... A |-> _:K ...</basicBlocks>
+         <varTypes>... A |-> label ...</varTypes>
 
-    rule <k> typeCheckBr(undef, _:K, name(localVar, S:String), _:K) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: use of undefined value '%"
-                               +String S +String "'") </output>
+    rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
+                    _:K, A:SymbolicValueRef, _:K) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks> M:Map </basicBlocks>
-         requires notBool name(localVar, S:String) in keys(M)
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(A, label)))) ...</basicBlocks>
+         requires notBool A in keys(M)
 
-    rule <k> typeCheckBr(integerType(1), A:K, L1:K, L2:K)
-                 => typeCheckIntArg(integerType(1), A) ...</k>
+    rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
+                  _:K, name(localVar, S:String), _:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: '%"
+                   +String S +String "' is not a basic block") </output>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks> M:Map </basicBlocks>
+         <varTypes>... name(localVar, S:String) |-> T:K ...</varTypes>
+         requires T =/=K label
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+             integerType(1), A:K, L1:SymbolicValueRef, L2:SymbolicValueRef)
+                 => typeCheckIntArg(Name, integerType(1), A) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(L1, label))
+                              SetItem(operand(L2, label)))) ...</basicBlocks>
+         requires (notBool L1 in keys(M)) andBool (notBool L2 in keys(M))
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+             integerType(1), A:K, L1:SymbolicValueRef, L2:SymbolicValueRef)
+                 => typeCheckIntArg(Name, integerType(1), A) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(L1, label)))) ...</basicBlocks>
+         requires L2 in keys(M) andBool (notBool L1 in keys(M))
+                  andBool M[L2] ==K label
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+             integerType(1), A:K, L1:SymbolicValueRef, L2:SymbolicValueRef)
+                 => typeCheckIntArg(Name, integerType(1), A) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(L2, label)))) ...</basicBlocks>
+         requires L1 in keys(M) andBool (notBool L2 in keys(M))
+                  andBool M[L1] ==K label
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+             integerType(1), A:K, L1:SymbolicValueRef, L2:SymbolicValueRef)
+                 => typeCheckIntArg(Name, integerType(1), A) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
          requires L1 in keys(M) andBool L2 in keys(M)
+                  andBool M[L1] ==K label andBool M[L2] ==K label
 
-    rule <k> typeCheckBr(integerType(N:Int), A:K, L1:K, L2:K) ~> K:K
-                 => .K </k>
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+            integerType(N:Int), A:K, L1:K, L2:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: branch condition must have 'i1' type") </output>
          requires N =/=Int 1
 
-    rule <k> typeCheckBr(integerType(1), A:K, name(localVar, S:String), _:K) ~> K:K
-                 => .K </k>
-         <output>... .List => ListItem("error: use of undefined value '%"
-                               +String S +String "'") </output>
+    rule <k> typeCheckBr(Name:SymbolicValueRef, integerType(1),
+             A:K, name(localVar, S:String), _:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: '%"
+                   +String S +String "' is not a basic block") </output>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks> M:Map </basicBlocks>
-         requires notBool (name(localVar, S:String) in keys(M))
+          <varTypes>... name(localVar, S:String) |-> T:K ...</varTypes>
+         requires T =/=K label
 
-    rule <k> typeCheckBr(integerType(1), A:K, _:K, name(localVar, S:String)) ~> K:K
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+                    integerType(1), A:K, _:K, name(localVar, S:String)) ~> K:K
                  => .K </k>
-         <output>... .List => ListItem("error: use of undefined value '%"
-                               +String S +String "'") </output>
+         <output>... .List => ListItem("error: '%"
+                   +String S +String "' is not a basic block") </output>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks> M:Map </basicBlocks>
-         requires notBool (name(localVar, S:String) in keys(M))
+          <varTypes>... name(localVar, S:String) |-> T:K ...</varTypes>
+         requires T =/=K label
 
     //deal with type of load
-    rule <k> typeCheckLoad(X:SymbolicValueRef, T:KResult,
+    rule typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, At:K)
-              => typeCheckIntArg(pointerTypeValue(T:KResult, A:K), V2)
-         ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => T) ...</varTypes>
+              => typeCheckIntArg(Name, pointerTypeValue(T:KResult, A:K), V2)
+                 ~> assignType(Name, X, T)
          requires isPowOfTwo(Align, 1) andBool At =/=K atomic
-                  andBool (T' ==K undef orBool T' ==K T)
 
-
-
-    rule <k> typeCheckLoad(X:SymbolicValueRef, integerType(N:Int),
+    rule typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic)
-              => typeCheckIntArg(pointerTypeValue(integerType(N:Int), A:K), V2)
-         ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> (T' => integerType(N:Int)) ...</varTypes>
+              => typeCheckIntArg(Name,pointerTypeValue(integerType(N:Int), A:K), V2)
+                 ~> assignType(Name, X, integerType(N:Int))
          requires isPowOfTwo(Align, 1) andBool N >=Int 8
-                  andBool (T' ==K undef orBool T' ==K T)
 
-    rule <k> typeCheckLoad(X:SymbolicValueRef, T:KResult,
-                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, At:K)
-              ~> K:K => .K </k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... X |-> T' ...</varTypes>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires T' =/=K undef andBool T' =/=K T
-
-    rule <k> typeCheckLoad(X:K, T:KResult,
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
          <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
          requires getKLabel(T) =/=KLabel 'integerType
 
-    rule <k> typeCheckLoad(X:K, integerType(N:Int),
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
          <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
          requires N <Int 8
 
-    rule <k> typeCheckLoad(X:K, T:KResult,
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      pointerTypeValue(T':KResult, A:K), V2:K, Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
          requires T =/=K T'
 
-    rule <k> typeCheckLoad(X:K, T:KResult,
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      T':KResult, V2:K, Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: store operand must be a pointer") </output>
          requires getKLabel(T') =/=KLabel 'pointerTypeValue
 
-    rule <k> typeCheckLoad(X:K, T:KResult, T':KResult, V:K, Align:Int, At:K)
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult, T':KResult, V:K, Align:Int, At:K)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isPowOfTwo(Align, 1)
 
 
     //deal with type of store
-    rule typeCheckStore(T:KResult, V1:K,
+    rule typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, At:K)
-              => typeCheckIntArg(T, V1) ~> typeCheckIntArg(pointerTypeValue(T:KResult, A:K), V2)
+              => typeCheckIntArg(Name:SymbolicValueRef, T, V1)
+                 ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(T:KResult, A:K), V2)
          requires isPowOfTwo(Align, 1) andBool At =/=K atomic
 
-    rule typeCheckStore(integerType(N:Int), V1:K,
+    rule typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic)
-              => typeCheckIntArg(integerType(N:Int), V1)
-                    ~> typeCheckIntArg(pointerTypeValue(integerType(N:Int), A:K), V2)
+              => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), V1)
+                    ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(integerType(N:Int), A:K), V2)
          requires isPowOfTwo(Align, 1) andBool N >=Int 8
 
-    rule <k> typeCheckStore(T:KResult, V1:K,
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
          <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
          requires getKLabel(T) =/=KLabel 'integerType
 
-    rule <k> typeCheckStore(integerType(N:Int), V1:K,
+    rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic) ~> K:K => .K </k>
          <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
          requires N <Int 8
 
-    rule <k> typeCheckStore(T:KResult, V1:K,
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T':KResult, A:K), V2:K, Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
          requires T =/=K T'
 
-    rule <k> typeCheckStore(T:KResult, V1:K,
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      T':KResult, V2:K, Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: store operand must be a pointer") </output>
          requires getKLabel(T') =/=KLabel 'pointerTypeValue
 
-    rule <k> typeCheckStore(X:SymbolicValueRef, T:KResult, T':KResult, V:K,
+    rule <k> typeCheckStore(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, T':KResult, V:K,
              Align:Int, At:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isPowOfTwo(Align, 1)
 
 
     //deal with type of alloca
-    rule <k> typeCheckAllocaOp(X:SymbolicValueRef, T:KResult, integerType(I:Int), V:K, Align:Int)
-              => typeCheckIntArg(integerType(I:Int), V) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes> _:Map (.Map => X |-> pointerTypeValue(T, 'addrEmpty(.KList))) </varTypes>
+    rule typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, integerType(I:Int), V:K, Align:Int)
+              => typeCheckIntArg(Name:SymbolicValueRef, integerType(I:Int), V)
+                     ~> assignType(Name, X, pointerTypeValue(T, 'addrEmpty(.KList)))
          requires isPowOfTwo(Align, 1)
 
-    rule <k> typeCheckAllocaOp(X:SymbolicValueRef, T:KResult, T':KResult, V:K, Align:Int)
-             ~> K:K => .K </k>
+    rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                T:KResult, T':KResult, V:K, Align:Int) ~> K:K => .K </k>
          <output>... .List => ListItem("error: element count must have integer type") </output>
          requires getKLabel(T') =/=KLabel 'integerType
 
-    rule <k> typeCheckAllocaOp(X:SymbolicValueRef, T:KResult, T':KResult, V:K, Align:Int)
-             ~> K:K => .K </k>
+    rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                T:KResult, T':KResult, V:K, Align:Int) ~> K:K => .K </k>
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isPowOfTwo(Align, 1)
 
 
     //TODO: deal with other constant expr cases
-    rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
-              => typeCheckIntArg(pointerTypeValue(T, A), V) ~> typeCheckIntArgList(L) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes> _:Map (.Map => X |-> pointerTypeValue(T, A)) </varTypes>
+    rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
+              => typeCheckIntArg(Name, pointerTypeValue(T, A), V)
+                  ~> typeCheckIntArgList(Name, L)
+                  ~> assignType(Name, X, pointerTypeValue(T, A))
 
-    rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, pointerTypeValue(T', A:K), V:K, L:ElemList)
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef,
+                    X:SymbolicValueRef, T:KResult, pointerTypeValue(T', A:K), V:K, L:ElemList)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: explicit pointee type doesn't match operand's pointee type") </output>
          requires T =/=K T'
 
-    rule <k> typeCheckGepOp(X:SymbolicValueRef, T:KResult, T', V:K, L:ElemList)
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, T', V:K, L:ElemList)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: base of getelementptr must be a pointer") </output>
          requires getKLabel(T') =/=KLabel 'pointerTypeValue
 
 
-    rule typeCheckIntArgList(.ElemList) => .K
-    rule typeCheckIntArgList(valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
-                    => typeCheckIntArg(T, V) ~> typeCheckIntArgList(Vs)
+    rule typeCheckIntArgList(Name:SymbolicValueRef, .ElemList) => .K
+    rule typeCheckIntArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef, T, V)
+                                ~> typeCheckIntArgList(Name:SymbolicValueRef, Vs)
          requires getKLabel(T) ==KLabel 'integerType
-    rule <k> typeCheckIntArgList(valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+
+    rule <k> typeCheckIntArgList(Name:SymbolicValueRef, valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
          requires getKLabel(T) =/=KLabel 'integerType
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K, integerType(N:Int), V:K, integerType(N':Int))
-              => typeCheckIntArg(integerType(N), V) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes> _:Map (.Map => X |-> integerType(N')) </varTypes>
+    rule typeCheckCastOp(Name:SymbolicValueRef,
+                 X:SymbolicValueRef, Op:K, integerType(N:Int), V:K, integerType(N':Int))
+              => typeCheckIntArg(Name, integerType(N), V) ~> assignType(Name, X, integerType(N'))
          requires N <Int N' andBool Op =/=K trunc
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K, integerType(N:Int), V:K, integerType(N':Int))
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+             Op:K, integerType(N:Int), V:K, integerType(N':Int))
              ~> K => .K </k>
          <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
                              +String Int2String(N) +String "' to 'i"
                              +String Int2String(N') +String "'") </output>
          requires N >=Int N' andBool Op =/=K trunc
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K,
+    rule typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int), V:K,
                vectorTypeValue(integerType(N':Int), I:Int))
-              => typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), V) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-          <varTypes> _:Map (.Map => X |-> vectorTypeValue(integerType(N'), I:Int)) </varTypes>
+              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
+                 ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          requires N <Int N' andBool Op =/=K trunc
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K,
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int), V:K,
                vectorTypeValue(integerType(N':Int), I':Int)) ~> K:K
               => .K </k>
@@ -562,34 +575,28 @@ module LLVM-NORMALIZING
          requires (N >=Int N' orBool I =/=Int I') andBool Op =/=K trunc
 
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, trunc, integerType(N:Int), V:K, integerType(N':Int))
-              => typeCheckIntArg(integerType(N), V) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes> _:Map (.Map => X |-> integerType(N')) </varTypes>
+    rule typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, trunc, integerType(N:Int), V:K, integerType(N':Int))
+              => typeCheckIntArg(Name, integerType(N), V) 
+                   ~> assignType(Name, X, integerType(N'))
          requires N >Int N'
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, trunc, integerType(N:Int), V:K, integerType(N':Int))
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, trunc, integerType(N:Int), V:K, integerType(N':Int))
              ~> K => .K </k>
          <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
                              +String Int2String(N) +String "' to 'i"
                              +String Int2String(N') +String "'") </output>
          requires N <=Int N'
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, trunc,
+    rule typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
                vectorTypeValue(integerType(N:Int), I:Int), V:K,
                vectorTypeValue(integerType(N':Int), I:Int))
-              => typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), V) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-          <varTypes> _:Map (.Map => X |-> vectorTypeValue(integerType(N'), I:Int)) </varTypes>
+              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
+                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          requires N >Int N'
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, trunc,
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
                vectorTypeValue(integerType(N:Int), I:Int), V:K,
                vectorTypeValue(integerType(N':Int), I':Int)) ~> K:K
               => .K </k>
@@ -600,13 +607,13 @@ module LLVM-NORMALIZING
                              +String Int2String(N') +String ">'") </output>
          requires N <=Int N' orBool I =/=Int I'
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K, vectorTypeValue(Ty:KResult, I:Int),
-              V:K, vectorTypeValue(Ty':KResult, I':Int))  ~> K
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+            Op:K, vectorTypeValue(Ty:KResult, I:Int), V:K, vectorTypeValue(Ty':KResult, I':Int))  ~> K
               => .K </k>
          <output>... .List => ListItem("error: invalid operand type for instruction") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType orBool getKLabel(Ty') =/=KLabel 'integerType
 
-    rule <k> typeCheckCastOp(X:SymbolicValueRef, Op:K, T:K, V:K, T':K) ~> K
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K, T:K, V:K, T':K) ~> K
               => .K </k>
          <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
          requires (getKLabel(T) =/=KLabel 'integerType
@@ -615,116 +622,189 @@ module LLVM-NORMALIZING
                     andBool getKLabel(T') =/=KLabel 'vectorTypeValue)
 
 
-    rule <k> typeCheckIntOp(X:SymbolicValueRef, integerType(N:Int), L:ElemList)
-              => typeCheckIntArgs(integerType(N), L) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes> _:Map (.Map => X |-> integerType(N)) </varTypes>
+    rule typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int), L:ElemList)
+              => typeCheckIntArgs(Name:SymbolicValueRef, integerType(N), L)
+                 ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int))
 
-    rule <k> typeCheckIntOp(X:SymbolicValueRef,
+    rule typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                vectorTypeValue(integerType(N:Int), I:Int), L:ElemList)
-              => typeCheckIntArgs(vectorTypeValue(integerType(N:Int), I:Int), L) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-          <varTypes> _:Map (.Map => X |-> vectorTypeValue(integerType(N:Int), I:Int)) </varTypes>
+              => typeCheckIntArgs(Name:SymbolicValueRef, vectorTypeValue(integerType(N:Int), I:Int), L)
+                 ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int))
 
-    rule <k> typeCheckIntOp(X:SymbolicValueRef,
+    rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                vectorTypeValue(Ty:KResult, I:Int), L:ElemList) ~> K
               => .K </k>
          <output>... .List => ListItem("error: invalid operand type for instruction") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
 
-    rule <k> typeCheckIntOp(X:SymbolicValueRef, Ty:KResult, L:ElemList) ~> K
+    rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Ty:KResult, L:ElemList) ~> K
               => .K </k>
          <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
                     andBool getKLabel(Ty) =/=KLabel 'vectorTypeValue
 
-    rule typeCheckIntArgs(T:Type, .ElemList) => .K
-    rule typeCheckIntArgs(T:Type, val(V:K),Vs:ElemList)
-                    => typeCheckIntArg(T, V) ~> typeCheckIntArgs(T, Vs)
+    //finally, assign the type of a variable.
+    rule <k> assignType(Name:SymbolicValueRef, X:SymbolicValueRef, T:K) => .K ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+          <varTypes> _:Map (.Map => X |-> T) </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, Def:Set (.Set => SetItem(operand(X, T))), _:Set, _:Set) ...</basicBlocks>
 
-    rule typeCheckIntArg(T:K, undef) => .K
-    rule typeCheckIntArg(pointerTypeValue(T:K, A:K), zeroinitializer) => .K
-    rule typeCheckIntArg(integerType(N:Int), I:Int) => .K
-    rule typeCheckIntArg(integerType(1), B:Bool) => .K
-    rule <k> typeCheckIntArg(T:K, X:LocalName) => .K ...</k>
+    rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, .ElemList) => .K
+    rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, val(V:K),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef, T, V)
+                          ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
+
+    rule typeCheckIntArg(Name:SymbolicValueRef, T:K, undef) => .K
+    rule typeCheckIntArg(Name:SymbolicValueRef,
+                            pointerTypeValue(T:K, A:K), zeroinitializer) => .K
+    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I:Int) => .K
+    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(1), B:Bool) => .K
+
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:LocalName) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> T:K ...</varTypes>
+         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
+               Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires operand(addNameToString(X), T) in Def
 
-    rule typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), < T':Type V:ValueRef, R:ReturnedVal >)
-         => typeCheckIntArg(integerType(N:Int), I, < R >, T', V)
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:LocalName) => .K ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
+               _:Set, _:Set, Use:Set  (.Set => SetItem(operand(addNameToString(X), T)))) ...</basicBlocks>
+         requires notBool addNameToString(X) in keys(M)
+
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:LocalName) ~> K:K => .K </k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires T =/=K T'
+
+    rule typeCheckIntArg(Name:SymbolicValueRef,
+                 vectorTypeValue(integerType(N:Int), I:Int), < T':Type V:ValueRef, R:ReturnedVal >)
+         => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I, < R >, T', V)
          requires I >Int 0 andBool N >Int 0
 
     //define type checking rules for vector types in integer opeartors.
-    rule typeCheckIntArg(T:K, 0, < .ReturnedVal >) => .K
-    rule typeCheckIntArg(T:K, I:Int, < T':Type V:ValueRef, R:ReturnedVal >)
-         => typeCheckIntArg(T, I, < R >, T', V)
+    rule typeCheckIntArg(Name:SymbolicValueRef,
+                             T:K, 0, < .ReturnedVal >) => .K
+    rule typeCheckIntArg(Name:SymbolicValueRef,
+                     T:K, I:Int, < T':Type V:ValueRef, R:ReturnedVal >)
+         => typeCheckIntArg(Name:SymbolicValueRef, T, I, < R >, T', V)
          requires I >Int 0
 
-    rule typeCheckIntArg(integerType(N:Int), N':Int, A:K, T:KResult, I':Int)
-         => typeCheckIntArg(integerType(N:Int), N' -Int 1, A:K)
-    rule typeCheckIntArg(integerType(1), I:Int, A:K, integerType(1), B:Bool)
-         => typeCheckIntArg(integerType(1), I -Int 1, A)
-    rule <k> typeCheckIntArg(integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
-         => typeCheckIntArg(integerType(N), N' -Int 1, A) ...</k>
+    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int),
+                                            N':Int, A:K, T:KResult, I':Int)
+         => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), N' -Int 1, A:K)
+    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(1),
+                                          I:Int, A:K, integerType(1), B:Bool)
+         => typeCheckIntArg(Name:SymbolicValueRef, integerType(1), I -Int 1, A)
+
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
+         => typeCheckIntArg(Name:SymbolicValueRef,
+                                        integerType(N), N' -Int 1, A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> T ...</varTypes>
+         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
+               Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires operand(addNameToString(X), T) in Def
+
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
+         => typeCheckIntArg(Name:SymbolicValueRef,
+                                        integerType(N), N' -Int 1, A) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
+               _:Set, _:Set, Use:Set  (.Set => SetItem(operand(addNameToString(X), T)))) ...</basicBlocks>
+         requires notBool addNameToString(X) in keys(M)
+
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
+             ~> K:K => .K </k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires T =/=K T'
 
     //define illform situations for type checking of integer operators.
-    rule <k> typeCheckIntArg(integerType(N:Int), N':Int, A:K, T:KResult, K:K) ~> K'
-         => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                    integerType(N:Int), N':Int, A:K, T:KResult, K:K) ~> K'
+                      => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires (notBool isTheInt(K)) andBool (notBool isTheBool(K))
                    andBool (notBool isTheLocalName(K))
 
-    rule <k> typeCheckIntArg(integerType(N:Int), I:Int, A:K, integerType(N':Int), B:Bool) ~> K
-             => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int),
+                  I:Int, A:K, integerType(N':Int), B:Bool) ~> K
+                   => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires N =/=Int 1 orBool N' =/=Int 1
 
-    rule <k> typeCheckIntArg(T:K, I:Int, < .ReturnedVal >) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, I:Int, < .ReturnedVal >) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires I >Int 0
-    rule <k> typeCheckIntArg(T:K, 0, < R:ReturnedVal >) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                         T:K, 0, < R:ReturnedVal >) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires R =/=K .ReturnedVal
 
-    rule <k> typeCheckIntArg(vectorTypeValue(T:K, I:Int), < R:ReturnedVal >) ~> K
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                       vectorTypeValue(T:K, I:Int), < R:ReturnedVal >) ~> K
          => .K </k>
          <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
          requires getKLabel(T) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(vectorTypeValue(integerType(N:Int), 0), < R:ReturnedVal >) ~> K
-         => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                 vectorTypeValue(integerType(N:Int), 0), < R:ReturnedVal >) ~> K
+                   => .K </k>
          <output>... .List => ListItem("error: zero element vector is illegal") </output>
-    rule <k> typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), < R:ReturnedVal >) ~> K
-         => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                 vectorTypeValue(integerType(N:Int), I:Int), < R:ReturnedVal >) ~> K
+                  => .K </k>
          <output>... .List => ListItem("error: expected number in address space") </output>
          requires I <Int 0
-    rule <k> typeCheckIntArg(vectorTypeValue(integerType(N:Int), I:Int), < .ReturnedVal >) ~> K
-         => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+              vectorTypeValue(integerType(N:Int), I:Int), < .ReturnedVal >) ~> K
+              => .K </k>
          <output>... .List => ListItem("error: constant vector must not be empty") </output>
          requires I >Int 0
-    rule <k> typeCheckIntArg(Ty:K, I:Int) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                                     Ty:K, I:Int) ~> K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(Ty:K, B:Bool) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                                     Ty:K, B:Bool) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(integerType(N:Int), B:Bool) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                           integerType(N:Int), B:Bool) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires N =/=K 1
-    rule <k> typeCheckIntArg(T:K, X:LocalName) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                                        T:K, X:LocalName) ~> K => .K </k>
          <output>... .List => ListItem("error: "+String "'" +String
                               #tokenToString(X) +String " defined with type '"
                              +String #tokenToString(T') +String "'") </output>
@@ -1268,10 +1348,12 @@ module LLVM-NORMALIZING
 
 
     rule instValToKItem(load Oac:Atomic Ovl:OptVolatile T:Type, Ty:Type V:ValueRef
-                                 Oso:OptScopeOrder,  Oal:Align Ins:InstructionMetadatas)
+                                 Ost:OptSingleThread Ord:Ordering,
+                                                  Oal:Align Ins:InstructionMetadatas)
            => instruction(load(addNameToString(Ty)
                                ,addNameToString(V))
-                          ,formSet(Oac) formSet(Ovl) formSet(Oso) formSet(Oal)
+                          ,formSet(Oac) formSet(Ovl)
+                           formSet(Ost:OptSingleThread Ord:Ordering) formSet(Oal)
                           ,insMetas(formElemList(Ins)))
     //do the same above for "load" OptAtomic OptVolatile ResolvedVal OptScopeOrder "," OptAlign InstructionMetadatas
     rule instValToKItem(load Ovl:OptVolatile T:Type, Ty:Type V:ValueRef ,Oal:Align Ins:InstructionMetadatas)
@@ -1330,10 +1412,45 @@ module LLVM-NORMALIZING
                          ,.Set
                          ,insMetas(formElemList(Ins)))
 
+    //set out edges for a block
+    rule setOutEdge(N:K, .ElemList) => .K
+    rule <k> setOutEdge(N:K, val(V:SymbolicValueRef),El:ElemList)
+                => setOutEdge(N, El) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... N |-> 
+                blockContent(_:K, Out:Set (.Set => SetItem(V)), _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    //set inedges
+    rule setInEdges(.Set) => .K
+    rule setInEdges(SetItem(K) S:Set) => setInEdgesForNode(K) ~> setInEdges(S)
+
+    //set inedges for each node
+    rule <k> setInEdgesForNode(A:K) => setInEdgesForNode(A, .K, Out) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... A |-> 
+                blockContent(_:K, Out:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    rule setInEdgesForNode(A:K, .K, .Set) => .K
+    rule setInEdgesForNode(A:K, .K, SetItem(B:K) S:Set) => setInEdgesForNode(A, B, S)
+    rule <k> setInEdgesForNode(A:K,B:K, S:Set) => setInEdgesForNode(A, .K, S) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... B |-> 
+              blockContent(_:K, _:Set, In:Set (.Set => SetItem(A)), _:Set, _:Set, _:Set) ...</basicBlocks>
+
+
     //ensure the static single assignment property in a function.
     //and normalize the llvm operators to abstract syntax.
 
-    syntax KItem ::= checkSingleAssignment(K, K)
+    syntax KItem ::= checkSingleAssignment(K)
                    | checkSingleAssignmentInBlock(SymbolicValueRef, K, K, Bool) //name, tocheck, stores, is-phi-allow
 
     //in the checkSingleAssignment and checkSingleAssignmentInBlock
@@ -1341,9 +1458,15 @@ module LLVM-NORMALIZING
     //for example the third rule
 
     //form a basicBlock finally.
-    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .K, K:K, _:Bool)
-         ~> checkSingleAssignment(K1:K, K2:K)
-         => checkSingleAssignment(K1, K2 ~> basicBlock(N,K))
+    rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, .K, K:K, _:Bool)
+             => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... name(localVar, Int2String(I))
+             |-> blockContent((.K => setBlock(N)
+                   ~> basicBlock(N,K)), _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //have dealt with all instruction list.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .InstructionList
@@ -1353,7 +1476,9 @@ module LLVM-NORMALIZING
     //deal with termination instructions.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, ret Nt:NonVoidType
                                   Va:ValueRef Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(N:SymbolicValueRef, .K, ret Nt:NonVoidType
+                                  Va:ValueRef Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K
                          ~> instruction(ret(addNameToString(Nt),addNameToString(Va))
                                         ,.Set
                                         ,insMetas(formElemList(Meta))), false)
@@ -1366,14 +1491,22 @@ module LLVM-NORMALIZING
 
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br label La:ValueRef
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(N, .K, br label La:ValueRef
+                                  Meta:InstructionMetadatas)
+             ~> setOutEdge(N, getOutEdges(La))
+              ~> checkSingleAssignmentInBlock(N, .K, K
                    ~> instruction(unconditional(addNameToString(La))
                                   ,.Set
                                   ,insMetas(formElemList(Meta))), false)
+
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, br It:IntType Va:ValueRef ,
                                        label La1:ValueRef , label La2:ValueRef
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(N, .K, br It:IntType Va:ValueRef ,
+                                       label La1:ValueRef , label La2:ValueRef
+                                  Meta:InstructionMetadatas)
+             ~> setOutEdge(N, getOutEdges(La1)) ~> setOutEdge(N, getOutEdges(La2))
+             ~> checkSingleAssignmentInBlock(N, .K, K
                ~> instruction(conditional(operand(addNameToString(It),addNameToString(Va))
                                         ,addNameToString(La1)
                                         ,addNameToString(La2))
@@ -1381,14 +1514,20 @@ module LLVM-NORMALIZING
 
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(N, .K, resume Ty:Type Va:ValueRef
+                                    Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K
              ~> instruction(resume(operand(addNameToString(Ty)
                                    ,addNameToString(Va)))
                             ,.Set, insMetas(formElemList(Meta))), false)
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, indirectbr Ty:Type Va:ValueRef ,
                                        [ Las:LabelValues ]
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(N, .K, indirectbr Ty:Type Va:ValueRef ,
+                                       [ Las:LabelValues ]
+                                  Meta:InstructionMetadatas)
+             ~> setOutEdge(N, getOutEdges(Las))
+             ~> checkSingleAssignmentInBlock(N, .K, K
                 ~> instruction(indirectbr(operand(addNameToString(Ty)
                                           ,addNameToString(Va))
                                           ,formElemList(Las))
@@ -1396,7 +1535,11 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, switch It:IntType Va:ValueRef ,
                                        label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K
+         => typeCheckOp(N, .K, switch It:IntType Va:ValueRef ,
+                                       label La:ValueRef [ Ju:JumpTable ]
+                                  Meta:InstructionMetadatas)
+             ~> setOutEdge(N, val(La)) ~> setOutEdge(N, getOutEdges(Ju))
+             ~> checkSingleAssignmentInBlock(N, .K, K
                   ~> instruction(switch(addNameToString(It)
                                         ,addNameToString(Va)
                                         ,addNameToString(La)
@@ -1409,9 +1552,13 @@ module LLVM-NORMALIZING
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
-                                       to label La1:ValueRef unwind label La2:ValueRef 
+                                       to label La1:LabelValue unwind label La2:LabelValue 
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K 
+         => typeCheckOp(N, name(localVar, Int2String(I)), invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K 
                 ~> assign(name(localVar, Int2String(I))
                           ,instruction(invoke(operand(addNameToString(Ty),addNameToString(Va))
                                               ,formElemList(Pa)
@@ -1424,7 +1571,7 @@ module LLVM-NORMALIZING
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> undef) </varTypes>
+        <varTypes> M:Map </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)
 
@@ -1433,7 +1580,12 @@ module LLVM-NORMALIZING
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K 
+         => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
+               ,lengthString(#tokenToString(Var)))), invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K 
                 ~> assign(name(localVar, substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var))))
                           ,instruction(invoke(operand(addNameToString(Ty),addNameToString(Va))
@@ -1447,8 +1599,7 @@ module LLVM-NORMALIZING
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <varTypes> M:Map (.Map => name(localVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var)))) |-> undef) </varTypes>
+        <varTypes> M:Map </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) in keys(M)
@@ -1494,7 +1645,12 @@ module LLVM-NORMALIZING
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, .K, K 
+         => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var)))), invoke Opc:OptCallingConv Re:RetAttrs
+                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, K 
                 ~> assign(name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var))))
                           ,instruction(invoke(operand(addNameToString(Ty),addNameToString(Va))
@@ -1508,8 +1664,7 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-        <varTypes> M:Map (.Map => name(localVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var)))) |-> undef) </varTypes>
+        <varTypes> M:Map </varTypes>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
           requires String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) ==Int I
@@ -1532,21 +1687,24 @@ module LLVM-NORMALIZING
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, In:InstVal Ins:InstructionList
                                BB:BBTerminatorInstruction, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, name(localVar, Int2String(I)), In)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> assign(name(localVar, Int2String(I)),instValToKItem(In)), false)
          ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> undef) </varTypes>
+         <varTypes> M:Map </varTypes>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          requires getKLabel(In) =/=KLabel 'phiFun
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,
                phi Ty:Type Pl:PHIList InstM:InstructionMetadatas Ins:InstructionList
                                BB:BBTerminatorInstruction, K:K, true)
-         => checkSingleAssignmentInBlock(N, Ins BB,
+         => typeCheckOp(N, name(localVar, Int2String(I)),
+                      phi Ty:Type Pl:PHIList InstM:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, Ins BB,
                 K ~> assign(name(localVar, Int2String(I)),
                             instValToKItem(phi Ty:Type Pl:PHIList InstM:InstructionMetadatas)), true)
          ...</k>
@@ -1554,17 +1712,20 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> undef) </varTypes>
+         <varTypes> M:Map </varTypes>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,
                phi Ty:Type Pl:PHIList InstM:InstructionMetadatas Ins:InstructionList
                                BB:BBTerminatorInstruction, K:K, false) ~> K:K => .K </k>
-          <output>... .List => ListItem("error: non-phi instructions between the start of a basic block and the PHI instructions") </output>
+          <output>... .List =>
+            ListItem("error: non-phi instructions between the start of a basic block and the PHI instructions") </output>
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar = In:InstVal
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var)))), In)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> assign(name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var)))),instValToKItem(In)), true)
          ...</k>
@@ -1572,14 +1733,16 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes> M:Map (.Map => name(localVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var)))) |-> undef) </varTypes>
+         <varTypes> M:Map </varTypes>
          requires notBool (Var in keys(M)) andBool getKLabel(In) =/=KLabel 'phiFun
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar =
                phi Ty:Type Pl:PHIList InstM:InstructionMetadatas
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, true)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var)))),
+                             phi Ty:Type Pl:PHIList InstM:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> assign(name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var)))),
                 instValToKItem(phi Ty:Type Pl:PHIList InstM:InstructionMetadatas)), true)
@@ -1588,15 +1751,15 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes> M:Map (.Map => name(localVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var)))) |-> undef) </varTypes>
+         <varTypes> M:Map </varTypes>
          requires notBool (Var in keys(M))
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar =
                phi Ty:Type Pl:PHIList InstM:InstructionMetadatas
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, false) ~> K:K
          => .K </k>
-          <output>... .List => ListItem("error: non-phi instructions between the start of a basic block and the PHI instructions") </output>
+          <output>... .List =>
+             ListItem("error: non-phi instructions between the start of a basic block and the PHI instructions") </output>
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalVar = In:InstVal
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, _:Bool) ~> K':K
@@ -1614,7 +1777,9 @@ module LLVM-NORMALIZING
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalValID = In:InstVal
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var)))), In)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> assign(name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var)))),instValToKItem(In)), false)
          ...</k>
@@ -1622,8 +1787,7 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes> M:Map (.Map => name(localVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var)))) |-> undef) </varTypes>
+         <varTypes> M:Map </varTypes>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          requires notBool (Var in keys(M)) andBool getKLabel(In) =/=KLabel 'phiFun
               andBool String2Int(substrString(#tokenToString(Var),1
@@ -1633,7 +1797,10 @@ module LLVM-NORMALIZING
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalValID =
                phi Ty:Type Pl:PHIList InstM:InstructionMetadatas
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, true)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var)))),
+                          phi Ty:Type Pl:PHIList InstM:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> assign(name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var)))),
                 instValToKItem(phi Ty:Type Pl:PHIList InstM:InstructionMetadatas)), true)
@@ -1643,8 +1810,7 @@ module LLVM-NORMALIZING
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
-         <varTypes> M:Map (.Map => name(localVar, substrString(#tokenToString(Var),1
-                          ,lengthString(#tokenToString(Var)))) |-> undef) </varTypes>
+         <varTypes> M:Map </varTypes>
          requires notBool (Var in keys(M)) andBool String2Int(substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) ==Int I
 
@@ -1652,7 +1818,8 @@ module LLVM-NORMALIZING
                phi Ty:Type Pl:PHIList InstM:InstructionMetadatas
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, false) ~> K:K
          => .K </k>
-          <output>... .List => ListItem("error: non-phi instructions between the start of a basic block and the PHI instructions") </output>
+          <output>... .List =>
+           ListItem("error: non-phi instructions between the start of a basic block and the PHI instructions") </output>
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, Var:LocalValID = In:InstVal
                Ins:InstructionList BB:BBTerminatorInstruction, K:K, _:Bool) ~> K':K
@@ -1671,7 +1838,10 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Al:Align
                     Inm:InstructionMetadatas Ins:InstructionList BB:BBTerminatorInstruction, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, .K, store Ovl:OptVolatile
+                  Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Al:Align
+                    Inm:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> instruction(store(addNameToString(Ty1)
                                            ,addNameToString(V1)
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
@@ -1681,7 +1851,10 @@ module LLVM-NORMALIZING
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas Ins:InstructionList BB:BBTerminatorInstruction, K:K, _:Bool)
-         => checkSingleAssignmentInBlock(N, Ins BB, K
+         => typeCheckOp(N, .K, store Ovl:OptVolatile
+                         Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
+                          Inm:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, Ins BB, K
                       ~> instruction(store(addNameToString(Ty1)
                                            ,addNameToString(V1)
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
@@ -1693,14 +1866,17 @@ do the same for another store operation:
 */
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef
                                       , store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef ,
-                                            Ty2:Type V2:ValueRef Osc:OptScopeOrder, Al:Align
+                                            Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering, Al:Align
                                             Ins:InstructionMetadatas Ili:InstructionList
                                             BB:BBTerminatorInstruction, K:K, _:Bool)
-          => checkSingleAssignmentInBlock(N, Ili BB, K
+          => typeCheckOp(N, .K, store Oac:Atomic Ovl:OptVolatile Ty1:Type V1:ValueRef ,
+                                            Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering, Al:Align
+                                            Ins:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, Ili BB, K
                        ~> instruction(store(addNameToString(Ty1)
                                            ,addNameToString(V1)
                                            ,operand(addNameToString(Ty2),addNameToString(V2)))
-                                      ,formSet(Oac) formSet(Ovl) formSet(Osc) formSet(Al)
+                                      ,formSet(Oac) formSet(Ovl) formSet(Ost Ord) formSet(Al)
                                       ,insMetas(formElemList(Ins))), false)
 /*
 create an abstract for fence and do the same for fence operation.
@@ -1711,7 +1887,9 @@ create an abstract for fence and do the same for fence operation.
                                             Ins:InstructionMetadatas Ili:InstructionList
                                             BB:BBTerminatorInstruction
                                       , K:K, _:Bool)
-          => checkSingleAssignmentInBlock(N, Ili BB, K
+          => typeCheckOp(N, .K, fence Ost:OptSingleThread Ord:Ordering 
+                                            Ins:InstructionMetadatas)
+               ~> checkSingleAssignmentInBlock(N, Ili BB, K
                        ~> instruction(fence(ord)
                                       , formSet(Ost)
                                       , insMetas(formElemList(Ins))), false)
@@ -1719,16 +1897,21 @@ create an abstract for fence and do the same for fence operation.
 
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
-    rule checkSingleAssignment(.K, K:K) => funBegin(K)
-
-    rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K)
-         => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
-           ~> checkSingleAssignment(BBL, K) ...</k>
+    rule <k> checkSingleAssignment(.K) => setInEdges(keys(M)) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
-         <concreteSyntax>... (.K
-               => basicBlock(addNameToString(L), Ins BB)) </concreteSyntax>
+         <basicBlocks> M:Map </basicBlocks>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+
+    rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
+                                BB:BBTerminatorInstruction BBL:BasicBlockList)
+         => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+           ~> checkSingleAssignment(BBL) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+         <basicBlocks> M':Map (.Map  => addNameToString(L)
+                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <varTypes> M:Map (.Map =>  addNameToString(L) |-> label) </varTypes>
@@ -1737,7 +1920,7 @@ create an abstract for fence and do the same for fence operation.
                                         , lengthString(#tokenToString(L)) -Int 1))
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K) ~> K:K
+                                BB:BBTerminatorInstruction BBL:BasicBlockList) ~> K:K
          => .K </k>
          <output>... .List => ListItem("multiple definition of local value named '"
                             +String substrString(#tokenToString(L),0
@@ -1750,16 +1933,15 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K)
+                                BB:BBTerminatorInstruction BBL:BasicBlockList)
          => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
-           ~> checkSingleAssignment(BBL, K) ...</k>
+           ~> checkSingleAssignment(BBL) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <concreteSyntax>... (.K
-               => basicBlock(addNameToString(L), Ins BB)) </concreteSyntax>
-         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+         <basicBlocks> M':Map (.Map  => addNameToString(L)
+                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool isIntString(substrString(#tokenToString(L), 0
@@ -1769,8 +1951,8 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K)
-                   ~> K:K => .K </k>
+                                BB:BBTerminatorInstruction BBL:BasicBlockList)
+                   ~> K':K => .K </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1783,15 +1965,15 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction, K:K)
+                                BB:BBTerminatorInstruction)
            => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
-                 ~> checkSingleAssignment(.K, K) ...</k>
+                 ~> checkSingleAssignment(.K) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <concreteSyntax>... (.K
-               => basicBlock(addNameToString(L), Ins BB)) </concreteSyntax>
+         <basicBlocks> M':Map (.Map  => addNameToString(L)
+                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool notBool isIntString(substrString(#tokenToString(L), 0
@@ -1799,7 +1981,7 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction, K:K)
+                                BB:BBTerminatorInstruction)
               ~> K:K => .K </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -1813,15 +1995,15 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction, K:K)
+                                BB:BBTerminatorInstruction)
            => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
-                  ~> checkSingleAssignment(.K, K) ...</k>
+                  ~> checkSingleAssignment(.K) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <concreteSyntax>... (.K
-               => basicBlock(addNameToString(L), Ins BB)) </concreteSyntax>
+         <basicBlocks> M':Map (.Map  => addNameToString(L)
+                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires isIntString(substrString(#tokenToString(L), 0
@@ -1831,7 +2013,7 @@ create an abstract for fence and do the same for fence operation.
                   andBool notBool addNameToString(L) in keys(M)
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
-                                BB:BBTerminatorInstruction, K:K)
+                                BB:BBTerminatorInstruction)
              ~> K:K => .K </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -1845,22 +2027,22 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k>checkSingleAssignment(Ins:InstructionList
-                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K)
+                                BB:BBTerminatorInstruction BBL:BasicBlockList)
          => checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
-           ~> checkSingleAssignment(BBL, K)
+           ~> checkSingleAssignment(BBL)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <concreteSyntax>... (.K
-               => basicBlock(name(localVar, Int2String(I)), Ins BB)) </concreteSyntax>
+         <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
+                  |-> blockContent(.K, .Set, .Set, SetItem(operand(name(localVar, Int2String(I)),label)), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I))  |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)
 
     rule <k>checkSingleAssignment(Ins:InstructionList
-                                BB:BBTerminatorInstruction BBL:BasicBlockList, K:K)
+                                BB:BBTerminatorInstruction BBL:BasicBlockList)
              ~> K:K => .K </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -1873,22 +2055,22 @@ create an abstract for fence and do the same for fence operation.
 
 
     rule <k> checkSingleAssignment(Ins:InstructionList
-                                BB:BBTerminatorInstruction, K:K)
+                                BB:BBTerminatorInstruction)
          => checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
-              ~> checkSingleAssignment(.K , K)
+              ~> checkSingleAssignment(.K)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <concreteSyntax>... (.K
-               => basicBlock(name(localVar, Int2String(I)), Ins BB)) </concreteSyntax>
+         <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
+                |-> blockContent(.K, .Set, .Set, SetItem(operand(name(localVar, Int2String(I)),label)), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)
 
     rule <k> checkSingleAssignment(Ins:InstructionList
-                                BB:BBTerminatorInstruction, K:K)
+                                BB:BBTerminatorInstruction)
              ~> K:K => .K </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>

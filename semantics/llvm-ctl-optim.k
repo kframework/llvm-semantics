@@ -19,23 +19,23 @@ module CTL
     syntax State        ::= Id
     syntax SetState     ::= State
                           | State SetState
-                          | "succ" "(" Model "," State ")"
-                          | "pred" "(" Model "," State ")"
+                          | succ(Model, State)
+                          | pred(Model, State)
     syntax Path         ::= State
                           | State ";" Path
+                          | "(" Path ")"        [bracket]
     syntax SetPath      ::= Path
                           | Path SetPath
-                          | "<--" State PathQuant
-                          | PathQuant State "-->"
+                          | "<-" State
+                          | State "->"
     syntax Model        ::= SetState
 
     /* CTL* predicates */
     /*-----------------*/
 
     /* extend `StatePred` with atomic predicates via sub-sorting */
-    syntax PathQuant    ::= "A" | "E"
-    syntax StatePred    ::= State                                           /* implicit `is-state` */
-                          | "(" StatePred ")"   [bracket]
+    syntax Quant        ::= "A" | "E"
+    syntax StatePred    ::= "(" StatePred ")"   [bracket]
                           | "ctl-false"
                           | "ctl-true"
                           | "not" StatePred
@@ -43,7 +43,8 @@ module CTL
                           > StatePred "and" StatePred
                           > StatePred "implies" StatePred
                           > StatePred "iff" StatePred
-                          > PathQuant PathPred
+                          > Quant PathPred
+                          /*| State                                            implicit `is-state` */
 
     syntax PathPred     ::= "(" PathPred ")"    [bracket]
                           | StatePred
@@ -57,8 +58,8 @@ module CTL
                           | PathPred "<-"                                   /* `pred` */
                           | PathPred "<-" PathPred "--"                     /* `since` */
 
-    /* CTL* simplification */
-    /*---------------------*/
+    /* CTL* negative normal form */
+    /*---------------------------*/
 
     /* `not` */
     rule not not C          => C                                        [structural]
@@ -69,53 +70,91 @@ module CTL
     rule C and C            => C                                        [structural]
     rule ctl-true and C     => C                                        [structural]
     rule ctl-false and C    => ctl-false                                [structural]
-
+    rule not (C1 and C2)    => (not C1) or (not C2)                     [structural]
 
     /* `or` */
     rule C or C             => C                                        [structural]
     rule ctl-true or C      => ctl-true                                 [structural]
     rule ctl-false or C     => C                                        [structural]
+    rule not (C1 or C2)     => (not C1) and (not C2)                    [structural]
 
     /* `implies` and `iff` */
     rule C1 implies C2      => (not C1) or C2                           [structural]
     rule C1 iff C2          => (C1 and C2) or (not C1 and not C2)       [structural]
+
+    /* Path quantifiers */
+    rule not (A P)          => E (not P)                                [structural]
+    rule not (E P)          => A (not P)                                [structural]
+
+    /* Path predicates */
+    rule not (-> P)         => -> (not P)                               [structural]
+    rule not (-- P1 -> P2)  => -- not P2 -> not (P1 or P2)              [structural]
+    rule not (P <-)         => (not P) <-                               [structural]
+    rule not (P2 <- P1 --)  => not (P1 or P2) <- not P2 --              [structural]
+
+    /* TODO: Should we go to ANF instead of CNF? ANF would have the benefit that
+     * if there is no working assignment to the predicates, it will discover it
+     * more "syntactically" without having to calculate the atomic predicates.
+     * Below are the rules to go to ANF (commented out for now).
+     *
+     * Perhaps what we could do is store, for each property we are trying to
+     * prove, the ANF polynomial over the atomic predicates for that property.
+     * If it's unsatisfiable, the ANF polynomial will reduce to ctl-false for us
+     * automatically, but otherwise we'll have the ANF polynomials of all the
+     * properties we're interested in for analysis/optimization. We then just
+     * have to pick which optimization we want to actually do, which tells us
+     * which polynomials we have to solve. Then we `and` those polynomials
+     * together for a new one (and also know immediately if it's satisfiable or
+     * not, though we still have to search for a satisfying assignment).
+     */
+
+    /*
+     * syntax StatePred    ::= StatePred "xor" StatePred
+     * syntax PathPred     ::= PathPred "xor" PathPred
+     *
+     * rule not C              => ctl-true xor C                           [structural]
+     * rule C1 or C2           => (C1 xor C2) xor (C1 and C2)              [structural]
+     * rule C xor C            => ctl-false                                [structural]
+     * rule C xor ctl-false    => C                                        [structural]
+     * rule (C1 xor C2) and C3 => (C1 and C3) xor (C2 and C3)              [structural]
+     */
 
 
     /* CTL* semantics */
     /*----------------*/
 
     /* Satsifaction relation */
-    syntax Bool         ::= "(" Model "," State ")" "|=" StatePred
-                          | "(" Model "," SetState ")" "|=" StatePred       /* implicit and */
-                          | "(" Model "," Path ")" "|=" PathPred
-                          | "(" Model "," SetPath ")" "|=" PathPred         /* implicit and */
+    syntax Bool         ::= "(" Model "," State          ")" "|=" StatePred
+                          | "(" Model "," Quant SetState ")" "|=" StatePred
+                          | "(" Model "," Path           ")" "|=" PathPred
+                          | "(" Model "," Quant SetPath  ")" "|=" PathPred
 
-    /* Satisfaction calculation over StatePred */
-    rule (M, S:State) |= ctl-true => true                           [structural]
-    rule (M, S:State) |= ctl-false => false                         [structural]
-    rule (M, S:State) |= (N':NodeLabel):StatePred => N ==K N'           [structural]
-    rule (M, S:State) |= (not S):StatePred => notBool ((M,N) |= S)      [structural]
-    rule (M, S:State) |= (S1 and S2):StatePred
-                 => ((M,N) |= S1) andBool ((M,N) |= S2)      [structural]
-    rule (M, S:State) |= (S1 or S2):StatePred
-                 => ((M,N) |= S1) orBool ((M,N) |= S2)       [structural]
-    rule (M, S:State) |= (A P):PathPred
-                 => (M, N) |= not (E not P)                  [structural]
-    rule (M, S:State) |= (E P):PathPred
-                            => (M, paths(M, N)) |= P                    [structural]
-    /*rule (M, N:NodeLabel) |= (E P):PathPred
-                            => ? */
-    /* TODO: finish E P rule. Perhaps have to break it up into `or`s over paths
-     * starting at the pred/succ nodes? */
+    /* Satisfaction definition */
+    rule (M, S) |= ctl-true     => true                                 [structural]
+    rule (M, S) |= ctl-false    => false                                [structural]
+    /*rule (M, S) |= SP:State   => S ==K SP                             [structural]*/
+    rule (M, S) |= not SP       => notBool ((M,S) |= SP)                [structural]
+    rule (M, S) |= S1 and S2    => ((M,S) |= S1) andBool ((M,S) |= S2)  [structural]
+    rule (M, S) |= S1 or S2     => ((M,N) |= S1) orBool ((M,N) |= S2)   [structural]
+
+    /* Conversion of path quantifiers which are over actual Path subsort */
+    rule (M, S) |= Q:Quant (-> P)   => (M, Q succ(M, S)) |= P           [structural]
+    rule (M, S) |= Q:Quant (P <-)   => (M, Q pred(M, S)) |= P           [structural]
+
+    rule (M, S) |= Q:Quant (-- P1 -> P2)
+                => (M, S) |= P2 or Q (-> (Q (-- P1 -> P2)))             [structural]
+    rule (M, S) |= Q:Quant (P2 <- P1 --)
+                => (M, S) |= P2 or Q ((Q (P2 <- P1 --)) <-)             [structural]
+
+    /* TODO: Do we handle a formula like `(M, S) |= A phi`, where `phi` is some
+     * atomic predicate? I don't think this does. Does that mean we are actually
+     * still just in CTL?
+     */
 
     /* Satisfaction calculation over PathPred */
-    rule (M, (N0,Ns):NodeLabels) |= S:StatePred
-            => (M, N0) |= S
-            if N0,Ns is path in M                                       [structural]
-    rule (M, Ns:NodeLabels) |= (not P):PathPred
-            => notBool ((M,Ns) |= P)
-            if Ns is path in M                                          [structural]
-    rule (M, Ns:NodeLabels) |= (P1 and P2):PathPred
+    rule (M, (S;P):Path) |= SP:StatePred    => (M, S) |= SP             [structural]
+    rule (M, P:Path) |= not PP              => notBool ((M,P) |= PP)    [structural]
+    rule (M, ) |= (P1 and P2):PathPred
             => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)
             if Ns is path in M                                          [structural]
     rule (M, Ns:NodeLabels) |= (P1 or P2):PathPred

@@ -252,6 +252,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setInitBlock(K)
     syntax KItem ::= phiEdges(K, Set)//block
     syntax KItem ::= "checkingPhisInEdges"
+    syntax KItem ::= "checkUseVars"
+    syntax KItem ::= checkUseVars(List, K, Set)
+    syntax KItem ::= checkUseVars(Set, Set, Set)
+    syntax KItem ::= checkUseVarInBlock(K, Set, Set)
     syntax KItem ::= "checkUseVarInPhi"
     syntax KItem ::= checkUseVarInPhi(List, K)
     syntax KItem ::= checkUseVarInPhi(Set, Set)

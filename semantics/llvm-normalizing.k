@@ -153,7 +153,10 @@ module LLVM-NORMALIZING
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function
-
+    //TODO: from LLVM documentation, it is legal to associate two label values together.
+    //so we can branch to a label value with two different blocks. 
+    //hence, this is a undefined behavior for what it will goto in this case.
+    //clang doesnt this behavior
     rule (.K => typeCheckIntArg(Name, T, V))
             ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                   (val(V:ConstValueRef), E1:ElemList => E1), _:ElemList, _:Set)
@@ -1460,6 +1463,97 @@ module LLVM-NORMALIZING
          <basicBlocks>... B |-> 
               blockContent(_:K, _:Set, In:Set (.Set => SetItem(A)), _:Set, _:Set, _:Set) ...</basicBlocks>
 
+    //helper function for checkUseVars
+    syntax Set ::= getOperandSetOfLabels(Set)    [function]
+    rule getOperandSetOfLabels(.Set) => .Set
+    rule getOperandSetOfLabels(SetItem(A:K) S:Set)
+             => SetItem(operand(A, label)) getOperandSetOfLabels(S)
+
+
+    //check all the function vars have a father along any path
+    rule <k> checkUseVars => checkUseVars(values(M),
+                          .K, getOperandSetOfLabels(keys(M))) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+
+    rule checkUseVars(.List, .K, _:Set) => checkUseVarInPhiWait
+    rule checkUseVars(ListItem(A:K) L:List, .K, S:Set) => checkUseVars(L, A, S)
+
+    rule checkUseVars(L:List,
+                   blockContent(K:K, Out:Set, In:Set, Def:Set, _:Set, Use:Set), S:Set)
+         => checkUseVars(L, .K, S)
+         requires Use -Set S <=Set .Set
+
+    rule <k> checkUseVars(L:List,
+                  blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, Use:Set), S:Set)
+         => checkUseVars(L, .K, S) ...</k>
+         (.Bag => <checkUsesInBlock>...
+                    <currentJob> checkUseVars(In, Use -Set S, S) </currentJob>
+                    <checkUseResult>
+                       false
+                    </checkUseResult>
+                ...</checkUsesInBlock>)
+         requires notBool (Use -Set S <=Set .Set)
+
+    rule <currentJob> checkUseVarInBlock(A:K, Use:Set, S:Set) </currentJob>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <checkUseResult> false => true </checkUseResult>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... A |-> 
+              blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires Use <=Set Def
+
+    rule (<checkUse>...
+          <checkedBlocks> S:Set </checkedBlocks>
+          <currentJob> checkUseVarInBlock(A:K, Use:Set, Labels:Set) </currentJob>
+         ...</checkUse> => .Bag)
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <checkUseResult> false </checkUseResult>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... A |-> 
+              blockContent(_:K, _:Set, S':Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires (notBool (Use <=Set Def)) andBool S' <=Set S
+
+
+    rule <checkedBlocks> S:Set </checkedBlocks>
+          <currentJob> checkUseVarInBlock(A:K, Use:Set, Labels:Set)
+                     => checkUseVars(S' -Set S, Use -Set Def, Labels) </currentJob>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <checkUseResult> false </checkUseResult>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... A |-> 
+              blockContent(_:K, _:Set, S':Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires notBool (Use <=Set Def) andBool notBool (S' <=Set S)
+
+
+    rule <checkUsesInBlock>...
+              <currentJob> checkUseVars(.Set, Use:Set, Labels:Set) </currentJob>
+         ...</checkUsesInBlock>
+         => .Bag
+
+    rule <checkUsesInBlock>...
+            <checkUseResult> false </checkUseResult>
+            <checkedBlocks> S:Set </checkedBlocks>
+             <currentJob> checkUseVars(SetItem(A:K) S':Set, Use:Set, Labels:Set)
+                            => checkUseVars(S', Use:Set, Labels:Set) </currentJob>
+         ...</checkUsesInBlock>
+         (.Bag => <checkUsesInBlock>...
+                      <checkUse>...
+                         <checkedBlocks> S:Set SetItem(A) </checkedBlocks>
+                         <currentJob> checkUseVarInBlock(A, Use, Labels) </currentJob>
+                      ...</checkUse>
+                  ...</checkUsesInBlock>)
+
+
     //check all the phi function vars have a father
     rule <k> checkUseVarInPhi => checkUseVarInPhi(values(M), .K) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -2014,7 +2108,7 @@ create an abstract for fence and do the same for fence operation.
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M)) ~> checkingPhisInEdges
-                  ~> checkUseVarInPhi ...</k>
+                  ~> checkUseVarInPhi ~> checkUseVars ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks> M:Map </basicBlocks>

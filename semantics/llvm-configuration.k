@@ -19,7 +19,7 @@ module LLVM-CONFIGURATION
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             <checkAllUses>
-                <checkUsesInBlock  multiplicity="?">
+                <checkUsesInBlock  multiplicity="*">
                     <checkUse multiplicity="*">
                        <checkedBlocks> .Set </checkedBlocks>
                        <currentJob> .K </currentJob>

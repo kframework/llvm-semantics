@@ -2,55 +2,64 @@ requires "llvm-syntax.k"
 
 module CTL
 
-    /* CTL* models */
-    /*-------------*/
+    /* State, Path, and Model syntax */
+    /*-------------------------------*/
 
-    /* TODO: Perhaps we have a `Model` configuration which must have some
-     * ability to query for `succ(NodeLabel)` and `pred(NodeLabel)` from. Then
-     * someone must just specify how the `Model` configuration is structured.
-     */
-
-    /*configuration <T>
-                    <k> </k>
-                    <model> .Map </model>
-                  </T>*/
-
-    /* a CTL* model defines the NodeLabels and succ/pred functions */
+    /* State and SetState */
     syntax State        ::= Id
     syntax SetState     ::= State
                           | State ";" SetState
                           | succ(Model, State)
                           | pred(Model, State)
-    syntax Path         ::= "selfloop"
+
+    /* Path and SetPath */
+    /* TODO: Paths don't seem to make much sense (especially in the presence of
+     * backwards temporal operators). For example, what should be the correct
+     * interpretation of `(M, S0 . S1 . P) |= PP <-`? That formula specifies a
+     * path for the path-predicate to be true over, the predicate says that in
+     * the *previous* state that `PP` should be true. We don't even have access
+     * to the previous state though! Should it generate a backwards path from
+     * the model to test `PP` over? Which backwards path should it generate?
+     */
+    /*syntax Path         ::= "selfloop"
                           | State "." Path
                           | "(" Path ")"        [bracket]
     syntax SetPath      ::= Path
                           | Path ";" SetPath
                           | "<-" State
                           | State "->"
+    */
+
+    /* A Model is a SetState */
     syntax Model        ::= SetState
 
-    /* CTL* predicates */
-    /*-----------------*/
+    /* CTL* syntax */
+    /*-------------*/
 
-    /* extend `StatePred` with atomic predicates via sub-sorting */
     syntax Quant        ::= "A" | "E"
-    syntax StatePred    ::= "(" StatePred ")"   [bracket]
+
+    /* extend `AtomicPred` with atomic predicates for your language */
+    /* here the implicit `is-state` predicate is supplied */
+    syntax AtomicPred   ::= State
+
+    syntax StatePred    ::= AtomicPred
+                          | "(" StatePred ")"   [bracket]
                           | "ctl-false"
                           | "ctl-true"
                           | "not" StatePred
-                          > StatePred "or" StatePred
-                          > StatePred "and" StatePred
+                          > StatePred "or" StatePred        [left]
+                          > StatePred "and" StatePred       [left]
+                          > StatePred "xor" StatePred       [left]
                           > StatePred "implies" StatePred
                           > StatePred "iff" StatePred
                           > Quant PathPred
-                          /*| State                                            implicit `is-state` */
 
     syntax PathPred     ::= "(" PathPred ")"    [bracket]
                           | StatePred
                           | "not" PathPred
-                          > PathPred "or" PathPred
-                          > PathPred "and" PathPred
+                          > PathPred "or" PathPred          [left]
+                          > PathPred "and" PathPred         [left]
+                          > PathPred "xor" PathPred         [left]
                           > PathPred "implies" PathPred
                           > PathPred "iff" PathPred
                           | "next" PathPred
@@ -66,7 +75,10 @@ module CTL
                           | PathPred "<--"
                           | "dominatedBy" PathPred
 
-    /* Path predicate sugar */
+    /* CTL* simplification */
+    /*---------------------*/
+
+    /* desugaring path predicates */
     rule -> P               => next P                                   [structural]
     rule -- P1 -> P2        => P1 until P2                              [structural]
     rule P <-               => prev P                                   [structural]
@@ -76,60 +88,39 @@ module CTL
     rule eventually P       => ctl-true until P                         [structural]
     rule dominatedBy P      => ctl-true since P                         [structural]
 
-    /* CTL* negative normal form */
-    /*---------------------------*/
+    /* quantifier normal form */
 
-    /* `not` */
+    /* negative normal form */
     rule not not C          => C                                        [structural]
     rule not ctl-true       => ctl-false                                [structural]
     rule not ctl-false      => ctl-true                                 [structural]
-
-    /* `and` */
-    rule C and C            => C                                        [structural]
-    rule ctl-true and C     => C                                        [structural]
-    rule ctl-false and C    => ctl-false                                [structural]
     rule not (C1 and C2)    => (not C1) or (not C2)                     [structural]
-
-    /* `or` */
-    rule C or C             => C                                        [structural]
-    rule ctl-true or C      => ctl-true                                 [structural]
-    rule ctl-false or C     => C                                        [structural]
     rule not (C1 or C2)     => (not C1) and (not C2)                    [structural]
-
-    /* `implies` and `iff` */
-    rule C1 implies C2      => (not C1) or C2                           [structural]
-    rule C1 iff C2          => (C1 and C2) or (not C1 and not C2)       [structural]
-
-    /* Path quantifiers */
     rule not (A P)          => E (not P)                                [structural]
     rule not (E P)          => A (not P)                                [structural]
-
-    /* Path predicates */
     rule not (next P)       => next (not P)                             [structural]
     rule not (P1 until P2)  => (not P2) until not (P1 or P2)            [structural]
     rule not (prev P)       => prev (not P)                             [structural]
     rule not (P1 since P2)  => (not P2) since not (P1 or P2)            [structural]
 
-    /* TODO: Should we go to ANF instead of CNF? ANF would have the benefit that
-     * if there is no working assignment to the predicates, it will discover it
-     * more "syntactically" without having to calculate the atomic predicates.
-     * Below are the rules to go to ANF (commented out for now).
-     *
-     * Perhaps what we could do is store, for each property we are trying to
-     * prove, the ANF polynomial over the atomic predicates for that property.
-     * If it's unsatisfiable, the ANF polynomial will reduce to ctl-false for us
-     * automatically, but otherwise we'll have the ANF polynomials of all the
-     * properties we're interested in for analysis/optimization. We then just
-     * have to pick which optimization we want to actually do, which tells us
-     * which polynomials we have to solve. Then we `and` those polynomials
-     * together for a new one (and also know immediately if it's satisfiable or
-     * not, though we still have to search for a satisfying assignment).
-     */
+    /* short-circuit `and` and `or` */
+    rule C and C            => C                                        [structural]
+    rule ctl-true and C     => C                                        [structural]
+    rule ctl-false and C    => ctl-false                                [structural]
+    rule C or C             => C                                        [structural]
+    rule ctl-true or C      => ctl-true                                 [structural]
+    rule ctl-false or C     => C                                        [structural]
 
+    /* desugaring `xor`, `iff`, `implies` */
+    rule C1 xor C2          => (C1 and not C2) or (C2 and not C1)       [structural]
+    rule C1 implies C2      => (not C1) or C2                           [structural]
+    rule C1 iff C2          => (C1 and C2) or (not C1 and not C2)       [structural]
+
+    /* algebraic normal form */
+    /* TODO: Should we go to ANF instead? We would know (without having to
+     * search assignments) if a formula is unsatisfiable.
+     */
     /*
-     * syntax StatePred    ::= StatePred "xor" StatePred
-     * syntax PathPred     ::= PathPred "xor" PathPred
-     *
      * rule not C              => ctl-true xor C                           [structural]
      * rule C1 or C2           => (C1 xor C2) xor (C1 and C2)              [structural]
      * rule C xor C            => ctl-false                                [structural]
@@ -143,51 +134,48 @@ module CTL
     /* Satsifaction relation */
     syntax Bool         ::= "(" Model "," State          ")" "|=" StatePred
                           | "(" Model "," Quant SetState ")" "|=" StatePred
-                          | "(" Model "," Path           ")" "|=" PathPred
-                          | "(" Model "," Quant SetPath  ")" "|=" PathPred
+                          /*| "(" Model "," Path           ")" "|=" PathPred
+                           *| "(" Model "," Quant SetPath  ")" "|=" PathPred
+                           */
+
+    /* Atomic predicates */
+    rule (M, S) |= not AP:AtomicPred    => notBool ((M, S) |= AP)       [structural]
+    rule (M, S) |= S':State             => S ==K S'                     [structural]
 
     /* Extension of satisfaction to sets of states/paths */
     rule (M, Q (S:State)) |= SP => (M, S) |= SP                         [structural]
-    rule (M, Q (P:Path)) |= PP  => (M, P) |= PP                         [structural]
+    /*rule (M, Q (P:Path)) |= PP  => (M, P) |= PP                         [structural]*/
     rule (M, A (S ; SS)) |= P
                 => ((M, S) |= P) andBool ((M, A SS) |= P)               [structural]
     rule (M, E (S ; SS)) |= P
                 => ((M, S) |= P) orBool ((M, E SS) |= P)                [structural]
 
-    /* Satisfaction definition */
+    /* basic satisfaction */
     rule (M, S) |= ctl-true     => true                                 [structural]
     rule (M, S) |= ctl-false    => false                                [structural]
     rule (M, S) |= not SP       => notBool ((M,S) |= SP)                [structural]
     rule (M, S) |= S1 and S2    => ((M,S) |= S1) andBool ((M,S) |= S2)  [structural]
     rule (M, S) |= S1 or S2     => ((M,N) |= S1) orBool ((M,N) |= S2)   [structural]
-    /*rule (M, S) |= SP:State   => S ==K SP                             [structural]*/
 
     /* Conversion of path quantifiers which are over actual Path subsort */
     rule (M, S) |= Q:Quant (next P) => (M, Q succ(M, S)) |= P           [structural]
     rule (M, S) |= Q:Quant (prev P) => (M, Q pred(M, S)) |= P           [structural]
-    rule (M, S) |= Q:Quant (P1 until P2)
+    rule Q:Quant (P1 until P2)      => P2 or Q (next (P1 until P2))     [structural]
+    rule Q:Quant (P1 since P2)      => P2 or Q (prev (P1 since P2))     [structural]
+    /*rule (M, S) |= Q:Quant (P1 until P2)
                 => (M, S) |= P2 or Q (next (Q (P1 until P2)))           [structural]
     rule (M, S) |= Q:Quant (P1 since P2)
-                => (M, S) |= P2 or Q (prev (Q (P1 since P2)))           [structural]
+                => (M, S) |= P2 or Q (prev (Q (P1 since P2)))           [structural]*/
+
+    /* path quantifier on state predicate => drop quantifier */
+    rule (M, S) |= Q:Quant (SP:StatePred) => (M, S) |= SP               [structural]
+
+    /* TODO: Propagationg of temporal operators/support for paths */
 
     /* TODO: Should we add a `when` clause which makes sure the predicate hasn't
      * already been checked on the previous/next nodes? Is this what Lasso would
      * essentially do? Is there a better way?
      */
-
-    /* TODO: Do we handle a formula like `(M, S) |= A phi`, where `phi` is some
-     * atomic predicate? I don't think this does. Does that mean we are actually
-     * still just in CTL?
-     */
-
-    /* Satisfaction calculation over PathPred */
-    rule (M, S . P)  |= SP:StatePred    => (M, S) |= SP             [structural]
-
-    /* TODO: Should we just switch to regular CTL? CTL* can express more
-     * properties, but also seems harder to implement. The claim is it is as
-     * efficient as LTL though (PSPACE).
-     */
-
 endmodule
 
 module CTL-CFG

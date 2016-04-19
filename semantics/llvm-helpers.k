@@ -37,6 +37,12 @@ module LLVM-HELPERS
          requires lengthString(A) ==Int 1
                   andBool ((ordChar(A) >=Int ordChar("0"))
                   andBool (ordChar(A) <=Int ordChar("9")))
+    rule isIntString(A) => false
+         requires lengthString(A) >=Int 1
+                  andBool ((ordChar(substrString(A, 0, 1))
+                                                 <Int ordChar("0"))
+                  orBool (ordChar(substrString(A, 0, 1))
+                                                >Int ordChar("9")))
     rule isIntString(A) => isIntString(substrString(A,
                                           1, lengthString(A)))
          requires lengthString(A) >Int 1
@@ -670,5 +676,5 @@ module LLVM-HELPERS
     rule getOutEdges(.JumpTable) => .ElemList
     rule getOutEdges('labelValue(V:ValueRef), Ju:LabelValues) => val(addNameToString(V)),getOutEdges(Ju)
     rule getOutEdges(.LabelValues) => .ElemList
-
+    rule getOutEdges(V:LocalName) => val(addNameToString(V))
 endmodule

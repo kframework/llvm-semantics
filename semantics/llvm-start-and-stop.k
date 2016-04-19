@@ -18,7 +18,7 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), callee(values(name(globalVar, "__libc_start_main_0")),
+            => call(i(32), callee(name(globalVar, "__libc_start_main_0"),
                 arguments(
                     val(funptr(name(globalVar, "main"))), // address of main
                     (val(0), // argc
@@ -40,7 +40,7 @@ module LLVM-START-AND-STOP
 
     rule
         <k> callMain
-            => call(i(32), callee(values(name(globalVar, "__libc_start_main_2")),
+            => call(i(32), callee(name(globalVar, "__libc_start_main_2"),
                 arguments((
                     val(funptr(name(globalVar, "main"))), // address of main
                     val(0), // argc
@@ -79,7 +79,7 @@ module LLVM-START-AND-STOP
 
     rule [terminate-exit]:
         <T>...
-            <k> I:Int => call(void, callee(values(name(globalVar, "exit")), arguments(val(I)))) </k>
+            <k> I:Int => call(void, callee(name(globalVar, "exit"), arguments(val(I)))) </k>
         ...</T>
 
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL

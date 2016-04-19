@@ -127,7 +127,7 @@ module LLVM-DECLARATIONS
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <initialBasicBlock> _ => addNameToString(L) </initialBasicBlock>
-
+/*
     rule
         <k> basicBlock(Name:SymbolicValueRef, K:K) => .K ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -135,7 +135,7 @@ module LLVM-DECLARATIONS
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName:SymbolicValueRef </functionName>
         <basicBlocks>... .Map => Name:SymbolicValueRef |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
-
+*/
     rule
         <k> setBlock(Label:SymbolicValueRef) => .K ...</k>
         <currBlock> Label':SymbolicValueRef => Label </currBlock>

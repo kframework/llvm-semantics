@@ -22,7 +22,8 @@ module LLVM-BRANCHING
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <basicBlocks>... name(Label:K, S:String) |-> B:K ...</basicBlocks>
+        <basicBlocks>... name(Label:K, S:String)
+                             |-> blockContent(B:K, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     rule
         <k> conditional(I:Int, Label:K, _)

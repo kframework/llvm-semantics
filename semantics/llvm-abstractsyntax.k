@@ -215,8 +215,8 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
-    syntax KItem ::= values(K) [function]
-    rule values(K:K) => K
+    //syntax KItem ::= values(K) [function]
+    //rule values(K:K) => K
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val
@@ -250,6 +250,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setInEdgesForNode(K)
     syntax KItem ::= setInEdgesForNode(K, K, Set)
     syntax KItem ::= setInitBlock(K)
+    syntax KItem ::= phiEdges(K, Set)//block
+    syntax KItem ::= "checkingPhisInEdges"
+    syntax KItem ::= "checkUseVarInPhi"
+    syntax KItem ::= checkUseVarInPhi(List, K)
+    syntax KItem ::= checkUseVarInPhi(Set, Set)
+    syntax KItem ::= checkUsePhiVarInBlock(K, Set)
+    syntax KItem ::= "checkUseVarInPhiWait"
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K)    [strict(2)]// name, type TODO: modifiers

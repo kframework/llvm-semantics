@@ -18,14 +18,14 @@ module CTL
     /* a CTL* model defines the NodeLabels and succ/pred functions */
     syntax State        ::= Id
     syntax SetState     ::= State
-                          | State SetState
+                          | State ";" SetState
                           | succ(Model, State)
                           | pred(Model, State)
-    syntax Path         ::= State
-                          | State ";" Path
+    syntax Path         ::= "selfloop"
+                          | State "." Path
                           | "(" Path ")"        [bracket]
     syntax SetPath      ::= Path
-                          | Path SetPath
+                          | Path ";" SetPath
                           | "<-" State
                           | State "->"
     syntax Model        ::= SetState
@@ -146,22 +146,34 @@ module CTL
                           | "(" Model "," Path           ")" "|=" PathPred
                           | "(" Model "," Quant SetPath  ")" "|=" PathPred
 
+    /* Extension of satisfaction to sets of states/paths */
+    rule (M, Q (S:State)) |= SP => (M, S) |= SP                         [structural]
+    rule (M, Q (P:Path)) |= PP  => (M, P) |= PP                         [structural]
+    rule (M, A (S ; SS)) |= P
+                => ((M, S) |= P) andBool ((M, A SS) |= P)               [structural]
+    rule (M, E (S ; SS)) |= P
+                => ((M, S) |= P) orBool ((M, E SS) |= P)                [structural]
+
     /* Satisfaction definition */
     rule (M, S) |= ctl-true     => true                                 [structural]
     rule (M, S) |= ctl-false    => false                                [structural]
-    /*rule (M, S) |= SP:State   => S ==K SP                             [structural]*/
     rule (M, S) |= not SP       => notBool ((M,S) |= SP)                [structural]
     rule (M, S) |= S1 and S2    => ((M,S) |= S1) andBool ((M,S) |= S2)  [structural]
     rule (M, S) |= S1 or S2     => ((M,N) |= S1) orBool ((M,N) |= S2)   [structural]
+    /*rule (M, S) |= SP:State   => S ==K SP                             [structural]*/
 
     /* Conversion of path quantifiers which are over actual Path subsort */
-    rule (M, S) |= Q:Quant (-> P)   => (M, Q succ(M, S)) |= P           [structural]
-    rule (M, S) |= Q:Quant (P <-)   => (M, Q pred(M, S)) |= P           [structural]
+    rule (M, S) |= Q:Quant (next P) => (M, Q succ(M, S)) |= P           [structural]
+    rule (M, S) |= Q:Quant (prev P) => (M, Q pred(M, S)) |= P           [structural]
+    rule (M, S) |= Q:Quant (P1 until P2)
+                => (M, S) |= P2 or Q (next (Q (P1 until P2)))           [structural]
+    rule (M, S) |= Q:Quant (P1 since P2)
+                => (M, S) |= P2 or Q (prev (Q (P1 since P2)))           [structural]
 
-    rule (M, S) |= Q:Quant (-- P1 -> P2)
-                => (M, S) |= P2 or Q (-> (Q (-- P1 -> P2)))             [structural]
-    rule (M, S) |= Q:Quant (P2 <- P1 --)
-                => (M, S) |= P2 or Q ((Q (P2 <- P1 --)) <-)             [structural]
+    /* TODO: Should we add a `when` clause which makes sure the predicate hasn't
+     * already been checked on the previous/next nodes? Is this what Lasso would
+     * essentially do? Is there a better way?
+     */
 
     /* TODO: Do we handle a formula like `(M, S) |= A phi`, where `phi` is some
      * atomic predicate? I don't think this does. Does that mean we are actually
@@ -169,30 +181,7 @@ module CTL
      */
 
     /* Satisfaction calculation over PathPred */
-    rule (M, (S;P):Path) |= SP:StatePred    => (M, S) |= SP             [structural]
-    rule (M, P:Path) |= not PP              => notBool ((M,P) |= PP)    [structural]
-    rule (M, ) |= (P1 and P2):PathPred
-            => ((M,Ns) |= P1) andBool ((M,Ns) |= P2)
-            if Ns is path in M                                          [structural]
-    rule (M, Ns:NodeLabels) |= (P1 or P2):PathPred
-            => ((M,Ns) |= P1) orBool ((M,Ns) |= P2)
-            if Ns is path in M                                          [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (-> P):PathPred
-            => (M, Ns) |= P
-            if Ns is path in M                                          [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (-- P1 -> P2):PathPred
-            => ((M, (N0,Ns)) |= P2)
-                    orBool
-               (((M, (N0, Ns)) |= P1) andBool ((M, Ns) |= (-- P1 -> P2)))
-            if Ns is path in M                                          [structural]
-    rule (M, (N0, Ns):NodeLabels) |= (P <-):PathPred
-            => (M, Ns) |= P
-            if Ns is path in M                                          [structural]
-    rule (M, (N0,Ns):NodeLabels) |= (P2 <- P1 --):PathPred
-            => ((M, (N0,Ns)) |= P2)
-                    orBool
-               (((M, (N0, Ns)) |= P1) andBool ((M, Ns) |= (P2 <- P1 --)))
-            if N0,Ns is path in M                                       [structural]
+    rule (M, S . P)  |= SP:StatePred    => (M, S) |= SP             [structural]
 
     /* TODO: Should we just switch to regular CTL? CTL* can express more
      * properties, but also seems harder to implement. The claim is it is as

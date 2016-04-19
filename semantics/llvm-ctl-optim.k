@@ -53,10 +53,28 @@ module CTL
                           > PathPred "and" PathPred
                           > PathPred "implies" PathPred
                           > PathPred "iff" PathPred
-                          | "->" PathPred                                   /* `next` */
-                          | "--" PathPred "->" PathPred                     /* `until` */
-                          | PathPred "<-"                                   /* `pred` */
-                          | PathPred "<-" PathPred "--"                     /* `since` */
+                          | "next" PathPred
+                          | "->" PathPred
+                          | PathPred "until" PathPred
+                          | "--" PathPred "->" PathPred
+                          | "prev" PathPred
+                          | PathPred "<-"
+                          | PathPred "since" PathPred
+                          | PathPred "<-" PathPred "--"
+                          | "-->" PathPred
+                          | "eventually" PathPred
+                          | PathPred "<--"
+                          | "dominatedBy" PathPred
+
+    /* Path predicate sugar */
+    rule -> P               => next P                                   [structural]
+    rule -- P1 -> P2        => P1 until P2                              [structural]
+    rule P <-               => prev P                                   [structural]
+    rule P2 <- P1 --        => P1 since P2                              [structural]
+    rule --> P              => eventually P                             [structural]
+    rule P <--              => dominatedBy P                            [structural]
+    rule eventually P       => ctl-true until P                         [structural]
+    rule dominatedBy P      => ctl-true since P                         [structural]
 
     /* CTL* negative normal form */
     /*---------------------------*/
@@ -87,10 +105,10 @@ module CTL
     rule not (E P)          => A (not P)                                [structural]
 
     /* Path predicates */
-    rule not (-> P)         => -> (not P)                               [structural]
-    rule not (-- P1 -> P2)  => -- not P2 -> not (P1 or P2)              [structural]
-    rule not (P <-)         => (not P) <-                               [structural]
-    rule not (P2 <- P1 --)  => not (P1 or P2) <- not P2 --              [structural]
+    rule not (next P)       => next (not P)                             [structural]
+    rule not (P1 until P2)  => (not P2) until not (P1 or P2)            [structural]
+    rule not (prev P)       => prev (not P)                             [structural]
+    rule not (P1 since P2)  => (not P2) since not (P1 or P2)            [structural]
 
     /* TODO: Should we go to ANF instead of CNF? ANF would have the benefit that
      * if there is no working assignment to the predicates, it will discover it
@@ -118,7 +136,6 @@ module CTL
      * rule C xor ctl-false    => C                                        [structural]
      * rule (C1 xor C2) and C3 => (C1 and C3) xor (C2 and C3)              [structural]
      */
-
 
     /* CTL* semantics */
     /*----------------*/

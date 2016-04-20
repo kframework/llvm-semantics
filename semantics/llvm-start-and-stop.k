@@ -46,7 +46,8 @@ module LLVM-START-AND-STOP
                     val(0), // argc
                     val(
                         initEnvStructures(alloca(i(8),
-                         (sizeof('pointerType(i(8),, 0)) *Int 3) +Int (sizeof(i(64)) *Int 38)
+                         (sizeof(pointerTypeValue(i(8),
+                              'addrEmpty(.KList))) *Int 3) +Int (sizeof(i(64)) *Int 38)
                                              , 'alignEmpty(.KList)))
                     ),
                     val('nullOfConstValueRef(.KList)), // init
@@ -67,8 +68,10 @@ module LLVM-START-AND-STOP
 
     rule // argv & envp
         <k> initEnvStructures(Loc:Loc)
-            => write(arrayTypeValue('pointerType(i(8),, 0), 3), zeroinitializer, Loc)
-            ~> initEnvStructures'(Loc + sizeof(arrayTypeValue('pointerType(i(8),, 0), 3)))
+            => write(arrayTypeValue(pointerTypeValue(
+                         i(8), 'alignEmpty(.KList)), 3), zeroinitializer, Loc)
+            ~> initEnvStructures'(Loc + sizeof(
+                     arrayTypeValue(pointerTypeValue(i(8), 'alignEmpty(.KList)), 3)))
             ~> Loc
         ...</k>
 

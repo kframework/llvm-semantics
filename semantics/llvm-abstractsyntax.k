@@ -90,7 +90,7 @@ module LLVM-ABSTRACTSYNTAX
     rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
                                                         [structural]
     rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
-    rule 'pointerType(K1:KResult,, K2:KResult) => pointerTypeValue(K1, K2) [structural]
+    rule 'pointerType(K1:KResult,, K2:K) => pointerTypeValue(K1, K2) [structural]
 
     //uniform the types.
     rule [ I:UnsignedInt x T:Type ] => arrayType(T,
@@ -150,6 +150,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeZero"
     syntax KResult ::= "PositiveInfinity"
     syntax KResult ::= "NegativeInfinity"
+    syntax KResult ::= Zeroinitializer
 
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String

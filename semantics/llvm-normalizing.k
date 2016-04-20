@@ -34,6 +34,7 @@ module LLVM-NORMALIZING
                    | typeCheckStore(K, K, K, K, K, K, K)  [strict(2,4)]//block, t, v, pt, v, align, atomic
                    | typeCheckLoad(K, K, K, K, K, K, K)  [strict(3,4)]//block, var, t, pt, v, align, atomic
                    | typeCheckIntArgList(K, ElemList)        [strict(2)]
+                   | typeCheckArgList(K, ElemList)        [strict(2)]
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
                    | typeCheckBr(K, K, K, K, K)    [strict(2)]//block, t, ...
                    | typeCheckCmp(K, K, K, K, K)    [strict(3)]//block, var, type, v1, v2
@@ -185,7 +186,7 @@ module LLVM-NORMALIZING
 
     //deal with calls
     rule <k> typeCheckCall(Name:SymbolicValueRef, .K, void, V1:SymbolicValueRef, Ts:ElemList, Tv:ElemList)
-        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckIntArgList(Name, Tv) ...</k>
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckArgList(Name, Tv) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
@@ -193,7 +194,7 @@ module LLVM-NORMALIZING
 
     rule <k> typeCheckCall(Name:SymbolicValueRef,
                    A:SymbolicValueRef, T:KResult, V1:SymbolicValueRef, Ts:ElemList, Tv:ElemList)
-        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckIntArgList(Name, Tv)
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckArgList(Name, Tv)
            ~> assignType(Name, A, T) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -606,6 +607,12 @@ module LLVM-NORMALIZING
          requires getKLabel(T') =/=KLabel 'pointerTypeValue
 
 
+    rule typeCheckArgList(Name:SymbolicValueRef, .ElemList) => .K
+    rule typeCheckArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef, T, V)
+                                ~> typeCheckArgList(Name:SymbolicValueRef, Vs)
+
     rule typeCheckIntArgList(Name:SymbolicValueRef, .ElemList) => .K
     rule typeCheckIntArgList(Name:SymbolicValueRef,
                          valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
@@ -739,7 +746,7 @@ module LLVM-NORMALIZING
     rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I:Int) => .K
     rule typeCheckIntArg(Name:SymbolicValueRef, integerType(1), B:Bool) => .K
 
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:LocalName) => .K ...</k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -749,7 +756,7 @@ module LLVM-NORMALIZING
                Def:Set, _:Set, _:Set) ...</basicBlocks>
          requires operand(addNameToString(X), T) in Def
 
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:LocalName) => .K ...</k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -758,7 +765,7 @@ module LLVM-NORMALIZING
                Def:Set, _:Set, Use:Set  (.Set => SetItem(operand(addNameToString(X), T)))) ...</basicBlocks>
          requires notBool operand(addNameToString(X), T) in Def
 
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:LocalName) ~> K:K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) ~> K:K => .K </k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -788,7 +795,7 @@ module LLVM-NORMALIZING
          => typeCheckIntArg(Name:SymbolicValueRef, integerType(1), I -Int 1, A)
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
+                integerType(N:Int), N':Int, A:K, T:KResult, X:SymbolicValueRef)
          => typeCheckIntArg(Name:SymbolicValueRef,
                                         integerType(N), N' -Int 1, A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -801,7 +808,7 @@ module LLVM-NORMALIZING
          requires operand(addNameToString(X), T) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
+                integerType(N:Int), N':Int, A:K, T:KResult, X:SymbolicValueRef)
          => typeCheckIntArg(Name:SymbolicValueRef,
                                         integerType(N), N' -Int 1, A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -814,7 +821,7 @@ module LLVM-NORMALIZING
          requires notBool addNameToString(X) in keys(M)
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                integerType(N:Int), N':Int, A:K, T:KResult, X:LocalName)
+                integerType(N:Int), N':Int, A:K, T:KResult, X:SymbolicValueRef)
              ~> K:K => .K </k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>

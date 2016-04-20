@@ -366,7 +366,7 @@ module LLVM-HELPERS-SPLIT-BYTES
         <k> listK(L:List) ~> splitArrayBytes(zeroinitializer, NumBytes:Int, Type:KResult)
             => listK((NumBytes /Int sizeof(Type)) copiesOf L:List)
         ...</k>
-        when sizeof(Type) divInt NumBytes
+        when sizeof(Type) dividesInt NumBytes
 
     // TODO assumes no padding
     // TODO need to heat types
@@ -601,7 +601,7 @@ module LLVM-MEMORY
 
     // TODO similar problem as sNat; want to match through a deconstructor
     rule
-        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:Int))
+        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:K))
             => writeBytes(listK(L:List), loc(Base:Int, Offset:Int, Limit, Align) + 1)
         ...</k>
         <basePtr> Base:Int </basePtr>
@@ -613,7 +613,7 @@ module LLVM-MEMORY
 
 
     rule
-        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:Int)) ~> K:K
+        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:K)) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior") </output>
         requires Offset >=Int Limit
@@ -930,8 +930,8 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
 
     rule
         <k> call(_, calleeValue(funptr(name(globalVar, "__libc_start_main_2")), (valValue(V1:KResult),
-                   Vl:ElemList)))
-            => call(i(32), callee(V1,arguments(.ElemList)))
+                   valValue(Argc:K),valValue(Argv:K),Vl:ElemList)))
+            => call(i(32), callee(V1,arguments(valValue(Argc:K),valValue(Argv:K),.ElemList)))
         ...</k>
 
     rule

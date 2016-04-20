@@ -680,4 +680,15 @@ module LLVM-HELPERS
     rule getOutEdges('labelValue(V:ValueRef), Ju:LabelValues) => val(addNameToString(V)),getOutEdges(Ju)
     rule getOutEdges(.LabelValues) => .ElemList
     rule getOutEdges(V:LocalName) => val(addNameToString(V))
+
+    syntax ElemList ::= getArgsInFunction(ElemList) [function]
+    rule getArgsInFunction(.ElemList) => .ElemList
+    rule getArgsInFunction(val(arg(S:Set, T:K, V:K)), E:ElemList)
+            => val(typeOperand(T, V)),getArgsInFunction(E)
+
+    syntax Set ::= formArgSet(ElemList)      [function]
+    rule formArgSet(.ElemList) => .Set
+    rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
+            => SetItem(operand(T, V)) formArgSet(E)
+
 endmodule

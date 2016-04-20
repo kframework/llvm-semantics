@@ -42,6 +42,7 @@ module LLVM-NORMALIZING
                    | typeCheckPhi(K, K, K, ElemList, ElemList, Set)  [strict(3)]//block, var, type, value-list, label-list
                    | typeCheckRet(K, K, K)           [strict(2)]//block, t, v
                    | typeCheckCall(K, K, K, K, ElemList, ElemList) [strict(3, 5)]//block, var, t, name, argt, argv.
+                   | typeCheckSwitch(K, K, K, ElemList, ElemList) [strict(3, 5)]//block, t, name, argt, argv.
 
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
@@ -165,6 +166,14 @@ module LLVM-NORMALIZING
                        Meta:InstructionMetadatas)
          => typeCheckCall(Name:SymbolicValueRef, K, Ty1, addNameToString(V1),
                                                     getAllTypes(Pl), formTypeCheckList(Pl))
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                     Ca:OptTailCall
+                        Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
+                     V1:ValueRef (Pl:ParamList) Fat:FuncAttrs
+                       Meta:InstructionMetadatas)
+         => typeCheckCall(Name:SymbolicValueRef, K, Ty1, addNameToString(V1),
+                                                    getAllTypes(Pl), formTypeCheckList(Pl))
+
 
 
     rule TypeMatchFunctions(A:K, .ElemList, .ElemList) => .K
@@ -223,7 +232,7 @@ module LLVM-NORMALIZING
          <varTypes>... name(localVar, S:String) |-> T ...</varTypes>
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
-         requires operand(name(localVar, S:String), T) in Def
+         requires operand(T, name(localVar, S:String)) in Def
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                   (val(name(localVar, S:String)), E1:ElemList => E1), _:ElemList, _:Set) ...</k>
@@ -234,8 +243,8 @@ module LLVM-NORMALIZING
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, Def:Set,
-                  UsePhi:Set (.Set => SetItem(operand(name(localVar, S:String), T))), _:Set) ...</basicBlocks>
-         requires notBool operand(name(localVar, S:String), T) in Def
+                  UsePhi:Set (.Set => SetItem(operand(T, name(localVar, S:String)))), _:Set) ...</basicBlocks>
+         requires notBool operand(T, name(localVar, S:String)) in Def
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
              T:KResult, val(name(localVar, S:String)), E1:ElemList, E2:ElemList, _:Set)
@@ -263,7 +272,7 @@ module LLVM-NORMALIZING
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
                      Use:Set (.Set
-                  => SetItem(operand(name(localVar, S:String), label)))) ...</basicBlocks>
+                  => SetItem(operand(label, name(localVar, S:String))))) ...</basicBlocks>
          requires notBool name(localVar, S:String) in keys(M)
                   andBool notBool name(localVar, S:String) in InSet
 
@@ -315,7 +324,7 @@ module LLVM-NORMALIZING
     rule typeCheckFCmp(Name:SymbolicValueRef,
               X:SymbolicValueRef, T:KResult, V1:K, V2:K)
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
-                   ~> assignType(Name, X, T)
+                   ~> assignType(Name, X, integerType(1))
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
@@ -326,7 +335,7 @@ module LLVM-NORMALIZING
                               vectorTypeValue(T:KResult, I:Int), V1)
                      ~> typeCheckIntArg(Name:SymbolicValueRef,
                             vectorTypeValue(T:KResult, I:Int), V2)
-                     ~> assignType(Name, X, vectorTypeValue(T:KResult, I:Int))
+                     ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int))
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
@@ -350,7 +359,7 @@ module LLVM-NORMALIZING
     rule typeCheckCmp(Name:SymbolicValueRef, X:SymbolicValueRef,
                T:KResult, V1:K, V2:K)
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
-                  ~> assignType(Name, X, T)
+                  ~> assignType(Name, X, integerType(1))
          requires (getKLabel(T) ==KLabel 'integerType
                orBool getKLabel(T) ==KLabel 'pointerTypeValue)
          
@@ -360,7 +369,7 @@ module LLVM-NORMALIZING
                                   vectorTypeValue(integerType(N:Int), I:Int), V1)
                      ~> typeCheckIntArg(Name:SymbolicValueRef,
                                     vectorTypeValue(integerType(N:Int), I:Int), V2)
-                     ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int))
+                     ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int))
 
     rule <k> typeCheckCmp(Name:SymbolicValueRef, X,
               T:KResult, V1:K, V2:K) ~> K:K  => .K </k>
@@ -392,7 +401,7 @@ module LLVM-NORMALIZING
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(A, label)))) ...</basicBlocks>
+                     Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
          requires notBool A in keys(M)
 
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
@@ -416,8 +425,8 @@ module LLVM-NORMALIZING
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(L1, label))
-                              SetItem(operand(L2, label)))) ...</basicBlocks>
+                     Use:Set (.Set => SetItem(operand(label, L1))
+                              SetItem(operand(label, L2)))) ...</basicBlocks>
          requires (notBool L1 in keys(M)) andBool (notBool L2 in keys(M))
 
     rule <k> typeCheckBr(Name:SymbolicValueRef,
@@ -430,7 +439,7 @@ module LLVM-NORMALIZING
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(L1, label)))) ...</basicBlocks>
+                     Use:Set (.Set => SetItem(operand(label, L1)))) ...</basicBlocks>
          requires L2 in keys(M) andBool (notBool L1 in keys(M))
                   andBool M[L2] ==K label
 
@@ -444,7 +453,7 @@ module LLVM-NORMALIZING
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
              |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(L2, label)))) ...</basicBlocks>
+                     Use:Set (.Set => SetItem(operand(label, L2)))) ...</basicBlocks>
          requires L1 in keys(M) andBool (notBool L2 in keys(M))
                   andBool M[L1] ==K label
 
@@ -733,7 +742,7 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
           <varTypes> _:Map (.Map => X |-> T) </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, Def:Set (.Set => SetItem(operand(X, T))), _:Set, _:Set) ...</basicBlocks>
+             |-> blockContent(_:K, _:Set, _:Set, Def:Set (.Set => SetItem(operand(T, X))), _:Set, _:Set) ...</basicBlocks>
 
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, .ElemList) => .K
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, val(V:K),Vs:ElemList)
@@ -754,7 +763,7 @@ module LLVM-NORMALIZING
          <varTypes>... addNameToString(X) |-> T:K ...</varTypes>
          <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
                Def:Set, _:Set, _:Set) ...</basicBlocks>
-         requires operand(addNameToString(X), T) in Def
+         requires operand(T, addNameToString(X)) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -762,8 +771,8 @@ module LLVM-NORMALIZING
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
-               Def:Set, _:Set, Use:Set  (.Set => SetItem(operand(addNameToString(X), T)))) ...</basicBlocks>
-         requires notBool operand(addNameToString(X), T) in Def
+               Def:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
+         requires notBool operand(T, addNameToString(X)) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) ~> K:K => .K </k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -805,7 +814,7 @@ module LLVM-NORMALIZING
          <varTypes>... addNameToString(X) |-> T ...</varTypes>
          <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
                Def:Set, _:Set, _:Set) ...</basicBlocks>
-         requires operand(addNameToString(X), T) in Def
+         requires operand(T, addNameToString(X)) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
                 integerType(N:Int), N':Int, A:K, T:KResult, X:SymbolicValueRef)
@@ -817,7 +826,7 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
-               _:Set, _:Set, Use:Set  (.Set => SetItem(operand(addNameToString(X), T)))) ...</basicBlocks>
+               _:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
          requires notBool addNameToString(X) in keys(M)
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
@@ -1531,17 +1540,19 @@ module LLVM-NORMALIZING
     syntax Set ::= getOperandSetOfLabels(Set)    [function]
     rule getOperandSetOfLabels(.Set) => .Set
     rule getOperandSetOfLabels(SetItem(A:K) S:Set)
-             => SetItem(operand(A, label)) getOperandSetOfLabels(S)
+             => SetItem(operand(label, A)) getOperandSetOfLabels(S)
 
 
     //check all the function vars have a father along any path
-    rule <k> checkUseVars => checkUseVars(values(M),
-                          .K, getOperandSetOfLabels(keys(M))) ...</k>
+    rule <k> checkUseVars(E:KResult) => checkUseVars(values(M),
+                          .K, formArgSet(E), getOperandSetOfLabels(keys(M))) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks> M:Map </basicBlocks>
+
+    rule checkUseVars(L:List, K:K, S1:Set, S2:Set) => checkUseVars(L, K, S1 S2)
 
     rule <k> checkUseVarWait => .K ...</k>
          <checkAllUses> .Bag </checkAllUses>
@@ -1597,15 +1608,15 @@ module LLVM-NORMALIZING
 
     rule <allCheckedBlocks> S:Set </allCheckedBlocks>
           <allCurrentJob> checkUseVarInBlock(A:K, Use:Set, Labels:Set)
-                     => checkUseVars(S' -Set S, Use -Set Def, Labels) </allCurrentJob>
+                     => checkUseVars(In -Set S, Use -Set Def, Labels) </allCurrentJob>
          <currModule> ModName:SymbolicValueRef </currModule>
          <checkUseResult> false </checkUseResult>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, S':Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
-         requires notBool (Use <=Set Def) andBool notBool (S' <=Set S)
+              blockContent(_:K, _:Set, In:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires notBool (Use <=Set Def) andBool notBool (In <=Set S)
 
     rule <checkUsesInBlock>...
               <allCurrentJob> checkUseVars(.Set, Use:Set, Labels:Set) </allCurrentJob>
@@ -1626,53 +1637,43 @@ module LLVM-NORMALIZING
 
     //check all the phi function vars have a father
 
-    rule <k> checkUseVarInPhi => checkUseVarInPhi(values(M), .K) ...</k>
+    rule <k> checkUseVarInPhi(E:KResult)
+                 => checkUseVarInPhi(values(M), .K, formArgSet(E)) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks> M:Map </basicBlocks>
 
-    rule checkUseVarInPhi(.List, .K) => checkUseVarWait
-    rule checkUseVarInPhi(ListItem(A:K) S:List, .K) => checkUseVarInPhi(S, A)
-    rule checkUseVarInPhi(S:List, blockContent(K:K, Out:Set, In:Set, Def:Set, .Set, Use:Set))
-         => checkUseVarInPhi(S, .K)
+    rule checkUseVarInPhi(.List, .K, _:Set) => checkUseVarWait
+    rule checkUseVarInPhi(ListItem(A:K) S:List, .K, Arg:Set) => checkUseVarInPhi(S, A, Arg)
+    rule checkUseVarInPhi(S:List,
+                              blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, _:Set), Arg:Set)
+         => checkUseVarInPhi(S, .K, Arg)
+         requires UsePhi -Set Arg <=Set .Set
 
-    rule <k> checkUseVarInPhi(S:List, blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, Use:Set))
-         => checkUseVarInPhi(S, In, UsePhi) ...</k>
+    rule <k> checkUseVarInPhi(S:List,
+                     blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, Use:Set), Arg:Set)
+         => checkUseVarInPhi(S, .K, Arg) ...</k>
          <checkUseCount> I:Int </checkUseCount>
          (.Bag => <checkUsesInBlock>...
+                    <allCurrentJob> checkUseVarInPhi(.K, In, UsePhi -Set Arg) </allCurrentJob>
                     <allUseNum> I </allUseNum>
                 ...</checkUsesInBlock>)
-         requires notBool (UsePhi <=Set .Set)
+         requires notBool (UsePhi -Set Arg <=Set .Set)
 
-    rule <k> checkUseVarInPhi(S:List, In:Set, UsePhi:Set)
-         => checkUseVarInPhi(S, .K) ...</k>
-         <checkUseCount> I:Int => I +Int 1 </checkUseCount>
-         (.Bag =>
-                    <checkUse>...
-                     <existUseNum> I </existUseNum>
-                    <currentJob> checkUseVarInPhi(In, UsePhi) </currentJob>
-                    ...</checkUse>)
 
     rule <checkUsesInBlock>...
            <checkUseResult> true </checkUseResult>
          ...</checkUsesInBlock>
          => .Bag
 
-    rule <currentJob> checkUsePhiVarInBlock(A:K, UsePhi:Set)
-              => toCheckUsePhiVarInBlock(A:K, UsePhi:Set) </currentJob>
-         <allUseNum> I:Int </allUseNum>
-         <existUseNum> I </existUseNum>
-         <checkUseResult> false </checkUseResult>
+    rule <allCurrentJob> checkUseVarInPhi(.K, SetItem(A:K) S':Set, UsePhi:Set)
+                  => checkUseVarInPhi(A, S':Set, UsePhi:Set) </allCurrentJob>
 
-    rule <currentJob> true </currentJob>
-         <allUseNum> I:Int </allUseNum>
-         <existUseNum> I </existUseNum>
-         <checkUseResult> false => true </checkUseResult>
-
-    rule <currentJob> toCheckUsePhiVarInBlock(A:K, UsePhi:Set)
-                  => true </currentJob>
+    rule <allCurrentJob> checkUseVarInPhi(A:K, S':Set, UsePhi:Set)
+                  => true </allCurrentJob>
+          <checkUseResult> false => true </checkUseResult>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1681,43 +1682,16 @@ module LLVM-NORMALIZING
               blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
          requires UsePhi <=Set Def
 
-    rule (<checkUse>...
-          <checkedBlocks> S:Set </checkedBlocks>
-          <currentJob> toCheckUsePhiVarInBlock(A:K, UsePhi:Set) </currentJob>
-         ...</checkUse> => .Bag)
+    rule <allCurrentJob> checkUseVarInPhi(A:K, S':Set, UsePhi:Set)
+               => checkUseVarInPhi(.K, S' (In -Set (S SetItem(A))), UsePhi -Set Def) </allCurrentJob>
+         <allCheckedBlocks> S:Set (.Set => SetItem(A)) </allCheckedBlocks>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, S':Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
-         requires (notBool (UsePhi <=Set Def)) andBool S' <=Set S
-
-    rule <checkedBlocks> S:Set </checkedBlocks>
-          <currentJob> toCheckUsePhiVarInBlock(A:K, UsePhi:Set)
-                            => checkUseVarInPhi(S' -Set S, UsePhi -Set Def) </currentJob>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, S':Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
-         requires notBool (UsePhi <=Set Def) andBool notBool (S' <=Set S)
-
-    rule <checkUse>...
-              <currentJob> checkUseVarInPhi(.Set, UsePhi) </currentJob>
-         ...</checkUse>
-         => .Bag
-
-    rule <currentJob> checkUseVarInPhi(SetItem(A:K) S':Set, UsePhi:Set)
-                            => checkUseVarInPhi(S', UsePhi) </currentJob>
-         <checkedBlocks> S:Set </checkedBlocks>
-         <existUseNum> I:Int </existUseNum>
-         (.Bag => <checkUse>...
-                      <existUseNum> I </existUseNum>
-                      <checkedBlocks> S:Set SetItem(A) </checkedBlocks>
-                      <currentJob> checkUsePhiVarInBlock(A, UsePhi) </currentJob>
-                  ...</checkUse>)
+              blockContent(_:K, _:Set, In:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+         requires notBool (UsePhi <=Set Def) andBool A =/=K .K
 
 
     //ensure the static single assignment property in a function.
@@ -2319,12 +2293,14 @@ create an abstract for fence and do the same for fence operation.
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M)) ~> checkingPhisInEdges
-                  ~> checkUseVarInPhi ~> checkUseVars ...</k>
+                  ~> checkUseVarInPhi(getArgsInFunction(E))
+                    ~> checkUseVars(getArgsInFunction(E)) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks> M:Map </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+        <formalParameters> arguments(E:ElemList) </formalParameters>
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
@@ -2333,7 +2309,7 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-              |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
+              |-> blockContent(.K, .Set, .Set, SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <varTypes> M:Map (.Map =>  addNameToString(L) |-> label) </varTypes>
@@ -2364,7 +2340,8 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
+                         |-> blockContent(.K, .Set, .Set,
+                            SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool isIntString(substrString(#tokenToString(L), 0
@@ -2396,7 +2373,8 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
+                         |-> blockContent(.K, .Set, .Set,
+                          SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool notBool isIntString(substrString(#tokenToString(L), 0
@@ -2426,7 +2404,8 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.K, .Set, .Set, SetItem(operand(addNameToString(L),label)), .Set, .Set)) </basicBlocks>
+                         |-> blockContent(.K, .Set, .Set,
+                             SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires isIntString(substrString(#tokenToString(L), 0
@@ -2459,7 +2438,8 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
-                  |-> blockContent(.K, .Set, .Set, SetItem(operand(name(localVar, Int2String(I)),label)), .Set, .Set)) </basicBlocks>
+                  |-> blockContent(.K, .Set, .Set,
+                        SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I))  |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)
@@ -2487,7 +2467,8 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
-                |-> blockContent(.K, .Set, .Set, SetItem(operand(name(localVar, Int2String(I)),label)), .Set, .Set)) </basicBlocks>
+                |-> blockContent(.K, .Set, .Set,
+                    SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)

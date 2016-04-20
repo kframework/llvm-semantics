@@ -18,17 +18,24 @@ module LLVM-CONFIGURATION
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
+            <checkUseCount> 0 </checkUseCount>
             <checkAllUses>
                 <checkUsesInBlock  multiplicity="*">
-                    <checkUse multiplicity="*">
-                       <checkedBlocks> .Set </checkedBlocks>
-                       <currentJob> .K </currentJob>
-                    </checkUse>
+                    <allUseNum> 0 </allUseNum>
+                    <allCheckedBlocks> .Set </allCheckedBlocks>
+                    <allCurrentJob> .K </allCurrentJob>
                     <checkUseResult>
                        false
                     </checkUseResult>
                 </checkUsesInBlock>
             </checkAllUses>
+            <checkExistUses>
+                <checkUse multiplicity="*">
+                   <existUseNum> 0 </existUseNum>
+                   <checkedBlocks> .Set </checkedBlocks>
+                   <currentJob> .K </currentJob>
+                </checkUse>
+            </checkExistUses>
             <control color="LightGoldenrod">
                 <currBlock color="Orchid"> name(localVar, "Initial") </currBlock>
                 <prevBlock color="Orchid"> name(localVar, "Initial") </prevBlock>

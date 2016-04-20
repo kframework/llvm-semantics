@@ -258,9 +258,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= checkUseVarInBlock(K, Set, Set)
     syntax KItem ::= "checkUseVarInPhi"
     syntax KItem ::= checkUseVarInPhi(List, K)
+    syntax KItem ::= checkUseVarInPhi(List, Set, Set)
     syntax KItem ::= checkUseVarInPhi(Set, Set)
     syntax KItem ::= checkUsePhiVarInBlock(K, Set)
-    syntax KItem ::= "checkUseVarInPhiWait"
+    syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
+    syntax KItem ::= "checkUseVarWait"
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K)    [strict(2)]// name, type TODO: modifiers

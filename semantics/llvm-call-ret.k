@@ -21,6 +21,8 @@ module LLVM-CALL-RET
 
     rule arguments(L:ElemList) => L
 
+    rule arg(A:K, T:K, V:K) => V
+
     // TODO: rename tail
     // grabbing argument names
     // figuring out right function body (grab first bb)

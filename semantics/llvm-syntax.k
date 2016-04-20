@@ -1080,7 +1080,7 @@ module LLVM-SYNTAX
                      | "landingpad" Type "personality" ResolvedVal OptCleanup
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
-                       "(" ParamList ")" FuncAttrs InstructionMetadatas
+                       "(" ParamList ")" FuncAttrs InstructionMetadatas     [klabel('functionCall)]
                      | "alloca" OptInalloca AllocMetadata InstructionMetadatas
                      // LLVM syntax 3.7.1 has a typo on this significantly without the first return type
                      //of load for atomic operator.

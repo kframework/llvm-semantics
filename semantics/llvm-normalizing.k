@@ -145,7 +145,7 @@ module LLVM-NORMALIZING
     rule typeCheckOp(Name:SymbolicValueRef, K:K, br It:IntType Va:ValueRef ,
                    label La1:ValueRef , label La2:ValueRef
                                   Meta:InstructionMetadatas)
-           => typeCheckBr(Name:SymbolicValueRef, K, It, addNameToString(La1), addNameToString(La2))
+           => typeCheckBr(Name:SymbolicValueRef, It, Va, addNameToString(La1), addNameToString(La2))
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, icmp Op:IPredicate
                    Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
          => typeCheckCmp(Name:SymbolicValueRef, X, Ty, V1, V2)

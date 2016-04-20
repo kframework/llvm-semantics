@@ -172,7 +172,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
-    syntax KItem ::= typeOperandResult(K, K)
+    syntax KResult ::= typeOperandResult(K, K)
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
 
     //instructions

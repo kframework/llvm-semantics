@@ -348,6 +348,9 @@ module LLVM-HELPERS
     rule formTypeCheckList('.IntResolveVals(.KList)) => .ElemList
     rule formTypeCheckList(, It:IntType V:ValueRef Ins:IntResolveVals)
             => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList(.ParamList) => .ElemList
+    rule formTypeCheckList(T:Type _:ParamAttrs V:ValueRef, Pl:ParamList)
+            => val(typeOperand(T,addNameToString(V))),formTypeCheckList(Pl)
     rule formTypeCheckList(K:K) => K [owise]
 
 

@@ -42,13 +42,17 @@ module LLVM-NORMALIZING
                    | typeCheckPhi(K, K, K, ElemList, ElemList, Set)  [strict(3)]//block, var, type, value-list, label-list
                    | typeCheckRet(K, K, K)           [strict(2)]//block, t, v
                    | typeCheckCall(K, K, K, K, ElemList, ElemList) [strict(3, 5)]//block, var, t, name, argt, argv.
-                   | typeCheckSwitch(K, K, K, ElemList, ElemList) [strict(3, 5)]//block, t, name, argt, argv.
+                   | typeCheckSwitch(K, ElemList, ElemList)//block, argv, argl.
 
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
                    | getAllTypes(K)   [function]
+                   | getValueOfSwitch(JumpTable) [function]
     syntax KItem ::= getVar(K)    [function]
-               
+
+    rule getValueOfSwitch(.JumpTable) => .ElemList
+    rule getValueOfSwitch(T:IntType V:ConstValueRef, La:LabelValue Ju:JumpTable)
+           => val(typeOperand(T, V)),getValueOfSwitch(Ju)
 
     rule getAllTypes(.ParamList) => .ElemList
     rule getAllTypes(T:Type _:ParamAttrs _:ValueRef, Pl:ParamList)
@@ -167,12 +171,54 @@ module LLVM-NORMALIZING
          => typeCheckCall(Name:SymbolicValueRef, K, Ty1, addNameToString(V1),
                                                     getAllTypes(Pl), formTypeCheckList(Pl))
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
-                                     Ca:OptTailCall
-                        Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
-                     V1:ValueRef (Pl:ParamList) Fat:FuncAttrs
-                       Meta:InstructionMetadatas)
-         => typeCheckCall(Name:SymbolicValueRef, K, Ty1, addNameToString(V1),
-                                                    getAllTypes(Pl), formTypeCheckList(Pl))
+                                       switch It:IntType Va:ValueRef ,
+                                       label La:ValueRef [ Ju:JumpTable ]
+                                  Meta:InstructionMetadatas)
+         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(It, Va)),getValueOfSwitch(Ju)),
+                                (val(addNameToString(La)),getOutEdges(Ju)))
+
+
+ 
+    //deal with switchs
+    rule typeCheckSwitch(N:SymbolicValueRef, E1:ElemList, .ElemList)
+          => typeCheckIntArgList(N, E1)
+
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef,
+                   E1:ElemList, val(A:SymbolicValueRef), E2:ElemList)
+                     => typeCheckSwitch(Name:SymbolicValueRef,
+                   E1:ElemList, E2:ElemList) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... A |-> label ...</varTypes>
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef,
+                   E1:ElemList, val(A:SymbolicValueRef), E2:ElemList)
+                     => typeCheckSwitch(Name:SymbolicValueRef,
+                   E1:ElemList, E2:ElemList) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
+         requires notBool A in keys(M)
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef,
+                   E1:ElemList, val(name(localVar, S:String)), E2:ElemList)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: '%"
+                   +String S +String "' is not a basic block") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... name(localVar, S:String) |-> T:K ...</varTypes>
+         requires T =/=K label
 
 
 
@@ -1515,7 +1561,7 @@ module LLVM-NORMALIZING
 
     //set inedges
     rule setInEdges(.Set) => .K
-    rule setInEdges(SetItem(K) S:Set) => setInEdgesForNode(K) ~> setInEdges(S)
+    rule setInEdges(SetItem(K:K) S:Set) => setInEdgesForNode(K) ~> setInEdges(S)
 
     //set inedges for each node
     rule <k> setInEdgesForNode(A:K) => setInEdgesForNode(A, .K, Out) ...</k>
@@ -1595,8 +1641,7 @@ module LLVM-NORMALIZING
          ...</checkUsesInBlock> => .Bag)
          </checkAllUses>
          <k> K:K => .K </k>
-         <output>... .List => ListItem("error: the function '" +String #tokenToString(FunName)
-                              +String "' is not well-formed") </output>
+         <output>... .List => ListItem("error: the function is not well-formed") </output>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1784,7 +1829,8 @@ module LLVM-NORMALIZING
          => typeCheckOp(N, .K, switch It:IntType Va:ValueRef ,
                                        label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas)
-             ~> setOutEdge(N, val(La)) ~> setOutEdge(N, getOutEdges(Ju))
+             ~> setOutEdge(N, val(addNameToString(La)))
+                 ~> setOutEdge(N, getOutEdges(Ju))
              ~> checkSingleAssignmentInBlock(N, .K, K
                   ~> instruction(switch(addNameToString(It)
                                         ,addNameToString(Va)
@@ -2289,6 +2335,48 @@ create an abstract for fence and do the same for fence operation.
     rule <k> checkingPhisInEdges => .K ...</k>
          <matchPhisWithInEdges> .List </matchPhisWithInEdges>
 
+
+    rule setArgsToBlockEnv(N:SymbolicValueRef, .ElemList) => .K
+    rule <k> setArgsToBlockEnv(N:SymbolicValueRef,
+                valValue(typeOperandResult(T:K, V:SymbolicValueRef)), E:ElemList)
+             => setArgsToBlockEnv(N:SymbolicValueRef, E:ElemList) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... N |->
+                 blockContent(_:K, _:Set, _:Set, Def:Set
+                    (.Set => SetItem(operand(T, V))), _:Set, _:Set) ...</basicBlocks>
+         <varTypes> M:Map (.Map => V |-> T) </varTypes>
+        requires notBool V in keys(M) andBool notBool operand(T, V) in Def
+
+    rule <k> setArgsToBlockEnv(N:SymbolicValueRef,
+                valValue(typeOperandResult(T:K, V:SymbolicValueRef)), E:ElemList)
+             => setArgsToBlockEnv(N:SymbolicValueRef, E:ElemList) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... N |->
+                 blockContent(_:K, _:Set, _:Set, Def:Set
+                    (.Set => SetItem(operand(T, V))), _:Set, _:Set) ...</basicBlocks>
+         <varTypes> M:Map </varTypes>
+        requires V in keys(M) andBool notBool operand(T, V) in Def
+
+    rule <k> setArgsToBlockEnv(N:SymbolicValueRef,
+                valValue(typeOperandResult(T:K, V:K)), E:ElemList) ~> K:K
+             => .K </k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <output>... .List => ListItem("error: define argument '" +String
+                         #tokenToString(V) +String "' twices in the function header") </output>
+         <basicBlocks>... N |->
+                 blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+        requires operand(T, V) in Def
+
+
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
@@ -2304,7 +2392,8 @@ create an abstract for fence and do the same for fence operation.
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
-         => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+         => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
            ~> checkSingleAssignment(BBL) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -2312,6 +2401,7 @@ create an abstract for fence and do the same for fence operation.
               |-> blockContent(.K, .Set, .Set, SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+        <formalParameters> arguments(Args:ElemList) </formalParameters>
          <varTypes> M:Map (.Map =>  addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool notBool isIntString(substrString(#tokenToString(L), 0
@@ -2332,12 +2422,14 @@ create an abstract for fence and do the same for fence operation.
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
-         => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+         => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
            ~> checkSingleAssignment(BBL) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+        <formalParameters> arguments(Args:ElemList) </formalParameters>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.K, .Set, .Set,
@@ -2366,12 +2458,14 @@ create an abstract for fence and do the same for fence operation.
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction)
-           => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+           => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
                  ~> checkSingleAssignment(.K) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+        <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.K, .Set, .Set,
                           SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
@@ -2397,10 +2491,12 @@ create an abstract for fence and do the same for fence operation.
 
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction)
-           => checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+           => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
                   ~> checkSingleAssignment(.K) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
+        <formalParameters> arguments(Args:ElemList) </formalParameters>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
@@ -2430,11 +2526,13 @@ create an abstract for fence and do the same for fence operation.
 
     rule <k>checkSingleAssignment(Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
-         => checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
+         => setArgsToBlockEnv(name(localVar, Int2String(I)), getArgsInFunction(Args))
+              ~> checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
            ~> checkSingleAssignment(BBL)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
+        <formalParameters> arguments(Args:ElemList) </formalParameters>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
@@ -2459,13 +2557,15 @@ create an abstract for fence and do the same for fence operation.
 
     rule <k> checkSingleAssignment(Ins:InstructionList
                                 BB:BBTerminatorInstruction)
-         => checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
+         => setArgsToBlockEnv(name(localVar, Int2String(I)), getArgsInFunction(Args))
+              ~> checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
               ~> checkSingleAssignment(.K)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+        <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
                 |-> blockContent(.K, .Set, .Set,
                     SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>

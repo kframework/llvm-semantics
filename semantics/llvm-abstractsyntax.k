@@ -175,6 +175,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KResult ::= typeOperandResult(K, K)
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
+    syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block, typeoperand
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
@@ -187,7 +188,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= indirectbr(K, ElemList)//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
-    syntax KItem ::= switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
+    syntax KItem ::= switch(K, K, K, ElemList) [strict(1,2,4)] // type, condition, default dest, list of cases
     syntax Case ::= case(K, K) [strict(1)] // operand, successor
     syntax CaseResult ::= caseValue(K, K)
     syntax KResult ::= CaseResult

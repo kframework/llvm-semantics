@@ -39,23 +39,18 @@ module LLVM-BRANCHING
     // TODO put static switch information into a map like with phi nodes
     // TODO semantic design pattern: list traversal -> statically storing info and using simple rules later
     rule [switch-default]:
-        <k> switch(_, I:Int, Label:K, listK(.List))
+        switch(_, I:Int, Label:K, .ElemList)
             => unconditional(Label:K)
-        </k>
+
     rule [switch-hit]:
-        <k> switch(Type:KResult, I:Int, _, listK(ListItem(caseValue(I':Int, Label:K)) L:List))
+        switch(Type:KResult, I:Int, _, valValue(caseValue(I':Int, Label:K)), L:ElemList)
             => unconditional(Label:K)
-        </k>
-        when unsigned(Type, I) ==Int unsigned(Type, I')
+        when I ==Int deNormalizingInt(Type, normalizingInt(Type, I))
+
     rule [switch-miss]:
-        <k> switch(
-                Type:KResult,
-                I:Int,
-                _,
-                listK(ListItem(caseValue(I':Int, Label:K)) L:List
-                     => L)
-            )
-        </k>
-        when unsigned(Type, I) =/=Int unsigned(Type, I')
+        switch(Type:KResult, I:Int, La:K,
+                valValue(caseValue(I':Int, Label:K)), L:ElemList)
+          => switch(Type:KResult, I:Int, La:K, L:ElemList)
+        when I =/=Int deNormalizingInt(Type, normalizingInt(Type, I))
 
 endmodule

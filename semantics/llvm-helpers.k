@@ -433,13 +433,13 @@ module LLVM-HELPERS
     rule formSet(.ParamAttrs) => .Set
     rule formSet(K:K) => SetItem(K) [owise]
 
-    syntax Cases ::= formCases(K) [function]
+    syntax ElemList ::= formCases(K) [function]
 
-    rule formCases(.JumpTable) => .Cases
+    rule formCases(.JumpTable) => .ElemList
     rule formCases(It:IntType Ca:ConstValueRef,
                  label Va:ValueRef Cs:JumpTable)
-                 => case(operand(It,addNameToString(Ca))
-                                 ,addNameToString(Va)), formCases(Cs)
+                 => val(case(operand(It,addNameToString(Ca))
+                                 ,addNameToString(Va))), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
 /*

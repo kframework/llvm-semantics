@@ -90,7 +90,7 @@ module LLVM-ABSTRACTSYNTAX
     rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
                                                         [structural]
     rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
-    rule 'pointerType(K1:KResult,, K2:KResult) => pointerTypeValue(K1, K2) [structural]
+    rule 'pointerType(K1:KResult,, K2:K) => pointerTypeValue(K1, K2) [structural]
 
     //uniform the types.
     rule [ I:UnsignedInt x T:Type ] => arrayType(T,
@@ -150,6 +150,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeZero"
     syntax KResult ::= "PositiveInfinity"
     syntax KResult ::= "NegativeInfinity"
+    syntax KResult ::= Zeroinitializer
 
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
@@ -174,6 +175,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KResult ::= typeOperandResult(K, K)
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
+    syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block, typeoperand
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
@@ -186,7 +188,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= indirectbr(K, ElemList)//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
-    syntax KItem ::= switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
+    syntax KItem ::= switch(K, K, K, ElemList) [strict(1,2,4)] // type, condition, default dest, list of cases
     syntax Case ::= case(K, K) [strict(1)] // operand, successor
     syntax CaseResult ::= caseValue(K, K)
     syntax KResult ::= CaseResult
@@ -252,16 +254,17 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setInitBlock(K)
     syntax KItem ::= phiEdges(K, Set)//block
     syntax KItem ::= "checkingPhisInEdges"
-    syntax KItem ::= "checkUseVars"
+    syntax KItem ::= checkUseVars(ElemList) [strict]
+    syntax KItmm ::= checkUseVars(List, K, Set, Set)
     syntax KItem ::= checkUseVars(List, K, Set)
     syntax KItem ::= checkUseVars(Set, Set, Set)
     syntax KItem ::= checkUseVarInBlock(K, Set, Set)
-    syntax KItem ::= "checkUseVarInPhi"
-    syntax KItem ::= checkUseVarInPhi(List, K)
+    syntax KItem ::= checkUseVarInPhi(ElemList) [strict]
+    syntax KItem ::= checkUseVarInPhi(List, K, Set)
     syntax KItem ::= checkUseVarInPhi(List, Set, Set)
-    syntax KItem ::= checkUseVarInPhi(Set, Set)
-    syntax KItem ::= checkUsePhiVarInBlock(K, Set)
-    syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
+    //syntax KItem ::= checkUseVarInPhi(Set, Set)
+    syntax KItem ::= checkUseVarInPhi(K, Set, Set)
+    //syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
     syntax KItem ::= "checkUseVarWait"
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments

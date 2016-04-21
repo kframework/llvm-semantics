@@ -873,9 +873,10 @@ module LLVM-SYNTAX
     */
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax Undef ::= "undef"
+    syntax Zeroinitializer ::= "zeroinitializer"
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
                            | "null" [klabel('nullOfConstValueRef)]
-                           | Undef | "zeroinitializer"
+                           | Undef | Zeroinitializer
                            | "<" ReturnedVal ">"
                            | "[" ReturnedVal "]"
                            | "{" ReturnedVal "}"

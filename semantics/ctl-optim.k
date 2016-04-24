@@ -42,24 +42,6 @@ module CTL-SYNTAX
                           | "eventually" PathPred       | "-->" PathPred
                           | "was" PathPred              | PathPred "<--"
 
-    /* TODO: Paths don't seem to make much sense (especially in the presence of
-     * backwards temporal operators). For example, what do you do when you're
-     * checking satisfiability of a backwards path predicate over a forwards
-     * path? Also, we need to add in extra validation checks to make sure the
-     * paths we're checking satisfiability over are actually paths.
-     */
-    /*
-     * syntax Path         ::= "selfloop"
-     *                       | State "." Path
-     *                       | "(" Path ")"        [bracket]
-     * syntax SetPath      ::= Path
-     *                       | Path ";" SetPath
-     *                       | "<-" State
-     *                       | State "->"
-     * syntax Bool         ::= "(" Model "," Path           ")" "|=" PathPred
-     *                       | "(" Model "," Quant SetPath  ")" "|=" PathPred
-     */
-
 endmodule
 
 
@@ -104,40 +86,12 @@ module CTL-NORMALIZING
     /* path quantifier on state predicate => drop quantifier */
     rule Q:Quant (S:StatePred)          => S                                [structural]
 
-    /* negative normal form */
-    /*
-     * rule not not C              => C                                    [structural]
-     * rule not ctl-true           => ctl-false                            [structural]
-     * rule not ctl-false          => ctl-true                             [structural]
-     * rule not (C1 and C2)        => (not C1) or (not C2)                 [structural]
-     * rule not (C1 or C2)         => (not C1) and (not C2)                [structural]
-     * rule not (A P)              => E (not P)                            [structural]
-     * rule not (E P)              => A (not P)                            [structural]
-     * rule not (next P)           => next (not P)                         [structural]
-     * rule not (P1 until P2)      => (not P2) until not (P1 or P2)        [structural]
-     * rule not (prev P)           => prev (not P)                         [structural]
-     * rule not (P1 since P2)      => (not P2) since not (P1 or P2)        [structural]
-     *
-     * rule C and C                => C                                    [structural]
-     * rule C and not C            => ctl-false                            [structural]
-     * rule ctl-true and C         => C                                    [structural]
-     * rule C and ctl-true         => C                                    [structural]
-     * rule ctl-false and C        => ctl-false                            [structural]
-     * rule C and ctl-false        => ctl-false                            [structural]
-     * rule C or C                 => C                                    [structural]
-     * rule C or not C             => ctl-true                             [structural]
-     * rule ctl-true or C          => ctl-true                             [structural]
-     * rule C or ctl-true          => ctl-true                             [structural]
-     * rule ctl-false or C         => C                                    [structural]
-     * rule C or ctl-false         => C                                    [structural]
-     */
-
 endmodule
 
 
 module SATISFACTION
 
-    /* satsifaction relation (only have CTL, not CTL* here) */
+    /* satsifaction */
     syntax Satis        ::= "satis"
                           | "unsatis"
                           | "fromBool" "(" Bool ")"
@@ -147,10 +101,7 @@ module SATISFACTION
                           > Satis "or"  Satis               [left]
                           > Satis "xor" Satis               [left]
 
-    /* algebraic normal form */
-    /*-----------------------*/
-
-    /* remove `notS` and `orS` */
+    /* remove `not` and `or` */
     rule not S:Satis            => satis xor S                      [structural]
     rule S1:Satis or S2:Satis   => S1 xor S2 xor (S1 and S2)        [structural]
 
@@ -159,14 +110,14 @@ module SATISFACTION
     rule unsatis xor S          => S                                [structural]
     rule S       xor unsatis    => S                                [structural]
 
-    /* simplify `andS` */
+    /* simplify `and` */
     rule unsatis and S          => unsatis                          [structural]
     rule S       and unsatis    => unsatis                          [structural]
     rule satis   and S          => S                                [structural]
     rule S       and satis      => S                                [structural]
     rule S       and S          => S                                [structural]
 
-    /* distribute `xorS` over `andS` */
+    /* distribute `xor` over `and` */
     rule (S1 xor S2) and S3     => (S1 and S3) xor (S2 and S3)      [structural]
 
     /* interpret booleans as satisfaction */
@@ -197,11 +148,6 @@ module CTL-SEMANTICS
     /* quantified paths (`until` and `since` are made into `next` and `prev`) */
     rule (M, S) |= Q:Quant (next P)         => (M, Q succ(M, S)) |= P                   [structural]
     rule (M, S) |= Q:Quant (prev P)         => (M, Q pred(M, S)) |= P                   [structural]
-
-    /* TODO: Should we add a `when` clause which makes sure the predicate hasn't
-     * already been checked on the previous/next nodes? Is this what Lasso would
-     * essentially do? Is there a better way?
-     */
 
 endmodule
 

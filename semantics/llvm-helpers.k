@@ -21,29 +21,85 @@ module LLVM-HELPERS
          => searchElemInMap(removeAll(M,SetItem(Key)),.K,Key')
          when Key =/=K Key' andBool Key =/=K .K
 
+    syntax Bool ::= isHexDigit(String) [function]
+    rule isHexDigit(A:String) =>
+          ((ordChar(A) >=Int ordChar("0"))
+           andBool (ordChar(A) <=Int ordChar("9")))
+             orBool ((ordChar(A) >=Int ordChar("A"))
+                     andBool (ordChar(A) <=Int ordChar("F")))
+         requires lengthString(A) ==Int 1
+    rule isHexDigit(A:String) => false [owise]
+
+    syntax Bool ::= isIntString(String) [function]
+    rule isIntString(A) => false
+         requires lengthString(A) ==Int 0
+    rule isIntString(A) => true
+         requires lengthString(A) ==Int 1
+                  andBool ((ordChar(A) >=Int ordChar("0"))
+                  andBool (ordChar(A) <=Int ordChar("9")))
+    rule isIntString(A) => false
+         requires lengthString(A) >=Int 1
+                  andBool ((ordChar(substrString(A, 0, 1))
+                                                 <Int ordChar("0"))
+                  orBool (ordChar(substrString(A, 0, 1))
+                                                >Int ordChar("9")))
+    rule isIntString(A) => isIntString(substrString(A,
+                                          1, lengthString(A)))
+         requires lengthString(A) >Int 1
+                  andBool ((ordChar(substrString(A, 0, 1))
+                                                 >=Int ordChar("0"))
+                  andBool (ordChar(substrString(A, 0, 1))
+                                                <=Int ordChar("9")))
+
+
     syntax List ::= StringToList(String) [function]
     rule StringToList("") => .List
     rule
         StringToList(S:String)
             => ListItem(ordChar(substrString(S:String, 0, 1)))
                 StringToList(substrString(S:String, 1, lengthString(S:String)))
-        when S =/=String ""
+        requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) =/=Int 92
+    rule
+        StringToList(S:String)
+            => ListItem(ordChar(substrString(S:String, 0, 1)))
+                StringToList(substrString(S:String, 2, lengthString(S:String)))
+        requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
+             andBool lengthString(S:String) >Int 1
+             andBool ordChar(substrString(S, 1, 2)) ==Int 92
+
+    rule
+        StringToList(S:String)
+            => ListItem(String2Int(substrString(S, 1, 2))
+                        *Int 16 +Int String2Int(substrString(S, 2, 3)))
+                StringToList(substrString(S:String, 3, lengthString(S:String)))
+        requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
+             andBool lengthString(S:String) >Int 2
+             andBool isHexDigit(substrString(S, 1, 2))
+             andBool isHexDigit(substrString(S, 2, 3))
 
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
-    rule 'nullOfConstValueRef(.KList) => loc(-1, 0) [anywhere]
+    rule 'nullOfConstValueRef(.KList) => loc(startMemoryLoc -Int 1, 0, undef, undef) [anywhere]
 
     syntax Int ::= base(Loc) [function]
-    rule base(loc(Base:Int, _)) => Base:Int
+    rule base(loc(Base:Int, _, _, _)) => Base:Int
     
     syntax Int ::= offset(Loc)
-    rule offset(loc(_, Offset:Int)) => Offset:Int
+    rule offset(loc(_, Offset:Int, _, _)) => Offset:Int
     
+    syntax Int ::= offsetLimit(Loc)
+    rule offset(loc(_, _, OffsetLimit:Int, _)) => OffsetLimit
+    rule offset(loc(_, _, OffsetLimit:K, _)) => -1 [owise]
+
+    syntax Int ::= alignment(Loc)
+    rule offset(loc(_, _, _, Align:Int)) => Align
+    rule offset(loc(_, _, _, Align:K)) => -1 [owise]
+
     syntax Loc ::= Loc "+" Int [function]
     // TODO not checking for null
     
-    rule loc(Base:Int, Offset:Int) + Offset':Int
-            => loc(Base:Int, Offset:Int +Int Offset':Int)
+    rule loc(Base:Int, Offset:Int, Limit:K, Align:K) + Offset':Int
+            => loc(Base:Int, Offset:Int +Int Offset':Int, Limit, Align)
 
     syntax KItem ::= splitBytes(K, K) // value, type
     syntax KItem ::= joinBytes(K, K) [strict(1)]
@@ -167,7 +223,9 @@ module LLVM-HELPERS
 
     syntax Int ::= sizeof(K) [function]
     rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
-        when numBitsPerByte dividesInt sizeofInBits(Type)
+        requires numBitsPerByte dividesInt sizeofInBits(Type)
+    rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte +Int 1
+        requires notBool (numBitsPerByte dividesInt sizeofInBits(Type))
 
     syntax KItem ::= zeroOfType(K)
     rule zeroOfType(Type:KResult) => 0
@@ -189,7 +247,7 @@ module LLVM-HELPERS
     syntax SymbolicValueRef ::= makeVarFromLabel(LabelStringConstant)
                                 [function]
     rule makeVarFromLabel(L:LabelStringConstant)
-              => name(labelVar, substrString(#tokenToString(L), 0
+              => name(localVar, substrString(#tokenToString(L), 0
                     , lengthString(#tokenToString(L)) -Int 1))
 
     //useful function to turn a kitem into an elemList
@@ -286,6 +344,15 @@ module LLVM-HELPERS
     rule formElemList(K:K) => K [owise]
 
 
+    syntax ElemList ::= formTypeCheckList(K)   [function]
+    rule formTypeCheckList('.IntResolveVals(.KList)) => .ElemList
+    rule formTypeCheckList(, It:IntType V:ValueRef Ins:IntResolveVals)
+            => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList(.ParamList) => .ElemList
+    rule formTypeCheckList(T:Type _:ParamAttrs V:ValueRef, Pl:ParamList)
+            => val(typeOperand(T,addNameToString(V))),formTypeCheckList(Pl)
+    rule formTypeCheckList(K:K) => K [owise]
+
 
     syntax Set ::= formSet(K) [function]
     rule formSet('nwEmpty(.KList)) => .Set
@@ -366,13 +433,13 @@ module LLVM-HELPERS
     rule formSet(.ParamAttrs) => .Set
     rule formSet(K:K) => SetItem(K) [owise]
 
-    syntax Cases ::= formCases(K) [function]
+    syntax ElemList ::= formCases(K) [function]
 
-    rule formCases(.JumpTable) => .Cases
+    rule formCases(.JumpTable) => .ElemList
     rule formCases(It:IntType Ca:ConstValueRef,
                  label Va:ValueRef Cs:JumpTable)
-                 => case(operand(It,addNameToString(Ca))
-                                 ,addNameToString(Va)), formCases(Cs)
+                 => val(case(operand(It,addNameToString(Ca))
+                                 ,addNameToString(Va))), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
 /*
@@ -386,12 +453,14 @@ module LLVM-HELPERS
     syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
 
     rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, A:Align) => alloca(addNameToString(Ty),1,A)
+    rule dealWithAllocaElem(Ty:Type, align I:UnsignedInt)
+                      => alloca(addNameToString(Ty),1,String2Int(#tokenToString(I)))
     rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
                       => preAlloca(addNameToString(Ty),It
                                          ,addNameToString(V),'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, A:Align)
-                      => preAlloca(addNameToString(Ty),It,addNameToString(V),A)
+    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, align I:UnsignedInt)
+                      => preAlloca(addNameToString(Ty),It,
+                                   addNameToString(V),String2Int(#tokenToString(I)))
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 
@@ -399,6 +468,8 @@ module LLVM-HELPERS
                           ,lengthString(#tokenToString(Var))))
     rule addNameToString(Var:GlobalName) => name(globalVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var))))
+    rule addNameToString(Var:LabelStringConstant) => name(localVar, substrString(#tokenToString(Var),0
+                          ,lengthString(#tokenToString(Var)) -Int 1))
     rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
     rule addNameToString(K:K) => K [owise]
 
@@ -420,14 +491,56 @@ module LLVM-HELPERS
     rule isTheLocalName(K:K) => false [owise]
 
     syntax KItem ::= getIntType(K)    [function]
+                   | getIntInIntType(K) [function]
     rule getIntType(integerType(N:Int)) => integerType(N:Int)
     rule getIntType(vectorTypeValue(T:K, N:Int)) => T
     rule getIntType(K:K) => K [owise]
-
+    rule getIntInIntType(integerType(N:Int)) => N
+    rule getIntInIntType(vectorTypeValue(T:K, N:Int)) => T
+    rule getIntInIntType(K:K) => K [owise]
 
     syntax KItem ::= normalizingInt(K, K) [function]// type, int
-                   | plusInts(K, K, K)    [function]//type int, int
-                   | plusInt(K, K, K)     [function]//type int, int
+                   | deNormalizingInt(K, K) [function]
+                   | applyInts(K, K, K, K) [function] // op, type, int, int
+                   | applyInt(K, K, K, K) [function] // op, type, int, int
+                   | applyOp(K, K, K)     [function] // op, int, int
+                   | applyCast(K, K, K, K)   [function] //op, type ints, type
+                   | applyCasts(K, K, K, K)   [function] //op, type ints, type
+
+    rule deNormalizingInt(integerType(N:Int), V:Int) => V
+         requires V <Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), V:Int) => 0 -Int (V -Int (2 ^Int (N -Int 1)))
+         requires V >=Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
+                       => vectorValue(valValue(I),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList))
+         requires I <Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
+                       => vectorValue(valValue(0 -Int (I -Int (2 ^Int (N -Int 1)))),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList))
+         requires I >=Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), valValue(I:Int),Es:ElemList)
+                       => valValue(I),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList)
+         requires I <Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), valValue(I:Int),Es:ElemList)
+                       => valValue(0 -Int (I -Int (2 ^Int (N -Int 1)))),
+                           deNormalizingInt(integerType(N:Int), Es:ElemList)
+         requires I  >=Int (2 ^Int (N -Int 1))
+    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(K:K),Es:ElemList))
+                       => vectorValue(valValue(K),
+                           deNormalizingInt(integerType(N:Int), vectorValue(Es:ElemList)))
+         requires notBool isTheInt(K)
+    rule deNormalizingInt(integerType(N:Int), valValue(K:K),Es:ElemList)
+                       => valValue(K),
+                           deNormalizingInt(integerType(N:Int), vectorValue(Es:ElemList))
+         requires notBool isTheInt(K)
+    rule deNormalizingInt(A:K, .ElemList) => .ElemList
+    rule deNormalizingInt(A:K, K:K) => K
+         requires getKLabel(K) ==KLabel 'poisonVal
+                             orBool getKLabel(K) ==KLabel 'undef
+
+
     rule normalizingInt(integerType(N:Int), V:Int) => mod(V, 2 ^Int N)
     rule normalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
                        => vectorValue(valValue(mod(I, 2 ^Int N)),
@@ -445,33 +558,68 @@ module LLVM-HELPERS
          requires notBool isTheInt(K)
     rule normalizingInt(A:K, .ElemList) => .ElemList
     rule normalizingInt(A:K, K:K) => K
-         requires notBool isTheInt(K)
+         requires getKLabel(K) ==KLabel 'poisonVal
+                             orBool getKLabel(K) ==KLabel 'undef
  
-    rule plusInt(integerType(N:Int), V1:Int, V2:Int) => mod(V1 +Int V2, 2 ^Int N)
-    rule plusInt(integerType(N:Int), A:K, A':K) => poisonVal
+    rule applyOp('add(.KList), V1:Int, V2:Int) => V1 +Int V2
+    rule applyOp('sub(.KList), V1:Int, V2:Int) => V1 -Int V2
+    rule applyOp('mul(.KList), V1:Int, V2:Int) => V1 *Int V2
+    rule applyOp('shl(.KList), V1:Int, V2:Int) => V1 *Int (2 ^Int V2)
+    rule applyOp('or(.KList), V1:Int, V2:Int) => V1 |Int V2
+    rule applyOp('and(.KList), V1:Int, V2:Int) => V1 &Int V2
+    rule applyOp('xor(.KList), V1:Int, V2:Int) => V1 xorInt V2
+
+    rule applyInt(Op:K, integerType(N:Int), V1:Int, V2:Int) => mod(applyOp(Op, V1, V2), 2 ^Int N)
+    rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => poisonVal
          requires A ==K poisonVal orBool A' ==K poisonVal
-    rule plusInt(integerType(N:Int), A:K, A':K) => undef
+    rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => undef
          requires (A ==K undef orBool A' ==K undef)
                    andBool A =/=K poisonVal
                    andBool A' =/=K poisonVal
 
-    rule plusInts(integerType(N:Int), .ElemList, .ElemList) => .ElemList
-    rule plusInts(integerType(N:Int), vectorValue(Es:ElemList)
+    rule applyInts(Op:K, integerType(N:Int), .ElemList, .ElemList) => .ElemList
+    rule applyInts(Op:K, integerType(N:Int), vectorValue(Es:ElemList)
                                        , vectorValue(Es':ElemList))
-               => vectorValue(plusInts(integerType(N:Int), Es, Es'))
-    rule plusInts(integerType(N:Int), (valValue(K:K),Es:ElemList)
+               => vectorValue(applyInts(Op, integerType(N:Int), Es, Es'))
+    rule applyInts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList)
                                        , (valValue(K':K),Es':ElemList))
-               => valValue(plusInt(integerType(N:Int), K, K')),plusInts(integerType(N:Int), Es, Es')
-    rule plusInts(A:K, I1:K, I2:K) => plusInt(A, I1, I2)        [owise]
+               => valValue(applyInt(Op, integerType(N:Int), K, K')),
+                                       applyInts(Op, integerType(N:Int), Es, Es')
+    rule applyInts(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+
+    syntax Int ::= seqAdds(Int, Int) [function]
+    rule seqAdds(N:Int, N':Int) => 2 ^Int N
+         requires N >=Int N'
+    rule seqAdds(N:Int, N':Int) => (2 ^Int N) +Int seqAdds(N +Int 1, N')
+         requires N <Int N'
+
+    rule applyCast(trunc, integerType(N:Int), V1:Int, integerType(N':Int)) => mod(V1, 2 ^Int N')
+    rule applyCast(zext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1
+    rule applyCast(sext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1
+         requires V1 <Int (2 ^Int (N -Int 1))
+    rule applyCast(sext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1 +Int seqAdds(N, N')
+         requires V1 >=Int (2 ^Int (N -Int 1))
+    rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
+    rule applyCast(Op:K, T:K, undef, T':K) => undef
+
+    rule applyCasts(Op:K, integerType(N:Int), .ElemList, T:K) => .ElemList
+    rule applyCasts(Op:K, integerType(N:Int), vectorValue(Es:ElemList), T:K)
+               => vectorValue(applyCasts(Op, integerType(N:Int), Es, T:K))
+    rule applyCasts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList), T:K)
+               => valValue(applyCast(Op, integerType(N:Int), K, T)),
+                                       applyCasts(Op, integerType(N:Int), Es, T)
+    rule applyCasts(Op:K, A:K, I1:K, I2:K) => applyCast(Op, A, I1, I2)        [owise]
+
 
     syntax KItem ::= checkNuw(K, K)          [function]//type,  int value
-                   | checkNsw(K, K, K, K)    [function]//type, int op1, int op2, int value
+                   | checkNsw(K, K, K)    [function]//type, int signed value, int value
     rule checkNuw(integerType(N:Int), V:Int) => V
-         requires V <Int (2 ^Int N)
+         requires V <Int (2 ^Int N) andBool V >=Int 0
     rule checkNuw(integerType(N:Int), V:Int) => poisonVal
-         requires V >=Int (2 ^Int N)
+         requires V >=Int (2 ^Int N) orBool V <Int 0
     rule checkNuw(integerType(N:Int), V:K) => V
-         requires notBool isTheInt(V)
+         requires getKLabel(V) ==KLabel 'poisonVal
+                             orBool getKLabel(V) ==KLabel 'undef
     rule checkNuw(integerType(N:Int), .ElemList) => .ElemList
     rule checkNuw(integerType(N:Int), vectorValue(Es:ElemList))
             => vectorValue(checkNuw(integerType(N:Int), Es:ElemList))
@@ -480,46 +628,67 @@ module LLVM-HELPERS
          requires notBool isTheInt(K)
     rule checkNuw(integerType(N:Int), valValue(V:Int), Es:ElemList)
             => valValue(V), checkNuw(integerType(N:Int), Es:ElemList)
-         requires V <Int (2 ^Int N)
+         requires V <Int (2 ^Int N) andBool V >=Int 0
     rule checkNuw(integerType(N:Int), valValue(V:Int), Es:ElemList)
             => valValue(poisonVal), checkNuw(integerType(N:Int), Es:ElemList)
-         requires V >=Int (2 ^Int N)
+         requires V >=Int (2 ^Int N) orBool V <Int 0
 
-    rule checkNsw(integerType(N:Int), I1:Int, I2:Int, V:Int) => poisonVal
-         requires (I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1))))
-    rule checkNsw(integerType(N:Int), I1:Int, I2:Int, V:Int) => V
-         requires notBool ((I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1)))))
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, V:K) => V
-         requires notBool isTheInt(V)
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, .ElemList) => .ElemList
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, vectorValue(Es:ElemList))
-            => vectorValue(checkNsw(integerType(N:Int), I1:K, I2:K, Es:ElemList))
-    rule checkNsw(integerType(N:Int), I1:K, I2:K, valValue(V:K), Es:ElemList)
-            => valValue(V), checkNsw(integerType(N:Int), I1:K, I2:K, Es:ElemList)
+    rule checkNsw(integerType(N:Int), I1:Int, V:Int) => poisonVal
+         requires I1 <Int (0 -Int (2 ^Int (N -Int 1))) orBool I1 >=Int (2 ^Int (N -Int 1))
+    rule checkNsw(integerType(N:Int), I1:Int, V:Int) => V
+         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
+    rule checkNsw(integerType(N:Int), I1:K, V:K) => V
+         requires getKLabel(V) ==KLabel 'poisonVal
+                             orBool getKLabel(V) ==KLabel 'undef
+    rule checkNsw(integerType(N:Int), I1:K, .ElemList) => .ElemList
+    rule checkNsw(integerType(N:Int), I1:K, vectorValue(Es:ElemList))
+            => vectorValue(checkNsw(integerType(N:Int), I1:K, Es:ElemList))
+    rule checkNsw(integerType(N:Int), I1:K, valValue(V:K), Es:ElemList)
+            => valValue(V), checkNsw(integerType(N:Int), I1:K, Es:ElemList)
          requires notBool isTheInt(V)
 
-    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                    vectorValue(valValue(I2:Int), Is2:ElemList), valValue(V:Int), Es:ElemList)
-            => valValue(poisonVal), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                                                vectorValue(valValue(I2:Int), Is2:ElemList), Es:ElemList)
-         requires (I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1))))
+    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList)
+                                                           , valValue(V:Int), Es:ElemList)
+            => valValue(poisonVal),
+                   checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList)
+                 , Es:ElemList)
+         requires I1 <Int (0 -Int (2 ^Int (N -Int 1))) orBool I1 >=Int (2 ^Int (N -Int 1))
 
-    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                    vectorValue(valValue(I2:Int), Is2:ElemList), valValue(V:Int), Es:ElemList)
-            => valValue(V), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList),
-                                                vectorValue(valValue(I2:Int), Is2:ElemList), Es:ElemList)
-         requires notBool ((I1 <Int (2 ^Int (N -Int 1)) andBool I2 <Int (2 ^Int (N -Int 1))
-                    andBool (V >=Int (2 ^Int (N -Int 1))))
-                  orBool (I1 >=Int (2 ^Int (N -Int 1)) andBool I2 >=Int (2 ^Int (N -Int 1))
-                    andBool (V <Int (2 ^Int (N -Int 1)))))
+    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), valValue(V:Int), Es:ElemList)
+            => valValue(V), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), Es:ElemList)
+         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
+
+    syntax Bool ::= isPowOfTwo(Int, Int)  [function]
+    rule isPowOfTwo(A:Int, B:Int) => false
+         requires A <Int B
+    rule isPowOfTwo(A:Int, B:Int) => true
+         requires A ==Int B
+    rule isPowOfTwo(A:Int, B:Int) => isPowOfTwo(A, B *Int 2)
+         requires A >Int B
+
+    syntax KItem ::= getAlign(Set, K) [function]
+    rule getAlign(.Set, .K) => 'alignEmpty(.KList)
+    rule getAlign(SetItem(K:K) S:Set, .K) => getAlign(S, K)
+    rule getAlign(S:Set, align N:UnsignedInt) => String2Int(#tokenToString(N))
+    rule getAlign(S:Set, K:K => .K)
+         requires getKLabel(K) =/=KLabel 'align
+
+    syntax ElemList ::= getOutEdges(K) [function]
+    rule getOutEdges(I:IntType C:ConstValueRef,
+              'labelValue(V:ValueRef) Ju:JumpTable) => val(addNameToString(V)),getOutEdges(Ju)
+    rule getOutEdges(.JumpTable) => .ElemList
+    rule getOutEdges('labelValue(V:ValueRef), Ju:LabelValues) => val(addNameToString(V)),getOutEdges(Ju)
+    rule getOutEdges(.LabelValues) => .ElemList
+    rule getOutEdges(V:LocalName) => val(addNameToString(V))
+
+    syntax ElemList ::= getArgsInFunction(ElemList) [function]
+    rule getArgsInFunction(.ElemList) => .ElemList
+    rule getArgsInFunction(val(arg(S:Set, T:K, V:K)), E:ElemList)
+            => val(typeOperand(T, V)),getArgsInFunction(E)
+
+    syntax Set ::= formArgSet(ElemList)      [function]
+    rule formArgSet(.ElemList) => .Set
+    rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
+            => SetItem(operand(T, V)) formArgSet(E)
 
 endmodule

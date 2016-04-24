@@ -14,6 +14,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
                               | FPType
+                              | LabelType
                               | OpaqueType
     syntax AggregatedTypeResult ::= structTypeValue(K)
                                   | arrayTypeValue(K, K)  // inner type, length
@@ -23,6 +24,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
 
     syntax Type ::= TypeResult
+    syntax Type ::= "badType"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
     syntax Element ::= val(K) [strict]
@@ -88,7 +90,7 @@ module LLVM-ABSTRACTSYNTAX
     rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
                                                         [structural]
     rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
-    rule 'pointerType(K1:KResult,, K2:KResult) => pointerTypeValue(K1, K2) [structural]
+    rule 'pointerType(K1:KResult,, K2:K) => pointerTypeValue(K1, K2) [structural]
 
     //uniform the types.
     rule [ I:UnsignedInt x T:Type ] => arrayType(T,
@@ -105,12 +107,22 @@ module LLVM-ABSTRACTSYNTAX
 
     rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))))
+         requires String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) >Int 0
+               andBool String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) <Int (2 ^Int 23)
 
-    syntax Loc ::= loc(Int, Int)    // TODO [semantic]
+    rule I:IntType => badType
+         requires String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) <=Int 0
+               orBool String2Int(substrString(#tokenToString(I),
+                        1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
+
+    syntax Loc ::= loc(K, K, K, K)    // TODO [semantic] base, offset, offset limit, alignment
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
 
-    syntax KItem ::= vector(ElemList)
+    syntax KItem ::= vector(ElemList)           [strict]
     rule vector(E:KResult) => vectorValue(E)
 
 /*
@@ -138,6 +150,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeZero"
     syntax KResult ::= "PositiveInfinity"
     syntax KResult ::= "NegativeInfinity"
+    syntax KResult ::= Zeroinitializer
 
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
@@ -159,6 +172,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
+    syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
+    syntax KResult ::= typeOperandResult(K, K)
+    rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
+    syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block, typeoperand
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
@@ -171,7 +188,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= indirectbr(K, ElemList)//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
-    syntax KItem ::= switch(K, K, K, K) [strict(1,2,4)] // type, condition, default dest, list of cases
+    syntax KItem ::= switch(K, K, K, ElemList) [strict(1,2,4)] // type, condition, default dest, list of cases
     syntax Case ::= case(K, K) [strict(1)] // operand, successor
     syntax CaseResult ::= caseValue(K, K)
     syntax KResult ::= CaseResult
@@ -200,8 +217,8 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
-    syntax KItem ::= values(K) [function]
-    rule values(K:K) => K
+    //syntax KItem ::= values(K) [function]
+    //rule values(K:K) => K
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val
@@ -228,6 +245,27 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
+    syntax KItem ::= blockContent(K, Set, Set, Set, Set, Set) //instructions,outgoing edges, incoming edges, all defs about vars,
+                                   // all uses of var in phi without defs in cur, all uses of var in others without def in cur. 
+    syntax KItem ::= setOutEdge(K, ElemList) //name, outEdges
+    syntax KItem ::= setInEdges(Set)
+    syntax KItem ::= setInEdgesForNode(K)
+    syntax KItem ::= setInEdgesForNode(K, K, Set)
+    syntax KItem ::= setInitBlock(K)
+    syntax KItem ::= phiEdges(K, Set)//block
+    syntax KItem ::= "checkingPhisInEdges"
+    syntax KItem ::= checkUseVars(ElemList) [strict]
+    syntax KItmm ::= checkUseVars(List, K, Set, Set)
+    syntax KItem ::= checkUseVars(List, K, Set)
+    syntax KItem ::= checkUseVars(Set, Set, Set)
+    syntax KItem ::= checkUseVarInBlock(K, Set, Set)
+    syntax KItem ::= checkUseVarInPhi(ElemList) [strict]
+    syntax KItem ::= checkUseVarInPhi(List, K, Set)
+    syntax KItem ::= checkUseVarInPhi(List, Set, Set)
+    //syntax KItem ::= checkUseVarInPhi(Set, Set)
+    syntax KItem ::= checkUseVarInPhi(K, Set, Set)
+    //syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
+    syntax KItem ::= "checkUseVarWait"
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
     syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K)    [strict(2)]// name, type TODO: modifiers
@@ -236,8 +274,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setBlock(K)
     syntax KItem ::= body(ElemList)
 
+    syntax KItem ::= assignType(K, K, K) //block, var, t
+
     syntax SymbolicValueRef ::= name(K, String)//label, name
-    syntax KItem ::= "globalVar" | "localVar" | "labelVar"
+    syntax KItem ::= "globalVar" | "localVar"
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= iNotEq(K, K, K) [strict] // type, left op, right op
@@ -265,8 +305,8 @@ module LLVM-ABSTRACTSYNTAX
 
 
     //@ Binary Operations
-    syntax KItem ::= flagStage(K, K, K, K) //type, int op1, int op2, int value
-    syntax KItem ::= flagStage2(K, K, K, K) //type, int op1, int op2, int value
+    syntax KItem ::= flagStage(K, K, K) //type, int singed value, int unsined value
+    syntax KItem ::= flagStage2(K, K, K) //type, int singed value, int unsined value
     syntax KResult ::= intValue(K, K) //int type, int value, flags
     syntax KItem ::= theAdd(K, K, K) [strict] // Type, Left op, Right op, flags
     syntax KItem ::= theSub(K, K, K) [strict] // Type, Left op, Right op

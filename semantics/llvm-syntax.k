@@ -434,7 +434,7 @@ module LLVM-SYNTAX
                       | "readnone" [klabel('readnoneOfComm)]
                       | StringName "=" StringName | AttributeGroupId
     syntax FuncAttr ::= CommAttr | alignstack(UnsignedInt)
-    syntax FuncAttrs ::= List{FuncAttr," "} [klabel('funcAttrs)]
+    syntax FuncAttrs ::= List{FuncAttr," "}
     syntax GroupAttr ::= CommAttr | StringName | "alignstack" "=" UnsignedInt
                        | "align" "=" UnsignedInt
     syntax GroupAttrs ::= List{GroupAttr," "} [klabel('groupAttrList)]
@@ -529,7 +529,7 @@ module LLVM-SYNTAX
       specified, the function is forced to have at least that much alignment.
       All alignments must be a power of 2.
     */
-    syntax Align ::= "align" UnsignedInt
+    syntax Align ::= "align" UnsignedInt         [klabel('align)]
     syntax OptAlign ::= Align | "" [klabel('alignEmpty),onlyLabel]
     syntax OptSectionComdatAndAlign ::= "" [klabel('sectionComdatAndAlignEmpty),onlyLabel]
                                 | "," "section" StringName
@@ -681,7 +681,8 @@ module LLVM-SYNTAX
     syntax IntType ::= Token{[i][1-9][0-9]*} [onlyLabel, function]
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
                      | "x86_fp80" | "half"
-    syntax PrimType ::= FPType | IntType | "label"
+    syntax LabelType ::= "label"
+    syntax PrimType ::= FPType | IntType | LabelType
     syntax VoidType ::= "void"
     syntax NonVoidType ::= "metadata"
                          | "x86_mmx"
@@ -872,14 +873,15 @@ module LLVM-SYNTAX
     */
     syntax ValueRef ::= SymbolicValueRef | ConstValueRef
     syntax Undef ::= "undef"
+    syntax Zeroinitializer ::= "zeroinitializer"
     syntax ConstValueRef ::= Int | FpVal | Bool | ConstExpr
                            | "null" [klabel('nullOfConstValueRef)]
-                           | Undef | "zeroinitializer"
+                           | Undef | Zeroinitializer
                            | "<" ReturnedVal ">"
                            | "[" ReturnedVal "]"
                            | "{" ReturnedVal "}"
                            | "<" "{" ReturnedVal "}" ">"
-                           | "c" String
+                           | "c" StringName
                            | "asm" OptSideEffect OptAlignstack OptInteldialect
                              String "," String
                            | MetadataValueInt
@@ -1039,7 +1041,7 @@ module LLVM-SYNTAX
     */
     syntax JumpTableEntry ::= IntType ConstValueRef "," LabelValue
     syntax JumpTable ::= List{JumpTableEntry," "}
-    syntax LabelValue ::= "label" ValueRef
+    syntax LabelValue ::= "label" ValueRef             [klabel('labelValue)]
     syntax LabelValues ::= List{LabelValue,","}
 
 
@@ -1050,10 +1052,11 @@ module LLVM-SYNTAX
     */
     syntax InstructionList ::= List{Instruction," "} [klabel('instList)]
     syntax Instruction ::= LocalAssign InstVal | InstVal
-                         | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                           OptScopeOrder  "," Align InstructionMetadatas
-                         | "store" OptAtomic OptVolatile ResolvedVal "," ResolvedVal
-                           OptScopeOrder InstructionMetadatas
+                         | "store" OptVolatile ResolvedVal "," ResolvedVal
+                           "," Align InstructionMetadatas
+                         | "store" OptVolatile ResolvedVal "," ResolvedVal InstructionMetadatas
+                         | "store" Atomic OptVolatile ResolvedVal "," ResolvedVal
+                           OptSingleThread Ordering "," Align InstructionMetadatas
                          | "fence" OptSingleThread Ordering InstructionMetadatas
 
     /*@
@@ -1074,14 +1077,16 @@ module LLVM-SYNTAX
                        "," ResolvedVal InstructionMetadatas
                      | "shufflevector" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas
-                     | "phi" Type PHIList InstructionMetadatas
+                     | "phi" Type PHIList InstructionMetadatas              [klabel('phiFun)]
                      | "landingpad" Type "personality" ResolvedVal OptCleanup
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
-                       "(" ParamList ")" FuncAttrs InstructionMetadatas
+                       "(" ParamList ")" FuncAttrs InstructionMetadatas     [klabel('functionCall)]
                      | "alloca" OptInalloca AllocMetadata InstructionMetadatas
-                     | "load" Atomic OptVolatile ResolvedVal
-                       OptScopeOrder "," Align InstructionMetadatas
+                     // LLVM syntax 3.7.1 has a typo on this significantly without the first return type
+                     //of load for atomic operator.
+                     | "load" Atomic OptVolatile Type "," ResolvedVal
+                       OptSingleThread Ordering "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal
                         "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal
@@ -1173,7 +1178,7 @@ module LLVM-SYNTAX
       label, using the next value from the same counter as used for unnamed temporaries.
     */
     syntax BasicBlock ::= InstructionList BBTerminatorInstruction
-                        | LabelStringConstant ":" InstructionList BBTerminatorInstruction
+                        | LabelStringConstant InstructionList BBTerminatorInstruction
     syntax BasicBlockList ::= BasicBlock BasicBlockList | BasicBlock
 
     /*@

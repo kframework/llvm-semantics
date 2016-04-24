@@ -17,8 +17,8 @@ module LLVM-CLEAN-TREE
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
-    rule <k> operand(Type:KResult, I:Int) => signed(Type, I) ...</k>
-        when isIntegerType(Type)
+    rule <k> operand(integerType(N:Int), I:Int) => deNormalizingInt(integerType(N:Int),
+                                               normalizingInt(integerType(N:Int), I)) ...</k>
     rule <k> operand(Type:KResult, V:KResult) => V ...</k>
         when notBool isIntegerType(Type)
 /*

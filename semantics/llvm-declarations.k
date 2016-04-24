@@ -57,12 +57,13 @@ module LLVM-DECLARATIONS
         <typedefs>... X |-> UnresolvedType:K ...</typedefs>
 
     // TODO: hack because hybrids don't seem to be working
-    rule Fields(L:ElemList) => L
-    rule Types(L:ElemList) => L
+    rule fields(L:ElemList) => L
+    rule types(L:ElemList) => L
+    //rule funptr(A:SymbolicValueRef) => A
 
     rule
         <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
-            => checkSingleAssignment(F, .K, .Set) ...</k>
+            => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -92,95 +93,41 @@ module LLVM-DECLARATIONS
         )
 
     rule BB:BasicBlock BBL:BasicBlockList => BB ~> BBL
-/*
-    rule <k> funBegin ~> Ins:InstructionList Tem:BBTerminatorInstruction
-                           BBL:BasicBlockList
-             => BBL ...</k>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName':SymbolicValueRef </functionName>
-         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
-        <initialBasicBlock> .K => name(Int2String(I)) </initialBasicBlock>
-        <basicBlocks> M:Map => M[name(Int2String(I))
-                <- (setBlock(name(Int2String(I)))
-             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
-        when FunName ==K FunName'
 
-    rule <k> funBegin
-             => .K ...</k>
-         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
-        //<currFunction> FunName:SymbolicValueRef </currFunction>
-*/
-        /*<modules>...
-            <module>...
-               <functions>...
-                  <function>...
-        //<functionName> FunName':SymbolicValueRef </functionName>
-         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
-               ...</function>
-           ...</functions>
-            ...</module>
-        ...</modules>
-       */
-        //<initialBasicBlock> .K => name(Int2String(I)) </initialBasicBlock>
-        /*<basicBlocks> M:Map => M[name(Int2String(I))
-                <- (setBlock(name(Int2String(I)))
-             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>*/
-        //when FunName ==K FunName'
-/*
-    rule <k> funBegin ~> L:LabelStringConstant Ins:InstructionList
-                         Tem:BBTerminatorInstruction BBL:BasicBlockList
-             => BBL ...</k>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName':SymbolicValueRef </functionName>
-        <initialBasicBlock> .K => makeVarFromLabel(L) </initialBasicBlock>
-        <basicBlocks> M:Map => M[makeVarFromLabel(L)
-                <- (setBlock(makeVarFromLabel(L))
-             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
-        when FunName ==K FunName'
-
-    rule <k> funBegin ~> L:LabelStringConstant Ins:InstructionList
-                         Tem:BBTerminatorInstruction
-             => .K ...</k>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName':SymbolicValueRef </functionName>
-        <initialBasicBlock> .K => makeVarFromLabel(L) </initialBasicBlock>
-        <basicBlocks> M:Map => M[makeVarFromLabel(L)
-                <- (setBlock(makeVarFromLabel(L))
-             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
-        when FunName ==K FunName'
-
-    syntax K ::= setBlock "(" K ")"
-    rule
-        <k> BasicBlock(Name:Id, K:K) => . ...</k>
-        <currFunction> FunName:Id </currFunction>
-        <functionName> FunName:Id </functionName>
-        <basicBlocks>... . => Name:Id |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
-
-    rule
-        <k> setBlock(Name:Id) => . ...</k>
-        <currBlock> Name':Id => Name </currBlock>
-        <prevBlock> _ => Name' </prevBlock>
-    rule
-        <k> Label:LabelStringConstant Ins:InstructionList
-            Tem:BBTerminatorInstruction => .K ...</k>
+    //rule for setting initial basic block of a given block
+    rule <k> setInitBlock(I:InstructionList B:BBTerminatorInstruction) => .K ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName:SymbolicValueRef </functionName>
-        <basicBlocks> M:Map => M[makeVarFromLabel(Label)
-                <- (setBlock(makeVarFromLabel(Label))
-             ~> instructionListToK(Ins) ~> Tem)] </basicBlocks>
+        <functionName> FunName </functionName>
+         <localFunVarCounter> N:Int </localFunVarCounter>
+        <initialBasicBlock> _ => name(localVar, Int2String(N)) </initialBasicBlock>
 
-*/
-    rule
-        <k> funBegin(basicBlock(Name:SymbolicValueRef, K:K) ~> K':K)
-           => basicBlock(Name, K) ~> K' ...</k>
+    rule <k> setInitBlock(L:LabelStringConstant
+                     I:InstructionList B:BBTerminatorInstruction) => .K ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName:SymbolicValueRef </functionName>
-        <initialBasicBlock> _ => Name </initialBasicBlock>
+        <functionName> FunName </functionName>
+        <initialBasicBlock> _ => addNameToString(L) </initialBasicBlock>
 
+    rule <k> setInitBlock(I:InstructionList B:BBTerminatorInstruction
+                            BBL:BasicBlockList) => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <localFunVarCounter> N:Int </localFunVarCounter>
+        <initialBasicBlock> _ => name(localVar, Int2String(N)) </initialBasicBlock>
+
+    rule <k> setInitBlock(L:LabelStringConstant I:InstructionList
+                  B:BBTerminatorInstruction BBL:BasicBlockList) => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <initialBasicBlock> _ => addNameToString(L) </initialBasicBlock>
+/*
     rule
         <k> basicBlock(Name:SymbolicValueRef, K:K) => .K ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -188,7 +135,7 @@ module LLVM-DECLARATIONS
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName:SymbolicValueRef </functionName>
         <basicBlocks>... .Map => Name:SymbolicValueRef |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
-
+*/
     rule
         <k> setBlock(Label:SymbolicValueRef) => .K ...</k>
         <currBlock> Label':SymbolicValueRef => Label </currBlock>

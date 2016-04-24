@@ -19,7 +19,9 @@ module LLVM-CALL-RET
     syntax KItem ::= frame(K, Bag)
     syntax KItem ::= bind(ElemList, ElemList)
 
-    rule <k> arguments(L:ElemList) => elemListToK(L) ...</k>
+    rule arguments(L:ElemList) => L
+
+    rule arg(A:K, T:K, V:K) => V
 
     // TODO: rename tail
     // grabbing argument names
@@ -48,7 +50,8 @@ module LLVM-CALL-RET
         <functionName> FunName </functionName>
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
-        <basicBlocks>... IBBName |-> Body:K ...</basicBlocks>
+        <basicBlocks>... IBBName
+                            |-> blockContent(Body:K, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
 
     syntax KItem ::= contextSwitch(K, K)

@@ -14,12 +14,41 @@ module LLVM-CONFIGURATION
         <T multiplicity="?">
             <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
             <callStack color="Goldenrod"> .List </callStack>
-            <nextLoc color="gray"> loc(1, 0) </nextLoc>
-            <brk> loc(0, 0) </brk>
+            <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
+            <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            <equations> .Map </equations>
+            <actl>
+                <boolResult> true </boolResult>
+                <path multiplicity="?">
+                  <base> .K </base>
+                  <until> .K </until>
+                  <visitedBlocks> .Set </visitedBlocks>
+                </path>
+            </actl>
+            <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
+            <matchPhisWithInEdges> .List </matchPhisWithInEdges>
+            <checkUseCount> 0 </checkUseCount>
+            <checkAllUses>
+                <checkUsesInBlock  multiplicity="*">
+                    <allUseNum> 0 </allUseNum>
+                    <allCheckedBlocks> .Set </allCheckedBlocks>
+                    <allCurrentJob> .K </allCurrentJob>
+                    <checkUseResult>
+                       false
+                    </checkUseResult>
+                </checkUsesInBlock>
+            </checkAllUses>
+            <checkExistUses>
+                <checkUse multiplicity="*">
+                   <existUseNum> 0 </existUseNum>
+                   <checkedBlocks> .Set </checkedBlocks>
+                   <currentJob> .K </currentJob>
+                </checkUse>
+            </checkExistUses>
             <control color="LightGoldenrod">
-                <currBlock color="Orchid"> name(labelVar, "Initial") </currBlock>
-                <prevBlock color="Orchid"> name(labelVar, "Initial") </prevBlock>
-                <currModule color="Orchid"> name(labelVar, "main") </currModule>
+                <currBlock color="Orchid"> name(localVar, "Initial") </currBlock>
+                <prevBlock color="Orchid"> name(localVar, "Initial") </prevBlock>
+                <currModule color="Orchid"> name(globalVar, "main") </currModule>
                 <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                 <valist> .List </valist>
                 <registers color="teal"> .Map </registers>
@@ -33,6 +62,7 @@ module LLVM-CONFIGURATION
                     <basePtr color="orange" type="Key"> -1 </basePtr>
                     <type> .K </type>
                     <size> 0 </size>
+                    <align> 'alignEmpty(.KList) </align>
                     <bytes> .Map </bytes>
                 </object>
             </memory>
@@ -45,7 +75,7 @@ module LLVM-CONFIGURATION
             <output stream="stdout" color="DodgerBlue"> .List </output>
             <modules color="teal">
                 <module multiplicity="*" color="LightSkyBlue">
-                    <moduleName color="orange"> name(labelVar, "") </moduleName>
+                    <moduleName color="orange"> name(globalVar, "") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
                     <typedefs> .Map </typedefs>
@@ -66,7 +96,7 @@ module LLVM-CONFIGURATION
             <functions color="teal">
                  <builtinFunctions> .Set </builtinFunctions>
                  <function multiplicity="*" color="LightSkyBlue">
-                       <funModuleName color="orange"> name(labelVar, "") </funModuleName>
+                       <funModuleName color="orange"> name(globalVar, "") </funModuleName>
                        <functionName color="orange"> name(globalVar, "") </functionName>
                        <funModifiers> .Set </funModifiers>
                        <varTypes color="teal"> .Map </varTypes>

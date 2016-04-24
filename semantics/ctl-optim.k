@@ -47,12 +47,10 @@ module CTL-SYNTAX
                           | "(" Model "," Quant SetState ")" "|=" StatePred
 
     /* TODO: Paths don't seem to make much sense (especially in the presence of
-     * backwards temporal operators). For example, what should be the correct
-     * interpretation of `(M, S0 . S1 . P) |= PP <-`? That formula specifies a
-     * path for the path-predicate to be true over, the predicate says that in
-     * the *previous* state that `PP` should be true. We don't even have access
-     * to the previous state though! Should it generate a backwards path from
-     * the model to test `PP` over? Which backwards path should it generate?
+     * backwards temporal operators). For example, what do you do when you're
+     * checking satisfiability of a backwards path predicate over a forwards
+     * path? Also, we need to add in extra validation checks to make sure the
+     * paths we're checking satisfiability over are actually paths.
      */
     /*
      * syntax Path         ::= "selfloop"
@@ -80,8 +78,6 @@ module CTL-NORMALIZING
     rule P <--                  => dominatedBy P                        [structural]
     rule eventually P           => ctl-true until P                     [structural]
     rule dominatedBy P          => ctl-true since P                     [structural]
-    rule Q:Quant (P1 until P2)  => P2 or Q (next (P1 until P2))         [structural]
-    rule Q:Quant (P1 since P2)  => P2 or Q (prev (P1 since P2))         [structural]
 
     /* desugaring `xor`, `iff`, `implies` */
     rule C1 xor C2              => (C1 and not C2) or (C2 and not C1)   [structural]
@@ -103,11 +99,13 @@ module CTL-NORMALIZING
 
     /* short-circuit `and` and `or` */
     rule C and C                => C                                    [structural]
+    rule C and not C            => ctl-false                            [structural]
     rule ctl-true and C         => C                                    [structural]
     rule C and ctl-true         => C                                    [structural]
     rule ctl-false and C        => ctl-false                            [structural]
     rule C and ctl-false        => ctl-false                            [structural]
     rule C or C                 => C                                    [structural]
+    rule C or not C             => ctl-true                             [structural]
     rule ctl-true or C          => ctl-true                             [structural]
     rule C or ctl-true          => ctl-true                             [structural]
     rule ctl-false or C         => C                                    [structural]
@@ -129,34 +127,39 @@ endmodule
 module CTL-SEMANTICS
     imports CTL-NORMALIZING
 
-    /* Atomic predicates */
-    rule (M, S) |= not AP:AtomicPred    => notBool ((M, S) |= AP)       [structural]
-    rule (M, S) |= S':State             => S ==K S'                     [structural]
-
     /* Extension of satisfaction to sets of states/paths */
-    rule (M, Q (S:State)) |= SP
-                        => (M, S) |= SP                                 [structural]
-    rule (M, A (S ; SS)) |= P
-                        => ((M, S) |= P) andBool ((M, A SS) |= P)       [structural]
-    rule (M, E (S ; SS)) |= P
-                        => ((M, S) |= P) orBool ((M, E SS) |= P)        [structural]
+    rule (M, Q:Quant (S:State)) |= SP       => (M, S) |= SP                             [structural]
+    rule (M, A (S;SS)) |= P                 => ((M, S) |= P) andBool ((M, A SS) |= P)   [structural]
+    rule (M, E (S;SS)) |= P                 => ((M, S) |= P) orBool ((M, E SS) |= P)    [structural]
+
+    syntax Bool         ::= "opp" Bool
+
+    rule opp true   => false    [structural]
+    rule opp false  => true     [structural]
 
     /* boolean logic */
-    rule (M, S) |= ctl-true     => true                                 [structural]
-    rule (M, S) |= ctl-false    => false                                [structural]
-    rule (M, S) |= not SP       => notBool ((M,S) |= SP)                [structural]
-    rule (M, S) |= S1 and S2    => ((M,S) |= S1) andBool ((M,S) |= S2)  [structural]
-    rule (M, S) |= S1 or S2     => ((M,N) |= S1) orBool ((M,N) |= S2)   [structural]
+    rule (M, S) |= S':State                 => S ==K S'                                 [structural]
+    rule (M, S) |= not AP:AtomicPred        => opp ((M, S) |= AP)                       [structural]
+    rule (M, S) |= S1 and S2                => ((M,S) |= S1) andBool ((M,S) |= S2)      [structural]
+    rule (M, S) |= S1 or S2                 => ((M,S) |= S1) orBool ((M,S) |= S2)       [structural]
 
     /* quantified paths (`until` and `since` are made into `next` and `prev`) */
-    rule (M, S) |= Q:Quant (next P) => (M, Q succ(M, S)) |= P           [structural]
-    rule (M, S) |= Q:Quant (prev P) => (M, Q pred(M, S)) |= P           [structural]
+    rule (M, S) |= Q:Quant (next P)         => (M, Q succ(M, S)) |= P                   [structural]
+    rule (M, S) |= Q:Quant (prev P)         => (M, Q pred(M, S)) |= P                   [structural]
+    rule (M, S) |= Q:Quant (P1 until P2)    => (M, S) |= P2 or Q (next (P1 until P2))   [structural]
+    rule (M, S) |= Q:Quant (P1 since P2)    => (M, S) |= P2 or Q (prev (P1 since P2))   [structural]
 
     /* path quantifier on state predicate => drop quantifier */
-    rule (M, S) |= Q:Quant (SP:StatePred) => (M, S) |= SP               [structural]
+    rule (M, S) |= Q:Quant (SP:StatePred)   => (M, S) |= SP                             [structural]
 
     /* TODO: Should we add a `when` clause which makes sure the predicate hasn't
      * already been checked on the previous/next nodes? Is this what Lasso would
      * essentially do? Is there a better way?
      */
+endmodule
+
+
+module CTL-OPTIM
+    imports CTL-SEMANTICS
+
 endmodule

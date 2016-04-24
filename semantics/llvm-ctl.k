@@ -9,6 +9,7 @@ requires "llvm-configuration.k"
 requires "llvm-preprocessing.k"
 requires "llvm-normalizing.k"
 requires "llvm-declarations.k"
+requires "ctl-optim.k"
 
 module LLVM-CTL
     imports LLVM-SYNTAX

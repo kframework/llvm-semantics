@@ -2,7 +2,13 @@
 
 pushd ../../semantics >/dev/null
 kompile ctl-semantics.k
+kompiled="$?"
 popd >/dev/null
+if [[ "$kompiled" != "0" ]]; then
+    echo
+    echo "did not compile..."
+    exit
+fi
 echo "compiled..."
 echo
 rm -rf ctl-semantics-kompiled

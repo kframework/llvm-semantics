@@ -3,7 +3,8 @@
 pushd ../../semantics >/dev/null
 kompile ctl-optim.k
 popd >/dev/null
-echo "ready, press enter ..."
-read -k 1
+echo "compiled..."
+echo
 rm -rf llvm-ctl-optim-kompiled
 cp -r ../../semantics/ctl-optim-kompiled ./
+krun ctl-test

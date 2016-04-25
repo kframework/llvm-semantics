@@ -1,10 +1,10 @@
 #!/bin/zsh
 
 pushd ../../semantics >/dev/null
-kompile ctl-optim.k
+kompile ctl-semantics.k
 popd >/dev/null
 echo "compiled..."
 echo
-rm -rf llvm-ctl-optim-kompiled
-cp -r ../../semantics/ctl-optim-kompiled ./
+rm -rf ctl-semantics-kompiled
+cp -r ../../semantics/ctl-semantics-kompiled ./
 krun ctl-test

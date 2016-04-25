@@ -4,9 +4,9 @@ module CTL-SYNTAX
     syntax State        ::= Id
     syntax SetState     ::= State
                           | State ";" SetState
-                          | succ(Model, State)
-                          | pred(Model, State)
-    syntax Model        ::= SetState
+                          | succ(Model, State)              [function]
+                          | pred(Model, State)              [function]
+    syntax Model        ::= Id
 
 
     /* atomic predicates (extend with specific uses) */
@@ -18,29 +18,35 @@ module CTL-SYNTAX
                           | "(" StatePred ")"   [bracket]
                           | "ctl-false"
                           | "ctl-true"
-                          | "not" StatePred
-                          > StatePred "or" StatePred        [left]
-                          > StatePred "and" StatePred       [left]
-                          > StatePred "xor" StatePred       [left]
-                          > StatePred "implies" StatePred
-                          > StatePred "iff" StatePred
-                          > Quant PathPred
+                          | "not" StatePred                 [function]
+                          > StatePred "or" StatePred        [left, function]
+                          > StatePred "and" StatePred       [left, function]
+                          > StatePred "xor" StatePred       [left, function]
+                          > StatePred "implies" StatePred   [function]
+                          > StatePred "iff" StatePred       [function]
+                          > Quant PathPred                  [function]
 
     /* path predicates (states with path descriptors added) */
-    syntax PathPred     ::= "(" PathPred ")"    [bracket]
+    syntax PathPred     ::= "(" PathPred ")"                                        [bracket]
                           | StatePred
-                          | "not" PathPred
-                          > PathPred "or" PathPred          [left]
-                          > PathPred "and" PathPred         [left]
-                          > PathPred "xor" PathPred         [left]
-                          > PathPred "implies" PathPred
-                          > PathPred "iff" PathPred
-                          | "next" PathPred             | "->" PathPred
-                          | PathPred "until" PathPred   | "--" PathPred "->" PathPred
-                          | "prev" PathPred             | PathPred "<-"
-                          | PathPred "since" PathPred   | PathPred "<-" PathPred "--"
-                          | "eventually" PathPred       | "-->" PathPred
-                          | "was" PathPred              | PathPred "<--"
+                          | "not" PathPred                  [function]
+                          > PathPred "or" PathPred          [left, function]
+                          > PathPred "and" PathPred         [left, function]
+                          > PathPred "xor" PathPred         [left, function]
+                          > PathPred "implies" PathPred     [function]
+                          > PathPred "iff" PathPred         [function]
+                          | "->" PathPred                   [function]
+                          | "next" PathPred                 [function]
+                          | "--" PathPred "->" PathPred     [function]
+                          | PathPred "until" PathPred       [function]
+                          | PathPred "<-"                   [function]
+                          | "prev" PathPred                 [function]
+                          | PathPred "<-" PathPred "--"     [function]
+                          | PathPred "since" PathPred       [function]
+                          | "-->" PathPred                  [function]
+                          | "eventually" PathPred           [function]
+                          | PathPred "<--"                  [function]
+                          | "was" PathPred                  [function]
 
 endmodule
 
@@ -94,12 +100,11 @@ module SATISFACTION
     /* satsifaction */
     syntax Satis        ::= "satis"
                           | "unsatis"
-                          | "fromBool" "(" Bool ")"
                           | "(" Satis ")"                   [bracket]
-                          > "not" Satis
-                          > Satis "and" Satis               [left]
-                          > Satis "or"  Satis               [left]
-                          > Satis "xor" Satis               [left]
+                          > "not" Satis                     [function]
+                          > Satis "and" Satis               [left, function]
+                          > Satis "or"  Satis               [left, function]
+                          > Satis "xor" Satis               [left, function]
 
     /* remove `not` and `or` */
     rule not S:Satis            => satis xor S                      [structural]
@@ -120,10 +125,6 @@ module SATISFACTION
     /* distribute `xor` over `and` */
     rule (S1 xor S2) and S3     => (S1 and S3) xor (S2 and S3)      [structural]
 
-    /* interpret booleans as satisfaction */
-    rule fromBool(true)         => satis                            [structural]
-    rule fromBool(false)        => unsatis                          [structural]
-
 endmodule
 
 
@@ -132,29 +133,59 @@ module CTL-SEMANTICS
     imports CTL-NORMALIZING
 
     /* satisfaction syntax (only CTL, not CTL*) */
-    syntax Satis        ::= "(" Model "," State          ")" "|=" StatePred
-                          | "(" Model "," Quant SetState ")" "|=" StatePred
+    syntax Satis        ::= "(" Model "," State          ")" "|=" StatePred     [function]
+                          | "(" Model "," Quant SetState ")" "|=" StatePred     [function]
 
-    /* Extension of satisfaction to sets of states/paths */
-    rule (M, Q:Quant (S:State)) |= SP       => (M, S) |= SP                             [structural]
-    rule (M, A (S;SS)) |= P                 => ((M, S) |= P) and ((M, A SS) |= P)       [structural]
-    rule (M, E (S;SS)) |= P                 => ((M, S) |= P) or ((M, E SS) |= P)        [structural]
+    /* extension of satisfaction to sets of states/paths */
+    rule (M, Q:Quant (S:State)) |= SP   => (M, S) |= SP                         [structural]
+    rule (M, A (S;SS)) |= P             => ((M, S) |= P) and ((M, A SS) |= P)   [structural]
+    rule (M, E (S;SS)) |= P             => ((M, S) |= P) or ((M, E SS) |= P)    [structural]
 
     /* boolean logic */
-    rule (M, S) |= S':State                 => fromBool(S ==K S')                       [structural]
-    rule (M, S) |= P1 and P2                => ((M,S) |= P1) and ((M,S) |= P2)          [structural]
-    rule (M, S) |= P1 xor P2                => ((M,S) |= P1) xor ((M,S) |= P2)          [structural]
+    rule (M, S) |= ctl-true             => satis                                [structural]
+    rule (M, S) |= ctl-false            => unsatis                              [structural]
+    rule (M, S) |= S':State             => satis        when S ==K S'           [structural]
+    rule (M, S) |= S':State             => unsatis      when S =/=K S'          [structural]
+    rule (M, S) |= (P1 and P2)          => ((M,S) |= P1) and ((M,S) |= P2)      [structural]
+    rule (M, S) |= (P1 xor P2)          => ((M,S) |= P1) xor ((M,S) |= P2)      [structural]
 
-    /* quantified paths (`until` and `since` are made into `next` and `prev`) */
-    rule (M, S) |= Q:Quant (next P)         => (M, Q succ(M, S)) |= P                   [structural]
-    rule (M, S) |= Q:Quant (prev P)         => (M, Q pred(M, S)) |= P                   [structural]
+    /* quantified paths */
+    rule (M, S) |= Q:Quant (next P)     => (M, Q succ(M, S)) |= P               [structural]
+    rule (M, S) |= Q:Quant (prev P)     => (M, Q pred(M, S)) |= P               [structural]
 
 endmodule
+
 
 
 module CTL-OPTIM
     imports CTL-SEMANTICS
 
-    syntax Test ::= "hello"
+    syntax Model        ::= "mymodel"
+    syntax State        ::= "s0"
+                          | "s1"
+                          | "s2"
+                          | "s3"
+                          | "s4"
+                          | "s5"
+                          | "enter"
+                          | "exit"
+
+    rule succ(mymodel, enter)   => s0
+    rule succ(mymodel, s0)      => (s1 ; s2)
+    rule succ(mymodel, s1)      => s3
+    rule succ(mymodel, s2)      => s4
+    rule succ(mymodel, s3)      => s4
+    rule succ(mymodel, s4)      => s5
+    rule succ(mymodel, s5)      => exit
+    rule succ(mymodel, exit)    => exit
+
+    rule pred(mymodel, enter)   => enter
+    rule pred(mymodel, s0)      => enter
+    rule pred(mymodel, s1)      => s0
+    rule pred(mymodel, s2)      => s0
+    rule pred(mymodel, s3)      => s1
+    rule pred(mymodel, s4)      => (s3 ; s2)
+    rule pred(mymodel, s5)      => s4
+    rule pred(mymodel, exit)    => s5
 
 endmodule

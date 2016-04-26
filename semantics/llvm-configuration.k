@@ -19,7 +19,7 @@ module LLVM-CONFIGURATION
             <equations> .Map </equations>
             <actl>
                 <boolResult> true </boolResult>
-                <path multiplicity="?">
+                <path multiplicity="*">
                   <base> .K </base>
                   <until> .K </until>
                   <visitedBlocks> .Set </visitedBlocks>

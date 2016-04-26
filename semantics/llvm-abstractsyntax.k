@@ -152,6 +152,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeInfinity"
     syntax KResult ::= Zeroinitializer
 
+    //define static analysis for DSL
+    syntax KItem ::= "gotoMain"
+
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
     syntax KItem ::= metaConst(K, MetadataValues) //Distinct_or_not, IndexList

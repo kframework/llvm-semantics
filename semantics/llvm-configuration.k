@@ -17,12 +17,15 @@ module LLVM-CONFIGURATION
             <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
             <equations> .Map </equations>
+            <visitedBlocks> .Set </visitedBlocks>
+            <instNum> 0 </instNum>
+            <labelInsts> .Map </labelInsts>
+            <firstLastInst> .Map </firstLastInst>
             <actl>
                 <boolResult> true </boolResult>
                 <path multiplicity="*">
                   <base> .K </base>
                   <until> .K </until>
-                  <visitedBlocks> .Set </visitedBlocks>
                 </path>
             </actl>
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>

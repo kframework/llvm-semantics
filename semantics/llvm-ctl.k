@@ -43,10 +43,58 @@ module LLVM-CONNECTION
     rule hasType(A:K, B:TypeName) => false
 */
 
-    rule <k> gotoMain => .K </k>
-         <currFunction> _:K => name(globalVar, "main") </currFunction>
+    syntax KResult ::= block(K, K, K, K, K)//current name, num, inst content, prev inst, next insts, 
+    syntax KItem ::= labelInst(K, K)
+                   | labelInst(K, K, K, K)//name, insts, first, last
+                   | labelInstNextBlock(K, Set)
 
-    syntax KResult ::= block(K, K, K, K)//current name, inst, prev inst, next insts, remains
+    rule <k> gotoMain => labelInst(B, C) ...</k>
+         <currFunction> _:K => name(globalVar, "main") </currFunction>
+         <visitedBlocks> S:Set => SetItem(B) </visitedBlocks>
+         <labelInsts> M:Map => .Map </labelInsts>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName:SymbolicValueRef </funModuleName>
+         <functionName> name(globalVar, "main") </functionName>
+         <initialBasicBlock> B:SymbolicValueRef </initialBasicBlock>
+         <basicBlocks>... B |-> blockContent(C:K, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    rule <k> labelInst(Name:K,  setBlock(K:K) ~> A:KItem ~> K:K)
+            => labelInst(Name, K, I, .K) ...</k>
+         <labelInsts> M:Map => M[I <- A] </labelInsts>
+         <instNum> I => I +Int 1 </instNum>
+
+    rule labelInst(Name:SymbolicValueRef, setBlock(K:K) ~> K:K) => labelInst(Name, K)
+
+    rule <k> labelInst(Name:SymbolicValueRef, A:KItem ~> K:K)
+               => labelInst(Name, K) ...</k>
+         <labelInsts> M:Map => M[I <- A] </labelInsts>
+         <instNum> I => I +Int 1 </instNum>
+
+    rule <k> labelInst(Name:SymbolicValueRef, .K) => labelInstNextBlock(.K, Out) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName:SymbolicValueRef </funModuleName>
+         <functionName> FuName:SymbolicValueRef </functionName>
+         <currFunction> FuName:SymbolicValueRef </currFunction>
+         <basicBlocks>... Name |-> blockContent(_:K, Out:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    rule labelInstNextBlock(.K, .Set) => .K
+    rule labelInstNextBlock(.K, SetItem(A:K) S:Set) => labelInstNextBlock(A, S)
+
+    rule <k> labelInstNextBlock(A:SymbolicValueRef, S:Set)
+             => labelInstNextBlock(.K, S) ~> labelInst(A, C) ...</k>
+         <visitedBlocks> S:Set (.Set => SetItem(A)) </visitedBlocks>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName:SymbolicValueRef </funModuleName>
+         <functionName> FuName:SymbolicValueRef </functionName>
+         <currFunction> FuName:SymbolicValueRef </currFunction>
+         <basicBlocks>... A |-> blockContent(C:K, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires notBool A in S
+
+    rule <k> labelInstNextBlock((A:SymbolicValueRef => .K), S:Set)  ...</k>
+         <visitedBlocks> S:Set </visitedBlocks>
+         requires A in S
+
+/*
                    | "entryBlock"
                    | exitBlock(K, K) //name, prev inst
     syntax ElemList ::= getNextBlock(KItem)
@@ -175,6 +223,7 @@ module LLVM-CONNECTION
         <functionName> FunName:SymbolicValueRef </functionName>
         <basicBlocks> M:Map </basicBlocks>
         requires notBool (Name in keys(M)) orBool Name in S
+*/
 
 endmodule
 
@@ -194,17 +243,17 @@ module LLVM-CTL-SYNTAX
 */
     syntax PathPred     ::=  "(" PathPred ")"    [bracket]
                           | TheAtomic
-                          | "not" PathPred                 [onlyLabel, klabel('notPath)]
-                          > PathPred "or" PathPred         [onlyLabel, klabel('orPath)]
-                          > PathPred "and" PathPred        [onlyLabel, klabel('andPath)]
-                          | "E->" PathPred                 [onlyLabel, klabel('existNext)]                        /* `next` */
-                          | "--E" PathPred "->" PathPred   [onlyLabel, klabel('existuntil)]              /* `until` */
-                          | PathPred "<-E"                 [onlyLabel, klabel('existPred)]                        /* `pred` */
-                          | PathPred "<-" PathPred "E--"   [onlyLabel, klabel('existSince)]              /* `since` */
-                          | "A->" PathPred                 [onlyLabel, klabel('allNext)]                        /* `next` */
-                          | "--A" PathPred "->" PathPred   [onlyLabel, klabel('allUntil)]              /* `until` */
-                          | PathPred "<-A"                 [onlyLabel, klabel('allPred)]                        /* `pred` */
-                          | PathPred "<-" PathPred "A--"   [onlyLabel, klabel('allSince)]              /* `since` */
+                          | "not" PathPred                 [onlyLabel, klabel('notPath), strict]
+                          > PathPred "or" PathPred         [onlyLabel, klabel('orPath), strict]
+                          > PathPred "and" PathPred        [onlyLabel, klabel('andPath), strict]
+                          | "E->" PathPred                 [onlyLabel, klabel('existNext), strict]                        /* `next` */
+                          | "--E" PathPred "->" PathPred   [onlyLabel, klabel('existuntil), strict]              /* `until` */
+                          | PathPred "<-E"                 [onlyLabel, klabel('existPred), strict]                        /* `pred` */
+                          | PathPred "<-" PathPred "E--"   [onlyLabel, klabel('existSince), strict]              /* `since` */
+                          | "A->" PathPred                 [onlyLabel, klabel('allNext), strict]                        /* `next` */
+                          | "--A" PathPred "->" PathPred   [onlyLabel, klabel('allUntil), strict]              /* `until` */
+                          | PathPred "<-A"                 [onlyLabel, klabel('allPred), strict]                        /* `pred` */
+                          | PathPred "<-" PathPred "A--"   [onlyLabel, klabel('allSince), strict]              /* `since` */
 
     syntax KItem ::= KItem ";" KItem               [left, klabel('addNode)]
                    | KItem "[" KItem "/" KItem "]" [klabel('replaceNode)]

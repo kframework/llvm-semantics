@@ -127,6 +127,18 @@ module LLVM-CONNECTION
     rule <k> fillLast(Last:K, S:Set, A:K) => fillLast(Last, S, .K) ...</k>
          <firstLastInst>... A |-> firstLast(Start:K, Final:K) ...</firstLastInst>
          <labelInsts>... Last:K |-> block(_:K, _:K, _:K, _:Set, LastSet:Set (.Set => SetItem(Start))) ...</labelInsts>
+
+
+    syntax Set ::= "setOfLabels" [function]
+
+    syntax KItem ::= label(KLabel)
+
+    rule setOfLabels => SetItem(label('poisonVal)) SetItem(label('undef)) SetItem(label('vararg))
+                        SetItem(label('theAdd)) SetItem(label('theSub)) SetItem(label('theMul))
+                        SetItem(label('assign)) SetItem(label('instruction)) SetItem(label('store))
+                        SetItem(label('fence)) SetItem(label('ret)) SetItem(label('invoke))
+                        SetItem(label('alloca)) SetItem(label('switch)) SetItem(label('conditional))
+                        SetItem(label('theTrunc)) SetItem(label('load))
 /*
                    | "entryBlock"
                    | exitBlock(K, K) //name, prev inst
@@ -263,11 +275,11 @@ endmodule
 module LLVM-CTL-SYNTAX
     imports LLVM-SEMANTICS
 
-    syntax EquationLabel ::= "normal" | "otherwise"
-    syntax Equation ::= theEq(K, ElemList, EquationLabel)
-    syntax EquationList ::= List{Equation, ""}
+    //syntax EquationLabel ::= "normal" | "otherwise"
+    syntax Pattern ::= theEq(K)
+    syntax PatternList ::= List{Pattern, ""}
 
-    syntax InstLevel ::= Id "(" Id ")" "<=>" EquationList   [onlyLabel, klabel('theEquation)]
+    syntax InstLevel ::= Id "(" Id ")" "<=>" PatternList   [onlyLabel, klabel('thePattern)]
 
     syntax TheAtomic ::= Id "(" Id ")"                      [onlyLabel, klabel('ruleName)]
 /*
@@ -303,6 +315,31 @@ module LLVM-CTL
     imports LLVM-CTL-SYNTAX
     imports LLVM-SEMANTICS
     imports LLVM-CONNECTION
+
+    syntax KItem ::= matchSubst(K, K) //var -> item
+    syntax KItem ::= tupleResult(K, K) // inst label, inst subst
+    syntax KResult ::= validSubst(Set) //set of tupleResult
+
+    syntax KItem ::= KItem ":" KItem [onlyLabel, klabel('hasType)]
+
+    syntax KItem ::= interpret(K, K) //terms, rules
+                   | interpret(KList, KList)
+
+    syntax Int ::= size(KList) [function]
+
+    rule size(.KList) => 0
+    rule size(_:K,, Kl:KList) => 1 +Int size(Kl)
+
+
+    rule interpret(.KList, .KList) => .K
+    rule interpret(A:K,, Kl:KList, B:K,, Kl':KList) => interpret(A, B) ~> interpret(Kl, Kl')
+
+    rule interpret(A:KLabel(Kl:KList), A:KLabel(Kl':KList)) => interpret(Kl, Kl')
+         requires size(Kl) ==Int size(Kl')
+
+    rule <k> interpret(A:KLabel(.KList), E:Id) </k>
+         <substs> M:Map => M[E <- A(.KList)] </substs>
+
 /*
     rule uses(a) <=> theEq(theAdd(T, hasType(a, var), hasType(b, var))
                                     ,valValue(a),valValue(b),normal)

@@ -43,6 +43,8 @@ module LLVM-CONNECTION
     rule hasType(A:K, B:TypeName) => false
 */
 
+    syntax TypeName ::= "var" | "const"
+
     syntax KResult ::= block(K, K, K, Set, Set)//current name, num, inst content, prev inst, next insts, 
     syntax KItem ::= labelInst(K, K)
                    | labelAllBlocks(Map)
@@ -139,6 +141,21 @@ module LLVM-CONNECTION
                         SetItem(label('fence)) SetItem(label('ret)) SetItem(label('invoke))
                         SetItem(label('alloca)) SetItem(label('switch)) SetItem(label('conditional))
                         SetItem(label('theTrunc)) SetItem(label('load))
+
+    syntax ElemList ::= getAllInstsWithLabel(K)    [function]
+
+    syntax KItem ::= tupleResult(K, K) // inst label, inst subst
+    syntax KResult ::= validSubst(ElemList) //set of tupleResult
+    syntax KItem ::= subMap(Map) | "bottom" | "top"
+    syntax KItem ::= substSet(Set)
+    syntax Bool ::= isLabelInElemList(K, ElemList)    [function]
+
+    rule isLabelInElemList(L:K, .ElemList) => false
+    rule isLabelInElemList(L:K, val(L:K), Es:ElemList) => true
+    rule isLabelInElemList(L:K, val(L':K), Es:ElemList)
+                                  => isLabelInElemList(L, Es)
+               requires L =/=K L'
+
 /*
                    | "entryBlock"
                    | exitBlock(K, K) //name, prev inst
@@ -279,9 +296,11 @@ module LLVM-CTL-SYNTAX
     syntax Pattern ::= theEq(K)
     syntax PatternList ::= List{Pattern, ""}
 
-    syntax InstLevel ::= Id "(" Id ")" "<=>" PatternList   [onlyLabel, klabel('thePattern)]
+    syntax Ids ::= List{Id,","}
 
-    syntax TheAtomic ::= Id "(" Id ")"                      [onlyLabel, klabel('ruleName)]
+    syntax InstLevel ::= Id "(" Ids ")" "<=>" PatternList   [onlyLabel, klabel('thePattern)]
+
+    syntax TheAtomic ::= Id "(" Ids ")"                      [onlyLabel, klabel('ruleName)]
 /*
     syntax PathQuant    ::= "A" [onlyLabel, klabel('allPath)]
                           | "E" [onlyLabel, klabel('existPath)]
@@ -308,6 +327,7 @@ module LLVM-CTL-SYNTAX
                         | TheRewrite ";" TheRewrite    [left, klabel('compose)]
                         | TheRewrite "*"
 
+    syntax KItem ::= KItem ":" KItem [onlyLabel, klabel('hasType)]
 
 endmodule
 
@@ -315,12 +335,6 @@ module LLVM-CTL
     imports LLVM-CTL-SYNTAX
     imports LLVM-SEMANTICS
     imports LLVM-CONNECTION
-
-    syntax KItem ::= matchSubst(K, K) //var -> item
-    syntax KItem ::= tupleResult(K, K) // inst label, inst subst
-    syntax KResult ::= validSubst(Set) //set of tupleResult
-
-    syntax KItem ::= KItem ":" KItem [onlyLabel, klabel('hasType)]
 
     syntax KItem ::= interpret(K, K) //terms, rules
                    | interpret(KList, KList)
@@ -337,8 +351,135 @@ module LLVM-CTL
     rule interpret(A:KLabel(Kl:KList), A:KLabel(Kl':KList)) => interpret(Kl, Kl')
          requires size(Kl) ==Int size(Kl')
 
+    rule interpret(A:KLabel(Kl:KList), B:KLabel(Kl':KList)) => false
+         requires size(Kl) =/=Int size(Kl') orBool A =/=KLabel B
+
     rule <k> interpret(A:KLabel(.KList), E:Id) </k>
          <substs> M:Map => M[E <- A(.KList)] </substs>
+
+    
+    syntax ElemList ::= constructComp(ElemList, ElemList)   [function]
+                      | constructExNext(ElemList, Map)      [function]
+                      | constructAllNext(ElemList, Map)     [function]
+                      | constructOr(ElemList, ElemList)     [function]
+                      | constructAnd(ElemList, ElemList)    [function]
+                      | getRidBottom(ElemList)              [function]
+                      | mergeOrInst(K, ElemList)            [function]
+                      | mergeAndInst(K, ElemList)           [function]
+                      | mergeExNext(Set, K)                 [function]
+                      | mergeAllNext(Set, K)                [function]
+
+    syntax KItem ::= mergeMapInOr(Map, K, K, Map)           [function]
+                   | mergeMapInAnd(Map, K, K, Map)          [function]
+
+    rule getRidBottom(.ElemList) => .ElemList
+    rule getRidBottom(val(tupleResult(L:K, bottom)), Es:ElemList) => getRidBottom(Es)
+    rule getRidBottom(val(tupleResult(L:K, Subst:K)), Es:ElemList) 
+            => val(tupleResult(L:K, Subst:K)),getRidBottom(Es)
+         requires Subst =/=K bottom
+
+    rule <k> 'notPath(validSubst(Es:ElemList))
+                   => validSubst(getRidBottom(constructComp(getAllInstsWithLabel(Prog), Es))) ...</k>
+         <llvmProg> Prog:K </llvmProg>
+
+    rule constructComp(.ElemList, Es:ElemList) => .ElemList
+    rule constructComp((val(tupleResult(L:A, Subst:K)), Es:ElemList), Es':ElemList)
+               => constructComp(Es, Es')
+               requires isLabelInElemList(L, Es')
+    rule constructComp((val(tupleResult(L:A, Subst:K)), Es:ElemList), Es':ElemList)
+               => val(tupleResult(L, top)), constructComp(Es, Es')
+               requires notBool isLabelInElemList(L, Es')
+
+
+    rule 'orPath(validSubst(Es:ElemList), validSubst(Es':ElemList))
+                   => validSubst(getRidBottom(constructOr(Es, Es')))
+
+    rule constructOr(Es:ElemList, .ElemList) => Es
+    rule constructOr(Es, val(A:K),Es':ElemList) => constructOr(mergeOrInst(A, Es), Es')
+
+    rule mergeOrInst(A:K, .ElemList) => val(A),.ElemList
+    rule mergeOrInst(tupleResult(L:K, Subst:K), val(tupleResult(L':K, Subst':K)),Es:ElemList)
+          => val(tupleResult(L':K, Subst':K)),mergeOrInst(tupleResult(L:K, Subst:K), Es)
+           requires L =/=K L'
+    rule mergeOrInst(tupleResult(L:K, top), val(tupleResult(L:K, Subst':K)),Es:ElemList)
+          => val(tupleResult(L:K, Subst':K)),Es
+    rule mergeOrInst(tupleResult(L:K, Subst:K), val(tupleResult(L:K, top)),Es:ElemList)
+          => val(tupleResult(L:K, Subst)),Es
+    rule mergeOrInst(tupleResult(L:K, subMap(M:Map)), val(tupleResult(L:K, subMap(M':Map))),Es:ElemList)
+          => val(tupleResult(L:K, mergeMapInOr(M, .K, .K, M'))),Es
+
+    rule mergeMapInOr(M:Map, .K, .K, .Map) => subMap(M)
+    rule mergeMapInOr(M:Map, .K, .K, (Key:K |-> V:K) M':Map) => mergeMapInOr(M, Key, V, M')
+    rule mergeMapInOr(M:Map A |-> substSet(S':Set), A:K, substSet(S:Set), M':Map)
+                   => mergeMapInOr(M A |-> substSet(S S'), .K, .K, M')
+    rule mergeMapInOr(M:Map, A:K, substSet(S:Set), M':Map)
+                   => mergeMapInOr(M[A <- substSet(S)], .K, .K, M')
+          requires notBool A in keys(M)
+
+
+    rule 'andPath(validSubst(Es:ElemList), validSubst(Es':ElemList))
+                   => validSubst(getRidBottom(constructAnd(Es, Es')))
+
+    rule constructAnd(Es:ElemList, .ElemList) => Es
+    rule constructAnd(Es, val(A:K),Es':ElemList) => constructAnd(mergeAndInst(A, Es), Es')
+
+    rule mergeAndInst(A:K, .ElemList) => val(A),.ElemList
+    rule mergeAndInst(tupleResult(L:K, Subst:K), val(tupleResult(L':K, Subst':K)),Es:ElemList)
+          => val(tupleResult(L':K, Subst':K)),mergeAndInst(tupleResult(L:K, Subst:K), Es)
+           requires L =/=K L'
+    rule mergeAndInst(tupleResult(L:K, top), val(tupleResult(L:K, Subst':K)),Es:ElemList)
+          => val(tupleResult(L:K, Subst':K)),Es
+    rule mergeAndInst(tupleResult(L:K, Subst:K), val(tupleResult(L:K, top)),Es:ElemList)
+          => val(tupleResult(L:K, Subst)),Es
+    rule mergeAndInst(tupleResult(L:K, subMap(M:Map)), val(tupleResult(L:K, subMap(M':Map))),Es:ElemList)
+          => val(tupleResult(L:K, mergeMapInAnd(M, .K, .K, M'))),Es
+
+    rule mergeMapInAnd(M:Map, .K, .K, .Map) => subMap(M)
+    rule mergeMapInAnd(M:Map, .K, .K, (Key:K |-> V:K) M':Map) => mergeMapInAnd(M, Key, V, M')
+    rule mergeMapInAnd(M:Map A |-> substSet(S':Set), A:K, substSet(S:Set), M':Map)
+                   => mergeMapInAnd(M A |-> substSet(intersectSet(S, S')), .K, .K, M')
+         requires (notBool intersectSet(S, S') <=Set .Set)
+    rule mergeMapInAnd(M:Map, A:K, substSet(S:Set), M':Map)
+                   => mergeMapInAnd(M[A <- substSet(S)], .K, .K, M')
+          requires notBool A in keys(M)
+    rule mergeMapInAnd(M:Map A |-> substSet(S':Set), A:K, substSet(S:Set), M':Map)
+                   => bottom
+         requires intersectSet(S, S') <=Set .Set
+
+    rule <k> 'existNext(validSubst(Es:ElemList))
+                   => validSubst(getRidBottom(constructExNext(Es, M))) ...</k>
+         <llvmProg> Prog:K </llvmProg>
+         <labelInsts> M:Map </labelInsts>
+
+    rule constructExNext(.ElemList, M:Map) => .ElemList
+    rule constructExNext((val(tupleResult(L:A, Subst:K)), Es:ElemList), M:Map (L |-> block(A:K, B:K, C:K, Prev:Set, Next:Set)))
+               => combineElemList(mergeExNext(Prev, .K), constructExNext(Es, M:Map (L |-> block(A:K, B:K, C:K, Prev:Set, Next:Set))))
+    
+    rule mergeExNext(.Set, .K) => .ElemList
+    rule mergeExNext(SetItem(L:K) S:Set, .K) => mergeExNext(S, L)
+    rule mergeExNext(S:Set, L:KItem) => val(tupleResult(L, top)),mergeExNext(S, .K)
+
+
+    rule <k> 'allNext(validSubst(Es:ElemList))
+                   => validSubst(getRidBottom(constructExNext(Es, M))) ...</k>
+         <llvmProg> Prog:K </llvmProg>
+         <labelInsts> M:Map </labelInsts>
+
+    rule constructExNext(.ElemList, M:Map) => .ElemList
+    rule constructExNext((val(tupleResult(L:A, Subst:K)), Es:ElemList), M:Map (L |-> block(A:K, B:K, C:K, Prev:Set, Next:Set)))
+               => combineElemList(mergeExNext(Prev, .K), constructExNext(Es, M:Map (L |-> block(A:K, B:K, C:K, Prev:Set, Next:Set))))
+    
+    rule mergeExNext(.Set, .K) => .ElemList
+    rule mergeExNext(SetItem(L:K) S:Set, .K) => mergeExNext(S, L)
+    rule mergeExNext(S:Set, L:KItem) => val(tupleResult(L, top)),mergeExNext(S, .K)
+
+
+
+    //rule constructComp(.Set, .K, Keys:Set) => .Set
+    //rule constructComp(SetItem(A:K) S:Set, .K, Keys:Set) => constructComp(S, A, Keys)
+    //rule constructComp(S:Set, tupleResult(K, Map), Keys - )
+
+    //rule 'notPath(validSubst(S:Set)) => 
 
 /*
     rule uses(a) <=> theEq(theAdd(T, hasType(a, var), hasType(b, var))

@@ -53,4 +53,21 @@ module LLVM-BRANCHING
           => switch(Type:KResult, I:Int, La:K, L:ElemList)
         when I =/=Int deNormalizingInt(Type, normalizingInt(Type, I))
 
+    rule [indirect-hit]:
+        indirectbr(blockValue(A:SymbolicValueRef), val(A), Es:ElemList)
+          => unconditional(A)
+    rule [indirect-traverse]:
+        indirectbr(blockValue(A:SymbolicValueRef), val(B), Es:ElemList)
+          => indirectbr(blockValue(A:SymbolicValueRef), Es)
+        requires A =/=K B
+    rule [indirect-failed-A]:
+        <k> indirectbr(blockValue(A:SymbolicValueRef), .ElemList) ~> K:K
+          => .K </k>
+        <output>... .List => ListItem("error: undefined bahavior due to no such label in the label list of a indirectbr") </output>
+    rule [indirect-failed-B]:
+        <k> indirectbr(A:K, Es:ElemList) ~> K:K
+          => .K </k>
+        <output>... .List => ListItem("error: indirectbr address must be derived from a blockaddress constant") </output>
+        requires getKLabel(A) =/=KLabel 'blockValue
+
 endmodule

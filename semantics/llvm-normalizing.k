@@ -43,7 +43,8 @@ module LLVM-NORMALIZING
                    | typeCheckRet(K, K, K)           [strict(2)]//block, t, v
                    | typeCheckCall(K, K, K, K, ElemList, ElemList) [strict(3, 5)]//block, var, t, name, argt, argv.
                    | typeCheckSwitch(K, ElemList, ElemList)//block, argv, argl.
-                   | typeCheckSelect(K, K, K, K, K, K, K)    [strict(2,4,6)]//block, type, name, firstT, firstV, secondT, secondV
+                   | typeCheckIndirectBr(K, K, K, ElemList)//block, argv, argl.
+                   | typeCheckSelect(K, K, K, K, K, K, K, K)    [strict(2,4,6)]//block,name type, value, firstT, firstV, secondT, secondV
 
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
@@ -78,24 +79,27 @@ module LLVM-NORMALIZING
     rule typeCheckOp(Name:SymbolicValueRef,X:SymbolicValueRef, IntOp:IntConstructors
                              Onw:OptNW Ty:Type V1:ValueRef,
                              V2:ValueRef Ins:InstructionMetadatas)
-           => typeCheckIntOp(Name:SymbolicValueRef, X, Ty, val(V1), val(V2))
+           => typeCheckIntOp(Name:SymbolicValueRef, X, Ty,
+                           val(addNameToString(V1)), val(addNameToString(V2)))
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, L:LogicalOps Ty:Type V1:ValueRef,
                   V2:ValueRef Ins:InstructionMetadatas)
-           => typeCheckIntOp(Name:SymbolicValueRef, X, Ty, val(V1), val(V2))
+           => typeCheckIntOp(Name:SymbolicValueRef, X, Ty,
+                           val(addNameToString(V1)), val(addNameToString(V2)))
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(Name:SymbolicValueRef, X, trunc,  Ty1, V, Ty2)
+           => typeCheckCastOp(Name:SymbolicValueRef, X, trunc,  Ty1, addNameToString(V), Ty2)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, zext Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(Name:SymbolicValueRef, X, zext,  Ty1, V, Ty2)
+           => typeCheckCastOp(Name:SymbolicValueRef, X, zext,  Ty1, addNameToString(V), Ty2)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, sext Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(Name:SymbolicValueRef, X, sext,  Ty1, V, Ty2)
+           => typeCheckCastOp(Name:SymbolicValueRef, X, sext,  Ty1, addNameToString(V), Ty2)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                  getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
                                     Itr:IntResolveVals Ins:InstructionMetadatas)
-           => typeCheckGepOp(Name:SymbolicValueRef, X, Ty, Ty1, V1, formTypeCheckList(Itr))
+           => typeCheckGepOp(Name:SymbolicValueRef, X, Ty, Ty1,
+                                  addNameToString(V1), formTypeCheckList(Itr))
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                          alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
@@ -108,44 +112,45 @@ module LLVM-NORMALIZING
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                         alloca Oil:OptInalloca Ty:Type,
                            It:IntType V:ValueRef Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It,V, 1)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It, addNameToString(V), 1)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                alloca Oil:OptInalloca Ty:Type, It:IntType V:ValueRef,
                                    align A:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It,V, String2Int(#tokenToString(A)))
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X, Ty, It,
+                               addNameToString(V), String2Int(#tokenToString(A)))
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
-                  V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
+                addNameToString(V1), Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), .K)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
-                                    V1:ValueRef, Ty2:Type, V2:ValueRef, 1, .K)
+                      addNameToString(V1), Ty2:Type, addNameToString(V2), 1, .K)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Oac:Atomic
                                                     Ovl:OptVolatile Ty1:Type V1:ValueRef,
                  Ty2:Type V2:ValueRef _:OptSingleThread _:Ordering,
                                           align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
-                          V1:ValueRef, Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+                   addNameToString(V1), Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), Oac)
     rule typeCheckOp(Name:SymbolicValueRef,
               X:SymbolicValueRef, load Ovl:OptVolatile
                   Ty1:Type, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
            => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
-                                Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), .K)
+                                Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), .K)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, load Ovl:OptVolatile
                   Ty1:Type, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
            => typeCheckLoad(Name:SymbolicValueRef, X,
-                                         Ty1:Type, Ty2:Type, V2:ValueRef, 1, .K)
+                                         Ty1:Type, Ty2:Type, addNameToString(V2), 1, .K)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                          load Oac:Atomic Ovl:OptVolatile Ty1:Type,
                  Ty2:Type V2:ValueRef _:OptSingleThread _:Ordering,
                                                align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
-                                       Ty2:Type, V2:ValueRef, String2Int(#tokenToString(I)), Oac)
+                                       Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), Oac)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, br label La:ValueRef Meta:InstructionMetadatas)
            => typeCheckBr(Name:SymbolicValueRef, undef, undef, addNameToString(La), undef)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, br It:IntType Va:ValueRef ,
@@ -154,67 +159,126 @@ module LLVM-NORMALIZING
            => typeCheckBr(Name:SymbolicValueRef, It, Va, addNameToString(La1), addNameToString(La2))
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, icmp Op:IPredicate
                    Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-         => typeCheckCmp(Name:SymbolicValueRef, X, Ty, V1, V2)
+         => typeCheckCmp(Name:SymbolicValueRef, X, Ty,
+                   addNameToString(V1), addNameToString(V2))
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, fcmp Op:FPredicate
                    Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-         => typeCheckFCmp(Name:SymbolicValueRef, X, Ty, V1, V2)
+         => typeCheckFCmp(Name:SymbolicValueRef, X, Ty,
+                  addNameToString(V1), addNameToString(V2))
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                      phi Ty:Type Pl:PHIList Ins:InstructionMetadatas)
          => typeCheckPhi(Name:SymbolicValueRef, X, Ty, getValueOfPhi(Pl), getLabelOfPhi(Pl), .Set)
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                                      ret T:NonVoidType V:ValueRef I:InstructionMetadatas)
-         => typeCheckRet(Name:SymbolicValueRef, T, V)
+         => typeCheckRet(Name:SymbolicValueRef, T, addNameToString(V))
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                                      Ca:OptTailCall
                         Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
                      V1:ValueRef (Pl:ParamList) Fat:FuncAttrs
                        Meta:InstructionMetadatas)
-         => typeCheckCall(Name:SymbolicValueRef, K, Ty1, addNameToString(V1),
-                                                    getAllTypes(Pl), formTypeCheckList(Pl))
+         => typeCheckCall(Name:SymbolicValueRef, K, Ty1,
+                    addNameToString(V1), getAllTypes(Pl), formTypeCheckList(Pl))
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                                        switch It:IntType Va:ValueRef ,
                                        label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas)
-         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(It, Va)),getValueOfSwitch(Ju)),
+         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(addNameToString(It),
+                            addNameToString(Va))),getValueOfSwitch(Ju)),
                                 (val(addNameToString(La)),getOutEdges(Ju)))
 
-    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                        select Ty1:Type V1:ValueRef,
                                   Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef
                                   Meta:InstructionMetadatas)
-         => typeCheckSelect(Name:SymbolicValueRef, Ty1, V1, Ty2, V2, Ty3, V3)
+         => typeCheckSelect(Name:SymbolicValueRef, X, addNameToString(Ty1),
+                  addNameToString(V1), addNameToString(Ty2), addNameToString(V2),
+                                              addNameToString(Ty3), addNameToString(V3))
 
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                       indirectbr Ty:Type Va:ValueRef ,
+                                       [ Las:LabelValues ]
+                                  Meta:InstructionMetadatas)
+         => typeCheckIndirectBr(Name:SymbolicValueRef, Ty, addNameToString(Va),
+                                getOutEdges(Las))
+
+
+    //deal with indirectBr
+    rule typeCheckIndirectBr(Name:SymbolicValueRef, T:K, V:K, .ElemList)
+          => typeCheckIntArg(Name, T, V)
+    rule <k>typeCheckIndirectBr(Name:SymbolicValueRef, T:K, V:K,
+                  val(A:SymbolicValueRef), E2:ElemList)
+                     => typeCheckIndirectBr(Name:SymbolicValueRef,
+                   T:K, V:K, E2:ElemList) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... A |-> label ...</varTypes>
+
+    rule <k> typeCheckIndirectBr(Name:SymbolicValueRef, T:K, V:K,
+                  val(A:SymbolicValueRef), E2:ElemList)
+                     => typeCheckIndirectBr(Name:SymbolicValueRef,
+                   T:K, V:K, E2:ElemList) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes> M:Map </varTypes>
+         <basicBlocks>... Name
+             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
+         requires notBool A in keys(M)
+
+    rule <k> typeCheckIndirectBr(Name:SymbolicValueRef, Ty:K, Va:K,
+                  val(name(localVar, S:String)), E2:ElemList)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: '%"
+                   +String S +String "' is not a basic block") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... name(localVar, S:String) |-> T:K ...</varTypes>
+         requires T =/=K label
 
     //deal with Select
-    rule typeCheckSelect(N:SymbolicValueRef, integerType(1), V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+    rule typeCheckSelect(N:SymbolicValueRef, X:SymbolicValueRef,
+                    integerType(1), V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
             => typeCheckIntArg(N, integerType(1), V1:K)
                ~> typeCheckIntArg(N, T1, V2)
                ~> typeCheckIntArg(N, T1, V3)
-     rule typeCheckSelect(Name:SymbolicValueRef, vectorTypeValue(integerType(1), N:Int), V1:K,
+               ~> assignType(N, X, integerType(1))
+     rule typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                  vectorTypeValue(integerType(1), N:Int), V1:K,
                  vectorTypeValue(T1:KResult, N:Int), V2:K, vectorTypeValue(T1:KResult, N:Int), V3:K)
             => typeCheckIntArg(Name, vectorTypeValue(integerType(1), N:Int), V1:K)
                ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V2)
                ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V3)
-    rule <k> typeCheckSelect(Name:SymbolicValueRef, integerType(A:Int), V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+               ~> assignType(Name, X, vectorTypeValue(integerType(1), N:Int))
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                   integerType(A:Int), V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
          requires A =/=K 1
-    rule <k> typeCheckSelect(Name:SymbolicValueRef, vectorTypeValue(integerType(A:Int), N:Int)
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                           vectorTypeValue(integerType(A:Int), N:Int)
                    , V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: vector select condition element type must be i1") </output>
          requires A =/=K 1
-    rule <k> typeCheckSelect(Name:SymbolicValueRef, T:KResult, V1:K,
-                 T1:KResult, V2:K, T2:KResult, V3:K)
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                T:KResult, V1:K, T1:KResult, V2:K, T2:KResult, V3:K)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: both values to select must have same type") </output>
          requires T1 =/=K T2
-    rule <k> typeCheckSelect(Name:SymbolicValueRef, vectorTypeValue(integerType(1), N1:Int), V1:K,
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                  vectorTypeValue(integerType(1), N1:Int), V1:K,
                  vectorTypeValue(T1:KResult, N:Int), V2:K, vectorTypeValue(T1:KResult, N:Int), V3:K)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: vector select requires selected vectors to have the same vector length as select condition") </output>
          requires N1 =/=K N
-    rule <k> typeCheckSelect(Name:SymbolicValueRef, T:KResult, V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
          requires getKLabel(T) =/=KLabel 'integerType andBool getKLabel(T) =/=KLabel 'vectorTypeValue

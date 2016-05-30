@@ -151,6 +151,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "PositiveInfinity"
     syntax KResult ::= "NegativeInfinity"
     syntax KResult ::= Zeroinitializer
+    syntax KResult ::= blockValue(K)
 
     //define static analysis for DSL
     syntax KItem ::= "gotoMain"
@@ -188,7 +189,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= instruction(K, Set, K) //body, modifiers, instructionMetadatas
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
-    syntax KItem ::= indirectbr(K, ElemList)//operand, list of labels
+    syntax KItem ::= indirectbr(K, ElemList)   [strict(1)]//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
     syntax KItem ::= switch(K, K, K, ElemList) [strict(1,2,4)] // type, condition, default dest, list of cases

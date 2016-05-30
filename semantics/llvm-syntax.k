@@ -698,6 +698,7 @@ module LLVM-SYNTAX
     syntax TypeList ::= List{Type,","}                        [strict]
 
 
+    syntax Select ::= "select"
     /*@
       The two arguments to the these instructions must be integer or vector
       of integer values. Both arguments must have identical types.
@@ -916,7 +917,7 @@ module LLVM-SYNTAX
                       | "insertvalue" "(" ResolvedVal "," ResolvedVal ConstantIndexList ")"
                       | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
                       | "getelementptr" OptInBounds "(" Type "," ReturnedVal ")"
-                      | select(ResolvedVal, ResolvedVal, ResolvedVal)
+                      | Select "(" ResolvedVal "," ResolvedVal "," ResolvedVal ")"
                       | extractelement(ResolvedVal, ResolvedVal)
                       | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
 
@@ -1068,7 +1069,7 @@ module LLVM-SYNTAX
                      | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
                      | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
                      | CastOps ResolvedVal "to" Type InstructionMetadatas
-                     | "select" ResolvedVal "," ResolvedVal "," ResolvedVal
+                     | Select ResolvedVal "," ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "va_arg" ResolvedVal "," Type InstructionMetadatas
                      | "getelementptr" OptInBounds Type "," ResolvedVal
                        IntResolveVals InstructionMetadatas

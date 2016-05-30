@@ -506,6 +506,8 @@ module LLVM-HELPERS
                    | applyOp(K, K, K)     [function] // op, int, int
                    | applyCast(K, K, K, K)   [function] //op, type ints, type
                    | applyCasts(K, K, K, K)   [function] //op, type ints, type
+                   | applySelect(K, K, K, K) [function] //op, bool, first, second
+                   | applySelects(K, K, K, K) [function] //op, bool, first, second
 
     rule deNormalizingInt(integerType(N:Int), V:Int) => V
          requires V <Int (2 ^Int (N -Int 1))
@@ -609,6 +611,21 @@ module LLVM-HELPERS
                => valValue(applyCast(Op, integerType(N:Int), K, T)),
                                        applyCasts(Op, integerType(N:Int), Es, T)
     rule applyCasts(Op:K, A:K, I1:K, I2:K) => applyCast(Op, A, I1, I2)        [owise]
+
+
+    rule applySelect(Op:K, 0, A:K, B:K) => A
+    rule applySelect(Op:K, I:Int, A:K, B:K) => B
+         requires I =/=Int 0
+
+    rule applySelects(Op:K, I:Int, operand(T:K, V:K), operand(T':K, V':K))
+              => operand(T, applySelects(Op, I, V, V'))
+    rule applySelects(Op:K, I:Int, vector(Es:ElemList), vector(Es':ElemList))
+              => vector(applySelects(Op, I, Es, Es'))
+    rule applySelects(Op:K, I:Int, .ElemList, .ElemList) => .ElemList
+    rule applySelects(Op:K, I:Int, (val(A:K),Es:ElemList), (val(B:K),Es':ElemList))
+              => val(applySelect(Op, I, A, B)),applySelects(Op, I, Es, Es')
+    rule applySelects(Op:K, I:K, A:K, B:K)
+              => applySelect(Op, I, A, B) [owise]
 
 
     syntax KItem ::= checkNuw(K, K)          [function]//type,  int value

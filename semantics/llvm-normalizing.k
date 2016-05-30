@@ -43,6 +43,7 @@ module LLVM-NORMALIZING
                    | typeCheckRet(K, K, K)           [strict(2)]//block, t, v
                    | typeCheckCall(K, K, K, K, ElemList, ElemList) [strict(3, 5)]//block, var, t, name, argt, argv.
                    | typeCheckSwitch(K, ElemList, ElemList)//block, argv, argl.
+                   | typeCheckSelect(K, K, K, K, K, K, K)    [strict(2,4,6)]//block, type, name, firstT, firstV, secondT, secondV
 
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
@@ -177,13 +178,52 @@ module LLVM-NORMALIZING
          => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(It, Va)),getValueOfSwitch(Ju)),
                                 (val(addNameToString(La)),getOutEdges(Ju)))
 
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                       select Ty1:Type V1:ValueRef,
+                                  Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef
+                                  Meta:InstructionMetadatas)
+         => typeCheckSelect(Name:SymbolicValueRef, Ty1, V1, Ty2, V2, Ty3, V3)
 
- 
+
+    //deal with Select
+    rule typeCheckSelect(N:SymbolicValueRef, integerType(1), V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+            => typeCheckIntArg(N, integerType(1), V1:K)
+               ~> typeCheckIntArg(N, T1, V2)
+               ~> typeCheckIntArg(N, T1, V3)
+     rule typeCheckSelect(Name:SymbolicValueRef, vectorTypeValue(integerType(1), N:Int), V1:K,
+                 vectorTypeValue(T1:KResult, N:Int), V2:K, vectorTypeValue(T1:KResult, N:Int), V3:K)
+            => typeCheckIntArg(Name, vectorTypeValue(integerType(1), N:Int), V1:K)
+               ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V2)
+               ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V3)
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, integerType(A:Int), V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
+         requires A =/=K 1
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, vectorTypeValue(integerType(A:Int), N:Int)
+                   , V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: vector select condition element type must be i1") </output>
+         requires A =/=K 1
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, T:KResult, V1:K,
+                 T1:KResult, V2:K, T2:KResult, V3:K)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: both values to select must have same type") </output>
+         requires T1 =/=K T2
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, vectorTypeValue(integerType(1), N1:Int), V1:K,
+                 vectorTypeValue(T1:KResult, N:Int), V2:K, vectorTypeValue(T1:KResult, N:Int), V3:K)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: vector select requires selected vectors to have the same vector length as select condition") </output>
+         requires N1 =/=K N
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, T:KResult, V1:K, T1:KResult, V2:K, T1:KResult, V3:K)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
+         requires getKLabel(T) =/=KLabel 'integerType andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+
+
+
     //deal with switchs
     rule typeCheckSwitch(N:SymbolicValueRef, E1:ElemList, .ElemList)
           => typeCheckIntArgList(N, E1)
-
-
     rule <k> typeCheckSwitch(Name:SymbolicValueRef,
                    E1:ElemList, val(A:SymbolicValueRef), E2:ElemList)
                      => typeCheckSwitch(Name:SymbolicValueRef,
@@ -1406,13 +1446,14 @@ module LLVM-NORMALIZING
                           ,.Set
                           ,insMetas(formElemList(Ins)))
 
-    rule instValToKItem(select Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef)
+    rule instValToKItem(select Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef
+                        Ins:InstructionMetadatas)
            => instruction(select(addNameToString(Ty1)
                                  ,addNameToString(V1)
                                  ,operand(addNameToString(Ty2),addNameToString(V2))
                                  ,operand(addNameToString(Ty3),addNameToString(V3)))
                           ,.Set
-                          ,insMetas(.ElemList))
+                          ,insMetas(formElemList(Ins)))
 
     rule instValToKItem(va_arg Ty1:Type V1:ValueRef, Ty2:Type Ins:InstructionMetadatas)
            => instruction(theVAArg(addNameToString(Ty2)

@@ -16,11 +16,12 @@ module LLVM-SELECTION
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
-    rule [select-false]:
-        select(Type:KResult, I:Int, _, K:K) => K
-        when unsigned(Type, I) ==Int 0
-    rule [select-true]:
-        select(Type:KResult, I:Int, K:K, _) => K
-        when unsigned(Type, I) >Int 0
+    rule [select-vector]:
+        select(vectorTypeValue(T1:KResult, N:Int), I:KResult, A:K, B:K)
+                => applySelects('select(.KList), normalizingInt(getIntType(T1), I), A, B)
+
+    rule [select-single]:
+        select(integerType(1), I:KResult, A:K, B:K)
+                => applySelects('select(.KList), normalizingInt(integerType(1), I), A, B)
 
 endmodule

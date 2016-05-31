@@ -44,7 +44,7 @@ module LLVM-NORMALIZING
                    | typeCheckCall(K, K, K, K, ElemList, ElemList) [strict(3, 5)]//block, var, t, name, argt, argv.
                    | typeCheckSwitch(K, ElemList, ElemList)//block, argv, argl.
                    | typeCheckIndirectBr(K, K, K, ElemList)//block, argv, argl.
-                   | typeCheckSelect(K, K, K, K, K, K, K, K)    [strict(2,4,6)]//block,name type, value, firstT, firstV, secondT, secondV
+                   | typeCheckSelect(K, K, K, K, K, K, K, K)    [strict(3,5,7)]//block,name type, value, firstT, firstV, secondT, secondV
 
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
@@ -182,7 +182,7 @@ module LLVM-NORMALIZING
                                        switch It:IntType Va:ValueRef ,
                                        label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas)
-         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(addNameToString(It),
+         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(It,
                             addNameToString(Va))),getValueOfSwitch(Ju)),
                                 (val(addNameToString(La)),getOutEdges(Ju)))
 
@@ -190,9 +190,8 @@ module LLVM-NORMALIZING
                                        select Ty1:Type V1:ValueRef,
                                   Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef
                                   Meta:InstructionMetadatas)
-         => typeCheckSelect(Name:SymbolicValueRef, X, addNameToString(Ty1),
-                  addNameToString(V1), addNameToString(Ty2), addNameToString(V2),
-                                              addNameToString(Ty3), addNameToString(V3))
+         => typeCheckSelect(Name:SymbolicValueRef, X, Ty1,
+                  addNameToString(V1), Ty2, addNameToString(V2), Ty3, addNameToString(V3))
 
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                                        indirectbr Ty:Type Va:ValueRef ,
@@ -934,16 +933,16 @@ module LLVM-NORMALIZING
          requires T =/=K T'
 
     rule typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), I:Int), < T':Type V:ValueRef, R:ReturnedVal >)
-         => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I, < R >, T', V)
+                 vectorTypeValue(integerType(N:Int), I:Int), vector(val(operand(T':Type, V:ValueRef)), R:ElemList))
+         => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I, vector(R), T', V)
          requires I >Int 0 andBool N >Int 0
 
     //define type checking rules for vector types in integer opeartors.
     rule typeCheckIntArg(Name:SymbolicValueRef,
-                             T:K, 0, < .ReturnedVal >) => .K
+                             T:K, 0, vector(.ElemList)) => .K
     rule typeCheckIntArg(Name:SymbolicValueRef,
-                     T:K, I:Int, < T':Type V:ValueRef, R:ReturnedVal >)
-         => typeCheckIntArg(Name:SymbolicValueRef, T, I, < R >, T', V)
+                     T:K, I:Int, vector(val(operand(T':Type, V:ValueRef)), R:ElemList))
+         => typeCheckIntArg(Name:SymbolicValueRef, T, I, vector(R), T', V)
          requires I >Int 0
 
     rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int),
@@ -1004,30 +1003,30 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires N =/=Int 1 orBool N' =/=Int 1
 
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, I:Int, < .ReturnedVal >) ~> K => .K </k>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, I:Int, vector(.ElemList)) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires I >Int 0
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                         T:K, 0, < R:ReturnedVal >) ~> K => .K </k>
+                         T:K, 0, vector(R:ElemList)) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires R =/=K .ReturnedVal
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                       vectorTypeValue(T:K, I:Int), < R:ReturnedVal >) ~> K
+                       vectorTypeValue(T:K, I:Int), vector(R:ElemList)) ~> K
          => .K </k>
          <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
          requires getKLabel(T) =/=KLabel 'integerType
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), 0), < R:ReturnedVal >) ~> K
+                 vectorTypeValue(integerType(N:Int), 0), vector(R:ElemList)) ~> K
                    => .K </k>
          <output>... .List => ListItem("error: zero element vector is illegal") </output>
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), I:Int), < R:ReturnedVal >) ~> K
+                 vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
                   => .K </k>
          <output>... .List => ListItem("error: expected number in address space") </output>
          requires I <Int 0
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-              vectorTypeValue(integerType(N:Int), I:Int), < .ReturnedVal >) ~> K
+              vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
               => .K </k>
          <output>... .List => ListItem("error: constant vector must not be empty") </output>
          requires I >Int 0
@@ -1174,105 +1173,16 @@ module LLVM-NORMALIZING
                           ,insMetas(formElemList(Ins)))
 
 /*    
-    rule icmp ne T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
+    rule icmp Op T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
            => theDefinition(INotEq(T, V, V'),I)
 */
-    rule instValToKItem(icmp ne Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(iNotEq(addNameToString(Ty)
+    rule instValToKItem(icmp Op:IPredicate Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+           => instruction(iCmp(Op, Ty
                                  ,addNameToString(V1)
                                  ,addNameToString(V2))
                           ,.Set
                           ,insMetas(formElemList(Ins)))
-/*
-    rule icmp eq T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-        => theDefinition(IEq(T, V, V'),I)
-*/
-    rule instValToKItem(icmp eq Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(iEq(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-   rule icmp ugt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UGT(T, V, V'),I)
-*/
-    rule instValToKItem(icmp ugt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(uGT(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp uge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(UGE(T, V, V'),I)
-*/
-    rule instValToKItem(icmp uge Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(uGE(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp ult T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ULT(T, V, V'),I)
-*/
-    rule instValToKItem(icmp ult Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(uLT(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp ule T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(ULE(T, V, V'),I)
-*/
-    rule instValToKItem(icmp ule Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(uLE(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp sgt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SGT(T, V, V'),I)
-*/
-    rule instValToKItem(icmp sgt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(sGT(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp sge T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SGE(T, V, V'),I)
-*/
-    rule instValToKItem(icmp sge Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(sGE(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp slt T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SLT(T, V, V'),I)
-*/
-    rule instValToKItem(icmp slt Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(sLT(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
-/*
-    rule icmp sle T:Type V:ValueRef , V':ValueRef I:InstructionMetadatas
-         => theDefinition(SLE(T, V, V'),I)
-*/
-    rule instValToKItem(icmp sle Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-           => instruction(sLE(addNameToString(Ty)
-                              ,addNameToString(V1)
-                              ,addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Ins)))
+
 /*
     rule fcmp false _:Type _:ValueRef , _:ValueRef I:InstructionMetadatas
          => theDefinition(0,I)

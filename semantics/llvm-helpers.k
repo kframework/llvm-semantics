@@ -508,6 +508,8 @@ module LLVM-HELPERS
                    | applyCasts(K, K, K, K)   [function] //op, type ints, type
                    | applySelect(K, K, K, K) [function] //op, bool, first, second
                    | applySelects(K, K, K, K) [function] //op, bool, first, second
+                   | applyIcmps(K, K, K, K) [function] // op, type, int, int
+                   | applyIcmp(K, K, K, K) [function] // op, type, int, int
 
     rule deNormalizingInt(integerType(N:Int), V:Int) => V
          requires V <Int (2 ^Int (N -Int 1))
@@ -570,6 +572,16 @@ module LLVM-HELPERS
     rule applyOp('or(.KList), V1:Int, V2:Int) => V1 |Int V2
     rule applyOp('and(.KList), V1:Int, V2:Int) => V1 &Int V2
     rule applyOp('xor(.KList), V1:Int, V2:Int) => V1 xorInt V2
+    rule applyOp('eq(.KList), V1:Int, V2:Int) => V1 ==Int V2
+    rule applyOp('neq(.KList), V1:Int, V2:Int) => V1 =/=Int V2
+    rule applyOp(Op:K, V1:Int, V2:Int) => V1 >Int V2
+         requires Op ==K 'ugtOfIcmp(.KList) orBool Op ==K sgt
+    rule applyOp(Op:K, V1:Int, V2:Int) => V1 >=Int V2
+         requires Op ==K 'ugeOfIcmp(.KList) orBool Op ==K sge
+    rule applyOp(Op:K, V1:Int, V2:Int) => V1 <Int V2
+         requires Op ==K 'ultOfIcmp(.KList) orBool Op ==K slt
+    rule applyOp(Op:K, V1:Int, V2:Int) => V1 <=Int V2
+         requires Op ==K 'uleOfIcmp(.KList) orBool Op ==K sle
 
     rule applyInt(Op:K, integerType(N:Int), V1:Int, V2:Int) => mod(applyOp(Op, V1, V2), 2 ^Int N)
     rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => poisonVal
@@ -588,6 +600,40 @@ module LLVM-HELPERS
                => valValue(applyInt(Op, integerType(N:Int), K, K')),
                                        applyInts(Op, integerType(N:Int), Es, Es')
     rule applyInts(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+
+
+    rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
+               => applyOp(Op,
+                       deNormalizingInt(integerType(N:Int), normalizingInt(integerType(N:Int), V1)),
+                       deNormalizingInt(integerType(N:Int), normalizingInt(integerType(N:Int), V2)))
+         requires Op =/=K 'ugtOfIcmp(.KList) andBool Op =/=K 'ugeOfIcmp(.KList)
+                  andBool Op =/=K 'ultOfIcmp(.KList) andBool Op =/=K 'uleOfIcmp(.KList)
+    rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
+               => applyOp(Op,
+                       normalizingInt(integerType(N:Int), V1),
+                       normalizingInt(integerType(N:Int), V2))
+         requires Op ==K 'ugtOfIcmp(.KList) orBool Op ==K 'ugeOfIcmp(.KList)
+                  orBool Op ==K 'ultOfIcmp(.KList) orBool Op ==K 'uleOfIcmp(.KList)
+    rule applyIcmp(Op:K, pointerTypeValue(T1:K, Addr:K),
+              loc(A:Int, B:Int, C:K, D:K), loc(A':Int, B':Int, C':K, D':K))
+               => applyOp(Op, A +Int B, A' +Int B')
+    rule applyIcmp(Op:K, T:K, A:K, A':K) => poisonVal
+         requires A ==K poisonVal orBool A' ==K poisonVal
+    rule applyIcmp(Op:K, T:K, A:K, A':K) => undef
+         requires (A ==K undef orBool A' ==K undef)
+                   andBool A =/=K poisonVal
+                   andBool A' =/=K poisonVal
+
+    rule applyIcmps(Op:K, integerType(N:Int), .ElemList, .ElemList) => .ElemList
+    rule applyIcmps(Op:K, vectorTypeValue(integerType(I:Int), N:Int),
+                      vectorValue(Es:ElemList), vectorValue(Es':ElemList))
+               => vectorValue(applyIcmps(Op, integerType(N:Int), Es, Es'))
+    rule applyIcmps(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList)
+                                       , (valValue(K':K),Es':ElemList))
+               => valValue(applyIcmp(Op, integerType(N:Int), K, K')),
+                                       applyIcmps(Op, integerType(N:Int), Es, Es')
+    rule applyIcmps(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+
 
     syntax Int ::= seqAdds(Int, Int) [function]
     rule seqAdds(N:Int, N':Int) => 2 ^Int N

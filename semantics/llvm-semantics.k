@@ -689,33 +689,7 @@ module LLVM-COMPARISONS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    // all of these take place only at the top of K
-    // TODO these break with ==Int or =/=Int
-    rule iNotEq(Type:KResult, I1:Int, I2:Int)
-        => boolToInt(unsigned(Type, I1) =/=K unsigned(Type, I2))
-    rule iEq(Type:KResult, I1:Int, I2:Int)
-        => boolToInt(unsigned(Type, I1) ==K unsigned(Type, I2))
-    rule uGT(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) >Int unsigned(Type, I2:Int))
-    rule uGE(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) >=Int unsigned(Type, I2:Int))
-    rule uLT(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) <Int unsigned(Type, I2:Int))
-    rule uLE(Type:KResult, I1:Int, I2:Int) => boolToInt(unsigned(Type, I1:Int) <=Int unsigned(Type, I2:Int))
-    rule sGT(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >Int signed(Type, I2:Int))
-    rule sGE(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >=Int signed(Type, I2:Int))
-    rule sLT(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) <Int signed(Type, I2:Int))
-    rule sLE(Type:KResult, I1:Int, I2:Int) => boolToInt(signed(Type, I1:Int) >=Int signed(Type, I2:Int))
-
-    rule iNotEq(Type:KResult, Loc1:Loc, Loc2:Loc)
-        => boolToInt(unsigned(Type, Loc1:Loc) =/=K unsigned(Type, Loc2:Loc))
-    rule iEq(Type:KResult, Loc1:Loc, Loc2:Loc)
-        => boolToInt(unsigned(Type, Loc1:Loc) ==K unsigned(Type, Loc2:Loc))
-    rule uGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >Int unsigned(Type, Loc2:Loc))
-    rule uGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) >=Int unsigned(Type, Loc2:Loc))
-    rule uLT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <Int unsigned(Type, Loc2:Loc))
-    rule uLE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(unsigned(Type, Loc1:Loc) <=Int unsigned(Type, Loc2:Loc))
-    rule sGT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >Int signed(Type, Loc2:Loc))
-    rule sGE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
-    rule sLT(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) <Int signed(Type, Loc2:Loc))
-    rule sLE(Type:KResult, Loc1:Loc, Loc2:Loc) => boolToInt(signed(Type, Loc1:Loc) >=Int signed(Type, Loc2:Loc))
+    rule iCmp(Op:K, T:KResult, V1:KResult, V2:KResult) => applyIcmps(Op, T, V1, V2)
 
     // TODO not handling QNAN
     rule oEQ(Type:KResult, F1:Float, F2:Float)

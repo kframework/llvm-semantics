@@ -281,6 +281,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "globalVar" | "localVar"
 
     syntax KItem ::= theDefinition(K,K) [strict]
+    syntax KItem ::= iCmp(K, K, K, K)      [strict(2,3,4)]//op, type, left, right
     syntax KItem ::= iNotEq(K, K, K) [strict] // type, left op, right op
     syntax KItem ::= iEq(K, K, K) [strict]
     syntax KItem ::= uGT(K, K, K) [strict]

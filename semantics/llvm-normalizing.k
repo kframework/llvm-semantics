@@ -36,6 +36,7 @@ module LLVM-NORMALIZING
                    | typeCheckStore(K, K, K, K, K, K, K)  [strict(2,4)]//block, t, v, pt, v, align, atomic
                    | typeCheckLoad(K, K, K, K, K, K, K)  [strict(3,4)]//block, var, t, pt, v, align, atomic
                    | typeCheckIntArgList(K, ElemList)        [strict(2)]
+                   | typeCheckGepArgList(K, ElemList)        [strict(2)]
                    | typeCheckArgList(K, ElemList)        [strict(2)]
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
                    | typeCheckBr(K, K, K, K, K)    [strict(2)]//block, t, ...
@@ -130,7 +131,7 @@ module LLVM-NORMALIZING
            => typeCheckGepOp(Name:SymbolicValueRef, X, Ty, Ty1,
                                   addNameToString(V1), formTypeCheckList(Itr))
 
-    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+    rule <k> typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                  getelementptr Oib:OptInBounds Ty:Type ,
                     .ReturnedVal Ins:InstructionMetadatas)
                  ~> K:K => .K </k>
@@ -815,7 +816,7 @@ module LLVM-NORMALIZING
     rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                 T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
               => typeCheckIntArg(Name, pointerTypeValue(T, A), V)
-                  ~> typeCheckIntArgList(Name, L)
+                  ~> typeCheckGepArgList(Name, L)
                   ~> typeCheckInGepList(gepTypeBag(T), L)
                   ~> assignType(Name, X, pointerTypeValue(getGepType(gepTypeBag(T), L), A))
 
@@ -839,7 +840,7 @@ module LLVM-NORMALIZING
 
     rule typeCheckIntArgList(Name:SymbolicValueRef, .ElemList) => .K
     rule typeCheckIntArgList(Name:SymbolicValueRef,
-                         valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
                     => typeCheckIntArg(Name:SymbolicValueRef, T, V)
                                 ~> typeCheckIntArgList(Name:SymbolicValueRef, Vs)
          requires getKLabel(T) ==KLabel 'integerType
@@ -847,6 +848,31 @@ module LLVM-NORMALIZING
     rule <k> typeCheckIntArgList(Name:SymbolicValueRef, valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+
+    rule typeCheckGepArgList(Name:SymbolicValueRef, .ElemList) => .K
+    rule typeCheckGepArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef, T, V)
+                                ~> typeCheckGepArgList(Name:SymbolicValueRef, Vs)
+         requires getKLabel(T) ==KLabel 'integerType
+
+    rule typeCheckGepArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(
+                          vectorTypeValue(integerType(I:K), N:K), V:K)),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef,
+                             vectorTypeValue(integerType(I:K), N:K), V)
+                                ~> typeCheckGepArgList(Name:SymbolicValueRef, Vs)
+
+    rule <k> typeCheckGepArgList(Name:SymbolicValueRef, valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: gep index must be either integer type or vector of integer type") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+                  andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+
+    rule <k> typeCheckGepArgList(Name:SymbolicValueRef, valValue(typeOperandResult(vectorTypeValue(T:KResult, N:K), V:K)),Vs:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: gep index must be either integer type or vector of integer type") </output>
          requires getKLabel(T) =/=KLabel 'integerType
 
     rule typeCheckCastOp(Name:SymbolicValueRef,

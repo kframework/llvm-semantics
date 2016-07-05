@@ -31,6 +31,7 @@ module LLVM-HELPERS
     rule isHexDigit(A:String) => false [owise]
 
     syntax Bool ::= isIntString(String) [function]
+                  | isAInt(K)           [function]
     rule isIntString(A) => false
          requires lengthString(A) ==Int 0
     rule isIntString(A) => true
@@ -51,6 +52,8 @@ module LLVM-HELPERS
                   andBool (ordChar(substrString(A, 0, 1))
                                                 <=Int ordChar("9")))
 
+    rule isAInt(I:Int) => true
+    rule isAInt(K:K) => false [owise]
 
     syntax List ::= StringToList(String) [function]
     rule StringToList("") => .List

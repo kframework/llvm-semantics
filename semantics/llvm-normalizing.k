@@ -125,10 +125,16 @@ module LLVM-NORMALIZING
            => typeCheckCastOp(Name:SymbolicValueRef, X, sext,  Ty1, addNameToString(V), Ty2)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-                 getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
-                                    Itr:IntResolveVals Ins:InstructionMetadatas)
+                 getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef,
+                                    Itr:ReturnedVal Ins:InstructionMetadatas)
            => typeCheckGepOp(Name:SymbolicValueRef, X, Ty, Ty1,
                                   addNameToString(V1), formTypeCheckList(Itr))
+
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 getelementptr Oib:OptInBounds Ty:Type ,
+                    .ReturnedVal Ins:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: no reference target pointer for getelementptr") </output>
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                          alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
@@ -1495,8 +1501,8 @@ module LLVM-NORMALIZING
                           ,.Set
                           ,insMetas(formElemList(Ins)))
 
-    rule instValToKItem(getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
-                                    Itr:IntResolveVals Ins:InstructionMetadatas)
+    rule instValToKItem(getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef,
+                                    Itr:ReturnedVal Ins:InstructionMetadatas)
            => instruction(getElementPtr(addNameToString(Ty1)
                                         ,addNameToString(V1)
                                         ,formElemList(Itr))

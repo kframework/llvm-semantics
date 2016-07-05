@@ -1071,8 +1071,7 @@ module LLVM-SYNTAX
                      | CastOps ResolvedVal "to" Type InstructionMetadatas
                      | Select ResolvedVal "," ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "va_arg" ResolvedVal "," Type InstructionMetadatas
-                     | "getelementptr" OptInBounds Type "," ResolvedVal
-                       IntResolveVals InstructionMetadatas
+                     | "getelementptr" OptInBounds Type "," ReturnedVal InstructionMetadatas
                      | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "insertelement" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas

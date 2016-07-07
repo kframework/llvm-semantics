@@ -757,4 +757,14 @@ module LLVM-HELPERS
     rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
             => SetItem(operand(T, V)) formArgSet(E)
 
+
+    syntax Bool ::= hasVectorInList(ElemList)    [function]
+    rule hasVectorInList(.ElemList) => false
+    rule hasVectorInList(valValue(typeOperandResult(
+        vectorTypeValue(_:K, _:K), _:K)), Es:ElemList) => true
+    rule hasVectorInList(valValue(typeOperandResult(A:K, _:K)),
+                  Es:ElemList) => hasVectorInList(Es)
+         requires getKLabel(A) =/=KLabel 'vectorTypeValue
+
+
 endmodule

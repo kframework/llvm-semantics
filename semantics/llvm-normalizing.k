@@ -820,6 +820,14 @@ module LLVM-NORMALIZING
                   ~> typeCheckInGepList(gepTypeBag(T), L)
                   ~> assignType(Name, X, pointerTypeValue(getGepType(gepTypeBag(T), L), A))
 
+    rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                 vectorTypeValue(pointerTypeValue(T, A:K), N:K), V:K, L:ElemList)
+              => typeCheckIntArg(Name,
+                       vectorTypeValue(pointerTypeValue(T, A:K), N:K), V)
+                  ~> typeCheckGepArgList(Name, L)
+                  ~> typeCheckInGepList(gepTypeBag(T), L)
+                  ~> assignType(Name, X, pointerTypeValue(getGepType(gepTypeBag(T), L), A))
+
     rule <k> typeCheckGepOp(Name:SymbolicValueRef,
                     X:SymbolicValueRef, T:KResult, pointerTypeValue(T':KResult, A:K), V:K, L:ElemList)
              ~> K:K => .K </k>

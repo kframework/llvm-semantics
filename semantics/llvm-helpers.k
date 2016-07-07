@@ -348,8 +348,8 @@ module LLVM-HELPERS
 
 
     syntax ElemList ::= formTypeCheckList(K)   [function]
-    rule formTypeCheckList('.IntResolveVals(.KList)) => .ElemList
-    rule formTypeCheckList(, It:IntType V:ValueRef Ins:IntResolveVals)
+    rule formTypeCheckList('.ReturnedVal(.KList)) => .ElemList
+    rule formTypeCheckList(It:Type V:ValueRef , Ins:ReturnedVal)
             => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
     rule formTypeCheckList(.ParamList) => .ElemList
     rule formTypeCheckList(T:Type _:ParamAttrs V:ValueRef, Pl:ParamList)
@@ -766,5 +766,12 @@ module LLVM-HELPERS
                   Es:ElemList) => hasVectorInList(Es)
          requires getKLabel(A) =/=KLabel 'vectorTypeValue
 
+    syntax KItem ::= getVectorNum(ElemList)        [function]
+    rule getVectorNum(.ElemList) => badType
+    rule getVectorNum(valValue(typeOperandResult(
+        vectorTypeValue(_:K, I:K), _:K)), Es:ElemList) => I
+    rule getVectorNum(valValue(typeOperandResult(A:K, _:K)),
+                  Es:ElemList) => getVectorNum(Es)
+         requires getKLabel(A) =/=KLabel 'vectorTypeValue
 
 endmodule

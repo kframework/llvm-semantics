@@ -28,12 +28,15 @@ module LLVM-NORMALIZING
                    | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | typeCheckIntArg(K, K, K, K)
+                   | typeCheckInGepList(K, K, ElemList) //reference type, current type, index list
+                   | typeCheckInGepListStruct(K, K, ElemList, K)//reference type, current type, index_list, structural_list
                    | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
                    | typeCheckGepOp(K, K, K, K, K, ElemList)  [strict(3,4,6)]//block, var, t, t*, v, (t,v)lists
                    | typeCheckAllocaOp(K, K, K, K, K, K)  [strict(3,4)]//block,var, t, int-t, v, align
                    | typeCheckStore(K, K, K, K, K, K, K)  [strict(2,4)]//block, t, v, pt, v, align, atomic
                    | typeCheckLoad(K, K, K, K, K, K, K)  [strict(3,4)]//block, var, t, pt, v, align, atomic
                    | typeCheckIntArgList(K, ElemList)        [strict(2)]
+                   | typeCheckGepArgList(K, ElemList)        [strict(2)]
                    | typeCheckArgList(K, ElemList)        [strict(2)]
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
                    | typeCheckBr(K, K, K, K, K)    [strict(2)]//block, t, ...
@@ -51,6 +54,20 @@ module LLVM-NORMALIZING
                    | getAllTypes(K)   [function]
                    | getValueOfSwitch(JumpTable) [function]
     syntax KItem ::= getVar(K)    [function]
+                   | getGepType(K, ElemList)         [function]
+                   | getGepInType(K, ElemList, K)         [function]
+                   | getGepTypeInStruct(K, K)           [function]
+                   | gepTypeBag(K)
+    syntax KItem ::= evalToInt(K) [function]
+    syntax ElemList ::= evalToIntInList(ElemList)  [function]
+
+    rule evalToInt(I:Int) => I
+    rule evalToInt(vector(Es:ElemList)) => vector(evalToIntInList(Es))
+    rule evalToInt(A:K) => A [owise]
+
+    rule evalToIntInList(.ElemList) => .ElemList
+    rule evalToIntInList(val(operand(T:K, B:K)),
+             Es:ElemList) => valValue(evalToInt(B)), evalToIntInList(Es)
 
     rule getValueOfSwitch(.JumpTable) => .ElemList
     rule getValueOfSwitch(T:IntType V:ConstValueRef, La:LabelValue Ju:JumpTable)
@@ -72,6 +89,31 @@ module LLVM-NORMALIZING
 
     rule getVar(assign(A:K, B:K)) => A
     rule getVar(K:K) => .K [owise]
+
+    rule getGepType(T:KResult, .ElemList) => T
+    rule getGepType(gepTypeBag(T:KResult), .ElemList) => T
+    rule getGepType(gepTypeBag(T:KResult), val(A:K),Es:ElemList) => getGepType(T, Es)
+    rule getGepType(arrayTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(vectorTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(structTypeValue(T1:K), val(typeOperand(A:K, B:K)),Es:ElemList)
+               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
+    rule getGepType(K:K, Es:ElemList) => K [owise]
+
+
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList, I:Int)
+               => getGepType(getGepTypeInStruct(T1, I), Es)
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList,
+               vector(valValue(I:Int), Es':ElemList))
+               => getGepType(getGepTypeInStruct(T1, I), Es)
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList, A:K) => badType
+
+    rule getGepTypeInStruct(T1:KResult, T2:TypeList, 0) => T1
+    rule getGepTypeInStruct(T1:KResult, T2:TypeList, I:Int)
+               => getGepTypeInStruct(T2, I -Int 1)
+         requires I >Int 0
+    rule getGepTypeInStruct(T:K, I:Int) => badType [owise]
 
     //maybe a bug for LLVM, LLVM actually allows that a variable to be used then assign
     //br might have the problem to jump to two basic blocks by a phi functions
@@ -96,10 +138,16 @@ module LLVM-NORMALIZING
            => typeCheckCastOp(Name:SymbolicValueRef, X, sext,  Ty1, addNameToString(V), Ty2)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-                 getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
-                                    Itr:IntResolveVals Ins:InstructionMetadatas)
+                 getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef,
+                                    Itr:ReturnedVal Ins:InstructionMetadatas)
            => typeCheckGepOp(Name:SymbolicValueRef, X, Ty, Ty1,
                                   addNameToString(V1), formTypeCheckList(Itr))
+
+    rule <k> typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 getelementptr Oib:OptInBounds Ty:Type ,
+                    .ReturnedVal Ins:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: no reference target pointer for getelementptr") </output>
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                          alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
@@ -745,23 +793,121 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isPowOfTwo(Align, 1)
 
+    //type check the gep int list coordinated with the type
+    rule typeCheckInGepList(T:KResult, T:KResult, .ElemList) => .K
+    rule typeCheckInGepList(T:KResult, gepTypeBag(T:KResult), .ElemList) => .K
+
+    rule typeCheckInGepList(RT:KResult, gepTypeBag(T:KResult), valValue(A:K),Es:ElemList)
+           => typeCheckInGepList(RT:KResult, T, Es)
+    rule typeCheckInGepList(RT:KResult, arrayTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => typeCheckInGepList(RT:KResult, T1, Es)
+    rule typeCheckInGepList(RT:KResult, vectorTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => typeCheckInGepList(RT:KResult, T1, Es)
+    rule typeCheckInGepList(RT:KResult, structTypeValue(T1:K),
+                valValue(typeOperandResult(A:K, B:K)),Es:ElemList)
+               => typeCheckInGepListStruct(RT:KResult,
+                        structTypeValue(T1:K), Es:ElemList, evalToInt(B))
+
+    rule <k> typeCheckInGepList(RT:KResult, T:KResult, .ElemList) ~> K:K 
+               => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices on vector type") </output>
+         requires T =/=K RT
+
+    rule <k> typeCheckInGepList(RT:KResult, gepTypeBag(T:KResult), .ElemList) ~> K:K 
+               => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices on vector type") </output>
+         requires T =/=K RT
+
+    rule <k> typeCheckInGepList(RT:KResult, T:K, valValue(A:K),Es:ElemList) ~> K:K 
+               => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices") </output>
+         requires getKLabel(T) =/=KLabel 'vectorTypeValue andBool
+                  getKLabel(T) =/=KLabel 'arrayTypeValue andBool
+                  getKLabel(T) =/=KLabel 'structTypeValue
+
+    rule typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K), Es:ElemList, I:Int)
+                 => typeCheckInGepList(RT:KResult, getGepTypeInStruct(T1, I), Es)
+         requires getGepTypeInStruct(T1, I) =/=K badType
+
+    rule typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K),
+          Es:ElemList, vector(.ElemList)) => .K
+
+    rule typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K), Es:ElemList,
+            vector(valValue(I:Int), Es':ElemList))
+                 => typeCheckInGepList(RT:KResult, getGepTypeInStruct(T1, I), Es)
+                    ~> typeCheckInGepListStruct(RT:KResult,
+                                   structTypeValue(T1:K), Es, vector(Es'))
+         requires getGepTypeInStruct(T1, I) =/=K badType
+
+    rule <k> typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K), Es, I:Int)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices") </output>
+         requires getGepTypeInStruct(T1, I) ==K badType
+
+    rule <k> typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K), Es:ElemList,
+            vector(valValue(I:Int), Es':ElemList)) ~> K:K
+                 => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices") </output>
+         requires getGepTypeInStruct(T1, I) ==K badType
+
+    rule <k> typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K), Es:ElemList, I:K)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices") </output>
+         requires notBool isAInt(I) andBool getKLabel(I) =/=KLabel 'vector
+
+    rule <k> typeCheckInGepListStruct(RT:KResult, structTypeValue(T1:K), Es:ElemList,
+             vector(valValue(I:K), Es':ElemList)) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid getelementptr indices") </output>
+         requires notBool isAInt(I)
+
 
     //TODO: deal with other constant expr cases
     rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                 T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
               => typeCheckIntArg(Name, pointerTypeValue(T, A), V)
-                  ~> typeCheckIntArgList(Name, L)
-                  ~> assignType(Name, X, pointerTypeValue(T, A))
+                  ~> typeCheckGepArgList(Name, L)
+                  ~> typeCheckInGepList(getGepType(gepTypeBag(T), L), gepTypeBag(T), L)
+                  ~> assignType(Name, X, pointerTypeValue(getGepType(gepTypeBag(T), L), A))
+         requires notBool hasVectorInList(L)
+
+    rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
+              => typeCheckIntArg(Name, pointerTypeValue(T, A), V)
+                  ~> typeCheckGepArgList(Name, L)
+                  ~> typeCheckInGepList(getGepType(gepTypeBag(T), L), gepTypeBag(T), L)
+                  ~> assignType(Name, X, vectorTypeValue(pointerTypeValue(
+                                 getGepType(gepTypeBag(T), L), A), getVectorNum(L)))
+         requires hasVectorInList(L) andBool getVectorNum(L) =/=K badType
+
+    rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                 vectorTypeValue(pointerTypeValue(T, A:K), N:K), V:K, L:ElemList)
+              => typeCheckIntArg(Name,
+                       vectorTypeValue(pointerTypeValue(T, A:K), N:K), V)
+                  ~> typeCheckGepArgList(Name, L)
+                  ~> typeCheckInGepList(getGepType(gepTypeBag(T), L), gepTypeBag(T), L)
+                  ~> assignType(Name, X, vectorTypeValue(
+                               pointerTypeValue(getGepType(gepTypeBag(T), L), A), N))
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef,
-                    X:SymbolicValueRef, T:KResult, pointerTypeValue(T', A:K), V:K, L:ElemList)
+                    X:SymbolicValueRef, T:KResult, pointerTypeValue(T':KResult, A:K), V:K, L:ElemList)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: explicit pointee type doesn't match operand's pointee type") </output>
          requires T =/=K T'
 
-    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, T', V:K, L:ElemList)
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef,
+                    X:SymbolicValueRef, T:KResult, vectorTypeValue(pointerTypeValue(T':KResult, A:K), N:K), V:K, L:ElemList)
              ~> K:K => .K </k>
-         <output>... .List => ListItem("error: base of getelementptr must be a pointer") </output>
+         <output>... .List => ListItem("error: explicit pointee type doesn't match operand's pointee type") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, T':KResult, V:K, L:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: base of getelementptr must be a pointer or vector of pointers") </output>
+         requires getKLabel(T') =/=KLabel 'pointerTypeValue andBool getKLabel(T') =/=KLabel 'vectorTypeValue
+
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, vectorTypeValue(T', N:K), V:K, L:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: base of getelementptr must be a pointer or vector of pointers") </output>
          requires getKLabel(T') =/=KLabel 'pointerTypeValue
 
 
@@ -773,7 +919,7 @@ module LLVM-NORMALIZING
 
     rule typeCheckIntArgList(Name:SymbolicValueRef, .ElemList) => .K
     rule typeCheckIntArgList(Name:SymbolicValueRef,
-                         valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
                     => typeCheckIntArg(Name:SymbolicValueRef, T, V)
                                 ~> typeCheckIntArgList(Name:SymbolicValueRef, Vs)
          requires getKLabel(T) ==KLabel 'integerType
@@ -781,6 +927,31 @@ module LLVM-NORMALIZING
     rule <k> typeCheckIntArgList(Name:SymbolicValueRef, valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+
+    rule typeCheckGepArgList(Name:SymbolicValueRef, .ElemList) => .K
+    rule typeCheckGepArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef, T, V)
+                                ~> typeCheckGepArgList(Name:SymbolicValueRef, Vs)
+         requires getKLabel(T) ==KLabel 'integerType
+
+    rule typeCheckGepArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(
+                          vectorTypeValue(integerType(I:K), N:K), V:K)),Vs:ElemList)
+                    => typeCheckIntArg(Name:SymbolicValueRef,
+                             vectorTypeValue(integerType(I:K), N:K), V)
+                                ~> typeCheckGepArgList(Name:SymbolicValueRef, Vs)
+
+    rule <k> typeCheckGepArgList(Name:SymbolicValueRef, valValue(typeOperandResult(T:K, V:K)),Vs:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: gep index must be either integer type or vector of integer type") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+                  andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+
+    rule <k> typeCheckGepArgList(Name:SymbolicValueRef, valValue(typeOperandResult(vectorTypeValue(T:KResult, N:K), V:K)),Vs:ElemList)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: gep index must be either integer type or vector of integer type") </output>
          requires getKLabel(T) =/=KLabel 'integerType
 
     rule typeCheckCastOp(Name:SymbolicValueRef,
@@ -1435,8 +1606,8 @@ module LLVM-NORMALIZING
                           ,.Set
                           ,insMetas(formElemList(Ins)))
 
-    rule instValToKItem(getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef
-                                    Itr:IntResolveVals Ins:InstructionMetadatas)
+    rule instValToKItem(getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef,
+                                    Itr:ReturnedVal Ins:InstructionMetadatas)
            => instruction(getElementPtr(addNameToString(Ty1)
                                         ,addNameToString(V1)
                                         ,formElemList(Itr))

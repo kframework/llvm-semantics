@@ -31,6 +31,7 @@ module LLVM-HELPERS
     rule isHexDigit(A:String) => false [owise]
 
     syntax Bool ::= isIntString(String) [function]
+                  | isAInt(K)           [function]
     rule isIntString(A) => false
          requires lengthString(A) ==Int 0
     rule isIntString(A) => true
@@ -51,6 +52,8 @@ module LLVM-HELPERS
                   andBool (ordChar(substrString(A, 0, 1))
                                                 <=Int ordChar("9")))
 
+    rule isAInt(I:Int) => true
+    rule isAInt(K:K) => false [owise]
 
     syntax List ::= StringToList(String) [function]
     rule StringToList("") => .List
@@ -345,8 +348,8 @@ module LLVM-HELPERS
 
 
     syntax ElemList ::= formTypeCheckList(K)   [function]
-    rule formTypeCheckList('.IntResolveVals(.KList)) => .ElemList
-    rule formTypeCheckList(, It:IntType V:ValueRef Ins:IntResolveVals)
+    rule formTypeCheckList('.ReturnedVal(.KList)) => .ElemList
+    rule formTypeCheckList(It:Type V:ValueRef , Ins:ReturnedVal)
             => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
     rule formTypeCheckList(.ParamList) => .ElemList
     rule formTypeCheckList(T:Type _:ParamAttrs V:ValueRef, Pl:ParamList)
@@ -753,5 +756,22 @@ module LLVM-HELPERS
     rule formArgSet(.ElemList) => .Set
     rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
             => SetItem(operand(T, V)) formArgSet(E)
+
+
+    syntax Bool ::= hasVectorInList(ElemList)    [function]
+    rule hasVectorInList(.ElemList) => false
+    rule hasVectorInList(valValue(typeOperandResult(
+        vectorTypeValue(_:K, _:K), _:K)), Es:ElemList) => true
+    rule hasVectorInList(valValue(typeOperandResult(A:K, _:K)),
+                  Es:ElemList) => hasVectorInList(Es)
+         requires getKLabel(A) =/=KLabel 'vectorTypeValue
+
+    syntax KItem ::= getVectorNum(ElemList)        [function]
+    rule getVectorNum(.ElemList) => badType
+    rule getVectorNum(valValue(typeOperandResult(
+        vectorTypeValue(_:K, I:K), _:K)), Es:ElemList) => I
+    rule getVectorNum(valValue(typeOperandResult(A:K, _:K)),
+                  Es:ElemList) => getVectorNum(Es)
+         requires getKLabel(A) =/=KLabel 'vectorTypeValue
 
 endmodule

@@ -176,7 +176,7 @@ module LLVM-GEP
     // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
     rule
         <k> getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
-            => gep(Type)
+            => gep(gepTypeBag(Type))
         ...</k>
         (. =>
             <gepInfo>...
@@ -209,9 +209,19 @@ module LLVM-GEP
     //rule evalPointerType(T:KResult, A:K) => 'pointerType(T,, A)
 
     rule
-        <k> gep(pointerTypeValue(Type:KResult, _:K)) => gep(Type) ...</k>
+        <k> gep(gepTypeBag(pointerTypeValue(Type:KResult, _:K))) => gep(Type) ...</k>
         <gepIndices> I:Int => .K ...</gepIndices>
         <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
+
+
+/*
+not necessary, because it should be type checked.
+    rule <k> gep(gepTypeBag(T:KResult))
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: base of getelementptr must be a pointer or vector of pointers") </output>
+         requires getKLabel(T) =/=KLabel 'pointerTypeValue
+                  andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+*/
 
     rule
         <k> gep(arrayTypeValue(Type:KResult, _)) => gep(Type) ...</k>

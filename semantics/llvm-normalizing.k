@@ -57,7 +57,6 @@ module LLVM-NORMALIZING
                    | getGepType(K, ElemList)         [function]
                    | getGepInType(K, ElemList, K)         [function]
                    | getGepTypeInStruct(K, K)           [function]
-                   | gepTypeBag(K)
     syntax KItem ::= evalToInt(K) [function]
     syntax ElemList ::= evalToIntInList(ElemList)  [function]
 
@@ -99,7 +98,17 @@ module LLVM-NORMALIZING
                => getGepType(T1, Es)
     rule getGepType(structTypeValue(T1:K), val(typeOperand(A:K, B:K)),Es:ElemList)
                => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
-    rule getGepType(K:K, Es:ElemList) => K [owise]
+
+    rule getGepType(gepTypeBag(T:KResult), valValue(A:K),Es:ElemList) => getGepType(T, Es)
+    rule getGepType(arrayTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(vectorTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(structTypeValue(T1:K),
+                valValue(typeOperandResult(A:K, B:K)),Es:ElemList)
+               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
+
+    rule getGepType(K:K, Es:ElemList) => badType [owise]
 
 
     rule getGepInType(structTypeValue(T1:K), Es:ElemList, I:Int)
@@ -863,7 +872,7 @@ module LLVM-NORMALIZING
 
     //TODO: deal with other constant expr cases
     rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-                                T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
+                                T:KResult, pointerTypeValue(T, A:K), V:K, L:KResult)
               => typeCheckIntArg(Name, pointerTypeValue(T, A), V)
                   ~> typeCheckGepArgList(Name, L)
                   ~> typeCheckInGepList(getGepType(gepTypeBag(T), L), gepTypeBag(T), L)
@@ -871,7 +880,7 @@ module LLVM-NORMALIZING
          requires notBool hasVectorInList(L)
 
     rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-                                T:KResult, pointerTypeValue(T, A:K), V:K, L:ElemList)
+                                T:KResult, pointerTypeValue(T, A:K), V:K, L:KResult)
               => typeCheckIntArg(Name, pointerTypeValue(T, A), V)
                   ~> typeCheckGepArgList(Name, L)
                   ~> typeCheckInGepList(getGepType(gepTypeBag(T), L), gepTypeBag(T), L)
@@ -880,7 +889,7 @@ module LLVM-NORMALIZING
          requires hasVectorInList(L) andBool getVectorNum(L) =/=K badType
 
     rule typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
-                 vectorTypeValue(pointerTypeValue(T, A:K), N:K), V:K, L:ElemList)
+                 vectorTypeValue(pointerTypeValue(T, A:K), N:K), V:K, L:KResult)
               => typeCheckIntArg(Name,
                        vectorTypeValue(pointerTypeValue(T, A:K), N:K), V)
                   ~> typeCheckGepArgList(Name, L)

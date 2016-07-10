@@ -232,6 +232,7 @@ module LLVM-ABSTRACTSYNTAX
     rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
     syntax KItem ::= getElementPtr(K, K, K) [strict]// operand, operand, modifiers
+                   | gepTypeBag(K)          [strict]
     syntax KItem ::= extractElement(K, K) [strict]
     syntax KItem ::= insertElement(K, K, K) [strict]
     syntax KItem ::= shuffleVector(K, K, K) [strict]

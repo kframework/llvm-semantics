@@ -217,12 +217,12 @@ module LLVM-HELPERS
     rule sizeofInBits(double) => 64
     rule sizeofInBits(x86_fp80) => 80
     // TODO listK should be Fields (bug in K)
-    rule sizeofInBits(structTypeValue(listK((ListItem(Type:KResult) L:List))))
-      => sizeofInBits(Type) +Int sizeofInBits(structTypeValue(listK(L)))
-    rule sizeofInBits(structTypeValue(listK(.List))) => 0
-    rule sizeofInBits('structType(listK((ListItem(Type:KResult) L:List))))
-      => sizeofInBits(Type) +Int sizeofInBits('structType(listK(L)))
-    rule sizeofInBits('structType(listK(.List))) => 0
+    rule sizeofInBits(structTypeValue(Type:KResult, L:TypeList))
+      => sizeofInBits(Type) +Int sizeofInBits(structTypeValue(L))
+    rule sizeofInBits(structTypeValue(.TypeList)) => 0
+    rule sizeofInBits('structType(Type:KResult, L:TypeList))
+      => sizeofInBits(Type) +Int sizeofInBits('structType(L))
+    rule sizeofInBits('structType(.TypeList)) => 0
 
     syntax Int ::= sizeof(K) [function]
     rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte
@@ -343,7 +343,7 @@ module LLVM-HELPERS
                                            ,addNameToString(Na))),formElemList(Al)
     rule formElemList(.ReturnedVal) => .ElemList
     rule formElemList(T:Type V:ValueRef , R:ReturnedVal)
-                            => val(operand(T, V)),formElemList(R)
+                            => val(operand(T, addNameToString(V))),formElemList(R)
     rule formElemList(K:K) => K [owise]
 
 
@@ -765,6 +765,11 @@ module LLVM-HELPERS
     rule hasVectorInList(valValue(typeOperandResult(A:K, _:K)),
                   Es:ElemList) => hasVectorInList(Es)
          requires getKLabel(A) =/=KLabel 'vectorTypeValue
+    rule hasVectorInList(val(operand(
+        vectorType(_:K, _:K), _:K)), Es:ElemList) => true
+    rule hasVectorInList(val(operand(A:K, _:K)),
+                  Es:ElemList) => hasVectorInList(Es)
+         requires getKLabel(A) =/=KLabel 'vectorType
 
     syntax KItem ::= getVectorNum(ElemList)        [function]
     rule getVectorNum(.ElemList) => badType
@@ -773,5 +778,21 @@ module LLVM-HELPERS
     rule getVectorNum(valValue(typeOperandResult(A:K, _:K)),
                   Es:ElemList) => getVectorNum(Es)
          requires getKLabel(A) =/=KLabel 'vectorTypeValue
+    rule getVectorNum(val(operand(
+        vectorType(_:K, I:K), _:K)), Es:ElemList) => I
+    rule getVectorNum(val(operand(A:K, _:K)),
+                  Es:ElemList) => getVectorNum(Es)
+         requires getKLabel(A) =/=KLabel 'vectorType
+
+    syntax KItem ::= evalToInt(K) [function]
+    syntax ElemList ::= evalToIntInList(ElemList)  [function]
+
+    rule evalToInt(I:Int) => I
+    rule evalToInt(vector(Es:ElemList)) => vector(evalToIntInList(Es))
+    rule evalToInt(A:K) => A [owise]
+
+    rule evalToIntInList(.ElemList) => .ElemList
+    rule evalToIntInList(val(operand(T:K, B:K)),
+             Es:ElemList) => valValue(evalToInt(B)), evalToIntInList(Es)
 
 endmodule

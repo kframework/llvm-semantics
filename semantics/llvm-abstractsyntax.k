@@ -141,7 +141,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
-    syntax KItem ::= initBuiltins(List)
+    syntax KItem ::= initBuiltins(ElemList)
     syntax ElemList ::= "vararg"
 
     //LLVM builtin values

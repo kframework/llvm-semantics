@@ -171,74 +171,72 @@ module LLVM-GEP
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    syntax KItem ::= gep(K)    [strict]
+    syntax KItem ::= gep(K, K, K)
+
+    syntax ElemList ::= formSingletonGepList(Int, Int, K, K, ElemList)            [function]
+    syntax ElemList ::= formSingletonGepVector(Int, K, ElemList, ElemList)        [function]
+                      | formSingletonGepElemList(Int, ElemList)                   [function]
+                      | formSingletonGepElem(Int, Int, K)                         [function]
+
+    rule formSingletonGepVector(I:Int, T:K, .ElemList, Es:ElemList) => .ElemList
+    rule formSingletonGepVector(I:Int,
+              T:K, valValue(P:KResult),As:ElemList, Es:ElemList)
+           => val(gep(T, P, formSingletonGepElemList(I, Es))),
+                        formSingletonGepVector(I +Int 1, T, As, Es)
+
+
+    rule formSingletonGepList(I:Int, I:Int, T:K, P:K, Es:ElemList) => .ElemList
+    rule formSingletonGepList(I:Int, N:Int, T:K, P:K, Es:ElemList)
+               => val(gep(T, P, formSingletonGepElemList(N, Es))),
+                      formSingletonGepList(I, N +Int 1, T, P, Es)
+         requires N <Int I
+
+    rule formSingletonGepElemList(I, .ElemList) => .ElemList
+    rule formSingletonGepElemList(I, valValue(N:Int), Es:ElemList)
+            => valValue(N),formSingletonGepElemList(I, Es)
+    rule formSingletonGepElemList(I, valValue(vectorValue(As:ElemList)), Es:ElemList)
+            => valValue(vectorValue(
+                formSingletonGepElem(I, 0, As:ElemList))),formSingletonGepElemList(I, Es)
+    rule formSingletonGepElem(I:Int, I, valValue(A:K),Es:ElemList) => A
+    rule formSingletonGepElem(I:Int, N:Int, valValue(A:K),Es:ElemList)
+            => formSingletonGepElem(I, N +Int 1, Es)
 
     // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
-    rule
-        <k> getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
-            => gep(gepTypeBag(Type))
-        ...</k>
-        (. =>
-            <gepInfo>...
-                // <gepType> Type </gepType>
-                <gepResult> PtrVal </gepResult>
-                <gepIndices> elemListToK(Indices) </gepIndices>
-            ...</gepInfo>
-        )
+    rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:KResult)
+            => gep(gepTypeBag(Type), PtrVal, Indices)
+        requires getKLabel(Type) ==KLabel 'pointerTypeValue
+                 andBool notBool hasVectorInList(Indices)
 
-    rule
-        <k> gep(_:KResult) => Loc ...</k>
-        (
-            <gepInfo>...
-                <gepIndices> .K </gepIndices>
-                <gepResult> Loc:Loc </gepResult>
-            ...</gepInfo>
-            => .
-        )
+    rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
+            => vector(formSingletonGepList(
+                         evalToInt(getVectorNum(Indices)), 0, 
+                            gepTypeBag(Type), PtrVal, Indices))
+        requires getKLabel(Type) ==KLabel 'pointerTypeValue
+                 andBool hasVectorInList(Indices)
+                 andBool getVectorNum(Indices) =/=K badType
 
-    // rule <gepType> Type:KResult => Type </gepType>
+    rule getElementPtr(vectorTypeValue(T:KResult, N:Int),
+                        vectorValue(Vl:ElemList), Indices:ElemList)
+            => vector(formSingletonGepVector(0, gepTypeBag(T), Vl, Indices))
 
-    // TODO this is pretty ugly
-    // these rules make sure the body of a pointer type is a result
-    syntax KItem ::= "typing"
-    //syntax KItem ::= evalPointerType(K, K) [strict(1)]
-    
-    //rule 'pointerType(T:K,, A:K) ~> gep => evalPointerType(T, A) ~> gep
-         //when notBool 'isKResult(T)
+    rule gep(gepTypeBag(pointerTypeValue(Type:KResult, _:K)),
+             PtrVal:Loc, valValue(I:Int), Es:ElemList)
+                  => gep(Type, PtrVal + (sizeof(Type) *Int I), Es)
 
-    //rule evalPointerType(T:KResult, A:K) => 'pointerType(T,, A)
+    rule gep(arrayTypeValue(Type:KResult, _),
+             PtrVal:Loc, valValue(I:Int), Es:ElemList)
+                  => gep(Type, PtrVal + (sizeof(Type) *Int I), Es)
 
-    rule
-        <k> gep(gepTypeBag(pointerTypeValue(Type:KResult, _:K))) => gep(Type) ...</k>
-        <gepIndices> I:Int => .K ...</gepIndices>
-        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int I) </gepResult>
+    rule gep(structTypeValue(Type:KResult, L:TypeList),
+             PtrVal:Loc, valValue(I:Int), Es:ElemList)
+                  => gep(structTypeValue(L:TypeList),
+                      PtrVal + sizeof(Type), valValue(I -Int 1), Es)
+         requires I >Int 0
 
+    rule gep(structTypeValue(Type:KResult, L:TypeList),
+             PtrVal:Loc, valValue(0), Es:ElemList)
+                  => gep(Type, PtrVal, Es)
 
-/*
-not necessary, because it should be type checked.
-    rule <k> gep(gepTypeBag(T:KResult))
-             ~> K:K => .K </k>
-         <output>... .List => ListItem("error: base of getelementptr must be a pointer or vector of pointers") </output>
-         requires getKLabel(T) =/=KLabel 'pointerTypeValue
-                  andBool getKLabel(T) =/=KLabel 'vectorTypeValue
-*/
-
-    rule
-        <k> gep(arrayTypeValue(Type:KResult, _)) => gep(Type) ...</k>
-        <gepIndices> N:Int => . ...</gepIndices>
-        <gepResult> PtrVal:Loc => PtrVal + (sizeof(Type) *Int N) </gepResult>
-        when N >=Int 0
-
-    // WARNING TODO: _ may match more than one result (ask Traian)
-    rule
-        <k> gep(structTypeValue(listK(ListItem(Type:KResult) L:List => L))) ...</k>
-        <gepIndices> N:Int => N -Int 1 ...</gepIndices>
-        <gepResult> PtrVal:Loc => PtrVal + sizeof(Type) </gepResult>
-        when N >Int 0
-
-    rule
-        <k> gep(structTypeValue(listK(ListItem(Type:KResult) L:List))) => gep(Type) ...</k>
-        <gepIndices> 0 => . ...</gepIndices>
 
 endmodule
 
@@ -260,6 +258,10 @@ module LLVM-HELPERS-SPLIT-BYTES
     syntax KItem ::= splitStructBytes(K, List) // value, field types
     syntax KItem ::= "splitStructBytes'" "(" K "," List "," List ")" // value, field types, accumulator
 
+    syntax List ::= formListFromTypeList(TypeList)  [function]
+    rule formListFromTypeList(.TypeList) => .List
+    rule formListFromTypeList(T:Type, Ts:TypeList)
+                        => ListItem(T) formListFromTypeList(Ts)
 
     // Type(IntegerType(32))
     // should generate list with LSBytes first
@@ -288,8 +290,8 @@ module LLVM-HELPERS-SPLIT-BYTES
         when isArrayType(Type)
 
     rule
-        <k> splitBytes(V:KResult, structTypeValue(listK(L:List)))
-            => splitStructBytes(V, L)
+        <k> splitBytes(V:KResult, structTypeValue(L:TypeList))
+            => splitStructBytes(V, formListFromTypeList(L))
         ...</k>
 
     rule

@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2015 K Team. All Rights Reserved.
+//
 requires "llvm-syntax.k"
 requires "llvm-abstractsyntax.k"
 

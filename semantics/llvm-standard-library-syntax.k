@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2015 K Team. All Rights Reserved.
+//
 
 module LLVM-STANDARD-LIBRARY-SYNTAX
 

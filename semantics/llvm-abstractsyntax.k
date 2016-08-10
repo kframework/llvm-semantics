@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2015 K Team. All Rights Reserved.
+//
 requires "llvm-syntax.k"
 
 module LLVM-ABSTRACTSYNTAX
@@ -141,7 +141,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
-    syntax KItem ::= initBuiltins(List)
+    syntax KItem ::= initBuiltins(ElemList)
     syntax ElemList ::= "vararg"
 
     //LLVM builtin values
@@ -235,6 +235,7 @@ module LLVM-ABSTRACTSYNTAX
     rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
     syntax KItem ::= getElementPtr(K, K, K) [strict]// operand, operand, modifiers
+                   | gepTypeBag(K)          [strict]
     syntax KItem ::= extractElement(K, K) [strict]
     syntax KItem ::= insertElement(K, K, K) [strict]
     syntax KItem ::= shuffleVector(K, K, K) [strict]

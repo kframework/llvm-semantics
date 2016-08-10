@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2015 K Team. All Rights Reserved.
+//
 requires "llvm-syntax.k"
 requires "llvm-abstractsyntax.k"
 requires "llvm-settings.k"
@@ -58,21 +58,22 @@ module LLVM-GLOBALS
         <globalRegisters> M:Map
                    => M[X <- value(pointerTypeValue(TK, 'addrEmpty(.KList)),Loc)] </globalRegisters>
 
-    rule <k> initGlobals => initBuiltins(ListItem(name(globalVar, "__libc_start_main_0"))
-                                         ListItem(name(globalVar, "__libc_start_main_2"))
-                                         ListItem(name(globalVar, "exit")) ListItem(name(globalVar, "llvm.memcpy."))
-                                         ListItem(name(globalVar, "llvm.memset."))
-                                         ListItem(name(globalVar, "llvm.lifetime.start"))
-                                         ListItem(name(globalVar, "llvm.lifetime.end"))
-                                         ListItem(name(globalVar, "llvm.va_start"))
-                                         ListItem(name(globalVar, "llvm.va_copy"))
-                                         ListItem(name(globalVar, "llvm.va_end"))
-                                         ListItem(name(globalVar, "__syscall"))
-                                         ListItem(name(globalVar, "vprintf"))) ~> K:K ...</k>
+    rule <k> initGlobals => initBuiltins(val(name(globalVar, "__libc_start_main_0")),
+                                         val(name(globalVar, "__libc_start_main_2")),
+                                         val(name(globalVar, "exit")),
+                                         val(name(globalVar, "llvm.memcpy.")),
+                                         val(name(globalVar, "llvm.memset.")),
+                                         val(name(globalVar, "llvm.lifetime.start")),
+                                         val(name(globalVar, "llvm.lifetime.end")),
+                                         val(name(globalVar, "llvm.va_start")),
+                                         val(name(globalVar, "llvm.va_copy")),
+                                         val(name(globalVar, "llvm.va_end")),
+                                         val(name(globalVar, "__syscall")),
+                                         val(name(globalVar, "vprintf")),.ElemList) ~> K:K ...</k>
         <savedGlobals> K:K => .K </savedGlobals>
 
-    rule initBuiltins(.List) => .K
-    rule <k> initBuiltins(ListItem(X:SymbolicValueRef) Ls:List => Ls) ...</k>
+    rule initBuiltins(.ElemList) => .K
+    rule <k> initBuiltins(val(X:SymbolicValueRef), Ls:ElemList => Ls) ...</k>
          <globalRegisters> M:Map => M[X <- funptr(X)] </globalRegisters>
 
 

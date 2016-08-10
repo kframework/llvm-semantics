@@ -1,4 +1,4 @@
-// Copyright (c) 2013-2015 K Team. All Rights Reserved.
+//
 requires "llvm-syntax.k"
 requires "llvm-abstractsyntax.k"
 requires "llvm-settings.k"
@@ -72,11 +72,6 @@ module LLVM-CONFIGURATION
                 </object>
             </memory>
             // auxiliary cells:
-            <gepInfo multiplicity="?" color="red">
-                <gepType> .K </gepType>
-                <gepResult> 0 </gepResult>
-                <gepIndices> .K </gepIndices>
-            </gepInfo>
             <output stream="stdout" color="DodgerBlue"> .List </output>
             <modules color="teal">
                 <module multiplicity="*" color="LightSkyBlue">

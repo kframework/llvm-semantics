@@ -105,14 +105,14 @@ module LLVM-ABSTRACTSYNTAX
 
     //change IntType from LLVM syntax to K rule syntax
 
-    rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
+    rule I:IntTypePre => integerType(String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))))
          requires String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >Int 0
                andBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) <Int (2 ^Int 23)
 
-    rule I:IntType => badType
+    rule I:IntTypePre => badType
          requires String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) <=Int 0
                orBool String2Int(substrString(#tokenToString(I),

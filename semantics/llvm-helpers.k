@@ -771,6 +771,14 @@ module LLVM-HELPERS
                   Es:ElemList) => hasVectorInList(Es)
          requires getKLabel(A) =/=KLabel 'vectorType
 
+    syntax Bool ::= hasVectorInReturnedVal(ReturnedVal)    [function]
+    rule hasVectorInReturnedVal(.ReturnedVal) => false
+    rule hasVectorInReturnedVal(
+                      vectorType(_:K, _:K) V:ValueRef, Es:ReturnedVal) => true
+    rule hasVectorInReturnedVal(T:Type V:ValueRef,
+                  Es:ReturnedVal) => hasVectorInReturnedVal(Es)
+         requires getKLabel(T) =/=KLabel 'vectorType
+
     syntax KItem ::= getVectorNum(ElemList)        [function]
     rule getVectorNum(.ElemList) => badType
     rule getVectorNum(valValue(typeOperandResult(
@@ -782,6 +790,15 @@ module LLVM-HELPERS
         vectorType(_:K, I:K), _:K)), Es:ElemList) => I
     rule getVectorNum(val(operand(A:K, _:K)),
                   Es:ElemList) => getVectorNum(Es)
+         requires getKLabel(A) =/=KLabel 'vectorType
+
+    syntax KItem ::= fulfillVector(ElemList, K)       [function]
+    rule fulfillVector(.ElemList, I:Int) => .ElemList
+    rule fulfillVector(val(operand(
+        vectorType(A:K, B:K), C:K)), Es:ElemList, I:Int)
+              => val(operand(vectorType(A:K, B:K), C:K)), fulfillVector(Es, I)
+    rule fulfillVector(val(operand(A:K, B:K)), Es:ElemList, I:Int)
+              => val(operand(vectorType(A:K, I), B:K)), fulfillVector(Es, I)
          requires getKLabel(A) =/=KLabel 'vectorType
 
     syntax KItem ::= evalToInt(K) [function]

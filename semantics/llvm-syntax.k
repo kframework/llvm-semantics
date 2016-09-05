@@ -678,7 +678,8 @@ module LLVM-SYNTAX
       The structure type is used to represent a collection of data members
       together in memory. The elements of a structure may be any type that has a size.
     */
-    syntax IntType ::= Token{[i][1-9][0-9]*} [onlyLabel, function]
+    syntax IntType    ::= IntTypePre
+    syntax IntTypePre ::=  Token{[i][1-9][0-9]*} [onlyLabel]
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
                      | "x86_fp80" | "half"
     syntax LabelType ::= "label"

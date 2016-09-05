@@ -1632,20 +1632,19 @@ module LLVM-NORMALIZING
                                         ,formElemList(Itr))
                           ,formSet(Oib)
                           ,insMetas(formElemList(Ins)))
-         requires notBool hasVectorInList(formElemList(Itr))
-                  orBool getKLabel(Ty1) ==KLabel 'vectorType
+         //requires notBool hasVectorInReturnedVal(Itr)
+
 
 
     rule instValToKItem(getelementptr Oib:OptInBounds Ty:Type , Ty1:Type V1:ValueRef,
                                     Itr:ReturnedVal Ins:InstructionMetadatas)
-           => instruction(getElementPtr(vectorType(addNameToString(Ty1),
-                                            evalToInt(getVectorNum(formElemList(Itr))))
+           => instruction(getElementPtr(addNameToString(Ty1)
                                         ,addNameToString(V1)
-                                        ,formElemList(Itr))
+                                        ,fulfillVector(formElemList(Itr),
+                                           getVectorNum(formElemList(Itr))))
                           ,formSet(Oib)
                           ,insMetas(formElemList(Ins)))
-         requires hasVectorInList(formElemList(Itr))
-                  andBool getKLabel(Ty1) ==KLabel 'pointerType
+         requires hasVectorInReturnedVal(Itr)
 
 
     rule instValToKItem(extractelement Ty1:Type V1:ValueRef,

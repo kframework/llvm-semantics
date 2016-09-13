@@ -62,6 +62,10 @@ module LLVM-ABSTRACTSYNTAX
     rule combineElemList(.ElemList,Bs:ElemList) => Bs
     rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
 
+    syntax ElemList ::= addElemToEnd(Element, ElemList)   [function]
+    rule addElemToEnd(E:Element, .ElemList) => E,.ElemList
+    rule addElemToEnd(E:Element, E':Element,Es:ElemList) => E',addElemToEnd(E,Es)
+
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | vectorType(K, K) [strict(1)]//inner type, length
                          | functionTypeEval(K, K) [strict]

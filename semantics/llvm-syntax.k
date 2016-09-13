@@ -679,6 +679,7 @@ module LLVM-SYNTAX
       together in memory. The elements of a structure may be any type that has a size.
     */
     syntax IntType    ::= IntTypePre
+                        | LocalName  [klabel('namedType)]
     syntax IntTypePre ::=  Token{[i][1-9][0-9]*} [onlyLabel]
     syntax FPType  ::= "float" | "double" | "ppc_fp128" | "fp128"
                      | "x86_fp80" | "half"
@@ -689,7 +690,6 @@ module LLVM-SYNTAX
                          | "x86_mmx"
                          | PrimType
                          | Type OptAddrSpace "*"              [klabel('pointerType), strict]
-                         | LocalName                          [klabel('namedType)]
                          | Type "(" ArgList ")"               [klabel('functionType)]
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"

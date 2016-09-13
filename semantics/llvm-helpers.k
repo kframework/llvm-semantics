@@ -437,6 +437,7 @@ module LLVM-HELPERS
     rule formSet(K:K) => SetItem(K) [owise]
 
     syntax ElemList ::= formCases(K) [function]
+                      | formCases(ElemList, ElemList) [function]
 
     rule formCases(.JumpTable) => .ElemList
     rule formCases(It:IntType Ca:ConstValueRef,
@@ -444,6 +445,10 @@ module LLVM-HELPERS
                  => val(case(operand(It,addNameToString(Ca))
                                  ,addNameToString(Va))), formCases(Cs)
     rule formCases(K:K) => K [owise]
+
+    rule formCases(.ElemList, Es:ElemList) => .ElemList
+    rule formCases(valValue(typeOperandResult(T:KResult, A:K)), E1:ElemList,
+                   val(La:K), E2:ElemList) => val(case(operand(T,A), La)), formCases(E1,E2)
 
 /*
     syntax ElemList ::= toCallees(ParamList) [function]
@@ -757,6 +762,17 @@ module LLVM-HELPERS
     rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
             => SetItem(operand(T, V)) formArgSet(E)
 
+    syntax KLabel ::= getKLabelFromOp(K) [function]
+    rule getKLabelFromOp(add) => 'theAdd
+    rule getKLabelFromOp(sub) => 'theSub
+    rule getKLabelFromOp(mul) => 'theMul
+    rule getKLabelFromOp(shl) => 'theShl
+    rule getKLabelFromOp(and) => 'theAnd
+    rule getKLabelFromOp(or) => 'theOr
+    rule getKLabelFromOp(xor) => 'theXor
+    rule getKLabelFromOp(trunc) => 'theTrunc
+    rule getKLabelFromOp(zext) => 'theZExt
+    rule getKLabelFromOp(zext) => 'theSExt
 
     syntax Bool ::= hasVectorInList(ElemList)    [function]
     rule hasVectorInList(.ElemList) => false

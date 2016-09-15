@@ -174,7 +174,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K, K) [strict(1,2)] // Type, NumElements, align
     syntax KItem ::= globalAlloca(K, K, K)
-    syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
+    syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value

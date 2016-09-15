@@ -458,17 +458,6 @@ module LLVM-HELPERS
                 => val(callee(operand(addNameToString(Ty)
                   ,addNameToString(V)),modifiers(formElemList(Pa)))),toCallees(Pl)
 */
-    syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
-
-    rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, align I:UnsignedInt)
-                      => alloca(addNameToString(Ty),1,String2Int(#tokenToString(I)))
-    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
-                      => preAlloca(addNameToString(Ty),It
-                                         ,addNameToString(V),'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, align I:UnsignedInt)
-                      => preAlloca(addNameToString(Ty),It,
-                                   addNameToString(V),String2Int(#tokenToString(I)))
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 
@@ -737,6 +726,9 @@ module LLVM-HELPERS
     rule isPowOfTwo(A:Int, B:Int) => isPowOfTwo(A, B *Int 2)
          requires A >Int B
 
+    syntax Bool ::= isValidAlign(Int) [function]
+    rule isValidAlign(A:Int) => A ==K 0 orBool isPowOfTwo(A, 1)
+
     syntax KItem ::= getAlign(Set, K) [function]
     rule getAlign(.Set, .K) => 'alignEmpty(.KList)
     rule getAlign(SetItem(K:K) S:Set, .K) => getAlign(S, K)
@@ -762,6 +754,17 @@ module LLVM-HELPERS
     rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
             => SetItem(operand(T, V)) formArgSet(E)
 
+    syntax ElemList ::= formArgList(ElemList, ParamList)   [function]
+    rule formArgList(.ElemList, Ps:ParamList) => .ElemList
+    rule formArgList(valValue(typeOperandResult(T:KResult, E:K)), Es:ElemList,
+                       Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
+                                                => val(arg(formSet(Pa), T, A))
+
+    syntax ElemList ::= formOperandList(ElemList)    [function]
+    rule formOperandList(.ElemList) => .ElemList
+    rule formOperandList(valValue(typeOperandResult(T:K, V:K)),Es:ElemList)
+           => val(operand(T, V)),formOperandList(Es)
+
     syntax KLabel ::= getKLabelFromOp(K) [function]
     rule getKLabelFromOp(add) => 'theAdd
     rule getKLabelFromOp(sub) => 'theSub
@@ -772,7 +775,23 @@ module LLVM-HELPERS
     rule getKLabelFromOp(xor) => 'theXor
     rule getKLabelFromOp(trunc) => 'theTrunc
     rule getKLabelFromOp(zext) => 'theZExt
-    rule getKLabelFromOp(zext) => 'theSExt
+    rule getKLabelFromOp(sext) => 'theSExt
+    rule getKLabelFromOp(oeq) => 'oEQ
+    rule getKLabelFromOp(ogt) => 'oGT
+    rule getKLabelFromOp(oge) => 'oGE
+    rule getKLabelFromOp(olt) => 'oLT
+    rule getKLabelFromOp(ole) => 'oLE
+    rule getKLabelFromOp(one) => 'oNE
+    rule getKLabelFromOp(ord) => 'oRD
+    rule getKLabelFromOp(ugt) => 'uGT
+    rule getKLabelFromOp(uge) => 'uGE
+    rule getKLabelFromOp(ult) => 'uLT
+    rule getKLabelFromOp(ule) => 'uLE
+    rule getKLabelFromOp(une) => 'uNE
+    rule getKLabelFromOp(uno) => 'uNO
+    rule getKLabelFromOp(ueq) => 'uEQ
+    rule getKLabelFromOp(call) => 'call
+    rule getKLabelFromOp(tail call) => 'tailCall
 
     syntax Bool ::= hasVectorInList(ElemList)    [function]
     rule hasVectorInList(.ElemList) => false

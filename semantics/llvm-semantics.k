@@ -526,8 +526,8 @@ module LLVM-MEMORY
     rule insertAlign(loc(A:K, B:K, Limit:K, Align:K), I:Int) => loc(A, B, Limit, I)
     rule insertAlign(Loc:K, I:K) => Loc [owise]
 
-    rule preAlloca(Ty:K, integerType(I:Int), N:Int, Al:K)
-              => alloca(Ty,normalizingInt(integerType(I:Int), N), Al) [structural]
+    rule preAlloca(integerType(I:Int), N:Int)
+              => normalizingInt(integerType(I:Int), N) [structural]
 
 
     //use to alloc the memory for gloable variables.

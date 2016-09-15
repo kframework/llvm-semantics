@@ -62,6 +62,10 @@ module LLVM-ABSTRACTSYNTAX
     rule combineElemList(.ElemList,Bs:ElemList) => Bs
     rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
 
+    syntax ElemList ::= addElemToEnd(Element, ElemList)   [function]
+    rule addElemToEnd(E:Element, .ElemList) => E,.ElemList
+    rule addElemToEnd(E:Element, E':Element,Es:ElemList) => E',addElemToEnd(E,Es)
+
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | vectorType(K, K) [strict(1)]//inner type, length
                          | functionTypeEval(K, K) [strict]
@@ -105,14 +109,14 @@ module LLVM-ABSTRACTSYNTAX
 
     //change IntType from LLVM syntax to K rule syntax
 
-    rule I:IntType => integerType(String2Int(substrString(#tokenToString(I),
+    rule I:IntTypePre => integerType(String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))))
          requires String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >Int 0
                andBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) <Int (2 ^Int 23)
 
-    rule I:IntType => badType
+    rule I:IntTypePre => badType
          requires String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) <=Int 0
                orBool String2Int(substrString(#tokenToString(I),
@@ -173,7 +177,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= alloca(K, K, K) [strict(1,2)] // Type, NumElements, align
     syntax KItem ::= globalAlloca(K, K, K)
-    syntax KItem ::= preAlloca(K, K, K, K) [strict(2,3)] // Type, IntType, NumElements, align
+    syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value

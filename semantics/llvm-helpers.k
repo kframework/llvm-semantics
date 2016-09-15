@@ -437,6 +437,7 @@ module LLVM-HELPERS
     rule formSet(K:K) => SetItem(K) [owise]
 
     syntax ElemList ::= formCases(K) [function]
+                      | formCasesInList(ElemList, ElemList) [function]
 
     rule formCases(.JumpTable) => .ElemList
     rule formCases(It:IntType Ca:ConstValueRef,
@@ -444,6 +445,10 @@ module LLVM-HELPERS
                  => val(case(operand(It,addNameToString(Ca))
                                  ,addNameToString(Va))), formCases(Cs)
     rule formCases(K:K) => K [owise]
+
+    rule formCasesInList(.ElemList, Es:ElemList) => .ElemList
+    rule formCasesInList(valValue(typeOperandResult(T:KResult, A:K)), E1:ElemList,
+                   val(La:K), E2:ElemList) => val(case(operand(T,A), La)), formCasesInList(E1,E2)
 
 /*
     syntax ElemList ::= toCallees(ParamList) [function]
@@ -453,17 +458,6 @@ module LLVM-HELPERS
                 => val(callee(operand(addNameToString(Ty)
                   ,addNameToString(V)),modifiers(formElemList(Pa)))),toCallees(Pl)
 */
-    syntax KItem ::= dealWithAllocaElem(AllocMetadata) [function]
-
-    rule dealWithAllocaElem(Ty:Type) => alloca(Ty,1,'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, align I:UnsignedInt)
-                      => alloca(addNameToString(Ty),1,String2Int(#tokenToString(I)))
-    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef)
-                      => preAlloca(addNameToString(Ty),It
-                                         ,addNameToString(V),'alignEmpty(.KList))
-    rule dealWithAllocaElem(Ty:Type, It:IntType V:ValueRef, align I:UnsignedInt)
-                      => preAlloca(addNameToString(Ty),It,
-                                   addNameToString(V),String2Int(#tokenToString(I)))
 
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 
@@ -732,6 +726,9 @@ module LLVM-HELPERS
     rule isPowOfTwo(A:Int, B:Int) => isPowOfTwo(A, B *Int 2)
          requires A >Int B
 
+    syntax Bool ::= isValidAlign(Int) [function]
+    rule isValidAlign(A:Int) => A ==K 0 orBool isPowOfTwo(A, 1)
+
     syntax KItem ::= getAlign(Set, K) [function]
     rule getAlign(.Set, .K) => 'alignEmpty(.KList)
     rule getAlign(SetItem(K:K) S:Set, .K) => getAlign(S, K)
@@ -757,6 +754,44 @@ module LLVM-HELPERS
     rule formArgSet(valValue(typeOperandResult(T:K, V:K)), E:ElemList)
             => SetItem(operand(T, V)) formArgSet(E)
 
+    syntax ElemList ::= formArgList(ElemList, ParamList)   [function]
+    rule formArgList(.ElemList, Ps:ParamList) => .ElemList
+    rule formArgList(valValue(typeOperandResult(T:KResult, E:K)), Es:ElemList,
+                       Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
+                          => val(arg(formSet(Pa), T, Va)),formArgList(Es, Pl)
+
+    syntax ElemList ::= formOperandList(ElemList)    [function]
+    rule formOperandList(.ElemList) => .ElemList
+    rule formOperandList(valValue(typeOperandResult(T:K, V:K)),Es:ElemList)
+           => val(operand(T, V)),formOperandList(Es)
+
+    syntax KLabel ::= getKLabelFromOp(K) [function]
+    rule getKLabelFromOp('add(.KList)) => 'theAdd
+    rule getKLabelFromOp('sub(.KList)) => 'theSub
+    rule getKLabelFromOp(mul) => 'theMul
+    rule getKLabelFromOp(shl) => 'theShl
+    rule getKLabelFromOp('and(.KList)) => 'theAnd
+    rule getKLabelFromOp('or(.KList)) => 'theOr
+    rule getKLabelFromOp('xor(.KList)) => 'theXor
+    rule getKLabelFromOp(trunc) => 'theTrunc
+    rule getKLabelFromOp(zext) => 'theZExt
+    rule getKLabelFromOp(sext) => 'theSExt
+    rule getKLabelFromOp(oeq) => 'oEQ
+    rule getKLabelFromOp(ogt) => 'oGT
+    rule getKLabelFromOp(oge) => 'oGE
+    rule getKLabelFromOp(olt) => 'oLT
+    rule getKLabelFromOp(ole) => 'oLE
+    rule getKLabelFromOp(one) => 'oNE
+    rule getKLabelFromOp(ord) => 'oRD
+    rule getKLabelFromOp('ugtOfFcmp(.KList)) => 'uGT
+    rule getKLabelFromOp('ugeOfFcmp(.KList)) => 'uGE
+    rule getKLabelFromOp('ultOfFcmp(.KList)) => 'uLT
+    rule getKLabelFromOp('uleOfFcmp(.KList)) => 'uLE
+    rule getKLabelFromOp(une) => 'uNE
+    rule getKLabelFromOp(uno) => 'uNO
+    rule getKLabelFromOp(ueq) => 'uEQ
+    rule getKLabelFromOp(call) => 'call
+    rule getKLabelFromOp(tail call) => 'tailCall
 
     syntax Bool ::= hasVectorInList(ElemList)    [function]
     rule hasVectorInList(.ElemList) => false
@@ -771,6 +806,14 @@ module LLVM-HELPERS
                   Es:ElemList) => hasVectorInList(Es)
          requires getKLabel(A) =/=KLabel 'vectorType
 
+    syntax Bool ::= hasVectorInReturnedVal(ReturnedVal)    [function]
+    rule hasVectorInReturnedVal(.ReturnedVal) => false
+    rule hasVectorInReturnedVal(
+                      vectorType(_:K, _:K) V:ValueRef, Es:ReturnedVal) => true
+    rule hasVectorInReturnedVal(T:Type V:ValueRef,
+                  Es:ReturnedVal) => hasVectorInReturnedVal(Es)
+         requires getKLabel(T) =/=KLabel 'vectorType
+
     syntax KItem ::= getVectorNum(ElemList)        [function]
     rule getVectorNum(.ElemList) => badType
     rule getVectorNum(valValue(typeOperandResult(
@@ -782,6 +825,15 @@ module LLVM-HELPERS
         vectorType(_:K, I:K), _:K)), Es:ElemList) => I
     rule getVectorNum(val(operand(A:K, _:K)),
                   Es:ElemList) => getVectorNum(Es)
+         requires getKLabel(A) =/=KLabel 'vectorType
+
+    syntax KItem ::= fulfillVector(ElemList, K)       [function]
+    rule fulfillVector(.ElemList, I:Int) => .ElemList
+    rule fulfillVector(val(operand(
+        vectorType(A:K, B:K), C:K)), Es:ElemList, I:Int)
+              => val(operand(vectorType(A:K, B:K), C:K)), fulfillVector(Es, I)
+    rule fulfillVector(val(operand(A:K, B:K)), Es:ElemList, I:Int)
+              => val(operand(vectorType(A:K, I), B:K)), fulfillVector(Es, I)
          requires getKLabel(A) =/=KLabel 'vectorType
 
     syntax KItem ::= evalToInt(K) [function]

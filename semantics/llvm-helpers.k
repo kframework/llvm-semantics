@@ -437,7 +437,7 @@ module LLVM-HELPERS
     rule formSet(K:K) => SetItem(K) [owise]
 
     syntax ElemList ::= formCases(K) [function]
-                      | formCases(ElemList, ElemList) [function]
+                      | formCasesInList(ElemList, ElemList) [function]
 
     rule formCases(.JumpTable) => .ElemList
     rule formCases(It:IntType Ca:ConstValueRef,
@@ -446,9 +446,9 @@ module LLVM-HELPERS
                                  ,addNameToString(Va))), formCases(Cs)
     rule formCases(K:K) => K [owise]
 
-    rule formCases(.ElemList, Es:ElemList) => .ElemList
-    rule formCases(valValue(typeOperandResult(T:KResult, A:K)), E1:ElemList,
-                   val(La:K), E2:ElemList) => val(case(operand(T,A), La)), formCases(E1,E2)
+    rule formCasesInList(.ElemList, Es:ElemList) => .ElemList
+    rule formCasesInList(valValue(typeOperandResult(T:KResult, A:K)), E1:ElemList,
+                   val(La:K), E2:ElemList) => val(case(operand(T,A), La)), formCasesInList(E1,E2)
 
 /*
     syntax ElemList ::= toCallees(ParamList) [function]
@@ -758,7 +758,7 @@ module LLVM-HELPERS
     rule formArgList(.ElemList, Ps:ParamList) => .ElemList
     rule formArgList(valValue(typeOperandResult(T:KResult, E:K)), Es:ElemList,
                        Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
-                                                => val(arg(formSet(Pa), T, A))
+                          => val(arg(formSet(Pa), T, Va)),formArgList(Es, Pl)
 
     syntax ElemList ::= formOperandList(ElemList)    [function]
     rule formOperandList(.ElemList) => .ElemList
@@ -766,13 +766,13 @@ module LLVM-HELPERS
            => val(operand(T, V)),formOperandList(Es)
 
     syntax KLabel ::= getKLabelFromOp(K) [function]
-    rule getKLabelFromOp(add) => 'theAdd
-    rule getKLabelFromOp(sub) => 'theSub
+    rule getKLabelFromOp('add(.KList)) => 'theAdd
+    rule getKLabelFromOp('sub(.KList)) => 'theSub
     rule getKLabelFromOp(mul) => 'theMul
     rule getKLabelFromOp(shl) => 'theShl
-    rule getKLabelFromOp(and) => 'theAnd
-    rule getKLabelFromOp(or) => 'theOr
-    rule getKLabelFromOp(xor) => 'theXor
+    rule getKLabelFromOp('and(.KList)) => 'theAnd
+    rule getKLabelFromOp('or(.KList)) => 'theOr
+    rule getKLabelFromOp('xor(.KList)) => 'theXor
     rule getKLabelFromOp(trunc) => 'theTrunc
     rule getKLabelFromOp(zext) => 'theZExt
     rule getKLabelFromOp(sext) => 'theSExt
@@ -783,10 +783,10 @@ module LLVM-HELPERS
     rule getKLabelFromOp(ole) => 'oLE
     rule getKLabelFromOp(one) => 'oNE
     rule getKLabelFromOp(ord) => 'oRD
-    rule getKLabelFromOp(ugt) => 'uGT
-    rule getKLabelFromOp(uge) => 'uGE
-    rule getKLabelFromOp(ult) => 'uLT
-    rule getKLabelFromOp(ule) => 'uLE
+    rule getKLabelFromOp('ugtOfFcmp(.KList)) => 'uGT
+    rule getKLabelFromOp('ugeOfFcmp(.KList)) => 'uGE
+    rule getKLabelFromOp('ultOfFcmp(.KList)) => 'uLT
+    rule getKLabelFromOp('uleOfFcmp(.KList)) => 'uLE
     rule getKLabelFromOp(une) => 'uNE
     rule getKLabelFromOp(uno) => 'uNO
     rule getKLabelFromOp(ueq) => 'uEQ

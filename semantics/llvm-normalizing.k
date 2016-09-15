@@ -326,7 +326,7 @@ K
                                           align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
                    addNameToString(V1), Ty2:Type, addNameToString(V2),
-              String2Int(#tokenToString(I)), Oac, formSet(Oac) formSet(Ovl) formSet(Ost Ord) formSet(align I), Inm)
+              String2Int(#tokenToString(I)), Oac, formSet(Oac) formSet(Ovl) formSet(Ost Ord) formSet(align I), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef,
               X:SymbolicValueRef, load Ovl:OptVolatile
@@ -347,7 +347,7 @@ K
            => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
                                        Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), Oac,
                            formSet(Oac) formSet(Ovl)
-                           formSet(Ost:OptSingleThread Ord:Ordering) formSet(align I), Inm)
+                           formSet(Ost:OptSingleThread Ord:Ordering) formSet(align I), Ins)
 
 /*
     rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
@@ -530,31 +530,36 @@ K
 
 
     //deal with switchs
-    rule <k> typeCheckSwitch(N:SymbolicValueRef, valValue(typeOperandResult(It:KResult,
-                            Va:K)),E1:KResult, .ElemList, val(La:K),Es:ElemList, Meta:InstructionMetadatas)
+    rule <k> 'typeCheckSwitch(N:SymbolicValueRef,,
+                         valValue(typeOperandResult(It:KResult,Va:K)),E1:KResult
+                        ,, .ElemList,,
+                        val(La:K), Es:ElemList ,, Meta:InstructionMetadatas)
           => typeCheckIntArgList(N, E1) ...</k>
          <tempBlockInst> Now:K => Now ~> instruction(switch(addNameToString(It)
                                         ,addNameToString(Va)
                                         ,addNameToString(La)
-                                        ,formCases(E1, Es))
+                                        ,formCasesInList(E1, Es))
                                         ,.Set, insMetas(formElemList(Meta))) </tempBlockInst>
 
-    rule <k> typeCheckSwitch(Name:SymbolicValueRef,
-                   E1:ElemList, val(A:SymbolicValueRef), E2:ElemList,
-                   Es:ElemList, Meta:InstructionMetadatas)
-                     => typeCheckSwitch(Name:SymbolicValueRef,
-                   E1:ElemList, E2:ElemList, addElemToEnd(val(A), Es), Meta) ...</k>
+    rule <k> 'typeCheckSwitch(Name:SymbolicValueRef,,
+                   E1:ElemList,,
+                   val(A:SymbolicValueRef), E2:ElemList,,
+                   Es:ElemList,, Meta:InstructionMetadatas)
+                     => 'typeCheckSwitch(Name:SymbolicValueRef,,
+                   E1:ElemList,, E2:ElemList,, addElemToEnd(val(A), Es),, Meta) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... A |-> label ...</varTypes>
 
-    rule <k> typeCheckSwitch(Name:SymbolicValueRef,
-                   E1:ElemList, val(A:SymbolicValueRef), E2:ElemList,
-                   Es:ElemList, Meta:InstructionMetadatas)
-                     => typeCheckSwitch(Name:SymbolicValueRef,
-                   E1:ElemList, E2:ElemList, addElemToEnd(val(A), Es), Meta) ...</k>
+    rule <k> 'typeCheckSwitch(Name:SymbolicValueRef,,
+                   E1:ElemList,,
+                   val(A:SymbolicValueRef), E2:ElemList,,
+                   Es:ElemList,, Meta:InstructionMetadatas)
+                     => 'typeCheckSwitch(Name:SymbolicValueRef,,
+                   E1:ElemList,, E2:ElemList,,
+                   addElemToEnd(val(A), Es),, Meta) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -565,9 +570,10 @@ K
                      Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
          requires notBool A in keys(M)
 
-    rule <k> typeCheckSwitch(Name:SymbolicValueRef,
-                   E1:ElemList, val(name(localVar, S:String)), E2:ElemList,
-                   Es:ElemList, Meta:InstructionMetadatas)
+    rule <k> 'typeCheckSwitch(Name:SymbolicValueRef,,
+                   E1:ElemList,,
+                   val(name(localVar, S:String)), E2:ElemList,,
+                   Es:ElemList,, Meta:InstructionMetadatas)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: '%"
                    +String S +String "' is not a basic block") </output>
@@ -577,7 +583,6 @@ K
          <functionName> FunName </functionName>
          <varTypes>... name(localVar, S:String) |-> T:K ...</varTypes>
          requires T =/=K label
-
 
 
     rule TypeMatchFunctions(A:K, .ElemList, .ElemList) => .K
@@ -839,7 +844,7 @@ K
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                   ~> assignType(Name, X, integerType(1)) ...</k>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(iCmp(Op, Ty, V1, V2), .Set,
+               ~> assign(X,instruction(iCmp(Op, T, V1, V2), .Set,
                      insMetas(formElemList(Meta)))) </tempBlockInst>
          requires (getKLabel(T) ==KLabel 'integerType
                orBool getKLabel(T) ==KLabel 'pointerTypeValue)
@@ -1071,7 +1076,8 @@ K
          requires isPowOfTwo(Align, 1) andBool At =/=K atomic
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
-                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int, atomic)
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K,
+                          Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), V1)
                     ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(integerType(N:Int), A:K), V2)
          ...</k>
@@ -1411,7 +1417,7 @@ K
               => typeCheckIntArg(Name, integerType(N), V)
                    ~> assignType(Name, X, integerType(N')) ...</k>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(Op)(
+               ~> assign(X,instruction(getKLabelFromOp(trunc)(
                  integerType(N:Int),, V,, integerType(N':Int)), .Set,
                      insMetas(formElemList(Meta)))) </tempBlockInst>
          requires N >Int N'
@@ -1432,7 +1438,7 @@ K
                   ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          ...</k>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(Op)(
+               ~> assign(X,instruction(getKLabelFromOp(trunc)(
                  vectorTypeValue(integerType(N:Int), I:Int),,
                  V,, vectorTypeValue(integerType(N':Int), I:Int)),
                  .Set, insMetas(formElemList(Meta)))) </tempBlockInst>
@@ -1886,7 +1892,7 @@ K
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <tempBlockInst> K:K => .K </tempBlockInst>
-         <basicBlocks>... N |-> blockContent((_:K => setBlock(N)
+        <basicBlocks>... N |-> blockContent((_:K => setBlock(N)
                    ~> K), _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //have dealt with all instruction list.
@@ -2422,7 +2428,7 @@ create an abstract for fence and do the same for fence operation.
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
          => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
-              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, true)
            ~> checkSingleAssignment(BBL) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -2452,7 +2458,7 @@ create an abstract for fence and do the same for fence operation.
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
          => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
-              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, true)
            ~> checkSingleAssignment(BBL) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -2488,7 +2494,7 @@ create an abstract for fence and do the same for fence operation.
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction)
            => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
-              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, true)
                  ~> checkSingleAssignment(.K) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -2521,7 +2527,7 @@ create an abstract for fence and do the same for fence operation.
     rule <k> checkSingleAssignment(L:LabelStringConstant Ins:InstructionList
                                 BB:BBTerminatorInstruction)
            => setArgsToBlockEnv(addNameToString(L), getArgsInFunction(Args))
-              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, .K, true)
+              ~> checkSingleAssignmentInBlock(addNameToString(L),Ins BB, true)
                   ~> checkSingleAssignment(.K) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -2556,7 +2562,7 @@ create an abstract for fence and do the same for fence operation.
     rule <k>checkSingleAssignment(Ins:InstructionList
                                 BB:BBTerminatorInstruction BBL:BasicBlockList)
          => setArgsToBlockEnv(name(localVar, Int2String(I)), getArgsInFunction(Args))
-              ~> checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
+              ~> checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, true)
            ~> checkSingleAssignment(BBL)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -2587,7 +2593,7 @@ create an abstract for fence and do the same for fence operation.
     rule <k> checkSingleAssignment(Ins:InstructionList
                                 BB:BBTerminatorInstruction)
          => setArgsToBlockEnv(name(localVar, Int2String(I)), getArgsInFunction(Args))
-              ~> checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, .K, true)
+              ~> checkSingleAssignmentInBlock(name(localVar, Int2String(I)), Ins BB, true)
               ~> checkSingleAssignment(.K)
          ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>

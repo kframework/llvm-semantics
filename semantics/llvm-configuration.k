@@ -12,10 +12,24 @@ module LLVM-CONFIGURATION
 
     configuration
         <T multiplicity="?">
-            <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+            <k color="LightGreen"> $PGM:Module ~> initGlobals ~> gotoMain </k>
             <callStack color="Goldenrod"> .List </callStack>
             <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            <substs> .Map </substs>
+            <llvmProg> .K </llvmProg>
+            <substResult> false </substResult>
+            <visitedBlocks> .Set </visitedBlocks>
+            <instNum> 0 </instNum>
+            <labelInsts> .Map </labelInsts>
+            <firstLastInst> .Map </firstLastInst>
+            <actl>
+                <boolResult> true </boolResult>
+                <path multiplicity="*">
+                  <base> .K </base>
+                  <until> .K </until>
+                </path>
+            </actl>
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             <checkUseCount> 0 </checkUseCount>

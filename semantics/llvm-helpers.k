@@ -806,6 +806,20 @@ module LLVM-HELPERS
                   Es:ElemList) => hasVectorInList(Es)
          requires getKLabel(A) =/=KLabel 'vectorType
 
+    syntax Bool ::= isVector(K)   [function]
+    rule isVector(vectorValue(E:ElemList)) => true
+    rule isVector(vector(E:ElemList)) => true
+    rule isVector(_:K) => false [owise]
+
+
+    syntax Bool ::= hasVectorInValueList(ElemList) [function]
+    rule hasVectorInValueList(.ElemList) => false
+    rule hasVectorInValueList(valValue(vectorValue(_:K)),
+                                             Es:ElemList) => true
+    rule hasVectorInValueList(valValue(A:K), Es:ElemList)
+                                         => hasVectorInValueList(Es)
+         requires notBool isVector(A)
+
     syntax Bool ::= hasVectorInReturnedVal(ReturnedVal)    [function]
     rule hasVectorInReturnedVal(.ReturnedVal) => false
     rule hasVectorInReturnedVal(

@@ -205,14 +205,14 @@ module LLVM-GEP
     rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:KResult)
             => gep(gepTypeBag(Type), PtrVal, Indices)
         requires getKLabel(Type) ==KLabel 'pointerTypeValue
-                 andBool notBool hasVectorInList(Indices)
+                 andBool notBool hasVectorInValueList(Indices)
 
     rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
             => vector(formSingletonGepList(
                          evalToInt(getVectorNum(Indices)), 0, 
                             gepTypeBag(Type), PtrVal, Indices))
         requires getKLabel(Type) ==KLabel 'pointerTypeValue
-                 andBool hasVectorInList(Indices)
+                 andBool hasVectorInValueList(Indices)
                  andBool getVectorNum(Indices) =/=K badType
 
     rule getElementPtr(vectorTypeValue(T:KResult, N:Int),
@@ -237,7 +237,7 @@ module LLVM-GEP
              PtrVal:Loc, valValue(0), Es:ElemList)
                   => gep(Type, PtrVal, Es)
 
-
+    rule gep(T:KResult, PtrVal:Loc, .ElemList) => PtrVal
 endmodule
 
 module LLVM-HELPERS-SPLIT-BYTES

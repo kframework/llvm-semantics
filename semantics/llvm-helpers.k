@@ -55,16 +55,16 @@ module LLVM-HELPERS
     rule isAInt(I:Int) => true
     rule isAInt(K:K) => false [owise]
 
-    syntax List ::= StringToList(String) [function]
-    rule StringToList("") => .List
+    syntax ElemList ::= StringToList(String) [function]
+    rule StringToList("") => .ElemList
     rule
         StringToList(S:String)
-            => ListItem(ordChar(substrString(S:String, 0, 1)))
+            => valValue(ordChar(substrString(S:String, 0, 1))),
                 StringToList(substrString(S:String, 1, lengthString(S:String)))
         requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) =/=Int 92
     rule
         StringToList(S:String)
-            => ListItem(ordChar(substrString(S:String, 0, 1)))
+            => valValue(ordChar(substrString(S:String, 0, 1))),
                 StringToList(substrString(S:String, 2, lengthString(S:String)))
         requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
              andBool lengthString(S:String) >Int 1
@@ -72,8 +72,8 @@ module LLVM-HELPERS
 
     rule
         StringToList(S:String)
-            => ListItem(String2Int(substrString(S, 1, 2))
-                        *Int 16 +Int String2Int(substrString(S, 2, 3)))
+            => valValue(String2Int(substrString(S, 1, 2))
+                        *Int 16 +Int String2Int(substrString(S, 2, 3))),
                 StringToList(substrString(S:String, 3, lengthString(S:String)))
         requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
              andBool lengthString(S:String) >Int 2
@@ -127,6 +127,9 @@ module LLVM-HELPERS
     rule innerType('pointerType(K:K,, _)) => K:K
     rule innerType(arrayType(K:K, _)) => K:K
     rule innerType(arrayTypeValue(K:K, _)) => K:K
+    rule innerType(vectorType(K:K, _)) => K:K
+    rule innerType(vectorTypeValue(K:K, _)) => K:K
+
 
     // these give the two's complement signed max and min of a type
     syntax Int ::= smax(K) [function]
@@ -211,6 +214,8 @@ module LLVM-HELPERS
     rule sizeofInBits(pointerTypeValue(_, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(arrayType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
     rule sizeofInBits(arrayTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
+    rule sizeofInBits(vectorType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
+    rule sizeofInBits(vectorTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
 
     rule sizeofInBits(integerType(N:Int)) => N
     rule sizeofInBits(float) => 32
@@ -811,6 +816,10 @@ module LLVM-HELPERS
     rule isVector(vector(E:ElemList)) => true
     rule isVector(_:K) => false [owise]
 
+    syntax Bool ::= isVectorType(K)   [function]
+    rule isVectorType(vectorTypeValue(A:K, B:K)) => true
+    rule isVectorType(vectorType(A:K, B:K)) => true
+    rule isVectorType(_:K) => false [owise]
 
     syntax Bool ::= hasVectorInValueList(ElemList) [function]
     rule hasVectorInValueList(.ElemList) => false

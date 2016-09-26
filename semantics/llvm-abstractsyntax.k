@@ -7,9 +7,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= Int | String | Floating
                       | Loc
                       | OptAddrSpace
-                      | listK(List)  [latex({#1})]
+                      //| listK(List)    [latex({#1})]//bytes
+                      | region(List, Int)  //nextlevel, number of nextlevel
                       | VoidType
                       | vectorValue(ElemList)
+                      | arrayValue(ElemList)
 
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
@@ -19,7 +21,6 @@ module LLVM-ABSTRACTSYNTAX
     syntax AggregatedTypeResult ::= structTypeValue(K)
                                   | arrayTypeValue(K, K)  // inner type, length
                                   | functionTypeValue(K, K)  // return type, argument types
-                                  | arrayValue(List)
                                   | vectorTypeValue(K, K)//inner type, length
     syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
 
@@ -136,7 +137,7 @@ module LLVM-ABSTRACTSYNTAX
     rule list(A:K,, KL:KList) => ListItem(A) list(KL)
 */
     syntax Int ::= ptrByte(K, K) // address, byteNumber; part of a pointer, as a byte
-    syntax Int ::= floatByte(K, K, K) // float, type, byte number
+    syntax KItem ::= floatByte(K, K, K) // float, type, byte number
     //rule isNat(ptrByte(_, _)) => true
     //rule isNat(floatByte(_, _, _)) => true
 

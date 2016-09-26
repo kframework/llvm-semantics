@@ -249,12 +249,13 @@ module LLVM-HELPERS-SPLIT-BYTES
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
+    syntax KItem ::= splitBytes(K, K, K) //value numBytes, type
     syntax KItem ::= splitIntegerBytes(K, K, K) // value, numBytes, type
     syntax KItem ::= "splitIntegerBytes'" "(" K "," K "," List ")" // value, numbytes, accumulator
-    syntax KItem ::= splitFloatBytes(K, K, K, List) // value, type, numBytes, accumulator
+    syntax KItem ::= splitFloatBytes(K, K, K, K, List) // value, type, numBytes, accnum accumulator
     syntax KItem ::= splitPointerBytes(K, K) // value, numBytes
     syntax KItem ::= "splitPointerBytes'" "(" K "," K "," K "," List ")" // value, numbytes, whichByte, accumulator
-    syntax KItem ::= splitArrayBytes(K, K, K) [strict(3)] // value, numBytes, innertype
+    syntax KItem ::= splitArrayVectorBytes(ElemList, K, List, K, K) // values, value, numBytes, type
     syntax KItem ::= splitStructBytes(K, List) // value, field types
     syntax KItem ::= "splitStructBytes'" "(" K "," List "," List ")" // value, field types, accumulator
 
@@ -265,78 +266,49 @@ module LLVM-HELPERS-SPLIT-BYTES
 
     // Type(IntegerType(32))
     // should generate list with LSBytes first
-    rule
-        <k> splitBytes(V:KResult, Type:KResult)
-            => splitIntegerBytes(V, sizeof(Type), Type)
-        ...</k>
-        when isIntegerType(Type)
 
-    rule
-        <k> splitBytes(V:KResult, Type:KResult)
-            => splitFloatBytes(V, Type, sizeof(Type), .List)
-        ...</k>
-        when isFloatType(Type)
+    rule splitBytes(V:KResult, Type:KResult) => splitBytes(V, sizeof(Type), T)
 
-    rule
-        <k> splitBytes(V:KResult, Type:KResult)
-            => splitPointerBytes(V, sizeof(Type))
-        ...</k>
-        when isPointerType(Type)
-
-    rule
-        <k> splitBytes(V:KResult, Type:KResult)
-            => splitArrayBytes(V, sizeof(Type), innerType(Type))
-        ...</k>
-        when isArrayType(Type)
-
-    rule
-        <k> splitBytes(V:KResult, structTypeValue(L:TypeList))
-            => splitStructBytes(V, formListFromTypeList(L))
-        ...</k>
-
-    rule
-        <k> splitIntegerBytes(I:Int, NumBytes:Int, Type:KResult)
+    //deal with int types.
+    rule splitBytes(I:Int, NumBytes:Int, Type:KResult)
             => splitIntegerBytes'(unsigned(Type, I), NumBytes, .List)
-        ...</k>
-        when I:Int >=Int 0 orBool I:Int <=Int 0 // trying to avoid this case unless real int
-    // TODO can possibly rewrite zeroinitializer to 0 here, and only have one case
-    rule
-        <k> splitIntegerBytes(zeroinitializer, NumBytes:Int, _)
-            => splitIntegerBytes'(zeroinitializer, NumBytes, .List)
-        ...</k>
-    rule
-        <k> splitIntegerBytes'(I:Int, NumBytes:Int, L:List)
+         requires (I:Int >=Int 0 orBool I:Int <=Int 0) andBool isIntegerType(Type)
+
+    rule splitBytes(zeroinitializer, NumBytes:Int, Type:KResult)
+            => splitIntegerBytes'(0, NumBytes, .List)
+         requires isIntegerType(Type)
+
+    rule splitIntegerBytes'(I:Int, NumBytes:Int, L:List)
             => splitIntegerBytes'(
                 I >>Int numBitsPerByte,
                 NumBytes -Int 1,
                 (L ListItem(I &Int ((2 ^Int numBitsPerByte) -Int 1)))
             )
-        ...</k>
         when NumBytes >Int 0
 
-    rule
-        <k> splitIntegerBytes'(zeroinitializer, NumBytes:Int, L:List)
-            => splitIntegerBytes'(zeroinitializer, NumBytes -Int 1, (L ListItem(0)))
-        ...</k>
-        when NumBytes >Int 0
-    // TODO: ideally, the parser should canonicalize integer literals to positive
-    // TODO BUG no idea why i have to use "MyK" here instead of "K"....
-    rule
-        <k> splitIntegerBytes'(MyK:K, 0, L:List)
-            => listK(L)
-        ...</k>
+    rule splitIntegerBytes'(MyK:K, 0, L:List)
+            => region(L, size(L))
         when MyK ==K 0
-        orBool MyK ==K zeroinitializer
 
-    rule
-        <k> splitIntegerBytes(wvalist(VAList:List, Loc:Loc), 1, _)
-            => listK(ListItem(wvalist(VAList:List, Loc:Loc)))
-        ...</k>
 
+    rule splitIntegerBytes(wvalist(VAList:List, Loc:Loc), 1, _)
+            => region(ListItem(wvalist(VAList:List, Loc:Loc)), 1)
+
+/*
     rule
-        <k> splitFloatBytes(V:KResult, Type:KResult, 0, L:List)
-            => listK(L)
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitIntegerBytes(V, sizeof(Type), Type)
         ...</k>
+        when isIntegerType(Type)
+*/
+
+    //deal with float bytes
+    rule splitBytes(V:KResult, N:Int, Type:KResult)
+            => splitFloatBytes(V, Type, N, 0, .List)
+        when isFloatType(Type)
+
+    rule splitFloatBytes(V:KResult, Type:KResult, 0, _:Int, L:List)
+            => region(L, size(L))
 
     // TODO perhaps a pattern: even more localized rewriting: rewriting inside a constructor rather than rewriting the whole thing
     rule
@@ -344,45 +316,96 @@ module LLVM-HELPERS-SPLIT-BYTES
                 V:KResult,
                 Type:KResult,
                 NumBytes:Int => NumBytes -Int 1,
-                L:List => ListItem(floatByte(V, Type, NumBytes -Int 1)) L
+                (N:Int => N +Int 1),
+                L:List => (L ListItem(floatByte(V, Type, N)))
             )
         ...</k>
         when NumBytes >Int 0
 
-    rule
-        <k> splitPointerBytes((zeroinitializer => 'nullOfConstValueRef(.KList)), _) ...</k>
-    rule
-        <k> splitPointerBytes(Loc:Loc, NumBytes:Int)
+    //deal with pointer type
+    rule splitBytes((zeroinitializer
+              => 'nullOfConstValueRef(.KList)), NumBytes:Int, Type:KResult)
+         requires isPointerType(Type)
+
+    rule splitBytes(Loc:Loc, NumBytes:Int, Type:KResult)
             => splitPointerBytes'(Loc:Loc, NumBytes, 0, .List)
-        ...</k>
-    rule
-        <k> splitPointerBytes'(Loc:Loc, NumBytes:Int, N:Int, L:List)
-            => splitPointerBytes'(Loc:Loc, NumBytes -Int 1, N:Int +Int 1, (L ListItem(ptrByte(Loc:Loc, N))))
-        ...</k>
+         requires isPointerType(Type)
+
+    rule splitPointerBytes'(Loc:Loc, NumBytes:Int, N:Int, L:List)
+            => splitPointerBytes'(Loc:Loc, NumBytes -Int 1,
+                   N:Int +Int 1, (L ListItem(ptrByte(Loc:Loc, N))))
         when NumBytes >Int 0
+    rule splitPointerBytes'(Loc:Loc, 0, _, L:List)
+            => region(L, size(L))
+
+/*
     rule
-        <k> splitPointerBytes'(Loc:Loc, 0, _, L:List)
-            => listK(L)
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitPointerBytes(V, sizeof(Type))
         ...</k>
+        when isPointerType(Type)
+*/
+
+    //deal with array and vector types
+    rule splitBytes(arrayValue(L:ElemList), NumBytes:Int, Type:KResult)
+            => splitArrayVectorBytes(L, .K, .List,
+                          NumBytes /Int lengthOfList(L), innerType(Type))
+         requires (isArrayType(Type) orBool isVectorType(Type))
+                  andBool lengthOfList(L) dividesInt NumBytes
+
+    rule splitArrayVectorBytes(valValue(A:K), L:ElemList, .K, L':List, NumBytes:Int, Type:KResult)
+            => splitArrayVectorBytes(L, A, L', NumBytes, Type)
+ 
+    rule splitArrayVectorBytes(L, A:K, L':List, NumBytes:Int, Type:KResult)
+         => splitBytes(A, NumBytes, Type)
+             ~> splitArrayVectorBytes(L, HOLE, L', NumBytes:Int, Type:KResult)
+         requires A =/=K .K
+         [heat]
+
+    rule A:KResult ~> splitArrayVectorBytes(L, HOLE, L':List, NumBytes:Int, Type:KResult)
+         => splitArrayVectorBytes(L, .K, L' ListItem(A), NumBytes:Int, Type:KResult)
+         [cool]
+
+    rule splitArrayVectorBytes(.ElemList, .K, L:List, _:Int, _:KResult) => region(L, size(L))
+
+    //deal with zero for vector and array
+    rule splitBytes(zeroinitializer, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
+           => splitBytes(zeroinitializer, NumBytes /Int N, innerType(TypeLabel:KLabel(T:K ,, N:Int)))
+              ~> splitBytes(HOLE, NumBytes, TypeLabel:KLabel(T:K ,, N:Int))
+         requires (isArrayType(TypeLabel(T,, N)) orBool isVectorType(TypeLabel(T,, N)))
+                  andBool N dividesInt NumBytes
+         [heat]
+
+    rule A:KResult ~> splitBytes(HOLE, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
+           => region(N copiesOf ListItem(A), N)
+         [cool]
+
+
+/*
+    rule
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitArrayBytes(V, sizeof(Type), innerType(Type))
+        ...</k>
+        when isArrayType(Type)
 
     rule
-        <k> splitArrayBytes(arrayValue(L:List), NumBytes:Int, _)
-            => listK(L)
+        <k> splitBytes(V:KResult, Type:KResult)
+            => splitArrayBytes(V, sizeof(Type), innerType(Type))
         ...</k>
-        when size(L) ==Int NumBytes
+        when isVectorType(Type)
+
+*/
 
     rule
-        <k> (.K => splitBytes(zeroinitializer, Type)) ~> splitArrayBytes(zeroinitializer, _, Type:KResult) ...</k>
-
-    rule
-        <k> listK(L:List) ~> splitArrayBytes(zeroinitializer, NumBytes:Int, Type:KResult)
-            => listK((NumBytes /Int sizeof(Type)) copiesOf L:List)
+        <k> splitBytes(V:KResult, structTypeValue(L:TypeList))
+            => splitStructBytes(V, formListFromTypeList(L))
         ...</k>
-        when sizeof(Type) dividesInt NumBytes
+
 
     // TODO assumes no padding
     // TODO need to heat types
     // TODO BUG L'' causes latex to fail (generates L ' ')
+/*
     rule
         <k> splitStructBytes(V:KResult, L:List)
             => splitStructBytes'(V:KResult, L:List, .List)
@@ -404,6 +427,7 @@ module LLVM-HELPERS-SPLIT-BYTES
         <k> splitStructBytes'(_, .List, L:List)
             => listK(L)
         ...</k>
+*/
 
 endmodule
 
@@ -416,58 +440,64 @@ module LLVM-HELPERS-JOIN-BYTES
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    syntax KItem ::= joinIntBytes(K, K, K, K)
-    syntax KItem ::= joinFloatBytes(K, K, K)
+    syntax KItem ::= joinIntBytes(K, K, K)
+    syntax KItem ::= joinFloatBytes(K, K, K)//region, length, result, type
     syntax KItem ::= joinPointerBytes(K, K, K)
 
-    rule
-        <k> joinBytes(V:KResult, Type:KResult)
-            => joinIntBytes(V:KResult, sizeof(Type), 0, Type)
-        ...</k>
-        when isIntegerType(Type)
+    rule joinBytes(region(L:List, N:Int), Type:KResult)
+            => joinIntBytes(region(L:List, N:Int), 0, Type)
+        when isIntegerType(Type) andBool sizeof(Type) ==K N
 
     rule
-        <k> joinBytes(V:KResult, Type:KResult)
-            => joinFloatBytes(V:KResult, sizeof(Type), 0)
+        <k> joinBytes(region(L:List, N:Int), Type:KResult)
+            => joinFloatBytes(region(L:List, N:Int), sizeof(Type), 0.0)
         ...</k>
-        when isFloatType(Type)
+        when isFloatType(Type) andBool N ==K sizeof(Type)
 
     rule
-        <k> joinBytes(V:KResult, Type:KResult)
-            => joinPointerBytes(V:KResult, sizeof(Type), 0)
+        <k> joinBytes(region(L:List, N:Int), Type:KResult)
+            => joinPointerBytes(region(L:List, N:Int), sizeof(Type), 0)
         ...</k>
-        when isPointerType(Type)
+        when isPointerType(Type) andBool N ==K sizeof(Type)
 
-    rule
-        <k> joinIntBytes(listK(L:List ListItem(N:Int)), Len:Int, N':Int, Type:KResult)
-            => joinIntBytes(listK(L:List), Len:Int -Int 1,
+    rule joinBytes(V:KResult, Type:KResult)
+            => V
+        when (notBool isIntegerType(Type))
+             andBool (notBool isFloatType(Type))
+             andBool (notBool isPointerType(Type))
+
+    rule joinIntBytes(region(L:List ListItem(N:Int), Len:Int), N':Int, Type:KResult)
+            => joinIntBytes(region(L:List, Len -Int 1),
                            (N':Int <<Int numBitsPerByte) |Int N:Int, Type:KResult)
-        ...</k>
         when Len >Int 0 andBool N' >=Int 0 andBool N >=Int 0
 
-    rule joinIntBytes(listK(.List), 0, N:Int, Type:KResult)
-        => signed(Type, N:Int)
+    rule joinIntBytes(region(L:List ListItem(wvalist(VAList:List, Loc:K)), Len:Int), N':Int, Type:KResult)
+            => joinIntBytes(region(L:List, Len -Int 1),
+                           wvalist(VAList:List, Loc:K), Type:KResult)
+        when Len >Int 0
+
+    rule joinIntBytes(region(.List, 0), N:Int, Type:KResult)
+        => normalizingInt(getIntType(Type), N)
         when N >=Int 0
         [anywhere]
 
-    rule joinIntBytes(listK(.List), 0, wvalist(VAList:List, Loc:Loc), Type:KResult)
+    rule joinIntBytes(region(.List, 0), wvalist(VAList:List, Loc:Loc), Type:KResult)
         => wvalist(VAList:List, Loc:Loc)
         [anywhere]
 
-    // TODO BAD
-    rule
-        <k> joinFloatBytes(listK(ListItem(floatByte(F:Float, _, _)) _), _, _)
-            => F
-        ...</k>
+    //deal with joining float bytes
+    rule joinFloatBytes(region((ListItem(floatByte(F:Float, T:KResult, N:Int))
+                             L:List => L), Len:Int), (N:Int => N +Int 1),  F':Float => F)
+         requires N >=Int 0 andBool N <=Int Len
 
-    rule
-        <k> joinPointerBytes(listK((L:List ListItem(ptrByte(Loc:Loc, N:Int)))), Len:Int, N':Int)
-            => joinPointerBytes(listK(L:List), Len:Int -Int 1, 
+    rule joinFloatBytes(region(.List, Len:Int), Len:Int, F:K) => F
+
+    rule joinPointerBytes(region((L:List ListItem(ptrByte(Loc:Loc, N:Int))), Len:Int), N:Int, N':Int)
+            => joinPointerBytes(region(L:List, Len), N:Int -Int 1, 
                           (N':Int <<Int numBitsPerByte) |Int ptrByte(Loc:Loc, N:Int))
-        ...</k>
-        when Len >Int 0 andBool N >=Int 0 andBool N' >=Int 0
+        when N >Int 0
 
-    rule joinPointerBytes(listK(.List), 0, Loc:Loc)
+    rule joinPointerBytes(region(.List, Len:Int), 0, Loc:Loc)
         => Loc:Loc
         [anywhere]
 
@@ -843,6 +873,7 @@ module LLVM-LITERALS
                                     1, lengthString(#tokenToString(S)) -Int 1)))
         ...</k>
 
+/*
     rule
         <k> constantArray(Type:KResult, listK(L:List))
             => createArrayValue(Type, L)
@@ -868,6 +899,7 @@ module LLVM-LITERALS
         <k> createArrayValue'(_, .List, L:List)
             => arrayValue(L)
         ...</k>
+*/
 
 endmodule
 

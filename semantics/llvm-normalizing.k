@@ -1526,9 +1526,9 @@ K
                     => typeCheckIntArg(Name:SymbolicValueRef, T, V)
                           ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
 
-    rule typeCheckIntArg(Name:SymbolicValueRef, T:K, undef) => .K
+    rule typeCheckIntArg(Name:SymbolicValueRef, T:KResult, undef) => .K
     rule typeCheckIntArg(Name:SymbolicValueRef,
-                            pointerTypeValue(T:K, A:K), zeroinitializer) => .K
+                            T:KResult, zeroinitializer) => .K
     rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I:Int) => .K
     rule typeCheckIntArg(Name:SymbolicValueRef, integerType(1), B:Bool) => .K
 

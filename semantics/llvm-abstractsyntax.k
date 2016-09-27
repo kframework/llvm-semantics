@@ -19,6 +19,7 @@ module LLVM-ABSTRACTSYNTAX
                               | LabelType
                               | OpaqueType
     syntax AggregatedTypeResult ::= structTypeValue(K)
+                                  | packedStructTypeValue(K)
                                   | arrayTypeValue(K, K)  // inner type, length
                                   | functionTypeValue(K, K)  // return type, argument types
                                   | vectorTypeValue(K, K)//inner type, length
@@ -92,6 +93,7 @@ module LLVM-ABSTRACTSYNTAX
 
     rule arrayType(K1:KResult, K2:KResult) => arrayTypeValue(K1, K2) [structural]
     rule 'structType(K1:KResult) => structTypeValue(K1) [structural]
+    rule 'packedStructType(K1:KResult) => packedStructTypeValue(K1) [structural]
     rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
                                                         [structural]
     rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
@@ -221,7 +223,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theUIToFP(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theAddrspacecast(K, K, K) [strict]//type, op, totype
 
-    syntax KItem ::= constantStruct(K, K) [strict(2)] // modifiers, arguments
+    syntax KItem ::= constantStruct(ElemList) [strict] //arguments
+    syntax KItem ::= packedStruct(ElemList) [strict] //arguments
+
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
     //syntax KItem ::= values(K) [function]
     //rule values(K:K) => K

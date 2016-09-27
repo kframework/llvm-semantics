@@ -209,6 +209,11 @@ module LLVM-HELPERS
     rule isStructType(structTypeValue(_)) => true
     rule isStructType(_) => false [owise]
 
+    syntax Bool ::= isPackedStructType(K)
+    rule isPackedStructType('packedStructType(_)) => true
+    rule isPackedStructType(packedStructTypeValue(_)) => true
+    rule isPackedStructType(_) => false [owise]
+
     // fixme size should depend on architecture
     rule sizeofInBits('pointerType(_,, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(pointerTypeValue(_, _)) => numBytesPerPointer *Int numBitsPerByte
@@ -869,5 +874,14 @@ module LLVM-HELPERS
     rule evalToIntInList(.ElemList) => .ElemList
     rule evalToIntInList(val(operand(T:K, B:K)),
              Es:ElemList) => valValue(evalToInt(B)), evalToIntInList(Es)
+
+    syntax List ::= formListFromTypeList(TypeList)  [function]
+    rule formListFromTypeList(.TypeList) => .List
+    rule formListFromTypeList(T:Type, Ts:TypeList)
+                        => ListItem(T) formListFromTypeList(Ts)
+
+    rule { Es:ReturnedVal } => constantStruct(formElemList(Es))  [structural]
+    rule < { Es:ReturnedVal } > => packedStruct(formElemList(Es))  [structural]
+
 
 endmodule

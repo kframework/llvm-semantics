@@ -256,13 +256,7 @@ module LLVM-HELPERS-SPLIT-BYTES
     syntax KItem ::= splitPointerBytes(K, K) // value, numBytes
     syntax KItem ::= "splitPointerBytes'" "(" K "," K "," K "," List ")" // value, numbytes, whichByte, accumulator
     syntax KItem ::= splitArrayVectorBytes(ElemList, K, List, K, K) // values, value, numBytes, type
-    syntax KItem ::= splitStructBytes(K, List) // value, field types
-    syntax KItem ::= "splitStructBytes'" "(" K "," List "," List ")" // value, field types, accumulator
-
-    syntax List ::= formListFromTypeList(TypeList)  [function]
-    rule formListFromTypeList(.TypeList) => .List
-    rule formListFromTypeList(T:Type, Ts:TypeList)
-                        => ListItem(T) formListFromTypeList(Ts)
+    syntax KItem ::= splitStructBytes(K, K, K, List) // value, singleValue, field types, accumulator
 
     // Type(IntegerType(32))
     // should generate list with LSBytes first
@@ -356,10 +350,9 @@ module LLVM-HELPERS-SPLIT-BYTES
     rule splitArrayVectorBytes(valValue(A:K), L:ElemList, .K, L':List, NumBytes:Int, Type:KResult)
             => splitArrayVectorBytes(L, A, L', NumBytes, Type)
  
-    rule splitArrayVectorBytes(L, A:K, L':List, NumBytes:Int, Type:KResult)
+    rule splitArrayVectorBytes(L, A:KItem, L':List, NumBytes:Int, Type:KResult)
          => splitBytes(A, NumBytes, Type)
              ~> splitArrayVectorBytes(L, HOLE, L', NumBytes:Int, Type:KResult)
-         requires A =/=K .K
          [heat]
 
     rule A:KResult ~> splitArrayVectorBytes(L, HOLE, L':List, NumBytes:Int, Type:KResult)
@@ -396,38 +389,31 @@ module LLVM-HELPERS-SPLIT-BYTES
 
 */
 
-    rule
-        <k> splitBytes(V:KResult, structTypeValue(L:TypeList))
-            => splitStructBytes(V, formListFromTypeList(L))
-        ...</k>
-
+    rule splitBytes(V:KResult, T:KResult)
+            => splitStructBytes(V, .K, T, .List)
+         requires isStructType(T)
 
     // TODO assumes no padding
     // TODO need to heat types
     // TODO BUG L'' causes latex to fail (generates L ' ')
-/*
-    rule
-        <k> splitStructBytes(V:KResult, L:List)
-            => splitStructBytes'(V:KResult, L:List, .List)
-        ...</k>
-    rule
-        <k> splitStructBytes'(constantStruct(K:K, listK(ListItem(V:KResult) Fields:List)),
-                      (ListItem(Type:KResult) L:List), L':List)
+    rule splitStructBytes(constantStruct(valValue(V:KResult), Fields:ElemList),
+                 .K, T:KResult, L':List) =>
+               splitStructBytes(constantStruct(Fields), V, T, L')
+
+    rule splitStructBytes(zeroinitializer, .K, T:KResult, L':List)
+            => splitStructBytes(zeroinitializer, zeroinitializer, T, L':List)
+
+    rule splitStructBytes(A:K, V:KItem, structTypeValue(Type:KResult, L:TypeList), L':List)
             => splitBytes(V, Type)
-            ~> splitStructBytes'(constantStruct(K:K, listK(Fields)), L:List, L':List)
-        ...</k>
-    rule
-        <k> splitStructBytes'(zeroinitializer, (ListItem(Type:KResult) L:List), L':List)
-            => splitBytes(zeroinitializer, Type)
-            ~> splitStructBytes'(zeroinitializer, L:List, L':List)
-        ...</k>
-    rule
-        <k> (listK(L:List) => .K) ~> splitStructBytes'(_, _, (_:List (.List => L))) ...</k>
-    rule
-        <k> splitStructBytes'(_, .List, L:List)
-            => listK(L)
-        ...</k>
-*/
+            ~> splitStructBytes(A, HOLE, structTypeValue(L), L':List)
+         [heat]
+
+    rule region(L:List, N:Int) ~> splitStructBytes(A:K, HOLE, Ts:K, L':List)
+            => splitStructBytes(A, .K, Ts, L' ListItem(region(L, N)))
+         [cool]
+
+    rule splitStructBytes(_, .K, structTypeValue(.TypeList), L:List)
+            => region(L, size(L))
 
 endmodule
 
@@ -443,28 +429,38 @@ module LLVM-HELPERS-JOIN-BYTES
     syntax KItem ::= joinIntBytes(K, K, K)
     syntax KItem ::= joinFloatBytes(K, K, K)//region, length, result, type
     syntax KItem ::= joinPointerBytes(K, K, K)
+    syntax KItem ::= joinArrayVectorBytes(K, K, K, ElemList)
+    syntax KItem ::= joinStructBytes(K, K, K, ElemList)
+                     //region, temp, type, result
 
     rule joinBytes(region(L:List, N:Int), Type:KResult)
             => joinIntBytes(region(L:List, N:Int), 0, Type)
-        when isIntegerType(Type) andBool sizeof(Type) ==K N
+         requires isIntegerType(Type) andBool sizeof(Type) ==K N
 
-    rule
-        <k> joinBytes(region(L:List, N:Int), Type:KResult)
+    rule joinBytes(region(L:List, N:Int), Type:KResult)
             => joinFloatBytes(region(L:List, N:Int), sizeof(Type), 0.0)
-        ...</k>
-        when isFloatType(Type) andBool N ==K sizeof(Type)
+         requires isFloatType(Type) andBool N ==K sizeof(Type)
 
-    rule
-        <k> joinBytes(region(L:List, N:Int), Type:KResult)
+    rule joinBytes(region(L:List, N:Int), Type:KResult)
             => joinPointerBytes(region(L:List, N:Int), sizeof(Type), 0)
-        ...</k>
-        when isPointerType(Type) andBool N ==K sizeof(Type)
+         requires isPointerType(Type) andBool N ==K sizeof(Type)
+
+    rule joinBytes(V:KResult, Type:KResult)
+                  => joinArrayVectorBytes(V, .K, Type, .ElemList)
+         requires isArrayType(Type) orBool isVectorType(Type)
+    rule joinBytes(V:KResult, Type:KResult)
+            => joinStructBytes(V, .K, Type, .ElemList)
+         requires isStructType(Type) orBool isPackedStructType(Type)
 
     rule joinBytes(V:KResult, Type:KResult)
             => V
-        when (notBool isIntegerType(Type))
+        requires (notBool isIntegerType(Type))
              andBool (notBool isFloatType(Type))
              andBool (notBool isPointerType(Type))
+             andBool (notBool isArrayType(Type))
+             andBool (notBool isVectorType(Type))
+             andBool (notBool isStructType(Type))
+             andBool (notBool isPackedStructType(Type))
 
     rule joinIntBytes(region(L:List ListItem(N:Int), Len:Int), N':Int, Type:KResult)
             => joinIntBytes(region(L:List, Len -Int 1),
@@ -527,6 +523,53 @@ module LLVM-HELPERS-JOIN-BYTES
             => V
         when N ==Int numBytesPerPointer -Int 1
         [anywhere]
+
+    //deal with array and vector types
+    rule joinArrayVectorBytes(region(ListItem(A:K) L:List, Len:Int),
+                          .K, Type:KResult, Es:ElemList)
+            => joinArrayVectorBytes(region(L, Len -Int 1), A, Type, Es)
+         requires Len >Int 0
+
+    rule joinArrayVectorBytes(A:K, B:KItem,
+                       Type:KResult, Es:ElemList)
+            => joinBytes(B, innerType(Type))
+                ~> joinArrayVectorBytes(A, HOLE, Type, Es)
+         [heat]
+
+    rule A:KResult ~> joinArrayVectorBytes(B:K,
+                         HOLE, Type:KResult, Es:ElemList)
+            => joinArrayVectorBytes(B, .K, Type,
+                             addElemToEnd(valValue(A), Es))
+         [cool]
+
+    rule joinArrayVectorBytes(region(.List, 0), .K, T:KResult, Es)
+            => arrayValue(Es)
+         requires isArrayType(T)
+    rule joinArrayVectorBytes(region(.List, 0), .K, T:KResult, Es)
+            => vectorValue(Es)
+         requires vectorValue(T)
+
+    //deal with struct types and packed struct type
+    rule joinStructBytes(region(ListItem(A:K) L:List, Len:Int), 
+                 .K, T:K, L':ElemList) =>
+               joinStructBytes(region(L, Len -Int 1), A, T, L')
+
+    rule joinStructBytes(A:K, V:KItem,
+                      TLabel:KLabel(Type:KResult, L:TypeList), L':ElemList)
+            => joinBytes(V, Type)
+            ~> joinStructBytes(A, HOLE, TLabel(L), L')
+         [heat]
+
+    rule A:KResult ~> joinStructBytes(B:K, HOLE, Ts:K, L':ElemList)
+            => joinStructBytes(B, .K, Ts, addElemToEnd(valValue(A), Es))
+         [cool]
+
+    rule joinStructBytes(region(.List, 0), .K,
+                     structTypeValue(.TypeList), L:ElemList)
+            => constantStruct(L)
+    rule joinStructBytes(region(.List, 0), .K,
+                     packedStructTypeValue(.TypeList), L:ElemList)
+            => packedStruct(L)
 
 endmodule
 

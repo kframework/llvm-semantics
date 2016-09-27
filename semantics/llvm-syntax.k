@@ -694,7 +694,7 @@ module LLVM-SYNTAX
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"
                          | "{" TypeList "}"                   [klabel('structType), strict]
-                         | "<" "{" TypeList "}" ">"           [klabel('structType), strict]
+                         | "<" "{" TypeList "}" ">"           [klabel('packedStructType), strict]
     syntax Type ::= VoidType | NonVoidType
     syntax TypeList ::= List{Type,","}                        [strict]
 

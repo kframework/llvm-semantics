@@ -35,6 +35,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= ElementResult
     rule val(K:KResult) => valValue(K) [structural]
 
+    syntax KItem ::= "emptyHOLE"
+
     //syntax KItem ::= ElemList
     syntax ElemList ::= List{Element,","} [strict]
     syntax Int ::= lengthOfList(ElemList) [function]

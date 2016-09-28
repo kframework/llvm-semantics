@@ -261,7 +261,7 @@ module LLVM-HELPERS-SPLIT-BYTES
     // Type(IntegerType(32))
     // should generate list with LSBytes first
 
-    rule splitBytes(V:KResult, Type:KResult) => splitBytes(V, sizeof(Type), T)
+    rule splitBytes(V:KResult, T:KResult) => splitBytes(V, sizeof(T), T)
 
     //deal with int types.
     rule splitBytes(I:Int, NumBytes:Int, Type:KResult)
@@ -352,26 +352,24 @@ module LLVM-HELPERS-SPLIT-BYTES
  
     rule splitArrayVectorBytes(L, A:KItem, L':List, NumBytes:Int, Type:KResult)
          => splitBytes(A, NumBytes, Type)
-             ~> splitArrayVectorBytes(L, HOLE, L', NumBytes:Int, Type:KResult)
-         [heat]
+             ~> splitArrayVectorBytes(L, emptyHOLE, L', NumBytes:Int, Type:KResult)
+         requires A =/=K emptyHOLE
 
-    rule A:KResult ~> splitArrayVectorBytes(L, HOLE, L':List, NumBytes:Int, Type:KResult)
-         => splitArrayVectorBytes(L, .K, L' ListItem(A), NumBytes:Int, Type:KResult)
-         [cool]
+    rule region(L:List, N:Int)
+           ~> splitArrayVectorBytes(Es:ElemList, emptyHOLE, L':List, NumBytes:Int, Type:KResult)
+         => splitArrayVectorBytes(Es:ElemList, .K, L' L, NumBytes:Int, Type:KResult)
 
     rule splitArrayVectorBytes(.ElemList, .K, L:List, _:Int, _:KResult) => region(L, size(L))
 
     //deal with zero for vector and array
     rule splitBytes(zeroinitializer, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
            => splitBytes(zeroinitializer, NumBytes /Int N, innerType(TypeLabel:KLabel(T:K ,, N:Int)))
-              ~> splitBytes(HOLE, NumBytes, TypeLabel:KLabel(T:K ,, N:Int))
+              ~> splitBytes(emptyHOLE, NumBytes, TypeLabel:KLabel(T:K ,, N:Int))
          requires (isArrayType(TypeLabel(T,, N)) orBool isVectorType(TypeLabel(T,, N)))
                   andBool N dividesInt NumBytes
-         [heat]
 
-    rule A:KResult ~> splitBytes(HOLE, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
+    rule A:KResult ~> splitBytes(emptyHOLE, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
            => region(N copiesOf ListItem(A), N)
-         [cool]
 
 
 /*
@@ -405,12 +403,11 @@ module LLVM-HELPERS-SPLIT-BYTES
 
     rule splitStructBytes(A:K, V:KItem, structTypeValue(Type:KResult, L:TypeList), L':List)
             => splitBytes(V, Type)
-            ~> splitStructBytes(A, HOLE, structTypeValue(L), L':List)
-         [heat]
+            ~> splitStructBytes(A, emptyHOLE, structTypeValue(L), L':List)
+         requires V =/=K emptyHOLE
 
-    rule region(L:List, N:Int) ~> splitStructBytes(A:K, HOLE, Ts:K, L':List)
-            => splitStructBytes(A, .K, Ts, L' ListItem(region(L, N)))
-         [cool]
+    rule region(L:List, N:Int) ~> splitStructBytes(A:K, emptyHOLE, Ts:K, L':List)
+            => splitStructBytes(A, .K, Ts, L' L)
 
     rule splitStructBytes(_, .K, structTypeValue(.TypeList), L:List)
             => region(L, size(L))
@@ -524,23 +521,38 @@ module LLVM-HELPERS-JOIN-BYTES
         when N ==Int numBytesPerPointer -Int 1
         [anywhere]
 
+    syntax List ::= countList(List, Int)   [function]
+    rule countList(.List, N:Int) => .List
+    rule countList(L:List, 0) => .List
+    rule countList(ListItem(A:K) L:List, N:Int)
+                => ListItem(A:K) countList(L, N -Int 1)
+         requires N =/=K 0
+
+    syntax List ::= countRestList(List, Int)   [function]
+    rule countRestList(.List, N:Int) => .List
+    rule countRestList(L:List, 0) => L
+    rule countRestList(ListItem(A:K) L:List, N:Int)
+                => countRestList(L, N -Int 1)
+         requires N =/=K 0
+
     //deal with array and vector types
-    rule joinArrayVectorBytes(region(ListItem(A:K) L:List, Len:Int),
+    rule joinArrayVectorBytes(region(L:List, Len:Int),
                           .K, Type:KResult, Es:ElemList)
-            => joinArrayVectorBytes(region(L, Len -Int 1), A, Type, Es)
-         requires Len >Int 0
+            => joinArrayVectorBytes(region(countRestList(L, sizeof(innerType(Type))),
+                                                           Len -Int sizeof(innerType(Type))),
+                region(countList(L, sizeof(innerType(Type))),sizeof(innerType(Type))), Type, Es)
+         requires Len -Int sizeof(innerType(Type)) >Int 0
 
     rule joinArrayVectorBytes(A:K, B:KItem,
                        Type:KResult, Es:ElemList)
             => joinBytes(B, innerType(Type))
-                ~> joinArrayVectorBytes(A, HOLE, Type, Es)
-         [heat]
+                ~> joinArrayVectorBytes(A, emptyHOLE, Type, Es)
+         requires B =/=K emptyHOLE
 
     rule A:KResult ~> joinArrayVectorBytes(B:K,
-                         HOLE, Type:KResult, Es:ElemList)
+                         emptyHOLE, Type:KResult, Es:ElemList)
             => joinArrayVectorBytes(B, .K, Type,
                              addElemToEnd(valValue(A), Es))
-         [cool]
 
     rule joinArrayVectorBytes(region(.List, 0), .K, T:KResult, Es)
             => arrayValue(Es)
@@ -550,19 +562,21 @@ module LLVM-HELPERS-JOIN-BYTES
          requires vectorValue(T)
 
     //deal with struct types and packed struct type
-    rule joinStructBytes(region(ListItem(A:K) L:List, Len:Int), 
-                 .K, T:K, L':ElemList) =>
-               joinStructBytes(region(L, Len -Int 1), A, T, L')
+    rule joinStructBytes(region(L:List, Len:Int), 
+                 .K, TLabel:KLabel(Type:KResult, Ts:TypeList), L':ElemList)
+           => joinStructBytes(region(countRestList(L, sizeof(innerType(Type))),
+                  Len -Int sizeof(innerType(Type))),
+                      region(countList(L, sizeof(innerType(Type))),sizeof(innerType(Type))),
+                       TLabel:KLabel(Type:KResult, Ts:TypeList), L')
 
     rule joinStructBytes(A:K, V:KItem,
                       TLabel:KLabel(Type:KResult, L:TypeList), L':ElemList)
             => joinBytes(V, Type)
-            ~> joinStructBytes(A, HOLE, TLabel(L), L')
-         [heat]
+            ~> joinStructBytes(A, emptyHOLE, TLabel(L), L')
+         requires V =/=K emptyHOLE
 
-    rule A:KResult ~> joinStructBytes(B:K, HOLE, Ts:K, L':ElemList)
-            => joinStructBytes(B, .K, Ts, addElemToEnd(valValue(A), Es))
-         [cool]
+    rule A:KResult ~> joinStructBytes(B:K, emptyHOLE, Ts:K, L':ElemList)
+            => joinStructBytes(B, .K, Ts, addElemToEnd(valValue(A), L'))
 
     rule joinStructBytes(region(.List, 0), .K,
                      structTypeValue(.TypeList), L:ElemList)
@@ -686,8 +700,10 @@ module LLVM-MEMORY
 
     // TODO similar problem as sNat; want to match through a deconstructor
     rule
-        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:K))
-            => writeBytes(listK(L:List), loc(Base:Int, Offset:Int, Limit, Align) + 1)
+        <k> writeBytes(region((ListItem(N:Int) L:List), Len:Int),
+                                  loc(Base:Int, Offset:Int, Limit:Int, Align:K))
+            => writeBytes(region(L:List, Len -Int 1),
+                                    loc(Base:Int, Offset:Int, Limit, Align) + 1)
         ...</k>
         <basePtr> Base:Int </basePtr>
         <bytes> M:Map => M:Map[Offset <- N] </bytes>
@@ -698,17 +714,19 @@ module LLVM-MEMORY
 
 
     rule
-        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, Limit:Int, Align:K)) ~> K:K
+        <k> writeBytes(region((ListItem(N:Int) L:List), Len:Int),
+                     loc(Base:Int, Offset:Int, Limit:Int, Align:K)) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior") </output>
         requires Offset >=Int Limit
 
     rule
-        <k> writeBytes(listK((ListItem(N:Int) L:List)), loc(Base:Int, Offset:Int, undef, undef)) ~> K:K
+        <k> writeBytes(region((ListItem(N:Int) L:List), Len:Int),
+                            loc(Base:Int, Offset:Int, undef, undef)) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior") </output>
 
-    rule writeBytes(listK(.List), _) => .K
+    rule writeBytes(region(.List, 0), _) => .K
 
     rule
         <k> load('pointerTypeValue(TyK:K,, A:K), loc(Base:Int, Offset:Int, Limit:K, Align:K))
@@ -758,7 +776,7 @@ module LLVM-MEMORY
         <output>... .List => ListItem("error: undefined behavior") </output>
 
     rule readBytes'(0, _, L:List)
-            => listK(L)
+            => region(L, size(L))
 
     syntax KItem ::= readBytes(K, K)
     syntax KItem ::= "readBytes'" "(" K "," K "," List ")"

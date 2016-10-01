@@ -195,8 +195,7 @@ module LLVM-GEP
     rule formSingletonGepElemList(I, valValue(N:Int), Es:ElemList)
             => valValue(N),formSingletonGepElemList(I, Es)
     rule formSingletonGepElemList(I, valValue(vectorValue(As:ElemList)), Es:ElemList)
-            => valValue(vectorValue(
-                formSingletonGepElem(I, 0, As:ElemList))),formSingletonGepElemList(I, Es)
+            => valValue(formSingletonGepElem(I, 0, As:ElemList)),formSingletonGepElemList(I, Es)
     rule formSingletonGepElem(I:Int, I, valValue(A:K),Es:ElemList) => A
     rule formSingletonGepElem(I:Int, N:Int, valValue(A:K),Es:ElemList)
             => formSingletonGepElem(I, N +Int 1, Es)
@@ -207,7 +206,7 @@ module LLVM-GEP
         requires getKLabel(Type) ==KLabel 'pointerTypeValue
                  andBool notBool hasVectorInValueList(Indices)
 
-    rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:ElemList)
+    rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:KResult)
             => vector(formSingletonGepList(
                          evalToInt(getVectorNum(Indices)), 0, 
                             gepTypeBag(Type), PtrVal, Indices))
@@ -216,7 +215,7 @@ module LLVM-GEP
                  andBool getVectorNum(Indices) =/=K badType
 
     rule getElementPtr(vectorTypeValue(T:KResult, N:Int),
-                        vectorValue(Vl:ElemList), Indices:ElemList)
+                        vectorValue(Vl:ElemList), Indices:KResult)
             => vector(formSingletonGepVector(0, gepTypeBag(T), Vl, Indices))
 
     rule gep(gepTypeBag(pointerTypeValue(Type:KResult, _:K)),
@@ -368,8 +367,8 @@ module LLVM-HELPERS-SPLIT-BYTES
          requires (isArrayType(TypeLabel(T,, N)) orBool isVectorType(TypeLabel(T,, N)))
                   andBool N dividesInt NumBytes
 
-    rule A:KResult ~> splitBytes(emptyHOLE, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
-           => region(N copiesOf ListItem(A), N)
+    rule region(L:List, N':Int) ~> splitBytes(emptyHOLE, NumBytes:Int, TypeLabel:KLabel(T:K ,, N:Int))
+           => region(N copiesOf L, N *Int size(L))
 
 
 /*
@@ -485,10 +484,12 @@ module LLVM-HELPERS-JOIN-BYTES
 
     rule joinFloatBytes(region(.List, Len:Int), Len:Int, F:K) => F
 
-    rule joinPointerBytes(region((L:List ListItem(ptrByte(Loc:Loc, N:Int))), Len:Int), N:Int, N':Int)
-            => joinPointerBytes(region(L:List, Len), N:Int -Int 1, 
+
+    //deal with pointer bytes
+    rule joinPointerBytes(region((L:List ListItem(ptrByte(Loc:Loc, N:Int))), Len:Int), Len':Int, N':Int)
+            => joinPointerBytes(region(L:List, Len), Len' -Int 1, 
                           (N':Int <<Int numBitsPerByte) |Int ptrByte(Loc:Loc, N:Int))
-        when N >Int 0
+        when Len' >Int 0
 
     rule joinPointerBytes(region(.List, Len:Int), 0, Loc:Loc)
         => Loc:Loc
@@ -541,7 +542,8 @@ module LLVM-HELPERS-JOIN-BYTES
             => joinArrayVectorBytes(region(countRestList(L, sizeof(innerType(Type))),
                                                            Len -Int sizeof(innerType(Type))),
                 region(countList(L, sizeof(innerType(Type))),sizeof(innerType(Type))), Type, Es)
-         requires Len -Int sizeof(innerType(Type)) >Int 0
+         requires (Len -Int sizeof(innerType(Type)) >=Int 0)
+                      andBool sizeof(innerType(Type)) dividesInt Len
 
     rule joinArrayVectorBytes(A:K, B:KItem,
                        Type:KResult, Es:ElemList)
@@ -559,7 +561,7 @@ module LLVM-HELPERS-JOIN-BYTES
          requires isArrayType(T)
     rule joinArrayVectorBytes(region(.List, 0), .K, T:KResult, Es)
             => vectorValue(Es)
-         requires vectorValue(T)
+         requires isVectorType(T)
 
     //deal with struct types and packed struct type
     rule joinStructBytes(region(L:List, Len:Int), 

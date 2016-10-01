@@ -43,6 +43,7 @@ module LLVM-ABSTRACTSYNTAX
 
     rule lengthOfList(.ElemList) => 0
     rule lengthOfList(val(K:K),L:ElemList) => 1 +Int lengthOfList(L)
+    rule lengthOfList(valValue(K:K),L:ElemList) => 1 +Int lengthOfList(L)
 
     syntax KItem ::= elemListToK(ElemList) [function]
 

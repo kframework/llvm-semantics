@@ -691,6 +691,7 @@ module LLVM-MEMORY
                  orBool Base +Int Offset >Int F orBool Base +Int Offset <Int I
 
     syntax KItem ::= writeBytes(K, K) [strict(1)] // list of bytes, location
+                   | atomicWrite(List, K, Set) //list of bytes, location, modifiers
 
     rule write(Type:KResult, V:KResult, Loc:Loc)
             => writeBytes(splitBytes(V, Type), Loc)
@@ -702,17 +703,25 @@ module LLVM-MEMORY
 
     // TODO similar problem as sNat; want to match through a deconstructor
     rule
-        <k> writeBytes(region((ListItem(N:Int) L:List), Len:Int),
+        <k> writeBytes(region((ListItem(N:K) L:List), Len:Int),
                                   loc(Base:Int, Offset:Int, Limit:Int, Align:K))
             => writeBytes(region(L:List, Len -Int 1),
                                     loc(Base:Int, Offset:Int, Limit, Align) + 1)
         ...</k>
-        <basePtr> Base:Int </basePtr>
-        <bytes> M:Map => M:Map[Offset <- N] </bytes>
-        requires Offset <Int Limit
-        // <size> Len:Int </size>
-        // when Offset < Len
-        // i guess
+        <buffer> Bufs:List (.List => ListItem(atomicWrite(ListItem(N),
+                    loc(Base:Int, Offset:Int, Limit:Int, Align:K), Mods))) </buffer>
+        <currentModifiers> Mods:Set </currentModifiers>
+        requires Offset <Int Limit andBool notBool (atomic in Mods)
+
+    rule
+        <k> writeBytes(region(L:List, Len:Int),
+                                  loc(Base:Int, Offset:Int, Limit:Int, Align:K))
+            => .K
+        ...</k>
+        <buffer> Bufs:List (.List => ListItem(atomicWrite(L,
+                    loc(Base:Int, Offset:Int, Limit:Int, Align:K), Mods:Set))) </buffer>
+        <currentModifiers> Mods:Set </currentModifiers>
+        requires Offset +Int Len <=Int Limit andBool (atomic in Mods)
 
 
     rule
@@ -720,7 +729,7 @@ module LLVM-MEMORY
                      loc(Base:Int, Offset:Int, Limit:Int, Align:K)) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior") </output>
-        requires Offset >=Int Limit
+        requires Offset +Int Len >Int Limit
 
     rule
         <k> writeBytes(region((ListItem(N:Int) L:List), Len:Int),
@@ -729,6 +738,19 @@ module LLVM-MEMORY
         <output>... .List => ListItem("error: undefined behavior") </output>
 
     rule writeBytes(region(.List, 0), _) => .K
+
+    rule <buffer> (ListItem(A:K) => .List) Bufs:List </buffer>
+         <exBuffer> L':List (.List => ListItem(A)) </exBuffer>
+
+    rule <exBuffer> ListItem(atomicWrite(ListItem(N:K) L':List,
+               loc(Base:Int, Offset:Int, Limit:Int, Align:K), Mods:Set)
+             => atomicWrite(L',
+               loc(Base:Int, Offset:Int, Limit:Int, Align:K) + 1, Mods)) Bufs:List </exBuffer>
+        <basePtr> Base:Int </basePtr>
+        <bytes> M:Map => M:Map[Offset <- N] </bytes>
+
+    rule <exBuffer> (ListItem(atomicWrite(.List,
+                            Loc:K, Mods:Set)) => .List) Bufs:List </exBuffer>
 
     rule
         <k> load('pointerTypeValue(TyK:K,, A:K), loc(Base:Int, Offset:Int, Limit:K, Align:K))
@@ -756,32 +778,76 @@ module LLVM-MEMORY
             => joinBytes(readBytes(sizeof(Type:KResult), Loc:Loc), Type:KResult)
 
     rule readBytes(Len:Int, Loc:Loc)
-            => readBytes'(Len:Int, Loc:Loc, .List)
+            => readBytes(Len:Int, Loc:Loc, .List)
 
-    rule
-        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List)
-            => readBytes'(Len:Int -Int 1, loc(Base:Int, Offset:Int, Limit, Align) + 1, (L:List ListItem(V:KResult)))
+    rule <k> readBytes(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List)
+            => readBytes(emptyHOLE, Len:Int -Int 1,
+                  loc(Base:Int, Offset:Int, Limit, Align) + 1, L:List)
         ...</k>
-        <basePtr> Base:Int </basePtr>
-        <bytes>... Offset |-> V:KResult ...</bytes>
-        when Len:Int >Int 0 andBool Offset <Int Limit
+         <threadId> Tid:Int </threadId>
+        <buffer> Bufs:List (.List => ListItem(atomicRead(Tid, Base, Offset, Mods))) </buffer>
+        <currentModifiers> Mods:Set </currentModifiers>
+        requires Len:Int >Int 0 andBool Offset <Int Limit andBool notBool atomic in Mods
 
     rule
-        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List) ~> K:K
-            => .K </k>
-        <output>... .List => ListItem("error: undefined behavior") </output>
-        requires Limit >=Int Offset andBool Len =/=Int 0
+        <k> readBytes(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), .List)
+            => readBytes(emptyHOLE, 0,
+                  loc(Base:Int, Offset:Int, Limit, Align), .List)
+        ...</k>
+         <threadId> Tid:Int </threadId>
+        <buffer> Bufs:List (.List => 
+             ListItem(atomicReads(Tid, Len, loc(Base:Int, Offset:Int, Limit, Align), Mods))) </buffer>
+        <currentModifiers> Mods:Set </currentModifiers>
+        requires Len:Int >Int 0 andBool Offset +Int Len <=Int Limit andBool atomic in Mods
 
     rule
-        <k> readBytes'(Len:Int, loc(Base:Int, Offset:Int, undef, undef), L:List) ~> K:K
+        <k> readBytes(Len:Int, loc(Base:Int, Offset:Int, Limit:Int, Align:Int), L:List) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior") </output>
+        requires Limit <Int Offset +Int Len andBool Len =/=Int 0
+
+    rule
+        <k> readBytes(Len:Int, loc(Base:Int, Offset:Int, undef, undef), L:List) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior") </output>
 
-    rule readBytes'(0, _, L:List)
+    rule readBytes(0, _, L:List)
             => region(L, size(L))
 
+    rule <k> readBytes(emptyHOLE, Len:Int, Loc:K, L:List)
+             => readBytes(Len, Loc, (L:List ListItem(V:KResult)))
+         ...</k>
+         <threadId> Tid:Int </threadId>
+         <exBuffer> (ListItem(atomicRead(Tid, Base:Int, Offset:Int, Mods:Set))
+                          => .List) ExBufs:List </exBuffer>
+         <basePtr> Base:Int </basePtr>
+         <bytes>... Offset |-> V:KResult ...</bytes>
+
+    rule <k> readBytes(emptyHOLE, TempLen:Int, TempLoc:K, L:List)
+             => readBytes(emptyHOLE, TempLen, TempLoc, L ListItem(V))
+         ...</k>
+         <threadId> Tid:Int </threadId>
+         <exBuffer> (ListItem(atomicReads(Tid:Int, Len:Int,
+                     loc(Base:Int, Offset:Int, Limit:Int, Align:Int), Mods:Set)
+                      => atomicReads(Tid, Len:Int -Int 1,
+             loc(Base:Int, Offset:Int, Limit:Int, Align:Int) + 1, Mods:Set))) ExBufs:List </exBuffer>
+         <basePtr> Base:Int </basePtr>
+         <bytes>... Offset |-> V:KResult ...</bytes>
+         requires Len:Int >Int 0
+
+    rule <k> readBytes(emptyHOLE, TempLen:Int, TempLoc:K, L:List)
+             => readBytes(TempLen, TempLoc, L)
+         ...</k>
+         <threadId> Tid:Int </threadId>
+         <exBuffer> (ListItem(atomicReads(Tid:Int, 0, Loc:K, Mods:Set))
+                         => .List) ExBufs:List </exBuffer>
+
+
     syntax KItem ::= readBytes(K, K)
-    syntax KItem ::= "readBytes'" "(" K "," K "," List ")"
+    syntax KItem ::= readBytes(K, K, List)
+    syntax KItem ::= readBytes(K, K, K, List) //holding situation
+    syntax KItem ::= atomicRead(K, K, K, Set) //id,base, offset, modifiers.
+    syntax KItem ::= atomicReads(K,K, K, Set) //id,Len, location, modifiers.
 
 endmodule
 

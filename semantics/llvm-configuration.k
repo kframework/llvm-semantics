@@ -11,17 +11,16 @@ module LLVM-CONFIGURATION
     imports LLVM-HELPERS
 
     configuration
-        <T multiplicity="?">
-            <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
-            <callStack color="Goldenrod"> .List </callStack>
+        <T>
             <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            <exBuffer> .List </exBuffer>
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             <checkUseCount> 0 </checkUseCount>
             <tempBlockInst> .K </tempBlockInst>
             <checkAllUses>
-                <checkUsesInBlock  multiplicity="*">
+                <checkUsesInBlock multiplicity="*">
                     <allUseNum> 0 </allUseNum>
                     <allCheckedBlocks> .Set </allCheckedBlocks>
                     <allCurrentJob> .K </allCurrentJob>
@@ -37,18 +36,24 @@ module LLVM-CONFIGURATION
                    <currentJob> .K </currentJob>
                 </checkUse>
             </checkExistUses>
-            <control color="LightGoldenrod">
-                <currBlock color="Orchid"> name(localVar, "Initial") </currBlock>
-                <prevBlock color="Orchid"> name(localVar, "Initial") </prevBlock>
-                <currModule color="Orchid"> name(globalVar, "main") </currModule>
-                <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
-                <valist> .List </valist>
-                <registers color="teal"> .Map </registers>
-                // TODO: this should eventually be a Set
-                <currentModifiers color="Orchid"> .Set </currentModifiers>
-                <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
-                <localMemory> .List </localMemory>
-            </control>
+            <thread multiplicity="*">
+                <threadId> 0 </threadId>
+                <buffer> .List </buffer>
+                <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+                <callStack color="Goldenrod"> .List </callStack>
+                <control color="LightGoldenrod">
+                    <currBlock color="Orchid"> name(localVar, "Initial") </currBlock>
+                    <prevBlock color="Orchid"> name(localVar, "Initial") </prevBlock>
+                    <currModule color="Orchid"> name(globalVar, "main") </currModule>
+                    <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
+                    <valist> .List </valist>
+                    <registers color="teal"> .Map </registers>
+                    // TODO: this should eventually be a Set
+                    <currentModifiers color="Orchid"> .Set </currentModifiers>
+                    <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
+                    <localMemory> .List </localMemory>
+                </control>
+            </thread>
             <memory color="teal" type="Map">
                 <object multiplicity="*" color="LightSkyBlue">
                     <basePtr color="orange" type="Key"> -1 </basePtr>

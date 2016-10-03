@@ -191,7 +191,6 @@ module LLVM-HELPERS
 
     syntax Bool ::= isFloatType(K) [function]
     rule isFloatType(F:FPType) => true
-    rule isFloatType(x86_mmx) => true
     rule isFloatType(_) => false [owise]
 
     syntax Bool ::= isPointerType(K) [function]
@@ -737,7 +736,7 @@ module LLVM-HELPERS
          requires A >Int B
 
     syntax Bool ::= isValidAlign(Int) [function]
-    rule isValidAlign(A:Int) => A ==K 0 orBool isPowOfTwo(A, 1)
+    rule isValidAlign(A:Int) => isPowOfTwo(A, 1)
 
     syntax KItem ::= getAlign(Set, K) [function]
     rule getAlign(.Set, .K) => 'alignEmpty(.KList)

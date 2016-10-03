@@ -291,7 +291,7 @@ K
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                          alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,
-                                    undef, undef, 0, formSet(Oil), Ins)
+                                    undef, undef, 1, formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                             alloca Oil:OptInalloca
                                    Ty:Type, align A:UnsignedInt Ins:InstructionMetadatas)
@@ -302,7 +302,7 @@ K
                         alloca Oil:OptInalloca Ty:Type,
                            It:IntType V:ValueRef Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It,
-                                          addNameToString(V), 0, formSet(Oil), Ins)
+                                          addNameToString(V), 1, formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                alloca Oil:OptInalloca Ty:Type, It:IntType V:ValueRef,
                                    align A:UnsignedInt Ins:InstructionMetadatas)
@@ -339,7 +339,7 @@ K
                   Ty1:Type, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
            => typeCheckLoad(Name:SymbolicValueRef, X,
-                           Ty1:Type, Ty2:Type, addNameToString(V2), 0, .K, formSet(Ovl), Inm)
+                           Ty1:Type, Ty2:Type, addNameToString(V2), 1, .K, formSet(Ovl), Inm)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                          load Oac:Atomic Ovl:OptVolatile Ty1:Type,
                  Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering,
@@ -1032,18 +1032,39 @@ K
                ~> assign(X, instruction(load(pointerTypeValue(integerType(N:Int), A:K),
                    V2) ,Mods ,insMetas(formElemList(Meta)))) </tempBlockInst>
          requires isValidAlign(Align) andBool N >=Int 8
+                  andBool notBool release in Mods
+                  andBool notBool acq_rel in Mods
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                     pointerTypeValue(T:KResult, A:K), V2:K,
+                           Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name,pointerTypeValue(T:KResult, A:K), V2)
+                 ~> assignType(Name, X, T:KResult) ...</k>
+         <tempBlockInst> Now:K => Now
+               ~> assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta)))) </tempBlockInst>
+         requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
+                  andBool notBool release in Mods
+                  andBool notBool acq_rel in Mods
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                      Align:Int, atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
+         <output>... .List => ListItem("error: atomic load must have simple type that greater than 8 bits.") </output>
+         requires notBool isIntegerType(T) andBool notBool isFloatType(T)
+                  andBool notBool isPointerType(T)
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                       Align:Int, atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
+         <output>... .List => ListItem("error: atomic load must have integer type that greater than 8 bits.") </output>
          requires N <Int 8
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K,
+                      Align:Int, atomic, Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic load cannot use Release ordering.") </output>
+         requires release in Mods orBool acq_rel in Mods
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      pointerTypeValue(T':KResult, A:K), V2:K,
@@ -1075,6 +1096,20 @@ K
                        Mods, insMetas(formElemList(Meta))) </tempBlockInst>
          requires isPowOfTwo(Align, 1) andBool At =/=K atomic
 
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K,
+                          Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name:SymbolicValueRef, T:KResult, V1)
+                    ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(T:KResult, A:K), V2)
+         ...</k>
+         <tempBlockInst> Now:K => Now
+               ~> instruction(store(T:KResult, V1,
+                      operand(pointerTypeValue(T:KResult, A:K), V2)),
+                       Mods, insMetas(formElemList(Meta))) </tempBlockInst>
+         requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
+                  andBool notBool acquire in Mods
+                  andBool notBool acq_rel in Mods
+
     rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                           Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
@@ -1086,18 +1121,27 @@ K
                       operand(pointerTypeValue(integerType(N:Int), A:K), V2)),
                        Mods, insMetas(formElemList(Meta))) </tempBlockInst>
          requires isPowOfTwo(Align, 1) andBool N >=Int 8
+                  andBool notBool acquire in Mods
+                  andBool notBool acq_rel in Mods
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
                                atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
+         <output>... .List => ListItem("error: atomic store must have simple type that greater than 8 bits.") </output>
+         requires notBool isIntegerType(T) andBool notBool isFloatType(T)
+                  andBool notBool isPointerType(T)
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int,
                                  atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
          requires N <Int 8
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int,
+                                 atomic, Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store cannot use Acquire ordering.") </output>
+         requires acquire in Mods orBool acq_rel in Mods
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T':KResult, A:K), V2:K, Align:Int,

@@ -37,6 +37,8 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= "emptyHOLE"
 
+    syntax KItem ::= seqPoint(Int, K)//program num, inst
+
     //syntax KItem ::= ElemList
     syntax ElemList ::= List{Element,","} [strict]
     syntax Int ::= lengthOfList(ElemList) [function]

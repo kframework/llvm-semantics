@@ -65,8 +65,10 @@ module LLVM-DECLARATIONS
         <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
             => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
+         <currentProgPoint> ProgCount:Int => 0 </currentProgPoint>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
+        <instructionCounter> InstCount:Int => 0 </instructionCounter>
         (.Bag =>
             <function>...
                 <funModuleName> ModName </funModuleName>
@@ -93,6 +95,11 @@ module LLVM-DECLARATIONS
         )
 
     rule BB:BasicBlock BBL:BasicBlockList => BB ~> BBL
+
+    //install the sequence point for each instruction.
+
+    rule <k> seqPoint(I:Int, A:K) => A ...</k>
+         <currentProgPoint> N:Int => I </currentProgPoint>
 
     //rule for setting initial basic block of a given block
     rule <k> setInitBlock(I:InstructionList B:BBTerminatorInstruction) => .K ...</k>

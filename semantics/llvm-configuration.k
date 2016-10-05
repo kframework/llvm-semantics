@@ -18,6 +18,7 @@ module LLVM-CONFIGURATION
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             <checkUseCount> 0 </checkUseCount>
+            <instructionCounter> 0 </instructionCounter>
             <tempBlockInst> .K </tempBlockInst>
             <checkAllUses>
                 <checkUsesInBlock multiplicity="*">
@@ -49,6 +50,7 @@ module LLVM-CONFIGURATION
                     <valist> .List </valist>
                     <registers color="teal"> .Map </registers>
                     // TODO: this should eventually be a Set
+                    <currentProgPoint> 0 </currentProgPoint>
                     <currentModifiers color="Orchid"> .Set </currentModifiers>
                     <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
                     <localMemory> .List </localMemory>

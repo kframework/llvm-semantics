@@ -424,8 +424,9 @@ K
     rule <k> typeCheckIndirectBr(Name:SymbolicValueRef, T:KResult, V:K, .ElemList,
                                       Es:ElemList, Meta:InstructionMetadatas)
           => typeCheckIntArg(Name, T, V) ...</k>
-         <tempBlockInst> Now:K => Now ~> instruction(indirectbr(operand(T, V),Es)
-                                        ,.Set,insMetas(formElemList(Meta))) </tempBlockInst>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(indirectbr(operand(T, V),Es)
+                                        ,.Set,insMetas(formElemList(Meta)))) </tempBlockInst>
 
     rule <k>typeCheckIndirectBr(Name:SymbolicValueRef, T:K, V:K,
                   val(A:SymbolicValueRef), E2:ElemList,
@@ -476,11 +477,12 @@ K
                ~> typeCheckIntArg(N, T1, V2)
                ~> typeCheckIntArg(N, T1, V3)
                ~> assignType(N, X, integerType(1)) ...</k>
-         <tempBlockInst> Now:K => Now
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => seqPoint(TheCount, Now
                ~> assign(X, instruction(select(integerType(1)
                                  ,V1 ,operand(T1,V2)
                                      ,operand(T1,V3))
-                          ,.Set ,insMetas(formElemList(Meta)))) </tempBlockInst>
+                          ,.Set ,insMetas(formElemList(Meta))))) </tempBlockInst>
 
 
      rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -491,11 +493,12 @@ K
                ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V2)
                ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V3)
                ~> assignType(Name, X, vectorTypeValue(integerType(1), N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(select(vectorTypeValue(integerType(1), N:Int)
+               ~> seqPoint(TheCount, assign(X, instruction(select(vectorTypeValue(integerType(1), N:Int)
                                  ,V1 ,operand(vectorTypeValue(T1:KResult, N:Int), V2)
                                      ,operand(vectorTypeValue(T1:KResult, N:Int), V3))
-                          ,.Set ,insMetas(formElemList(Meta)))) </tempBlockInst>
+                          ,.Set ,insMetas(formElemList(Meta))))) </tempBlockInst>
 
     rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
                    integerType(A:Int), V1:K, T1:KResult, V2:K,
@@ -535,11 +538,12 @@ K
                         ,, .ElemList,,
                         val(La:K), Es:ElemList ,, Meta:InstructionMetadatas)
           => typeCheckIntArgList(N, E1) ...</k>
-         <tempBlockInst> Now:K => Now ~> instruction(switch(addNameToString(It)
-                                        ,addNameToString(Va)
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+                    instruction(switch(addNameToString(It), addNameToString(Va)
                                         ,addNameToString(La)
                                         ,formCasesInList(E1, Es))
-                                        ,.Set, insMetas(formElemList(Meta))) </tempBlockInst>
+                                        ,.Set, insMetas(formElemList(Meta)))) </tempBlockInst>
 
     rule <k> 'typeCheckSwitch(Name:SymbolicValueRef,,
                    E1:ElemList,,
@@ -611,10 +615,11 @@ K
         <funModuleName> ModName </funModuleName>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> instruction(getKLabelFromOp(Ca)(void,, callee(V1,
+               ~> seqPoint(TheCount, instruction(getKLabelFromOp(Ca)(void,, callee(V1,
                            arguments(formArgList(Tv,Arg))))
-                          ,Mods, insMetas(formElemList(Meta))) </tempBlockInst>
+                          ,Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
              T:KResult, V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
@@ -625,17 +630,19 @@ K
         <funModuleName> ModName </funModuleName>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(A, instruction(getKLabelFromOp(Ca)(T,,
+               ~> seqPoint(TheCount, assign(A, instruction(getKLabelFromOp(Ca)(T,,
                            callee(V1, arguments(formArgList(Tv,Arg))))
-                          ,Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+                          ,Mods, insMetas(formElemList(Meta))))) </tempBlockInst>
 
     //deal with ret
     rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas) => typeCheckIntArg(N, T, V) ...</k>
-         <tempBlockInst> Now:K => Now ~> instruction(ret(T,V)
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(ret(T,V)
                                         ,.Set
-                                        ,insMetas(formElemList(Meta))) </tempBlockInst>
+                                        ,insMetas(formElemList(Meta)))) </tempBlockInst>
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function
@@ -689,9 +696,10 @@ K
              T:KResult, .ElemList, .ElemList, InSet:Set,
              Es:ElemList, Meta:InstructionMetadatas) => assignType(Name, X, T) ...</k>
          <matchPhisWithInEdges>... (.List => ListItem(phiEdges(Name, InSet))) </matchPhisWithInEdges>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(phi(T, Es),.Set
-                          ,insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount, assign(X, instruction(phi(T, Es),.Set
+                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
               T:KResult, E1:ElemList, val(name(localVar, S:String)),
@@ -766,9 +774,11 @@ K
               Op:Bool, T:KResult, V1:K, V2:K, Meta:InstructionMetadatas)
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                    ~> assignType(Name, X, integerType(1)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(#if Op ==K true #then 1 #else 0 #fi, .Set,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount,
+                assign(X,instruction(#if Op ==K true #then 1 #else 0 #fi, .Set,
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
@@ -780,9 +790,11 @@ K
                      ~> typeCheckIntArg(Name:SymbolicValueRef,
                             vectorTypeValue(T:KResult, I:Int), V2)
                      ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(#if Op ==K true #then 1 #else 0 #fi, .Set,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount,
+                assign(X,instruction(#if Op ==K true #then 1 #else 0 #fi, .Set,
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
@@ -791,12 +803,12 @@ K
              Op:FPredicate, T:KResult, V1:K, V2:K, Meta:InstructionMetadatas)
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                    ~> assignType(Name, X, integerType(1)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(getKLabelFromOp(Op)(T
-                              ,, addNameToString(V1)
-                              ,, addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount, assign(X,
+            instruction(getKLabelFromOp(Op)(T,, addNameToString(V1)
+                              ,, addNameToString(V2)) ,.Set
+                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
          requires Op =/=K true andBool Op =/=K false
                   andBool (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
@@ -809,14 +821,14 @@ K
                      ~> typeCheckIntArg(Name:SymbolicValueRef,
                             vectorTypeValue(T:KResult, I:Int), V2)
                      ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(
+               ~> seqPoint(TheCount, assign(X, instruction(
                          getKLabelFromOp(Op)(
                             vectorTypeValue(T:KResult, I:Int)
                               ,, addNameToString(V1)
-                              ,, addNameToString(V2))
-                          ,.Set
-                          ,insMetas(formElemList(Meta)))) </tempBlockInst>
+                              ,, addNameToString(V2)),.Set
+                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
          requires Op =/=K true andBool Op =/=K false
                   andBool (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
@@ -843,9 +855,10 @@ K
                T:KResult, V1:K, V2:K, Meta:InstructionMetadatas)
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                   ~> assignType(Name, X, integerType(1)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(iCmp(Op, T, V1, V2), .Set,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount, assign(X,instruction(iCmp(Op, T, V1, V2), .Set,
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
          requires (getKLabel(T) ==KLabel 'integerType
                orBool getKLabel(T) ==KLabel 'pointerTypeValue)
          
@@ -858,11 +871,12 @@ K
                                     vectorTypeValue(integerType(N:Int), I:Int), V2)
                      ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int))
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(iCmp(Op,
+               ~> seqPoint(TheCount, assign(X,instruction(iCmp(Op,
                   vectorTypeValue(integerType(N:Int),
                   I:Int), V1, V2), .Set,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
 
     rule <k> typeCheckCmp(Name:SymbolicValueRef, X, Op:K,
               T:KResult, V1:K, V2:K, _:InstructionMetadatas) ~> K:K  => .K </k>
@@ -881,8 +895,9 @@ K
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
                    _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
-         <tempBlockInst> Now:K => Now ~> instruction(unconditional(A),.Set
-                                  ,insMetas(formElemList(Meta))) </tempBlockInst>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(unconditional(A),.Set
+                                  ,insMetas(formElemList(Meta)))) </tempBlockInst>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -891,8 +906,9 @@ K
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
                     _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
-         <tempBlockInst> Now:K => Now ~> instruction(unconditional(A),.Set
-                                  ,insMetas(formElemList(Meta))) </tempBlockInst>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(unconditional(A),.Set
+                                  ,insMetas(formElemList(Meta)))) </tempBlockInst>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -919,9 +935,10 @@ K
                      L2:SymbolicValueRef, Meta:InstructionMetadatas)
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
-         <tempBlockInst> Now:K => Now ~> instruction(conditional(operand(integerType(1),A)
-                             ,L1,L2),.Set,
-                             insMetas(formElemList(Meta))) </tempBlockInst>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+                instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
+                             insMetas(formElemList(Meta)))) </tempBlockInst>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -937,9 +954,11 @@ K
                        L2:SymbolicValueRef, Meta:InstructionMetadatas)
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
-         <tempBlockInst> Now:K => Now ~> instruction(conditional(operand(integerType(1),A)
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, 
+                  instruction(conditional(operand(integerType(1),A)
                              ,L1,L2),.Set,
-                             insMetas(formElemList(Meta))) </tempBlockInst>
+                             insMetas(formElemList(Meta)))) </tempBlockInst>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -955,9 +974,11 @@ K
                    L2:SymbolicValueRef, Meta:InstructionMetadatas)
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
-         <tempBlockInst> Now:K => Now ~> instruction(conditional(operand(integerType(1),A)
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+                  instruction(conditional(operand(integerType(1),A)
                              ,L1,L2),.Set,
-                             insMetas(formElemList(Meta))) </tempBlockInst>
+                             insMetas(formElemList(Meta)))) </tempBlockInst>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -972,9 +993,10 @@ K
              integerType(1), A:K, L1:SymbolicValueRef,
                 L2:SymbolicValueRef, Meta:InstructionMetadatas)
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
-         <tempBlockInst> Now:K => Now ~> instruction(conditional(operand(integerType(1),A)
-                             ,L1,L2),.Set,
-                             insMetas(formElemList(Meta))) </tempBlockInst>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+           instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
+                             insMetas(formElemList(Meta)))) </tempBlockInst>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1018,9 +1040,10 @@ K
                             Align:Int, At:K, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckIntArg(Name, pointerTypeValue(T:KResult, A:K), V2)
                  ~> assignType(Name, X, T) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount, assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta))))) </tempBlockInst>
          requires isValidAlign(Align) andBool At =/=K atomic
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int),
@@ -1028,9 +1051,11 @@ K
                            Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckIntArg(Name,pointerTypeValue(integerType(N:Int), A:K), V2)
                  ~> assignType(Name, X, integerType(N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(load(pointerTypeValue(integerType(N:Int), A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount,
+              assign(X, instruction(load(pointerTypeValue(integerType(N:Int), A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta))))) </tempBlockInst>
          requires isValidAlign(Align) andBool N >=Int 8
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
@@ -1040,9 +1065,11 @@ K
                            Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckIntArg(Name,pointerTypeValue(T:KResult, A:K), V2)
                  ~> assignType(Name, X, T:KResult) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount,
+                  assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta))))) </tempBlockInst>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
@@ -1091,9 +1118,11 @@ K
               => typeCheckIntArg(Name:SymbolicValueRef, T, V1)
                  ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(T:KResult, A:K), V2)
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2)),
-                       Mods, insMetas(formElemList(Meta))) </tempBlockInst>
+               ~> seqPoint(TheCount,
+                  instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2)),
+                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
          requires isPowOfTwo(Align, 1) andBool At =/=K atomic
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
@@ -1102,10 +1131,11 @@ K
               => typeCheckIntArg(Name:SymbolicValueRef, T:KResult, V1)
                     ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(T:KResult, A:K), V2)
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> instruction(store(T:KResult, V1,
+               ~> seqPoint(TheCount, instruction(store(T:KResult, V1,
                       operand(pointerTypeValue(T:KResult, A:K), V2)),
-                       Mods, insMetas(formElemList(Meta))) </tempBlockInst>
+                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods
@@ -1116,10 +1146,11 @@ K
               => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), V1)
                     ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(integerType(N:Int), A:K), V2)
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> instruction(store(integerType(N:Int), V1,
+               ~> seqPoint(TheCount, instruction(store(integerType(N:Int), V1,
                       operand(pointerTypeValue(integerType(N:Int), A:K), V2)),
-                       Mods, insMetas(formElemList(Meta))) </tempBlockInst>
+                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
          requires isPowOfTwo(Align, 1) andBool N >=Int 8
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods
@@ -1166,9 +1197,11 @@ K
               => typeCheckIntArg(Name:SymbolicValueRef, integerType(I:Int), V)
                      ~> assignType(Name, X, pointerTypeValue(T, 'addrEmpty(.KList)))
          ...</k>
+         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(alloca(T,preAlloca(integerType(I:Int), V), Align),
-                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount,
+               assign(X, instruction(alloca(T,preAlloca(integerType(I:Int), V), Align),
+                       Mods, insMetas(formElemList(Meta))))) </tempBlockInst>
          requires isValidAlign(Align)
 
     rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1176,9 +1209,10 @@ K
                  Mods:Set, Meta:InstructionMetadatas)
               => assignType(Name, X, pointerTypeValue(T, 'addrEmpty(.KList)))
          ...</k>
+         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(alloca(T,1, Align),
-                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+               ~> seqPoint(TheCount, assign(X, instruction(alloca(T,1, Align),
+                       Mods, insMetas(formElemList(Meta))))) </tempBlockInst>
          requires isValidAlign(Align)
 
     rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1270,10 +1304,11 @@ K
                   ~> typeCheckInGepList(getGepType(gepTypeBag(T), L), gepTypeBag(T), L)
                   ~> assignType(Name, X, pointerTypeValue(getGepType(gepTypeBag(T), L), A))
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(getElementPtr(
+               ~> seqPoint(TheCount, assign(X, instruction(getElementPtr(
                        pointerTypeValue(T, A:K), V, formOperandList(L)), Mods
-                          , insMetas(formElemList(Meta)))) </tempBlockInst>
+                          , insMetas(formElemList(Meta))))) </tempBlockInst>
          requires notBool hasVectorInList(L)
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1286,11 +1321,12 @@ K
                   ~> assignType(Name, X, vectorTypeValue(pointerTypeValue(
                                  getGepType(gepTypeBag(T), L), A), getVectorNum(L)))
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(getElementPtr(vectorTypeValue(
+               ~> seqPoint(TheCount, assign(X, instruction(getElementPtr(vectorTypeValue(
                             pointerTypeValue(T, A:K), getVectorNum(L)),
                             V, fulfillVector(formOperandList(L), getVectorNum(L))), Mods
-                          ,insMetas(formElemList(Meta)))) </tempBlockInst>
+                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
          requires hasVectorInList(L) andBool getVectorNum(L) =/=K badType
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
@@ -1304,11 +1340,13 @@ K
                   ~> assignType(Name, X, vectorTypeValue(
                                pointerTypeValue(getGepType(gepTypeBag(T), L), A), N))
           ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X, instruction(getElementPtr(vectorTypeValue(
+               ~> seqPoint(TheCount,
+                         assign(X, instruction(getElementPtr(vectorTypeValue(
                             pointerTypeValue(T, A:K), N:K),
                             V, fulfillVector(formOperandList(L), getVectorNum(L))), Mods
-                          ,insMetas(formElemList(Meta)))) </tempBlockInst>
+                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef,
                     X:SymbolicValueRef, T:KResult, pointerTypeValue(T':KResult, A:K),
@@ -1414,10 +1452,11 @@ K
               => typeCheckIntArg(Name, integerType(N), V)
                  ~> assignType(Name, X, integerType(N'))
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(Op)(
+               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
                  integerType(N:Int),, V,, integerType(N':Int)), .Set,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
          requires N <Int N' andBool Op =/=K trunc
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1435,11 +1474,12 @@ K
               => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(Op)(
+               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
                  vectorTypeValue(integerType(N:Int), I:Int),,
                  V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta)))) </tempBlockInst>
+                 .Set, insMetas(formElemList(Meta))))) </tempBlockInst>
          requires N <Int N' andBool Op =/=K trunc
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
@@ -1460,10 +1500,11 @@ K
                   V:K, integerType(N':Int), Meta:InstructionMetadatas)
               => typeCheckIntArg(Name, integerType(N), V)
                    ~> assignType(Name, X, integerType(N')) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(trunc)(
+               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(trunc)(
                  integerType(N:Int),, V,, integerType(N':Int)), .Set,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
          requires N >Int N'
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
@@ -1481,11 +1522,12 @@ K
               => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
                   ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(trunc)(
+               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(trunc)(
                  vectorTypeValue(integerType(N:Int), I:Int),,
                  V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta)))) </tempBlockInst>
+                 .Set, insMetas(formElemList(Meta))))) </tempBlockInst>
          requires N >Int N'
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
@@ -1523,11 +1565,12 @@ K
               => typeCheckIntArgs(Name:SymbolicValueRef,
                      integerType(N), val(V1),val(V2),.ElemList)
                  ~> assignType(Name, X, integerType(N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(Op)(
+               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
                                   integerType(N:Int)
                                  ,, V1,, V2), S,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int),
@@ -1535,11 +1578,12 @@ K
               => typeCheckIntArgs(Name:SymbolicValueRef,
                   vectorTypeValue(integerType(N:Int), I:Int), val(V1),val(V2),.ElemList)
                  ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockInst> Now:K => Now
-               ~> assign(X,instruction(getKLabelFromOp(Op)(
+               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
                                   vectorTypeValue(integerType(N:Int), I:Int)
                                  ,, V1,, V2), S,
-                     insMetas(formElemList(Meta)))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))) </tempBlockInst>
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(Ty:KResult, I:Int),
@@ -2000,8 +2044,10 @@ K
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, unreachable
                                   Meta:InstructionMetadatas, _:Bool)
          => checkSingleAssignmentInBlock(N, .K, false) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
             <tempBlockInst> Now:K => Now
-                   ~> instruction(unreachable,.Set,insMetas(formElemList(Meta))) </tempBlockInst>
+                   ~> seqPoint(TheCount,
+                instruction(unreachable,.Set,insMetas(formElemList(Meta)))) </tempBlockInst>
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs

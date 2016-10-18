@@ -345,8 +345,7 @@ module LLVM-HELPERS
              => val(arg(formSet(Pa),addNameToString(Ty)
                                                         ,addNameToString(Na)))
     rule formElemList(Ty:Type Pa:ParamAttrs, Al:ArgList)
-             => val(arg(formSet(Pa),addNameToString(Ty),.K))
-                                                                 ,formElemList(Al)
+             => val(arg(formSet(Pa),addNameToString(Ty),.K)),formElemList(Al)
     rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar), Al:ArgList)
              => val(arg(formSet(Pa),addNameToString(Ty)
                                            ,addNameToString(Na))),formElemList(Al)
@@ -882,5 +881,18 @@ module LLVM-HELPERS
     rule { Es:ReturnedVal } => constantStruct(formElemList(Es))  [structural]
     rule < { Es:ReturnedVal } > => packedStruct(formElemList(Es))  [structural]
 
+    syntax Set ::= getAllLocalVar(K)   [function]
+    syntax Set ::= getAllLocalVars(ElemList)  [function]
+
+    rule getAllLocalVar(X:SymbolicValueRef) => SetItem(X)
+    rule getAllLocalVar(vector(Es:ElemList)) => getAllLocalVars(Es)
+    rule getAllLocalVar(K:K) => .Set  [owise]
+    rule getAllLocalVars(.ElemList) => .Set
+    rule getAllLocalVars(val(edge(V:K, L:K)), Es:ElemList)
+                                       => getAllLocalVar(V) getAllLocalVars(Es)
+    rule getAllLocalVars(val(operand(T':Type, V:ValueRef)), Es:ElemList)
+                                       => getAllLocalVar(V) getAllLocalVars(Es)
+    rule getAllLocalVars(valValue(typeOperandResult(T:K, V:K)), Es:ElemList)
+                                          => getAllLocalVar(V) getAllLocalVars(Es)
 
 endmodule

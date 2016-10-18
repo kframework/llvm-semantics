@@ -19,7 +19,7 @@ module LLVM-CONFIGURATION
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             <checkUseCount> 0 </checkUseCount>
             <instructionCounter> 0 </instructionCounter>
-            <tempBlockInst> .K </tempBlockInst>
+            <tempBlockInst> .List </tempBlockInst>
             <checkAllUses>
                 <checkUsesInBlock multiplicity="*">
                     <allUseNum> 0 </allUseNum>
@@ -99,6 +99,9 @@ module LLVM-CONFIGURATION
                        <basicBlocks> .Map </basicBlocks>
                        <localFunVarCounter> 0 </localFunVarCounter>
                        <initialBasicBlock> .K </initialBasicBlock>
+                       <instNumToBlock> .Map  </instNumToBlock>//inst number map to block name
+                       <instNumInfo> .Map  </instNumInfo>
+                       <samePointerLoc> .List </samePointerLoc>//those locations are possibly the same
                  </function>
             </functions>
         </T>

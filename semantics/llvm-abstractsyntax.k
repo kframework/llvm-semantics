@@ -36,6 +36,12 @@ module LLVM-ABSTRACTSYNTAX
     rule val(K:KResult) => valValue(K) [structural]
 
     syntax KItem ::= "emptyHOLE"
+    syntax KItem ::= instNumInfo(K, K, K, K, K, Set, K)
+     //stmt, def_var, init_loc, store_loc (if exist), load_loc(if exist),usedvars, type
+    syntax KItem ::= "terminators" | "loadInst" | "storeInst"
+                    | "callInst" | "normalInst" | "returnInst"
+                    | "allocaInst"
+    syntax KItem ::= usedLoc(K) //location of a variable.
 
     syntax KItem ::= seqPoint(Int, K)//program num, inst
 
@@ -72,6 +78,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax ElemList ::= addElemToEnd(Element, ElemList)   [function]
     rule addElemToEnd(E:Element, .ElemList) => E,.ElemList
     rule addElemToEnd(E:Element, E':Element,Es:ElemList) => E',addElemToEnd(E,Es)
+
+    syntax Set ::= elemListToSet(ElemList) [function]
+    rule elemListToSet(.ElemList) => .Set
+    rule elemListToSet(val(A:K), Es:ElemList)
+                        => SetItem(A) elemListToSet(Es)
+    rule elemListToSet(valValue(A:K), Es:ElemList)
+                        => SetItem(A) elemListToSet(Es)
 
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | vectorType(K, K) [strict(1)]//inner type, length

@@ -425,8 +425,12 @@ K
                                       Es:ElemList, Meta:InstructionMetadatas)
           => typeCheckIntArg(Name, T, V) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(indirectbr(operand(T, V),Es)
-                                        ,.Set,insMetas(formElemList(Meta)))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                 <- instNumInfo(seqPoint(TheCount, instruction(indirectbr(operand(T, V),Es)
+               ,.Set,insMetas(formElemList(Meta)))),
+                .K, .K, .K, .K, getAllLocalVar(V) elemListToSet(Es), terminators)]  </instNumInfo>
 
     rule <k>typeCheckIndirectBr(Name:SymbolicValueRef, T:K, V:K,
                   val(A:SymbolicValueRef), E2:ElemList,
@@ -478,12 +482,15 @@ K
                ~> typeCheckIntArg(N, T1, V3)
                ~> assignType(N, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => seqPoint(TheCount, Now
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- N]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                             <- instNumInfo(seqPoint(TheCount, Now
                ~> assign(X, instruction(select(integerType(1)
                                  ,V1 ,operand(T1,V2)
                                      ,operand(T1,V3))
-                          ,.Set ,insMetas(formElemList(Meta))))) </tempBlockInst>
-
+              ,.Set ,insMetas(formElemList(Meta))))), X, .K, .K, .K,
+          getAllLocalVar(V1) getAllLocalVar(V2) getAllLocalVar(V3), normalInst)]  </instNumInfo>
 
      rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
                   vectorTypeValue(integerType(1), N:Int), V1:K,
@@ -494,11 +501,16 @@ K
                ~> typeCheckIntArg(Name, vectorTypeValue(T1:KResult, N:Int), V3)
                ~> assignType(Name, X, vectorTypeValue(integerType(1), N:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(select(vectorTypeValue(integerType(1), N:Int)
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                             <- instNumInfo(seqPoint(TheCount,
+                      assign(X, instruction(select(vectorTypeValue(integerType(1), N:Int)
                                  ,V1 ,operand(vectorTypeValue(T1:KResult, N:Int), V2)
-                                     ,operand(vectorTypeValue(T1:KResult, N:Int), V3))
-                          ,.Set ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                    ,operand(vectorTypeValue(T1:KResult, N:Int), V3))
+                  ,.Set ,insMetas(formElemList(Meta))))), X, .K, .K, .K,
+           getAllLocalVar(V1) getAllLocalVar(V2) getAllLocalVar(V3), normalInst)]  </instNumInfo>
+
 
     rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
                    integerType(A:Int), V1:K, T1:KResult, V2:K,
@@ -539,11 +551,16 @@ K
                         val(La:K), Es:ElemList ,, Meta:InstructionMetadatas)
           => typeCheckIntArgList(N, E1) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- N]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                             <- instNumInfo(seqPoint(TheCount,
                     instruction(switch(addNameToString(It), addNameToString(Va)
                                         ,addNameToString(La)
-                                        ,formCasesInList(E1, Es))
-                                        ,.Set, insMetas(formElemList(Meta)))) </tempBlockInst>
+                                 ,formCasesInList(E1, Es))
+                                ,.Set, insMetas(formElemList(Meta)))), .K, .K, .K, .K,
+       getAllLocalVar(Va) getAllLocalVar(vector(E1)), terminators)]  </instNumInfo>
+
 
     rule <k> 'typeCheckSwitch(Name:SymbolicValueRef,,
                    E1:ElemList,,
@@ -616,10 +633,16 @@ K
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, instruction(getKLabelFromOp(Ca)(void,, callee(V1,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                        instruction(getKLabelFromOp(Ca)(void,, callee(V1,
                            arguments(formArgList(Tv,Arg))))
-                          ,Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+                          ,Mods, insMetas(formElemList(Meta)))), .K,
+                .K, .K, .K, getAllLocalVars(Tv), callInst)]  </instNumInfo>
+
+
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
              T:KResult, V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
@@ -631,18 +654,26 @@ K
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(A, instruction(getKLabelFromOp(Ca)(T,,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                     assign(A, instruction(getKLabelFromOp(Ca)(T,,
                            callee(V1, arguments(formArgList(Tv,Arg))))
-                          ,Mods, insMetas(formElemList(Meta))))) </tempBlockInst>
+                          ,Mods, insMetas(formElemList(Meta))))),
+                   A, .K, .K, .K, getAllLocalVars(Tv), callInst)]  </instNumInfo>
 
     //deal with ret
     rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas) => typeCheckIntArg(N, T, V) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(ret(T,V)
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- N]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, instruction(ret(T,V)
                                         ,.Set
-                                        ,insMetas(formElemList(Meta)))) </tempBlockInst>
+                                        ,insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, getAllLocalVar(V), returnInst)]  </instNumInfo>
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function
@@ -697,9 +728,14 @@ K
              Es:ElemList, Meta:InstructionMetadatas) => assignType(Name, X, T) ...</k>
          <matchPhisWithInEdges>... (.List => ListItem(phiEdges(Name, InSet))) </matchPhisWithInEdges>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(phi(T, Es),.Set
-                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                  assign(X, instruction(phi(T, Es),.Set
+                          ,insMetas(formElemList(Meta))))),
+                        X, .K, .K, .K, getAllLocalVars(Es), normalInst)]  </instNumInfo>
+
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
               T:KResult, E1:ElemList, val(name(localVar, S:String)),
@@ -775,10 +811,13 @@ K
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                    ~> assignType(Name, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                 assign(X,instruction(#if Op ==K true #then 1 #else 0 #fi, .Set,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))),
+             X, .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2), normalInst)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
@@ -791,10 +830,13 @@ K
                             vectorTypeValue(T:KResult, I:Int), V2)
                      ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                 assign(X,instruction(#if Op ==K true #then 1 #else 0 #fi, .Set,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))),
+               X, .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2), normalInst)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
          requires (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
                   orBool T ==K fp128 orBool T ==K x86_fp80)
@@ -804,11 +846,14 @@ K
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                    ~> assignType(Name, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, assign(X,
             instruction(getKLabelFromOp(Op)(T,, addNameToString(V1)
                               ,, addNameToString(V2)) ,.Set
-                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                          ,insMetas(formElemList(Meta))))),
+               X, .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2), normalInst)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
          requires Op =/=K true andBool Op =/=K false
                   andBool (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
@@ -822,13 +867,16 @@ K
                             vectorTypeValue(T:KResult, I:Int), V2)
                      ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, assign(X, instruction(
                          getKLabelFromOp(Op)(
                             vectorTypeValue(T:KResult, I:Int)
                               ,, addNameToString(V1)
                               ,, addNameToString(V2)),.Set
-                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                          ,insMetas(formElemList(Meta))))),
+                   X, .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2), normalInst)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
          requires Op =/=K true andBool Op =/=K false
                   andBool (T ==K float orBool T ==K double
                   orBool T ==K ppc_fp128 orBool T ==K half
@@ -856,9 +904,12 @@ K
                => typeCheckIntArg(Name, T, V1) ~> typeCheckIntArg(Name, T, V2)
                   ~> assignType(Name, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(iCmp(Op, T, V1, V2), .Set,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, assign(X,instruction(iCmp(Op, T, V1, V2), .Set,
+                     insMetas(formElemList(Meta))))),
+              X, .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2), normalInst)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
          requires (getKLabel(T) ==KLabel 'integerType
                orBool getKLabel(T) ==KLabel 'pointerTypeValue)
          
@@ -872,11 +923,14 @@ K
                      ~> assignType(Name, X, vectorTypeValue(integerType(1), I:Int))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(iCmp(Op,
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, assign(X,instruction(iCmp(Op,
                   vectorTypeValue(integerType(N:Int),
                   I:Int), V1, V2), .Set,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))),
+             X, .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2), normalInst)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
 
     rule <k> typeCheckCmp(Name:SymbolicValueRef, X, Op:K,
               T:KResult, V1:K, V2:K, _:InstructionMetadatas) ~> K:K  => .K </k>
@@ -896,8 +950,12 @@ K
                    _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(unconditional(A),.Set
-                                  ,insMetas(formElemList(Meta)))) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, instruction(unconditional(A),.Set
+                                  ,insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, .Set, terminators)]  </instNumInfo>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -907,8 +965,12 @@ K
                     _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, instruction(unconditional(A),.Set
-                                  ,insMetas(formElemList(Meta)))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, instruction(unconditional(A),.Set
+                                  ,insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, .Set, terminators)]  </instNumInfo>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -936,9 +998,13 @@ K
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                 instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
-                             insMetas(formElemList(Meta)))) </tempBlockInst>
+                             insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, getAllLocalVar(A), terminators)]  </instNumInfo>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -955,10 +1021,14 @@ K
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount, 
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, 
                   instruction(conditional(operand(integerType(1),A)
                              ,L1,L2),.Set,
-                             insMetas(formElemList(Meta)))) </tempBlockInst>
+                             insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, getAllLocalVar(A), terminators)]  </instNumInfo>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -975,10 +1045,14 @@ K
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                   instruction(conditional(operand(integerType(1),A)
                              ,L1,L2),.Set,
-                             insMetas(formElemList(Meta)))) </tempBlockInst>
+                             insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, getAllLocalVar(A), terminators)]  </instNumInfo>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -994,9 +1068,13 @@ K
                 L2:SymbolicValueRef, Meta:InstructionMetadatas)
                  => typeCheckIntArg(Name, integerType(1), A) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
            instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
-                             insMetas(formElemList(Meta)))) </tempBlockInst>
+                             insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, getAllLocalVar(A), terminators)]  </instNumInfo>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1041,9 +1119,14 @@ K
               => typeCheckIntArg(Name, pointerTypeValue(T:KResult, A:K), V2)
                  ~> assignType(Name, X, T) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta))))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                       assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta))))),
+                    X, .K, .K, usedLoc(V2),
+                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
          requires isValidAlign(Align) andBool At =/=K atomic
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int),
@@ -1052,10 +1135,14 @@ K
               => typeCheckIntArg(Name,pointerTypeValue(integerType(N:Int), A:K), V2)
                  ~> assignType(Name, X, integerType(N:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
               assign(X, instruction(load(pointerTypeValue(integerType(N:Int), A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                   V2) ,Mods ,insMetas(formElemList(Meta))))),
+                    X, .K, .K, usedLoc(V2),
+                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
          requires isValidAlign(Align) andBool N >=Int 8
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
@@ -1066,10 +1153,14 @@ K
               => typeCheckIntArg(Name,pointerTypeValue(T:KResult, A:K), V2)
                  ~> assignType(Name, X, T:KResult) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                   assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                   V2) ,Mods ,insMetas(formElemList(Meta))))),
+                    X, .K, .K, usedLoc(V2),
+                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
@@ -1119,10 +1210,15 @@ K
                  ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(T:KResult, A:K), V2)
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                   instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2)),
-                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+                       Mods, insMetas(formElemList(Meta)))), .K,
+                    .K, usedLoc(V2),.K,
+                 getAllLocalVar(V1) getAllLocalVar(V2) SetItem(usedLoc(V2)),
+                                                         storeInst)]  </instNumInfo>
          requires isPowOfTwo(Align, 1) andBool At =/=K atomic
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
@@ -1132,10 +1228,15 @@ K
                     ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(T:KResult, A:K), V2)
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, instruction(store(T:KResult, V1,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, instruction(store(T:KResult, V1,
                       operand(pointerTypeValue(T:KResult, A:K), V2)),
-                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+                       Mods, insMetas(formElemList(Meta)))), .K,
+                    .K, usedLoc(V2),.K,
+                 getAllLocalVar(V1) getAllLocalVar(V2) SetItem(usedLoc(V2)),
+                 storeInst)]  </instNumInfo>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods
@@ -1147,10 +1248,15 @@ K
                     ~> typeCheckIntArg(Name:SymbolicValueRef, pointerTypeValue(integerType(N:Int), A:K), V2)
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, instruction(store(integerType(N:Int), V1,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, instruction(store(integerType(N:Int), V1,
                       operand(pointerTypeValue(integerType(N:Int), A:K), V2)),
-                       Mods, insMetas(formElemList(Meta)))) </tempBlockInst>
+                       Mods, insMetas(formElemList(Meta)))), .K,
+                    .K, usedLoc(V2),.K,
+                 getAllLocalVar(V1) getAllLocalVar(V2) SetItem(usedLoc(V2)),
+                 storeInst)]  </instNumInfo>
          requires isPowOfTwo(Align, 1) andBool N >=Int 8
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods
@@ -1198,10 +1304,14 @@ K
                      ~> assignType(Name, X, pointerTypeValue(T, 'addrEmpty(.KList)))
          ...</k>
          <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                assign(X, instruction(alloca(T,preAlloca(integerType(I:Int), V), Align),
-                       Mods, insMetas(formElemList(Meta))))) </tempBlockInst>
+                       Mods, insMetas(formElemList(Meta))))), X,
+                    usedLoc(X), .K, .K, .Set,
+                 allocaInst)]  </instNumInfo>
          requires isValidAlign(Align)
 
     rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1210,9 +1320,13 @@ K
               => assignType(Name, X, pointerTypeValue(T, 'addrEmpty(.KList)))
          ...</k>
          <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(alloca(T,1, Align),
-                       Mods, insMetas(formElemList(Meta))))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, assign(X, instruction(alloca(T,1, Align),
+                       Mods, insMetas(formElemList(Meta))))), X,
+                    usedLoc(X), .K, .K, .Set,
+                 allocaInst)]  </instNumInfo>
          requires isValidAlign(Align)
 
     rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1305,10 +1419,14 @@ K
                   ~> assignType(Name, X, pointerTypeValue(getGepType(gepTypeBag(T), L), A))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(getElementPtr(
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount, assign(X, instruction(getElementPtr(
                        pointerTypeValue(T, A:K), V, formOperandList(L)), Mods
-                          , insMetas(formElemList(Meta))))) </tempBlockInst>
+                          , insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V) getAllLocalVar(vector(L)),
+                 normalInst)]  </instNumInfo>
          requires notBool hasVectorInList(L)
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1322,11 +1440,16 @@ K
                                  getGepType(gepTypeBag(T), L), A), getVectorNum(L)))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X, instruction(getElementPtr(vectorTypeValue(
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                          assign(X, instruction(getElementPtr(vectorTypeValue(
                             pointerTypeValue(T, A:K), getVectorNum(L)),
                             V, fulfillVector(formOperandList(L), getVectorNum(L))), Mods
-                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                          ,insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V) getAllLocalVar(vector(L)),
+                 normalInst)]  </instNumInfo>
          requires hasVectorInList(L) andBool getVectorNum(L) =/=K badType
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
@@ -1341,12 +1464,16 @@ K
                                pointerTypeValue(getGepType(gepTypeBag(T), L), A), N))
           ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount,
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
                          assign(X, instruction(getElementPtr(vectorTypeValue(
                             pointerTypeValue(T, A:K), N:K),
                             V, fulfillVector(formOperandList(L), getVectorNum(L))), Mods
-                          ,insMetas(formElemList(Meta))))) </tempBlockInst>
+                          ,insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V) getAllLocalVar(vector(L)),
+                 normalInst)]  </instNumInfo>
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef,
                     X:SymbolicValueRef, T:KResult, pointerTypeValue(T':KResult, A:K),
@@ -1453,10 +1580,15 @@ K
                  ~> assignType(Name, X, integerType(N'))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                       assign(X,instruction(getKLabelFromOp(Op)(
                  integerType(N:Int),, V,, integerType(N':Int)), .Set,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
          requires N <Int N' andBool Op =/=K trunc
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1475,11 +1607,16 @@ K
                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                        assign(X,instruction(getKLabelFromOp(Op)(
                  vectorTypeValue(integerType(N:Int), I:Int),,
                  V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta))))) </tempBlockInst>
+                 .Set, insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
          requires N <Int N' andBool Op =/=K trunc
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
@@ -1501,10 +1638,15 @@ K
               => typeCheckIntArg(Name, integerType(N), V)
                    ~> assignType(Name, X, integerType(N')) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(trunc)(
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                         assign(X,instruction(getKLabelFromOp(trunc)(
                  integerType(N:Int),, V,, integerType(N':Int)), .Set,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+                     insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
          requires N >Int N'
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
@@ -1523,11 +1665,16 @@ K
                   ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(trunc)(
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                  assign(X,instruction(getKLabelFromOp(trunc)(
                  vectorTypeValue(integerType(N:Int), I:Int),,
                  V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta))))) </tempBlockInst>
+                 .Set, insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
          requires N >Int N'
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
@@ -1566,11 +1713,15 @@ K
                      integerType(N), val(V1),val(V2),.ElemList)
                  ~> assignType(Name, X, integerType(N:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                                  integerType(N:Int)
-                                 ,, V1,, V2), S,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                        assign(X,instruction(getKLabelFromOp(Op)(
+                       integerType(N:Int),, V1,, V2), S,
+                     insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2),
+                 normalInst)]  </instNumInfo>
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int),
@@ -1579,11 +1730,15 @@ K
                   vectorTypeValue(integerType(N:Int), I:Int), val(V1),val(V2),.ElemList)
                  ~> assignType(Name, X, vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:K => Now
-               ~> seqPoint(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                                  vectorTypeValue(integerType(N:Int), I:Int)
-                                 ,, V1,, V2), S,
-                     insMetas(formElemList(Meta))))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                          assign(X,instruction(getKLabelFromOp(Op)(
+                   vectorTypeValue(integerType(N:Int), I:Int),, V1,, V2), S,
+                     insMetas(formElemList(Meta))))), X,
+                    .K, .K, .K, getAllLocalVar(V1) getAllLocalVar(V2),
+                 normalInst)]  </instNumInfo>
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(Ty:KResult, I:Int),
@@ -1979,9 +2134,9 @@ K
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <tempBlockInst> K:K => .K </tempBlockInst>
-        <basicBlocks>... N |-> blockContent((_:K => setBlock(N)
-                   ~> K), _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+        <tempBlockInst> K:List => .List </tempBlockInst>
+        <basicBlocks>... N |-> blockContent((_:List => K),
+                       _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //have dealt with all instruction list.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .InstructionList
@@ -2045,9 +2200,13 @@ K
                                   Meta:InstructionMetadatas, _:Bool)
          => checkSingleAssignmentInBlock(N, .K, false) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-            <tempBlockInst> Now:K => Now
-                   ~> seqPoint(TheCount,
-                instruction(unreachable,.Set,insMetas(formElemList(Meta)))) </tempBlockInst>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- N]  </instNumToBlock>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(seqPoint(TheCount,
+                instruction(unreachable,.Set,insMetas(formElemList(Meta)))), .K,
+                    .K, .K, .K, .Set,
+                 terminators)]  </instNumInfo>
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs

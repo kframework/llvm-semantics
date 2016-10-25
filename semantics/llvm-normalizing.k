@@ -2660,11 +2660,172 @@ create an abstract for fence and do the same for fence operation.
                  blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
         requires operand(T, V) in Def
 
+    //define a relation to create block paths map to get max reachable path for each block
+    rule setBlockPaths(.K, .Set) => .K
+    rule setBlockPaths(.K, SetItem(Name:K) S:Set) => setBlockPaths(Name, S)
+    rule <k> setBlockPaths(Name:KItem, S:Set)
+             => setBlockPath(Name, Name, Out, .Set,
+                     ListItem(blockPath(ListItem(Name))), .List, .List, .Set)
+                                 ~> setBlockPaths(emptyHOLE, S) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <basicBlocks>... Name |->
+              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires Name =/=K emptyHOLE
+
+    rule <k> setBlockPath(Name:K, V:KItem, .Set, .Set, L':List, LStore:List,
+                     L:List, Visited:Set)
+                 ~> setBlockPaths(emptyHOLE, S:Set)
+                               => setBlockPaths(.K, S) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap> M:Map => M[Name <- blockPath(L)] </blockPathMap>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires V =/=K emptyHOLE andBool size(L) =/=K 0
+
+    rule <k> setBlockPath(Name:K, V:KItem, .Set, .Set, L':List, LStore:List,
+                     .List, Visited:Set)
+                 ~> setBlockPaths(emptyHOLE, S:Set)
+                               => setBlockPaths(.K, S) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap> M:Map => M[Name <- blockPath(LStore)] </blockPathMap>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires V =/=K emptyHOLE
+
+    rule <k> setBlockPath(Name:KItem, V:KItem, .Set,
+                     SetItem(A:KItem) Vs:Set, OldL:List, L':List, L:List, Visited:Set)
+            => setBlockPath(V, A, Out, .Set, L':List, .List, .List, .Set)
+               ~> setBlockPath(Name, emptyHOLE, .Set, Vs,OldL, L', L, SetItem(A) Visited)
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <basicBlocks>... V |->
+              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires V =/=K emptyHOLE
+
+    rule <k> setBlockPath(V:KItem, A:KItem, .Set, .Set, OldL:List, L':List, L:List, Visited:Set)
+               ~> setBlockPath(Name, emptyHOLE, .Set, Vs:Set,OldL':List, TemL:List, L1:List, Visited':Set)
+            => setBlockPath(Name, V, .Set, Vs,OldL', TemL:List, mergeList(L, L1), Visited')
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <basicBlocks>... V |->
+              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires A =/=K emptyHOLE andBool notBool size(L) =/=K 0
+
+    rule <k> setBlockPath(V:KItem, A:KItem, .Set, .Set, OldL:List, L':List, .List, Visited:Set)
+               ~> setBlockPath(Name, emptyHOLE, .Set, Vs:Set,OldL':List, TemL:List, L1:List, Visited':Set)
+            => setBlockPath(Name, V, .Set, Vs,OldL', TemL:List, mergeList(L', L1), Visited')
+         ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <basicBlocks>... V |->
+              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires A =/=K emptyHOLE
+
+    rule setBlockPath(Name:KItem, V:KItem, SetItem(A:K) Ms:Set,
+                                   Vs, L:List, L1:List, LStore:List, Visited:Set)
+            => setBlockPath(Name, V, Ms, Vs SetItem(A),
+                            L, mergeList(addElemToList(A, L), L1), LStore, Visited)
+          requires V =/=K emptyHOLE
+
+/*
+    rule (.K => setBlockPath(Name, Name, .Set, .K,
+                .Set, ListItem(blockPath(ListItem(Name))), .Set))
+               ~> setBlockPaths(SetItem(Name:K) S:Set)
+
+    rule <k> setBlockPath(Name:K, V:K, .Set, .K, .Set, L:List, .Set) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap> M:Map </blockPathMap>
+         <basicBlocks>... Name |->
+              blockContent(_:List, Out:Set, In:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires V =/=K emptyHOLE
+
+    rule setBlockPaths(SetItem(Name:K) S:Set, .K, Done:Set, .K, .Set, .K, .Set)
+           => setBlockPaths(S, Name, Done, .K, .Set, .K, .Set)
+
+    rule <k> setBlockPaths(S:Set, Name:K, Done:Set, .K, .Set, .K, .Set)
+           => setBlockPaths(S, Name, Done, .K, Out, .K, In) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap> M:Map => M[Name <- blockPath(ListItem(Name))] </blockPathMap>
+         <basicBlocks>... Name |->
+              blockContent(_:List, Out:Set, In:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires (notBool Name in Done) andBool (notBool Name in keys(M))
+
+    rule <k> setBlockPaths(S:Set, Name:K, Done:Set, .K, .Set, .K, .Set)
+           => setBlockPaths(S, Name, Done SetItem(Name), .K, Out, .K, In) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap> M:Map </blockPathMap>
+         <basicBlocks>... Name |->
+              blockContent(_:List, Out:Set, In:Set, _:Set, _:Set, _:Set) </basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires (notBool Name in Done) andBool Name in keys(M)
+
+    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, Done:Set,
+                                    .K, SetItem(Next:K) Out:Set, Prev:K, In:Set)
+           => setBlockPaths(BName, Name, Done, Next, Out, Prev, In) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <blockPathMap> M:Map </blockPathMap>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        requires Name in keys(M)
+
+
+    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, Done:Set,
+                                     Next:K, Out:Set, .K, SetItem(Prev) In:Set)
+           => setBlockPaths(BName, Name, Done, Next, Out, Prev, In) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <blockPathMap> M:Map </blockPathMap>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        requires Name in keys(M)
+
+    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, .K, SetItem(Next:K) Out:Set, Prev:K, In:Set)
+           => setBlockPaths(BName, Name, Next, Out, Prev, In) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <blockPathMap> M:Map </blockPathMap>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        requires Name in keys(M)
+
+    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, Next:SymbolicValueRef, Out:Set, In:Set)
+           => setBlockPaths(BName, Name, Next, Out, In) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <blockPathMap> M:Map </blockPathMap>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        requires Name in keys(M)
+*/
 
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
-               => setInEdges(keys(M)) ~> checkingPhisInEdges
+               => setInEdges(keys(M))
+                  ~> setBlockPaths(.K, keys(M))
+                  ~> checkingPhisInEdges
                   ~> checkUseVarInPhi(getArgsInFunction(E))
                     ~> checkUseVars(getArgsInFunction(E)) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -2682,7 +2843,7 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-              |-> blockContent(.K, .Set, .Set, SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+              |-> blockContent(.List, .Set, .Set, SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
@@ -2716,7 +2877,7 @@ create an abstract for fence and do the same for fence operation.
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.K, .Set, .Set,
+                         |-> blockContent(.List, .Set, .Set,
                             SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
@@ -2751,7 +2912,7 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.K, .Set, .Set,
+                         |-> blockContent(.List, .Set, .Set,
                           SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
@@ -2784,7 +2945,7 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.K, .Set, .Set,
+                         |-> blockContent(.List, .Set, .Set,
                              SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
@@ -2820,7 +2981,7 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
-                  |-> blockContent(.K, .Set, .Set,
+                  |-> blockContent(.List, .Set, .Set,
                         SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I))  |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
@@ -2851,7 +3012,7 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
-                |-> blockContent(.K, .Set, .Set,
+                |-> blockContent(.List, .Set, .Set,
                     SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>

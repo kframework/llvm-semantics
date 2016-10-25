@@ -99,6 +99,7 @@ module LLVM-CONFIGURATION
                        <basicBlocks> .Map </basicBlocks>
                        <localFunVarCounter> 0 </localFunVarCounter>
                        <initialBasicBlock> .K </initialBasicBlock>
+                       <blockPathMap> .Map </blockPathMap>
                        <instNumToBlock> .Map  </instNumToBlock>//inst number map to block name
                        <instNumInfo> .Map  </instNumInfo>
                        <samePointerLoc> .List </samePointerLoc>//those locations are possibly the same

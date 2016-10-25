@@ -895,4 +895,26 @@ module LLVM-HELPERS
     rule getAllLocalVars(valValue(typeOperandResult(T:K, V:K)), Es:ElemList)
                                           => getAllLocalVar(V) getAllLocalVars(Es)
 
+    syntax List ::= setBlockToPath(List, K, K) [function]
+    rule setBlockToPath(.List, _:K, _:K) => .List
+    rule setBlockToPath(ListItem(blockPath(L:List ListItem(A:K))) BL:List, A:K, B:K)
+          => ListItem(blockPath(L ListItem(A) ListItem(B))) setBlockToPath(BL, A, B)
+    rule setBlockToPath(ListItem(blockPath(L:List ListItem(A:K))) BL:List, A':K, B:K)
+          => ListItem(blockPath(L ListItem(A))) setBlockToPath(BL, A', B)
+         requires A =/=K A'
+
+    syntax List ::= mergeList(List, List) [function]
+    rule mergeList(.List, L:List) => L
+    rule mergeList(ListItem(A:K) L:List, L':List)
+             => mergeList(L, ListItem(A) L')
+         requires notBool A in L'
+    rule mergeList(ListItem(A:K) L:List, L':List)
+             => mergeList(L, L')
+         requires A in L'
+
+    syntax List ::= addElemToList(K, List) [function]
+    rule addElemToList(A:K, .List) => .List
+    rule addElemToList(A:K, ListItem(blockPath(L':List)) L:List)
+                 => ListItem(blockPath(L' ListItem(A))) addElemToList(A, L)
+
 endmodule

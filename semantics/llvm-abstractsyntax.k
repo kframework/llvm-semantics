@@ -274,9 +274,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= blockContent(List, Set, Set, Set, Set, Set)
-                                   //instructions,outgoing edges, incoming edges, all defs about vars,
+    syntax KItem ::= blockContent(List, Set, Set, Set, Set, Set, Set, Set)
+                                   //instructions,outgoing edges, incoming edges, all defs about vars, incomming def set
                                    // all uses of var in phi without defs in cur, all uses of var in others without def in cur. 
+                                   //all in coming use vars.
     syntax KItem ::= setOutEdge(K, ElemList) //name, outEdges
     syntax KItem ::= setInEdges(Set)
     syntax KItem ::= setInEdgesForNode(K)
@@ -296,6 +297,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= checkUseVarInPhi(K, Set, Set)
     //syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
     syntax KItem ::= setBlockPaths(K, Set) //block, store set
+    syntax KItem ::= setBlockInDefs(K, Set)//block, store block set
+    syntax KItem ::= setBlockInDef(K, List)//block, path
+    syntax KItem ::= setBlockInUses(K, Set)//block, store block set
+    syntax KItem ::= setBlockInUse(K, List)//block, path
     syntax KItem ::= setBlockPath(K, K, Set, Set, List, List, List, Set)
            //top, cur, touch set, visiting node, visiting set, store paths, caled paths, paths, visited set
            //block names, name, checked blocks, outblock, outs, inblock, ins

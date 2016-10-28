@@ -51,7 +51,8 @@ module LLVM-CALL-RET
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
         <basicBlocks>... IBBName
-                            |-> blockContent(Body:K, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                            |-> blockContent(Body:K, _:Set, _:Set, _:Set,
+                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
 
     syntax KItem ::= contextSwitch(K, K)

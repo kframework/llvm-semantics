@@ -456,8 +456,8 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, A))), _:Set) ...</basicBlocks>
          requires notBool A in keys(M)
 
     rule <k> typeCheckIndirectBr(Name:SymbolicValueRef, Ty:K, Va:K,
@@ -587,8 +587,8 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, A))), _:Set) ...</basicBlocks>
          requires notBool A in keys(M)
 
     rule <k> 'typeCheckSwitch(Name:SymbolicValueRef,,
@@ -695,7 +695,7 @@ K
          <functionName> FunName </functionName>
          <varTypes>... name(localVar, S:String) |-> T ...</varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires operand(T, name(localVar, S:String)) in Def
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
@@ -707,8 +707,8 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, Def:Set,
-                  UsePhi:Set (.Set => SetItem(operand(T, name(localVar, S:String)))), _:Set) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, Def:Set, _:Set,
+                  UsePhi:Set (.Set => SetItem(operand(T, name(localVar, S:String)))), _:Set, _:Set) ...</basicBlocks>
          requires notBool operand(T, name(localVar, S:String)) in Def
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -749,9 +749,9 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
                      Use:Set (.Set
-                  => SetItem(operand(label, name(localVar, S:String))))) ...</basicBlocks>
+                  => SetItem(operand(label, name(localVar, S:String)))), _:Set) ...</basicBlocks>
          requires notBool name(localVar, S:String) in keys(M)
                   andBool notBool name(localVar, S:String) in InSet
 
@@ -976,8 +976,8 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(label, A)))) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, A))), _:Set) ...</basicBlocks>
          requires notBool A in keys(M)
 
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
@@ -1010,9 +1010,9 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
                      Use:Set (.Set => SetItem(operand(label, L1))
-                              SetItem(operand(label, L2)))) ...</basicBlocks>
+                              SetItem(operand(label, L2))), _:Set) ...</basicBlocks>
          requires (notBool L1 in keys(M)) andBool (notBool L2 in keys(M))
 
     rule <k> typeCheckBr(Name:SymbolicValueRef,
@@ -1034,8 +1034,8 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(label, L1)))) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, L1))), _:Set) ...</basicBlocks>
          requires L2 in keys(M) andBool (notBool L1 in keys(M))
                   andBool M[L2] ==K label
 
@@ -1058,8 +1058,8 @@ K
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, _:Set, _:Set,
-                     Use:Set (.Set => SetItem(operand(label, L2)))) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set, _:Set, _:Set, _:Set,
+                     Use:Set (.Set => SetItem(operand(label, L2))), _:Set) ...</basicBlocks>
          requires L1 in keys(M) andBool (notBool L2 in keys(M))
                   andBool M[L1] ==K label
 
@@ -1762,7 +1762,8 @@ K
          <functionName> FunName </functionName>
           <varTypes> _:Map (.Map => X |-> T) </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:K, _:Set, _:Set, Def:Set (.Set => SetItem(operand(T, X))), _:Set, _:Set) ...</basicBlocks>
+             |-> blockContent(_:List, _:Set, _:Set
+                       , Def:Set (.Set => SetItem(operand(T, X))), _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, .ElemList) => .K
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, val(V:K),Vs:ElemList)
@@ -1781,8 +1782,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> T:K ...</varTypes>
-         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
-               Def:Set, _:Set, _:Set) ...</basicBlocks>
+         <basicBlocks>... Name |-> blockContent(_:List, _:Set, _:Set,
+               Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires operand(T, addNameToString(X)) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
@@ -1790,8 +1791,8 @@ K
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
-               Def:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
+         <basicBlocks>... Name |-> blockContent(_:List, _:Set, _:Set,
+               Def:Set, _:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X)))), _:Set) ...</basicBlocks>
          requires notBool operand(T, addNameToString(X)) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) ~> K:K => .K </k>
@@ -1832,8 +1833,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> T ...</varTypes>
-         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
-               Def:Set, _:Set, _:Set) ...</basicBlocks>
+         <basicBlocks>... Name |-> blockContent(_:List, _:Set, _:Set,
+               Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires operand(T, addNameToString(X)) in Def
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
@@ -1845,8 +1846,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes> M:Map </varTypes>
-         <basicBlocks>... Name |-> blockContent(_:K, _:Set, _:Set,
-               _:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
+         <basicBlocks>... Name |-> blockContent(_:List, _:Set, _:Set, _:Set,
+               _:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X)))), _:Set) ...</basicBlocks>
          requires notBool addNameToString(X) in keys(M)
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
@@ -1935,7 +1936,8 @@ K
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... N |-> 
-                blockContent(_:K, Out:Set (.Set => SetItem(V)), _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                blockContent(_:List, Out:Set (.Set => SetItem(V)), _:Set,
+                                      _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //set inedges
     rule setInEdges(.Set) => .K
@@ -1948,7 +1950,8 @@ K
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-                blockContent(_:K, Out:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                blockContent(_:List, Out:Set, _:Set,
+                            _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     rule setInEdgesForNode(A:K, .K, .Set) => .K
     rule setInEdgesForNode(A:K, .K, SetItem(B:K) S:Set) => setInEdgesForNode(A, B, S)
@@ -1958,7 +1961,8 @@ K
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... B |-> 
-              blockContent(_:K, _:Set, In:Set (.Set => SetItem(A)), _:Set, _:Set, _:Set) ...</basicBlocks>
+              blockContent(_:List, _:Set, In:Set (.Set => SetItem(A)),
+                                        _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //helper function for checkUseVars
     syntax Set ::= getOperandSetOfLabels(Set)    [function]
@@ -1988,12 +1992,14 @@ K
     rule checkUseVars(ListItem(A:K) L:List, .K, S:Set) => checkUseVars(L, A, S)
 
     rule checkUseVars(L:List,
-                   blockContent(K:K, Out:Set, In:Set, Def:Set, _:Set, Use:Set), S:Set)
+                   blockContent(K:List, Out:Set, In:Set,
+                            Def:Set, _:Set, _:Set, Use:Set, _:Set), S:Set, _:Set)
          => checkUseVars(L, .K, S)
          requires Use -Set S <=Set .Set
 
     rule <k> checkUseVars(L:List,
-                  blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, Use:Set), S:Set)
+                  blockContent(K:List, Out:Set, In:Set, Def:Set,
+                                        InDef:Set, UsePhi:Set, Use:Set, InTheUse:Set), S:Set, InUse:Set)
          => checkUseVars(L, .K, S) ...</k>
          (.Bag => <checkUsesInBlock>...
                     <allCurrentJob> checkUseVars(In, Use -Set S, S) </allCurrentJob>
@@ -2008,7 +2014,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+              blockContent(_:List, _:Set, _:Set, Def:Set,
+                                  _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires Use <=Set Def
 
     rule <checkAllUses>
@@ -2025,7 +2032,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, S':Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+              blockContent(_:List, _:Set, S':Set, Def:Set, _:Set,
+                                          _:Set, _:Set, _:Set) ...</basicBlocks>
          requires (notBool (Use <=Set Def)) andBool S' <=Set S
 
 
@@ -2038,7 +2046,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, In:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+              blockContent(_:List, _:Set, In:Set,
+                                     Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires notBool (Use <=Set Def) andBool notBool (In <=Set S)
 
     rule <checkUsesInBlock>...
@@ -2071,12 +2080,14 @@ K
     rule checkUseVarInPhi(.List, .K, _:Set) => checkUseVarWait
     rule checkUseVarInPhi(ListItem(A:K) S:List, .K, Arg:Set) => checkUseVarInPhi(S, A, Arg)
     rule checkUseVarInPhi(S:List,
-                              blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, _:Set), Arg:Set)
+                              blockContent(K:K, Out:Set, In:Set,
+                                        Def:Set, _:Set, UsePhi:Set, _:Set, _:Set), Arg:Set)
          => checkUseVarInPhi(S, .K, Arg)
          requires UsePhi -Set Arg <=Set .Set
 
     rule <k> checkUseVarInPhi(S:List,
-                     blockContent(K:K, Out:Set, In:Set, Def:Set, UsePhi:Set, Use:Set), Arg:Set)
+                     blockContent(K:K, Out:Set, In:Set,
+                                      Def:Set, _:Set, UsePhi:Set, Use:Set, InUse:Set), Arg:Set)
          => checkUseVarInPhi(S, .K, Arg) ...</k>
          <checkUseCount> I:Int </checkUseCount>
          (.Bag => <checkUsesInBlock>...
@@ -2102,7 +2113,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+              blockContent(_:List, _:Set, _:Set,
+                                     Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires UsePhi <=Set Def
 
     rule <allCurrentJob> checkUseVarInPhi(A:K, S':Set, UsePhi:Set)
@@ -2113,7 +2125,8 @@ K
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:K, _:Set, In:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+              blockContent(_:List, _:Set, In:Set,
+                         Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          requires notBool (UsePhi <=Set Def) andBool A =/=K .K
 
 
@@ -2136,7 +2149,7 @@ K
         <functionName> FunName </functionName>
         <tempBlockInst> K:List => .List </tempBlockInst>
         <basicBlocks>... N |-> blockContent((_:List => K),
-                       _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                       _:Set, _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //have dealt with all instruction list.
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, .InstructionList
@@ -2600,7 +2613,8 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks>... A |->
-                 blockContent(_:K, _:Set, In:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                 blockContent(_:List, _:Set, In:Set,
+                             _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         requires S <=Set In andBool In <=Set S
@@ -2611,7 +2625,8 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks>... A |->
-                 blockContent(_:K, _:Set, In:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                 blockContent(_:List, _:Set, In:Set, 
+                           _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         requires (notBool S <=Set In) orBool (notBool In <=Set S)
@@ -2629,8 +2644,8 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... N |->
-                 blockContent(_:K, _:Set, _:Set, Def:Set
-                    (.Set => SetItem(operand(T, V))), _:Set, _:Set) ...</basicBlocks>
+                 blockContent(_:List, _:Set, _:Set, Def:Set
+                    (.Set => SetItem(operand(T, V))), _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          <varTypes> M:Map (.Map => V |-> T) </varTypes>
         requires notBool V in keys(M) andBool notBool operand(T, V) in Def
 
@@ -2642,8 +2657,8 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... N |->
-                 blockContent(_:K, _:Set, _:Set, Def:Set
-                    (.Set => SetItem(operand(T, V))), _:Set, _:Set) ...</basicBlocks>
+                 blockContent(_:List, _:Set, _:Set, Def:Set
+                    (.Set => SetItem(operand(T, V))), _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          <varTypes> M:Map </varTypes>
         requires V in keys(M) andBool notBool operand(T, V) in Def
 
@@ -2657,8 +2672,66 @@ create an abstract for fence and do the same for fence operation.
          <output>... .List => ListItem("error: define argument '" +String
                          #tokenToString(V) +String "' twices in the function header") </output>
          <basicBlocks>... N |->
-                 blockContent(_:K, _:Set, _:Set, Def:Set, _:Set, _:Set) ...</basicBlocks>
+                 blockContent(_:List, _:Set, _:Set,
+                               Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         requires operand(T, V) in Def
+
+    //define the incomming defs for each basic block.
+    rule setBlockInDefs(.K, .Set) => .K
+    rule setBlockInDefs(.K, SetItem(Name:K) S:Set)
+              => setBlockInDefs(Name, S)
+
+    rule <k> setBlockInDefs(Name:KItem, S:Set) 
+              => setBlockInDef(Name, L) ~> setBlockInDefs(emptyHOLE, S)...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap>... Name |-> blockPath(L:List) ...</blockPathMap>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires Name =/=K emptyHOLE
+
+    rule setBlockInDef(Name, .List) ~> setBlockInDefs(emptyHOLE, S)
+            => setBlockInDefs(.K, S)
+    rule setBlockInDef(Name, ListItem(blockPath(.List)) L:List)
+              => setBlockInDef(Name, L)
+    rule <k> setBlockInDef(Name, ListItem(blockPath
+                     ((ListItem(A:KItem) => .List) Path:List)) L:List) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <basicBlocks>... A |->
+                 blockContent(_:List, _:Set, _:Set, Def:Set
+                           , (InDef:Set => Def InDef), _:Set, _:Set, _:Set) ...</basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+
+    //define the incomming uses for each basic block.
+    rule setBlockInUses(.K, .Set) => .K
+    rule setBlockInUses(.K, SetItem(Name:K) S:Set)
+              => setBlockInUses(Name, S)
+
+    rule <k> setBlockInUses(Name:KItem, S:Set) 
+              => setBlockInUse(Name, L) ~> setBlockInUses(emptyHOLE, S)...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <blockPathMap>... Name |-> blockPath(L:List) ...</blockPathMap>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         requires Name =/=K emptyHOLE
+
+    rule setBlockInUse(Name, .List) ~> setBlockInUses(emptyHOLE, S)
+            => setBlockInUses(.K, S)
+    rule setBlockInUse(Name, ListItem(blockPath(.List)) L:List)
+              => setBlockInUse(Name, L)
+    rule <k> setBlockInUse(Name, ListItem(blockPath
+                     ((ListItem(A:KItem) => .List) Path:List)) L:List) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <basicBlocks>... A |->
+                 blockContent(_:List, _:Set, _:Set, _:Set
+                           , _:Set, PhiUse:Set, Use:Set,
+                             (InUse:Set => InUse PhiUse Use)) ...</basicBlocks>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
 
     //define a relation to create block paths map to get max reachable path for each block
     rule setBlockPaths(.K, .Set) => .K
@@ -2670,7 +2743,8 @@ create an abstract for fence and do the same for fence operation.
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <basicBlocks>... Name |->
-              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+              blockContent(_:List, Out:Set, _:Set,
+                            _:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          requires Name =/=K emptyHOLE
@@ -2705,7 +2779,8 @@ create an abstract for fence and do the same for fence operation.
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <basicBlocks>... V |->
-              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+              blockContent(_:List, Out:Set, _:Set,
+                                _:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          requires V =/=K emptyHOLE
@@ -2717,7 +2792,8 @@ create an abstract for fence and do the same for fence operation.
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <basicBlocks>... V |->
-              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+              blockContent(_:List, Out:Set, _:Set,
+                                   _:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          requires A =/=K emptyHOLE andBool notBool size(L) =/=K 0
@@ -2729,7 +2805,8 @@ create an abstract for fence and do the same for fence operation.
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <basicBlocks>... V |->
-              blockContent(_:List, Out:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
+              blockContent(_:List, Out:Set, _:Set,
+                                    _:Set, _:Set, _:Set, _:Set, _:Set) </basicBlocks>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          requires A =/=K emptyHOLE
@@ -2740,91 +2817,13 @@ create an abstract for fence and do the same for fence operation.
                             L, mergeList(addElemToList(A, L), L1), LStore, Visited)
           requires V =/=K emptyHOLE
 
-/*
-    rule (.K => setBlockPath(Name, Name, .Set, .K,
-                .Set, ListItem(blockPath(ListItem(Name))), .Set))
-               ~> setBlockPaths(SetItem(Name:K) S:Set)
-
-    rule <k> setBlockPath(Name:K, V:K, .Set, .K, .Set, L:List, .Set) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <blockPathMap> M:Map </blockPathMap>
-         <basicBlocks>... Name |->
-              blockContent(_:List, Out:Set, In:Set, _:Set, _:Set, _:Set) </basicBlocks>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         requires V =/=K emptyHOLE
-
-    rule setBlockPaths(SetItem(Name:K) S:Set, .K, Done:Set, .K, .Set, .K, .Set)
-           => setBlockPaths(S, Name, Done, .K, .Set, .K, .Set)
-
-    rule <k> setBlockPaths(S:Set, Name:K, Done:Set, .K, .Set, .K, .Set)
-           => setBlockPaths(S, Name, Done, .K, Out, .K, In) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <blockPathMap> M:Map => M[Name <- blockPath(ListItem(Name))] </blockPathMap>
-         <basicBlocks>... Name |->
-              blockContent(_:List, Out:Set, In:Set, _:Set, _:Set, _:Set) </basicBlocks>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         requires (notBool Name in Done) andBool (notBool Name in keys(M))
-
-    rule <k> setBlockPaths(S:Set, Name:K, Done:Set, .K, .Set, .K, .Set)
-           => setBlockPaths(S, Name, Done SetItem(Name), .K, Out, .K, In) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <blockPathMap> M:Map </blockPathMap>
-         <basicBlocks>... Name |->
-              blockContent(_:List, Out:Set, In:Set, _:Set, _:Set, _:Set) </basicBlocks>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         requires (notBool Name in Done) andBool Name in keys(M)
-
-    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, Done:Set,
-                                    .K, SetItem(Next:K) Out:Set, Prev:K, In:Set)
-           => setBlockPaths(BName, Name, Done, Next, Out, Prev, In) ...</k>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-        <blockPathMap> M:Map </blockPathMap>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName </functionName>
-        requires Name in keys(M)
-
-
-    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, Done:Set,
-                                     Next:K, Out:Set, .K, SetItem(Prev) In:Set)
-           => setBlockPaths(BName, Name, Done, Next, Out, Prev, In) ...</k>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-        <blockPathMap> M:Map </blockPathMap>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName </functionName>
-        requires Name in keys(M)
-
-    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, .K, SetItem(Next:K) Out:Set, Prev:K, In:Set)
-           => setBlockPaths(BName, Name, Next, Out, Prev, In) ...</k>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-        <blockPathMap> M:Map </blockPathMap>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName </functionName>
-        requires Name in keys(M)
-
-    rule <k> setBlockPaths(BName:Set, Name:SymbolicValueRef, Next:SymbolicValueRef, Out:Set, In:Set)
-           => setBlockPaths(BName, Name, Next, Out, In) ...</k>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-        <blockPathMap> M:Map </blockPathMap>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName </functionName>
-        requires Name in keys(M)
-*/
-
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M))
                   ~> setBlockPaths(.K, keys(M))
+                  ~> setBlockInDefs(.K, keys(M))
+                  ~> setBlockInUses(.K, keys(M))
                   ~> checkingPhisInEdges
                   ~> checkUseVarInPhi(getArgsInFunction(E))
                     ~> checkUseVars(getArgsInFunction(E)) ...</k>
@@ -2843,7 +2842,8 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-              |-> blockContent(.List, .Set, .Set, SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+              |-> blockContent(.List, .Set, .Set,
+                  SetItem(operand(label, addNameToString(L))), .Set, .Set, .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
@@ -2878,7 +2878,7 @@ create an abstract for fence and do the same for fence operation.
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.List, .Set, .Set,
-                            SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+                      SetItem(operand(label, addNameToString(L))), .Set, .Set, .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool isIntString(substrString(#tokenToString(L), 0
@@ -2913,7 +2913,7 @@ create an abstract for fence and do the same for fence operation.
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.List, .Set, .Set,
-                          SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+               SetItem(operand(label, addNameToString(L))), .Set, .Set, .Set, .Set)) </basicBlocks>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool notBool isIntString(substrString(#tokenToString(L), 0
@@ -2946,7 +2946,7 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.List, .Set, .Set,
-                             SetItem(operand(label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+                        SetItem(operand(label, addNameToString(L))), .Set, .Set, .Set, .Set)) </basicBlocks>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires isIntString(substrString(#tokenToString(L), 0
@@ -2982,7 +2982,7 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
                   |-> blockContent(.List, .Set, .Set,
-                        SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>
+                  SetItem(operand(label, name(localVar, Int2String(I)))),.Set, .Set, .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I))  |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)
@@ -3013,7 +3013,7 @@ create an abstract for fence and do the same for fence operation.
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
                 |-> blockContent(.List, .Set, .Set,
-                    SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set)) </basicBlocks>
+                SetItem(operand(label, name(localVar, Int2String(I)))), .Set, .Set, .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => name(localVar, Int2String(I)) |-> label) </varTypes>
         <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, Int2String(I)) in keys(M)

@@ -17,13 +17,13 @@ module LLVM-BRANCHING
     imports LLVM-CONFIGURATION
 
     rule
-        <k> unconditional(name(Label:K, S:String)) => B </k>
+        <k> unconditional(name(Label:K, S:String)) => blockExecution(B) </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <basicBlocks>... name(Label:K, S:String)
-                             |-> blockContent(B:K, _:Set, _:Set, _:Set,
+                             |-> blockContent(B:List, _:Set, _:Set, _:Set,
                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     rule

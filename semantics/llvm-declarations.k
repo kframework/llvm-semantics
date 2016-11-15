@@ -98,7 +98,7 @@ module LLVM-DECLARATIONS
 
     //install the sequence point for each instruction.
 
-    rule <k> seqPoint(I:Int, A:K) => A ...</k>
+    rule <k> seqPoint(N:Int, I:Int, A:K) => A ...</k>
          <currentProgPoint> N:Int => I </currentProgPoint>
 
     //rule for setting initial basic block of a given block
@@ -145,7 +145,8 @@ module LLVM-DECLARATIONS
 */
     rule
         <k> setBlock(Label:SymbolicValueRef) => .K ...</k>
-        <currBlock> Label':SymbolicValueRef => Label </currBlock>
+        <currBlock> Label':K => basicBlockNum(N, Label) </currBlock>
         <prevBlock> _ => Label' </prevBlock>
+        <blockCount> N:Int => N +Int 1 </blockCount>
 
 endmodule

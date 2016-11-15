@@ -40,10 +40,13 @@ module LLVM-ABSTRACTSYNTAX
      //stmt, def_var, init_loc, store_loc (if exist), load_loc(if exist),usedvars, type
     syntax KItem ::= "terminators" | "loadInst" | "storeInst"
                     | "callInst" | "normalInst" | "returnInst"
-                    | "allocaInst"
+                    | "allocaInst" | "phiInst"
     syntax KItem ::= usedLoc(K) //location of a variable.
 
-    syntax KItem ::= seqPoint(Int, K)//program num, inst
+    syntax KItem ::= seqPoint(Int, Int, K)
+                        //block_id, static id, inst
+    syntax KItem ::= basicBlockNum(Int, K)
+    syntax KItem ::= guessBlockPath(List)
 
     //syntax KItem ::= ElemList
     syntax ElemList ::= List{Element,","} [strict]
@@ -166,6 +169,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
+    syntax KItem ::= "initDef"
     syntax KItem ::= initBuiltins(ElemList)
     syntax ElemList ::= "vararg"
 
@@ -177,6 +181,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "NegativeInfinity"
     syntax KResult ::= Zeroinitializer
     syntax KResult ::= blockValue(K)
+
+    syntax KItem ::= blockExecution(List)
+    syntax KItem ::= "blockHOLE"
 
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
@@ -296,6 +303,7 @@ module LLVM-ABSTRACTSYNTAX
     //syntax KItem ::= checkUseVarInPhi(Set, Set)
     syntax KItem ::= checkUseVarInPhi(K, Set, Set)
     //syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
+
     syntax KItem ::= setBlockPaths(K, Set) //block, store set
     syntax KItem ::= setBlockInDefs(K, Set)//block, store block set
     syntax KItem ::= setBlockInDef(K, List)//block, path
@@ -304,7 +312,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setBlockPath(K, K, Set, Set, List, List, List, Set)
            //top, cur, touch set, visiting node, visiting set, store paths, caled paths, paths, visited set
            //block names, name, checked blocks, outblock, outs, inblock, ins
-    syntax KItem ::= blockPath(List) 
+    syntax KItem ::= blockPath(List)
+    syntax KItem ::= linked(Set) //strong connected components
+    syntax KItem ::= dependent(K, K)//dependency relation
+    syntax KItem ::= setBlockDependency(K, List)//block, inst_list, def_set, use_set
+    syntax KItem ::= setBlockDependencies(K, Set)//block store set
+    syntax KItem ::= setBlockDepend(K, K, K, K, Set, List, List, Set, Set)
+                     //block, inst, Def Set, insttype, use Set,  InstList, PathList, InstSet, BlockSet
 
     syntax KItem ::= "checkUseVarWait"
     syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body

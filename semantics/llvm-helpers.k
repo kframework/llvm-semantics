@@ -916,5 +916,17 @@ module LLVM-HELPERS
     rule addElemToList(A:K, .List) => .List
     rule addElemToList(A:K, ListItem(blockPath(L':List)) L:List)
                  => ListItem(blockPath(L' ListItem(A))) addElemToList(A, L)
+/*
+    syntax List ::= dealWithDependList(List, K, K, Set)
+    rule dealWithDependList(L:List, I:K, Def:K, .Set) => L
+    rule dealWithDependList(L:List, I:K, Def:K, SetItem(Use:K) Uses:Set)
+          => 
+*/
+    syntax KItem ::= guessNextBlock(K) [function]
+    rule guessNextBlock(unconditional(A:K)) => A
+    rule guessNextBlock(conditional(A:K, B:K, C:K)) => B
+    rule guessNextBlock(switch(A:K, B:K, C:K, Es:ElemList)) => C
+    rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
+    rule guessNextBlock(_:K) => .K [owise]
 
 endmodule

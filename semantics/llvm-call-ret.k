@@ -43,17 +43,112 @@ module LLVM-CALL-RET
         <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
-            ~> Body
+            ~> blockExecution(Body)
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
         <basicBlocks>... IBBName
-                            |-> blockContent(Body:K, _:Set, _:Set, _:Set,
+                            |-> blockContent(Body:List, _:Set, _:Set, _:Set,
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
+
+    rule <k> blockExecution(L:List) => blockHOLE ...</k>
+         <instQueue> InQueue:List => L </instQueue>
+         <rob> ROB:List => .List </rob>
+         <toCommit> ToCom:List => .List </toCommit>
+         <cdb> CDB:List => .List </cdb>
+         <reservations> Res:List => .List </reservations>
+         <loads> Lo:List => .List </loads>
+         <blockCount> N:Int => 1 </blockCount>
+         <currBlock> Label':K => basicBlockNum(0, Label) </currBlock>
+         <prevBlock> _ => Label' </prevBlock>
+         <specNextBlockMap> TheMap:Map => .Map </specNextBlockMap>
+         <initialBasicBlock> Label:SymbolicValueRef </initialBasicBlock>
+
+    rule <instQueue> (ListItem(N:KItem) => .List) L:List </instQueue>
+         <rob> ROB:List (.List => ListItem(seqPoint(I, N, Inst))) </rob>
+         <reservations> Res:List (.List => ListItem(seqPoint(I, N, Inst))) </reservations>
+         <currBlock> basicBlockNum(I:Int, _:K) </currBlock>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <instNumInfo>... N |->
+                  instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
+         requires size(Res) <=Int numOfReservations
+                  andBool InstL =/=K terminators
+                  andBool InstL =/=K returnInst
+                  andBool InstL =/=K loadInst
+
+    rule <instQueue> (ListItem(N:KItem) => .List) L:List </instQueue>
+         <rob> ROB:List (.List => ListItem(seqPoint(I, N, Inst))) </rob>
+         <loads> Res:List (.List => ListItem(seqPoint(I, N, Inst))) </loads>
+         <currBlock> basicBlockNum(I:Int, _:K) </currBlock>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <instNumInfo>... N |->
+                  instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
+         requires size(Res) <=Int numOfReservations
+                  andBool InstL ==K loadInst
+
+    rule <instQueue> ListItem(N:KItem) => .List </instQueue>
+         <rob> ROB:List (.List => ListItem(seqPoint(I, N, Inst))) </rob>
+         <currBlock> basicBlockNum(I:Int, _:K) </currBlock>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <instNumInfo>... N |->
+                  instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
+         requires InstL ==K returnInst
+
+    rule <instQueue> ListItem(N:KItem) => Body </instQueue>
+         <rob> ROB:List (.List => ListItem(seqPoint(I', N, Inst))) </rob>
+         <reservations> Res:List (.List => ListItem(seqPoint(I', N, Inst))) </reservations>
+         <blockCount> I:Int => I +Int 1 </blockCount>
+         <currBlock> basicBlockNum(I':Int, TheLabel:K)
+                    => basicBlockNum(I, guessNextBlock(Inst)) </currBlock>
+         <prevBlock> _ => basicBlockNum(I':Int, TheLabel:K) </prevBlock>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <specNextBlockMap> M:Map => M[I' <- guessBlockPath(ListItem(I))] </specNextBlockMap>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... guessNextBlock(Inst)
+                            |-> blockContent(Body:List, _:Set, _:Set, _:Set,
+                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         <instNumInfo>... N |->
+                  instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
+         requires size(Res) <=Int numOfReservations
+                  andBool InstL ==K terminators
+                  andBool notBool I' in keys(M)
+
+    rule <instQueue> ListItem(N:KItem) => Body </instQueue>
+         <rob> ROB:List (.List => ListItem(seqPoint(I', N, Inst))) </rob>
+         <reservations> Res:List (.List => ListItem(seqPoint(I', N, Inst))) </reservations>
+         <blockCount> I:Int => I +Int 1 </blockCount>
+         <currBlock> basicBlockNum(I':Int, TheLabel:K)
+                    => basicBlockNum(I, guessNextBlock(Inst)) </currBlock>
+         <prevBlock> _ => basicBlockNum(I':Int, TheLabel:K) </prevBlock>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <specNextBlockMap>... I' |->
+                          guessBlockPath(BlockL:List => BlockL ListItem(I)) ...</specNextBlockMap>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... guessNextBlock(Inst)
+                            |-> blockContent(Body:List, _:Set, _:Set, _:Set,
+                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         <instNumInfo>... N |->
+                  instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
+         requires size(Res) <=Int numOfReservations
+                  andBool InstL ==K terminators
 
     syntax KItem ::= contextSwitch(K, K)
 

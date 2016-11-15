@@ -41,10 +41,20 @@ module LLVM-CONFIGURATION
                 <threadId> 0 </threadId>
                 <buffer> .List </buffer>
                 <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+                <cpu>
+                    <instQueue> .List </instQueue>
+                    <rob> .List </rob>
+                    <toCommit> .List </toCommit>
+                    <cdb> .List </cdb>
+                    <reservations> .List </reservations>
+                    <loads> .List </loads>
+                    <specNextBlockMap> .Map </specNextBlockMap>
+                    <blockCount> 0 </blockCount> //model cpu: tomasulo
+                </cpu>
                 <callStack color="Goldenrod"> .List </callStack>
                 <control color="LightGoldenrod">
-                    <currBlock color="Orchid"> name(localVar, "Initial") </currBlock>
-                    <prevBlock color="Orchid"> name(localVar, "Initial") </prevBlock>
+                    <currBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </currBlock>
+                    <prevBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </prevBlock>
                     <currModule color="Orchid"> name(globalVar, "main") </currModule>
                     <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                     <valist> .List </valist>
@@ -99,10 +109,12 @@ module LLVM-CONFIGURATION
                        <basicBlocks> .Map </basicBlocks>
                        <localFunVarCounter> 0 </localFunVarCounter>
                        <initialBasicBlock> .K </initialBasicBlock>
-                       <blockPathMap> .Map </blockPathMap>
-                       <instNumToBlock> .Map  </instNumToBlock>//inst number map to block name
+                       //<blockPathMap> .Map </blockPathMap>
+                       //<dependency> .List </dependency>
+                       <defToInstNum> .Map </defToInstNum> //mapping from def name to inst num
+                       <instNumToBlock> .Map  </instNumToBlock> //inst number map to block name
                        <instNumInfo> .Map  </instNumInfo>
-                       <samePointerLoc> .List </samePointerLoc>//those locations are possibly the same
+                       //<samePointerLoc> .List </samePointerLoc>//those locations are possibly the same
                  </function>
             </functions>
         </T>

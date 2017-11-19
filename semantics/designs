@@ -1,0 +1,39 @@
+1. the tomasulo structure for memory models.
+
+components:
+1, an input queue to take instructions in sequences, with block, instruction number and two flags. instruction number is static value, block number is a dynamic generated value. The first flag is to indicate if an instruction is valid, the second flag is to indicate if an instruction is a branching operator.
+2, a map to remember the mapping from block number to block name. 
+3, ALU queue for real execution. 
+4, speculative queue to store all valid values from instructions that are currently under speculative process
+    (the current block number is not the instruction's block number). 
+5, ready queue to store valid values from instructions that are ready to commit. (finish evaluation, and wait to commit to claim finishing).
+6, cash queue to store read/write operators and committed the read/write operators to memory if they did not violate rules. 
+
+rules:
+0, the K cell will select a block of instructions for the input queue to take if the block is the current block, and it will also select randomly one of the block's branching block to put into the input queue, if it is not full. there must be a branching selection cell to indicate that which branch the block has selected and which one has not by assigning block number.
+1, input queue will take instructions sequentially. It will select instructions to put to ALU dynamically. the flag for each instruction indicates if the instruction is ready to put to ALU or is still waiting for values. After an instruction is in ready queue, the value of the instruction will assign to all instances in input queue and check if any one can be marked as ready. Input queue has a max number.
+   There are three rules for the random selection of instruction to execute. a, the instruction is ready and it is not an branching instruction. b, branching instruction must be executed at the first instruction of the queue while the block number is the current one. So every branching instruction must be executed as the last one in a block.
+c, the instruction which is not a branching one has the current block number or it has a large block number but the speculative queue is not full. if the speculative queue is full, then we can stop check later instruction if there is anything that can be put into the ALU.
+2, ALU is doing execution in the instruction, and the instruction will be placed on the speculative cell if the block number is not current block number, or it will be placed in the ready cell, then clean the ALU to .K and wait for next instruction. 
+3, speculative queue has also a max number, which limits how many speculative steps the CPU can have. After the ALU calculate the branching instruction, we put all valid speculative values in instructions in the speculative queue to affect values in input queue and committed, and throw away all speculative values that are invalid branching.
+4, ready queue is to put values in cash or affect values in the input queue to help input queue instruction to be ready.
+5, In cash queue, we must commit a read/write operator to memory only if it fits happens before memory model. That is not affecting single threading behaviors, such as following the read-write/write-read/write-write dependency in single threading world, and keep happens-before edge in multi-threading world. For other different memory consistent flag, we must keep them follow different memory model rules, by implementing them as the memory barriers. We also need data dependency graph to tell us which read/write operator is OK to commit.
+
+
+
+design for data flow analysis:
+
+1, we assume that any LLVM program will be parsed into forming a control flow graph. 
+2, the graph is implemented as a map in K.
+3, each node has a set of incoming edges, and outgoing edges. It also has a set of incoming read instruction to indicate which set of previous instructions has been read and the location information, and it also has a set of incoming write instruction to indicate which set of previous instructions has been written and the location information. If there are multiple read/write, we list one write (since SSA only has one write for every var) and all reads. We will also have a set of outgoing reads and outgoing writes.
+4, In calculating the data dependency edges, we are implementing a map from each instruction number to a set of depedency instructions previously. We first generate all data depedency edges in each basic block and fill outgoing read/write sets for each block. Then, we mark each blocks as unchange first, and start front the initial graphs, and we check if we need to add outgoing read/write sets to any incomming read/write sets of a block, if it is, then we mark the block as changed, and then change all its instruction map, and move to the next one. We also remember all blocks that we have visited, if a block loop back to a visited block, then we do not need to change anything for the block, if it changed, then we need to changed the loop back block, and mark the current block as unchange. We do this again and again until all blocks have been marked unchange.
+
+
+
+
+
+
+
+
+
+

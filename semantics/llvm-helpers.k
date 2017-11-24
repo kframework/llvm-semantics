@@ -929,4 +929,10 @@ module LLVM-HELPERS
     rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
     rule guessNextBlock(_:K) => .K [owise]
 
+    syntax K ::= getValueFromBlockMap(Int, Map) [function]
+    rule getValueFromBlockMap(N:Int, M:Map (N |-> I:K))
+              => I ~> getValueFromBlockMap(N +Int 1, M)
+    rule getValueFromBlockMap(N:Int, .Map)
+              => .K
+
 endmodule

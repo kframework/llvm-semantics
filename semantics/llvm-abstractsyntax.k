@@ -36,8 +36,8 @@ module LLVM-ABSTRACTSYNTAX
     rule val(K:KResult) => valValue(K) [structural]
 
     syntax KItem ::= "emptyHOLE"
-    syntax KItem ::= instNumInfo(K, K, K, K, K, Set, K)
-     //stmt, def_var, init_loc, store_loc (if exist), load_loc(if exist),usedvars, type
+    syntax KItem ::= instNumInfo(Int, K, K)
+     //Inst num, stmt, inst type
     syntax KItem ::= "terminators" | "loadInst" | "storeInst"
                     | "callInst" | "normalInst" | "returnInst"
                     | "allocaInst" | "phiInst"
@@ -77,6 +77,10 @@ module LLVM-ABSTRACTSYNTAX
 
     rule combineElemList(.ElemList,Bs:ElemList) => Bs
     rule combineElemList((A:Element,As:ElemList),Bs:ElemList) => A,combineElemList(As,Bs)
+
+    syntax ElemList ::= mergeVectorList(K, K) [function]
+    rule mergeVectorList(vector(E1:ElemList), vector(E2:ElemList)) => combineElemList(E1,E2)
+    rule mergeVectorList(A:K, B:K) => .ElemList [owise]
 
     syntax ElemList ::= addElemToEnd(Element, ElemList)   [function]
     rule addElemToEnd(E:Element, .ElemList) => E,.ElemList
@@ -204,18 +208,21 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalAlloca(K, K, K)
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K) [strict]//type value
+    syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
+    syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KResult ::= typeOperandResult(K, K)
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
-    syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block, typeoperand
+    syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block name, typeoperand
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
-    syntax KItem ::= instruction(K, Set, K) //body, modifiers, instructionMetadatas
+    syntax KItem ::= instruction(K, Set, K) 
+        //body, modifiers, instructionMetadatas
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
     syntax KItem ::= indirectbr(K, ElemList)   [strict(1)]//operand, list of labels
@@ -281,10 +288,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= blockContent(List, Set, Set, Set, Set, Set, Set, Set)
-                                   //instructions,outgoing edges, incoming edges, all defs about vars, incomming def set
-                                   // all uses of var in phi without defs in cur, all uses of var in others without def in cur. 
-                                   //all in coming use vars.
+    syntax KItem ::= blockContent(Map, Set, Set, Set, Set, Set, Set)
+                                   //instructions map from number (0...) to line of code
+                                   //,outgoing edges, incoming edges, all incoming defs,
+                                   //all incomming uses, all outgoing defs, all outgoing uses.
     syntax KItem ::= setOutEdge(K, ElemList) //name, outEdges
     syntax KItem ::= setInEdges(Set)
     syntax KItem ::= setInEdgesForNode(K)
@@ -331,7 +338,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= assignType(K, K, K) //block, var, t
 
-    syntax SymbolicValueRef ::= name(K, String)//label, name
+    syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
     syntax KItem ::= "globalVar" | "localVar"
 
     syntax KItem ::= theDefinition(K,K) [strict]

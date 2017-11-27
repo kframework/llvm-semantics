@@ -8,6 +8,72 @@ module LLVM-HELPERS
     imports LLVM-ABSTRACTSYNTAX
     imports LLVM-SETTINGS
 
+    //helper functions for type checking phi functions, switches and gep
+    syntax ElemList ::= getValueOfPhi(PHIList) [function]
+                   | getLabelOfPhi(PHIList) [function]
+                   | getAllTypes(K)   [function]
+                   | getValueOfSwitch(JumpTable) [function]
+    syntax KItem ::= getVar(K)    [function]
+                   | getGepType(K, ElemList)         [function]
+                   | getGepInType(K, ElemList, K)         [function]
+                   | getGepTypeInStruct(K, K)           [function]
+
+    rule getValueOfSwitch(.JumpTable) => .ElemList
+    rule getValueOfSwitch(T:IntType V:ConstValueRef, La:LabelValue Ju:JumpTable)
+           => val(typeOperand(T, addNameToString(V))),getValueOfSwitch(Ju)
+
+    rule getAllTypes(.ParamList) => .ElemList
+    rule getAllTypes(T:Type _:ParamAttrs _:ValueRef, Pl:ParamList)
+                   => val(T), getAllTypes(Pl)
+    rule getAllTypes(.ElemList) => .ElemList
+    rule getAllTypes(val(arg(A:K, B:K, C:K)), Pl:ElemList)
+                   => val(B), getAllTypes(Pl)
+
+    rule getValueOfPhi([ V:ValueRef , L:ValueRef ]) => val(addNameToString(V)),.ElemList
+    rule getValueOfPhi([ V:ValueRef , L:ValueRef ], Pl:PHIList)
+                                         => val(addNameToString(V)),getValueOfPhi(Pl)
+    rule getLabelOfPhi([ V:ValueRef , L:ValueRef ]) => val(addNameToString(L)),.ElemList
+    rule getLabelOfPhi([ V:ValueRef , L:ValueRef ], Pl:PHIList)
+                                         => val(addNameToString(L)),getLabelOfPhi(Pl)
+
+    rule getVar(assign(A:K, B:K)) => A
+    rule getVar(K:K) => .K [owise]
+
+    rule getGepType(T:KResult, .ElemList) => T
+    rule getGepType(gepTypeBag(T:KResult), .ElemList) => T
+    rule getGepType(gepTypeBag(T:KResult), val(A:K),Es:ElemList) => getGepType(T, Es)
+    rule getGepType(arrayTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(vectorTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(structTypeValue(T1:K), val(typeOperand(A:K, B:K)),Es:ElemList)
+               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
+
+    rule getGepType(gepTypeBag(T:KResult), valValue(A:K),Es:ElemList) => getGepType(T, Es)
+    rule getGepType(arrayTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(vectorTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(structTypeValue(T1:K),
+                valValue(typeOperandResult(A:K, B:K)),Es:ElemList)
+               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
+
+    rule getGepType(K:K, Es:ElemList) => badType [owise]
+
+
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList, I:Int)
+               => getGepType(getGepTypeInStruct(T1, I), Es)
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList,
+               vector(valValue(I:Int), Es':ElemList))
+               => getGepType(getGepTypeInStruct(T1, I), Es)
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList, A:K) => badType
+
+    rule getGepTypeInStruct(T1:KResult, T2:TypeList, 0) => T1
+    rule getGepTypeInStruct(T1:KResult, T2:TypeList, I:Int)
+               => getGepTypeInStruct(T2, I -Int 1)
+         requires I >Int 0
+    rule getGepTypeInStruct(T:K, I:Int) => badType [owise]
+
     syntax KItem ::= "none"
     syntax KItem ::= searchElemInMap(Map,K,K) [function]
 
@@ -73,6 +139,13 @@ module LLVM-HELPERS
     rule isAInt(I:Int) => true
     rule isAInt(K:K) => false [owise]
 
+    syntax List ::= formInstList(Int, K, Map) [function]
+    rule formInstList(N, .K, .Map) => .List
+    rule formInstList(N, .K, (N:K |-> V:K) M:Map)
+         => formInstList(N, V, M)
+    rule formInstList(N:Int, instNumInfo(Num:K, In:K, T:K), M:Map)
+        => ListItem(In) formInstList(N +Int 1, .K, M)
+
     syntax ElemList ::= StringToList(String) [function]
     rule StringToList("") => .ElemList
     rule
@@ -105,10 +178,8 @@ module LLVM-HELPERS
 
     syntax KItem ::= setLabelVarsAux(Set, Map, K, K, Map) [function]
     rule setLabelVarsAux(S:Set, .Map, .K, .K, M:Map) => setLabelVars(M)
-    rule setLabelVarsAux(S:Set, (A:K |-> blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
-            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) M1:Map, .K, .K, M2:Map)
-        => setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
-            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M2:Map)
+    rule setLabelVarsAux(S:Set, (A:K |-> V:K) M1:Map, .K, .K, M2:Map)
+        => setLabelVarsAux(S:Set, M1:Map, A, V, M2:Map)
     rule setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M2:Map)
         => setLabelVarsAux(S:Set, M1:Map, .K, .K,

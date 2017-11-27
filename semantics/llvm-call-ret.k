@@ -43,7 +43,7 @@ module LLVM-CALL-RET
         <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
-            ~> blockExecution(Body)
+            ~> blockExecution(ListItem(setBlock(IBBName)) formInstList(1, .K, Body))
         </k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -56,6 +56,7 @@ module LLVM-CALL-RET
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
 
+/*
     rule <k> blockExecution(L:List) => blockHOLE ...</k>
          <instQueue> InQueue:List => L </instQueue>
          <rob> ROB:List => .List </rob>
@@ -149,7 +150,7 @@ module LLVM-CALL-RET
                   instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
          requires size(Res) <=Int numOfReservations
                   andBool InstL ==K terminators
-
+*/
     syntax KItem ::= contextSwitch(K, K)
 
     rule

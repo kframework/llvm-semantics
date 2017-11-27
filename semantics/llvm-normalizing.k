@@ -23,10 +23,9 @@ module LLVM-NORMALIZING
     rule assignUses(Name:K, X:K, Ty:K, .ElemList) => .K
     rule <k> assignUses(Name:K, Count:Int, Ty:K, val(V1:SymbolicValueRef),E:ElemList)
            => assignUses(Name:K, Count:Int, Ty:K, E:ElemList) ...</k>
-         <tempUses> Uses (.Set => varOp(Name, X, Ty, V1)) </tempUses>
-    rule assignUses(Name:K, Count:Int, Ty:K, val(V1:K),E:ElemList)
+         <tempUses> Uses:Set (.Set => SetItem(varOp(Name, Count, Ty, V1))) </tempUses>
+    rule assignUses(Name:K, Count:Int, Ty:K, val(V1:ConstValueRef),E:ElemList)
            => assignUses(Name:K, Count:Int, Ty:K, E:ElemList)
-         requires getKLabel(V1) =/=KLabel 'name
 
     rule <k> badType ~> K => .K </k>
          <output>... .List => ListItem("error: expected type") </output>
@@ -172,6 +171,78 @@ module LLVM-NORMALIZING
                                        Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), Oac,
                            formSet(Oac) formSet(Ovl)
                            formSet(Ost:OptSingleThread Ord:Ordering) formSet(align I), Ins)
+/*
+    rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
+                                    Meta:InstructionMetadatas)
+           => typeCheckResume(Name:SymbolicValueRef, addNameToString(Ty), addNameToString(Va)) ...</k>
+            <tempBlockInst> Now:K => Now ~> instruction(resume(operand(addNameToString(Ty)
+                                   ,addNameToString(Va)))
+                            ,.Set, insMetas(formElemList(Meta))) </tempBlockInst>
+*/
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, br label La:ValueRef Meta:InstructionMetadatas)
+           => typeCheckBr(Name:SymbolicValueRef, undef, undef, addNameToString(La), undef, Meta)
+
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, br It:IntType Va:ValueRef ,
+                   label La1:ValueRef , label La2:ValueRef
+                                  Meta:InstructionMetadatas)
+           => typeCheckBr(Name:SymbolicValueRef, It,
+               addNameToString(Va), addNameToString(La1), addNameToString(La2), Meta)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, icmp Op:IPredicate
+                   Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+         => typeCheckCmp(Name:SymbolicValueRef, X, Op, Ty,
+                   addNameToString(V1), addNameToString(V2), Ins)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, fcmp Op:FPredicate
+                   Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+         => typeCheckFCmp(Name:SymbolicValueRef, X, Op, Ty,
+                  addNameToString(V1), addNameToString(V2), Ins)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                     phi Ty:Type Pl:PHIList Ins:InstructionMetadatas)
+         => typeCheckPhi(Name:SymbolicValueRef, X,
+               Ty, getValueOfPhi(Pl), getLabelOfPhi(Pl), .Set, formElemList(Pl), Ins)
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                     ret T:NonVoidType V:ValueRef I:InstructionMetadatas)
+         => typeCheckRet(Name:SymbolicValueRef, T, addNameToString(V), I)
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                     ret T:VoidType I:InstructionMetadatas)
+         => typeCheckRet(Name:SymbolicValueRef, T, undef, I)
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                     Ca:OptTailCall
+                        Ocv:OptCallingConv Rat:RetAttrs Ty1:Type
+                     V1:ValueRef (Pl:ParamList) Fat:FuncAttrs
+                       Meta:InstructionMetadatas)
+         => typeCheckCall(Name:SymbolicValueRef, K, Ca, Ty1,
+                    addNameToString(V1), getAllTypes(Pl), formTypeCheckList(Pl),
+                    Pl, formSet(Ocv) formSet(Rat) formSet(Fat), Meta)
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                       switch It:IntType Va:ValueRef ,
+                                       label La:ValueRef [ Ju:JumpTable ]
+                                  Meta:InstructionMetadatas)
+         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(It,
+                            addNameToString(Va))),getValueOfSwitch(Ju)),
+                                (val(addNameToString(La)),getOutEdges(Ju)), .ElemList, Meta)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                       select Ty1:Type V1:ValueRef,
+                                  Ty2:Type V2:ValueRef, Ty3:Type V3:ValueRef
+                                  Meta:InstructionMetadatas)
+         => typeCheckSelect(Name:SymbolicValueRef, X, Ty1,
+                  addNameToString(V1), Ty2, addNameToString(V2), Ty3, addNameToString(V3), Meta)
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                                       indirectbr Ty:Type Va:ValueRef ,
+                                       [ Las:LabelValues ]
+                                  Meta:InstructionMetadatas)
+         => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
+                        addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
+
+
 
 
     //type checking and instruction AST from with integer ops and logical ops.
@@ -196,7 +267,7 @@ module LLVM-NORMALIZING
                              val(V1),val(V2),.ElemList)
                 ~> assignUses(Name, TheCount, integerType(N:Int),
                          mergeVectorList(V1,V2))
-                 ~> assignType(Name, X, TheCount,
+                 ~> assignType(Name, TheCount, X,
                       vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
@@ -296,8 +367,8 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> integerType(N:Int) ...</varTypes>
          <basicBlocks>... Name |-> blockContent(_:Map, _:Set, _:Set,
-               Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-         requires isInDefs(addNameToString(X),.K,Defs)
+               Defs:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires isInDefs(addNameToString(X),.K, Defs)
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
                 integerType(N:Int), N':Int, A:K, integerType(N:Int), X:SymbolicValueRef)
@@ -308,7 +379,8 @@ module LLVM-NORMALIZING
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... Name |-> blockContent(_:Map, _:Set, _:Set, _:Set,
-               _:Set, Defs:Set, _:Set, Use:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
+               _:Set, Defs:Set, _:Set, Use:Set
+                (.Set => SetItem(operand(integerType(N:Int), addNameToString(X))))) ...</basicBlocks>
          requires notBool isInDefs(addNameToString(X),.K,Defs)
 
     //define illform situations for type checking of integer operators.
@@ -386,6 +458,15 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
          requires T =/=K T'
+
+    //deal with ret, first deal with integer variable only
+    rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
+                    , Meta:InstructionMetadatas)
+          => typeCheckIntArg(N, T, V) ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, instruction(ret(T,V) ,.Set
+                                        ,insMetas(formElemList(Meta))), returnInst)) </tempBlockMap>
 
 
     //set out edges for a block
@@ -548,8 +629,8 @@ module LLVM-NORMALIZING
                                   Meta:InstructionMetadatas, _:Bool)
          => checkSingleAssignmentInBlock(N, .K, false) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockMap> Now:Map => Now (TheCount |-> instNumInfo(TheCount,
-               instruction(TheCount, unreachable,.Set,
+         <tempBlockMap> Now:Map => Now (TheCount |-> 
+           instNumInfo(TheCount, instruction(unreachable,.Set,
                   insMetas(formElemList(Meta))), returnInst)) </tempBlockMap>
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
@@ -1048,10 +1129,10 @@ create an abstract for fence and do the same for fence operation.
               => checkUseVarInPhi(1, M, .K, L)
     rule checkFirstInPhi(N:Int, (N |-> A:K) M:Map, .K, L:List)
          => checkFirstInPhi(N, M, A, L)
-    rule checkUseVarInPhi(N:Int, M:Map, instNumInfo(N, In:K, La:K), L:List)
+    rule checkFirstInPhi(N:Int, M:Map, instNumInfo(N, In:K, La:K), L:List)
          => checkFirstInPhi(N +Int 1, M, .K, L:List)
          requires La =/=K phiInst
-    rule <k> checkUseVarInPhi(N:Int, M:Map, instNumInfo(N, In:K, phiInst), L:List)
+    rule <k> checkFirstInPhi(N:Int, M:Map, instNumInfo(N, In:K, phiInst), L:List)
                 ~> K:K => .K </k>
          <output>... .List => ListItem("Having phi function not in the first place of a block.") </output>
 
@@ -1091,7 +1172,7 @@ create an abstract for fence and do the same for fence operation.
                   //~> setBlockInUses(.K, keys(M))
                   //~> setBlockDependencies(.K, keys(M))
                   ~> checkingPhisInEdges
-                  ~> checkUseVarInPhi(1, .Map, .K, values(M))
+                  ~> checkUseVarInPhi(1, .Map, .K, getAllInsts(values(M)))
                     ~> checkUseVars(values(M)) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>

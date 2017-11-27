@@ -1,4 +1,5 @@
-// 
+//This module will look at files and separate them into different parts without looking at
+//the content of function bodies.
 requires "llvm-syntax.k"
 requires "llvm-abstractsyntax.k"
 requires "llvm-settings.k"

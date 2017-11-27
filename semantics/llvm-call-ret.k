@@ -52,7 +52,7 @@ module LLVM-CALL-RET
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
         <basicBlocks>... IBBName
-                            |-> blockContent(Body:List, _:Set, _:Set, _:Set,
+                            |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
 

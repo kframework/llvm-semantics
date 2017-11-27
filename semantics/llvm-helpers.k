@@ -21,6 +21,24 @@ module LLVM-HELPERS
          => searchElemInMap(removeAll(M,SetItem(Key)),.K,Key')
          when Key =/=K Key' andBool Key =/=K .K
 
+    syntax Bool ::= typeMatchInDefs(K,K,K,Set) //type, var name, varop, Set of varops
+    rule typeMatchInDefs(T:K, V:K, varOp(B:K, N:K, T, V), S:Set) => true
+    rule typeMatchInDefs(T:K, V:K, varOp(B:K, N:K, T', V'), S:Set)
+         => typeMatchInDefs(T:K, V:K, .K, S:Set)
+         requires T =/=K T' andBool V =/=K V'
+    rule typeMatchInDefs(T:K, V:K, .K, SetItem(X:K) S:Set)
+         => typeMatchInDefs(T:K, V:K, X, S:Set)
+    rule typeMatchInDefs(T:K, V:K, .K, .Set) => false
+
+    syntax Bool ::= isInDefs(K,K,Set) //var name, varop, Set of varops
+    rule isInDefs(V:K, varOp(B:K, N:K, T, V), S:Set) => true
+    rule isInDefs(V:K, varOp(B:K, N:K, T', V'), S:Set)
+         => isInDefs(V:K, .K, S:Set)
+         requires V =/=K V'
+    rule isInDefs(V:K, .K, SetItem(X:K) S:Set)
+         => isInDefs(V:K, X, S:Set)
+    rule isInDefs(V:K, .K, .Set) => false
+
     syntax Bool ::= isHexDigit(String) [function]
     rule isHexDigit(A:String) =>
           ((ordChar(A) >=Int ordChar("0"))
@@ -80,6 +98,28 @@ module LLVM-HELPERS
              andBool isHexDigit(substrString(S, 1, 2))
              andBool isHexDigit(substrString(S, 2, 3))
 
+    syntax Set ::= makeLabelToVars(Set, Set) [function]
+    rule makeLabelToVars(.Set, S:Set) => S
+    rule makeLabelToVars(SetItem(A:K) S1:Set, S2:Set)
+                 => makeLabelToVars(S1, SetItem(varOp(A, 0, label, A)) S2)
+
+    syntax KItem ::= setLabelVarsAux(Set, Map, K, K, Map) [function]
+    rule setLabelVarsAux(S:Set, .Map, .K, .K, M:Map) => setLabelVars(M)
+    rule setLabelVarsAux(S:Set, (A:K |-> blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) M1:Map, .K, .K, M2:Map)
+        => setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M2:Map)
+    rule setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M2:Map)
+        => setLabelVarsAux(S:Set, M1:Map, .K, .K,
+               (A |-> blockContent(Is:Map, Out:Set, In:Set, S InDef:Set,
+            InUse:Set, S OutDef:Set, OutUse:Set, TheUse:Set)) M2:Map)
+
+    syntax List ::= getAllInsts(List)  [function]
+    rule getAllInsts(.List) => .List
+    rule getAllInsts(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List)
+          => ListItem(instMap(Is)) getAllInsts(L)
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule 'nullOfConstValueRef(.KList) => loc(startMemoryLoc -Int 1, 0, undef, undef) [anywhere]

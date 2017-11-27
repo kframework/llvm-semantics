@@ -19,24 +19,8 @@ module LLVM-CONFIGURATION
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             <checkUseCount> 0 </checkUseCount>
             <instructionCounter> 0 </instructionCounter>
-            <tempBlockInst> .List </tempBlockInst>
-            <checkAllUses>
-                <checkUsesInBlock multiplicity="*">
-                    <allUseNum> 0 </allUseNum>
-                    <allCheckedBlocks> .Set </allCheckedBlocks>
-                    <allCurrentJob> .K </allCurrentJob>
-                    <checkUseResult>
-                       false
-                    </checkUseResult>
-                </checkUsesInBlock>
-            </checkAllUses>
-            <checkExistUses>
-                <checkUse multiplicity="*">
-                   <existUseNum> 0 </existUseNum>
-                   <checkedBlocks> .Set </checkedBlocks>
-                   <currentJob> .K </currentJob>
-                </checkUse>
-            </checkExistUses>
+            <tempUses> .Set </tempUses> //set from use vars
+            <tempBlockMap> .Map </tempBlockMap>
             <thread multiplicity="*">
                 <threadId> 0 </threadId>
                 <buffer> .List </buffer>
@@ -109,9 +93,9 @@ module LLVM-CONFIGURATION
                        <basicBlocks> .Map </basicBlocks>
                        <localFunVarCounter> 0 </localFunVarCounter>
                        <initialBasicBlock> .K </initialBasicBlock>
+                       <labels> .Set </labels>
                        //<blockPathMap> .Map </blockPathMap>
                        //<dependency> .List </dependency>
-                       <defToInstNum> .Map </defToInstNum> //mapping from def name to inst num
                        <instNumToBlock> .Map  </instNumToBlock> //inst number map to block name
                        <instNumInfo> .Map  </instNumInfo>
                        //<samePointerLoc> .List </samePointerLoc>//those locations are possibly the same

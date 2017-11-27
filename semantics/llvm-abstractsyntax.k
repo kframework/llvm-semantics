@@ -210,6 +210,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
+    syntax KItem ::= setLabelVars(Map)
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KResult ::= typeOperandResult(K, K)
@@ -222,6 +223,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
     syntax KItem ::= instruction(K, Set, K) 
+    syntax KItem ::= instMap(Map)
         //body, modifiers, instructionMetadatas
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
@@ -288,27 +290,35 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= blockContent(Map, Set, Set, Set, Set, Set, Set)
+    syntax KItem ::= blockContent(Map, Set, Set, Set, Set, Set, Set, Set)
                                    //instructions map from number (0...) to line of code
                                    //,outgoing edges, incoming edges, all incoming defs,
                                    //all incomming uses, all outgoing defs, all outgoing uses.
+                                   //use vars that have not been defined in current block
     syntax KItem ::= setOutEdge(K, ElemList) //name, outEdges
     syntax KItem ::= setInEdges(Set)
     syntax KItem ::= setInEdgesForNode(K)
     syntax KItem ::= setInEdgesForNode(K, K, Set)
     syntax KItem ::= setInitBlock(K)
+    syntax KItem ::= calDefUse(K, Set, Set)
+                   //new blocks, visited blocks
+    syntax KItem ::= calDefUse(K, Set, Set, Set, K, Set, Set)
+                   //cur block, defs, uses, nexts,next block, new blocks, visited blocks
     syntax KItem ::= phiEdges(K, Set)//block
     syntax KItem ::= "checkingPhisInEdges"
-    syntax KItem ::= checkUseVars(ElemList) [strict]
-    syntax KItmm ::= checkUseVars(List, K, Set, Set)
-    syntax KItem ::= checkUseVars(List, K, Set)
-    syntax KItem ::= checkUseVars(Set, Set, Set)
+    syntax KItem ::= checkUseVars(List)
+    //syntax KItem ::= checkUseVars(ElemList) [strict]
+    //syntax KItmm ::= checkUseVars(List, K, Set, Set)
+    //syntax KItem ::= checkUseVars(List, K, Set)
+    //syntax KItem ::= checkUseVars(Set, Set, Set)
     syntax KItem ::= checkUseVarInBlock(K, Set, Set)
-    syntax KItem ::= checkUseVarInPhi(ElemList) [strict]
-    syntax KItem ::= checkUseVarInPhi(List, K, Set)
-    syntax KItem ::= checkUseVarInPhi(List, Set, Set)
+    syntax KItem ::= checkUseVarInPhiAux(ElemList)
+    syntax KItem ::= checkUseVarInPhi(Int, Map, K, List)
+               //inst num, inst map, single inst, List of inst maps
+    syntax KItem ::= checkFirstInPhi(Int, Map, K, List)
+               //inst num, inst map, single inst, List of inst maps
     //syntax KItem ::= checkUseVarInPhi(Set, Set)
-    syntax KItem ::= checkUseVarInPhi(K, Set, Set)
+    //syntax KItem ::= checkUseVarInPhi(K, Set, Set)
     //syntax KItem ::= toCheckUsePhiVarInBlock(K, Set)
 
     syntax KItem ::= setBlockPaths(K, Set) //block, store set
@@ -336,7 +346,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setBlock(K)
     syntax KItem ::= body(ElemList)
 
-    syntax KItem ::= assignType(K, K, K) //block, var, t
+    syntax KItem ::= assignType(K, Int, K, K) //block, inst num, var, t
 
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
     syntax KItem ::= "globalVar" | "localVar"

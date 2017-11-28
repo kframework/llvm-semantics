@@ -1,4 +1,4 @@
-//
+//configuration of LLVM defines the program states of running LLVM programs
 requires "llvm-syntax.k"
 requires "llvm-abstractsyntax.k"
 requires "llvm-settings.k"
@@ -11,20 +11,28 @@ module LLVM-CONFIGURATION
     imports LLVM-HELPERS
 
     configuration
-        <T>
+        <T>//top level
             <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
+            //this is a cell to calculate the next memory location.
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            //this is a cell holding brk pointer
             <exBuffer> .List </exBuffer>
+            //a cell to hold all to commit memory ops, simulating computer north bridge
             <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
+            //a cell to hold the current all memory locations
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
+            //a helper cell to store all phi edges that have not been type checked
             <checkUseCount> 0 </checkUseCount>
+            //a counter cell to generate free vars for use checks, should be deleted
             <instructionCounter> 0 </instructionCounter>
+            //a counter cell to genearte free vars for instruction location num
             <tempUses> .Set </tempUses> //set from use vars
-            <tempBlockMap> .Map </tempBlockMap>
-            <thread multiplicity="*">
-                <threadId> 0 </threadId>
-                <buffer> .List </buffer>
+            <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
+            <thread multiplicity="*"> //thread cell
+                <threadId> 0 </threadId> //thread id
+                <buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
                 <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+                //main cell containing program code
                 <cpu>
                     <instQueue> .List </instQueue>
                     <rob> .List </rob>
@@ -34,23 +42,31 @@ module LLVM-CONFIGURATION
                     <loads> .List </loads>
                     <specChoice> allowChoice(.List) </specChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
-                </cpu>
+                </cpu>//simulating tomosulo execution model.
                 <callStack color="Goldenrod"> .List </callStack>
+                //stack for function calls
                 <control color="LightGoldenrod">
                     <currBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </currBlock>
-                    //<prevBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </prevBlock>
+                    //the current executing basic block
                     <currModule color="Orchid"> name(globalVar, "main") </currModule>
+                    //current module
                     <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
-                    <valist> .List </valist>
+                    //current function that is being executed
+                    <valist> .List </valist> //a cell storing variable argument list info
                     <registers color="teal"> .Map </registers>
+                    //registers (infinite) for a thread
                     // TODO: this should eventually be a Set
                     <currentProgPoint> 0 </currentProgPoint>
+                    //current program point (inst num), may not need
                     <currentModifiers color="Orchid"> .Set </currentModifiers>
+                    //the modifiers (attributes) for the current functions
                     <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
+                    //the metadatas for the current function
                     <localMemory> .List </localMemory>
-                </control>
+                    //local memory (stack) 
+                </control> //control panel for function and basic blocks
             </thread>
-            <memory color="teal" type="Map">
+            <memory color="teal" type="Map"> //main memory, heap
                 <object multiplicity="*" color="LightSkyBlue">
                     <basePtr color="orange" type="Key"> -1 </basePtr>
                     <type> .K </type>
@@ -61,12 +77,13 @@ module LLVM-CONFIGURATION
             </memory>
             // auxiliary cells:
             <output stream="stdout" color="DodgerBlue"> .List </output>
-            <modules color="teal">
+             //output channel, like standard output
+            <modules color="teal"> //static information about a module
                 <module multiplicity="*" color="LightSkyBlue">
                     <moduleName color="orange"> name(globalVar, "") </moduleName>
                     <targetLayout> "" </targetLayout>
                     <targetTriple> "" </targetTriple>
-                    <typedefs> .Map </typedefs>
+                    <typedefs> .Map </typedefs> //type definition
                     <savedGlobals> .K </savedGlobals>
                     <globalFunVarCounter> 0 </globalFunVarCounter>
                     <attributeGroups> .Map </attributeGroups>
@@ -78,32 +95,29 @@ module LLVM-CONFIGURATION
                             <typeName color="orange"> name(globalVar, "") </typeName>
                             <offsets> .Map </offsets>
                         </typeInfo>
-                    </typeInfos>
+                    </typeInfos> //type information for the module (global types, might delete)
                 </module>
             </modules>
-            <functions color="teal">
-                 <builtinFunctions> .Set </builtinFunctions>
+            <functions color="teal"> //static info for functions in a module
+                 <builtinFunctions> .Set </builtinFunctions> //builtin functions, might not need
                  <function multiplicity="*" color="LightSkyBlue">
                        <funModuleName color="orange"> name(globalVar, "") </funModuleName>
+                        //the module the function is belong to.
                        <functionName color="orange"> name(globalVar, "") </functionName>
-                       <funModifiers> .Set </funModifiers>
-                       <varTypes color="teal"> .Map </varTypes>
-                       <returnType> .K </returnType>
-                       <formalParameters> .K </formalParameters>
-                       <basicBlocks> .Map </basicBlocks>
-                       <localFunVarCounter> 0 </localFunVarCounter>
-                       <initialBasicBlock> .K </initialBasicBlock>
-                       <labels> .Set </labels>
-                       //<blockPathMap> .Map </blockPathMap>
-                       //<dependency> .List </dependency>
-                       <instNumToBlock> .Map  </instNumToBlock> //inst number map to block name
-                       <instNumInfo> .Map  </instNumInfo>
-                       //<samePointerLoc> .List </samePointerLoc>//those locations are possibly the same
+                       //name of the function
+                       <funModifiers> .Set </funModifiers> //function attributes
+                       <varTypes color="teal"> .Map </varTypes> //variable types in a function
+                       <returnType> .K </returnType> //return type of the function
+                       <formalParameters> .K </formalParameters> //parameters of a function
+                       <basicBlocks> .Map </basicBlocks> //basic blocks
+                       <localFunVarCounter> 0 </localFunVarCounter> //a counter to generate free vars
+                       <initialBasicBlock> .K </initialBasicBlock> //the entry block
+                       <labels> .Set </labels> //function labels, might delete
                  </function>
             </functions>
         </T>
         <result multiplicity="?" color="DodgerBlue">
             <returnValue> -1 </returnValue>
-        </result>
+        </result> //result of a computation, might delete
 
 endmodule

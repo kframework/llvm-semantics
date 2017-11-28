@@ -37,7 +37,11 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= "emptyHOLE"
     syntax KItem ::= instNumInfo(Int, K, K)
-     //Inst num, stmt, inst type
+                      //Inst num, stmt, inst type
+    syntax KItem ::= dynInstInfo(Int, Int, K, K)
+                      //block num, inst num, inst, inst type
+    
+
     syntax KItem ::= "terminators" | "loadInst" | "storeInst"
                     | "callInst" | "normalInst" | "returnInst"
                     | "allocaInst" | "phiInst"
@@ -85,13 +89,6 @@ module LLVM-ABSTRACTSYNTAX
     syntax ElemList ::= addElemToEnd(Element, ElemList)   [function]
     rule addElemToEnd(E:Element, .ElemList) => E,.ElemList
     rule addElemToEnd(E:Element, E':Element,Es:ElemList) => E',addElemToEnd(E,Es)
-
-    syntax Set ::= elemListToSet(ElemList) [function]
-    rule elemListToSet(.ElemList) => .Set
-    rule elemListToSet(val(A:K), Es:ElemList)
-                        => SetItem(A) elemListToSet(Es)
-    rule elemListToSet(valValue(A:K), Es:ElemList)
-                        => SetItem(A) elemListToSet(Es)
 
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | vectorType(K, K) [strict(1)]//inner type, length
@@ -186,7 +183,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= Zeroinitializer
     syntax KResult ::= blockValue(K)
 
-    syntax KItem ::= blockExecution(List)
+    syntax KItem ::= blockExecutionAux(K) 
+    syntax KItem ::= blockExecution(K, List)//prev block with num, inst list
     syntax KItem ::= "blockHOLE"
 
     //don't know how to deal with
@@ -217,6 +215,9 @@ module LLVM-ABSTRACTSYNTAX
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
     syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block name, typeoperand
 
+    syntax KItem ::= allowChoice(List) //used for specChoice cell
+    syntax KItem ::= holdChoice(List) //used for specChoice cell
+
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
     syntax KItem ::= fence(K) [strict]
@@ -225,6 +226,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= instruction(K, Set, K) 
     syntax KItem ::= instMap(Map)
         //body, modifiers, instructionMetadatas
+    syntax KItem ::= selectSpec(K, Set, Set, Set)
+        //previous block, next blocks, next block names, choices
+    syntax KItem ::= selectResult(K, K, List)
+          //cur block, next block name, list
+
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
     syntax KItem ::= indirectbr(K, ElemList)   [strict(1)]//operand, list of labels

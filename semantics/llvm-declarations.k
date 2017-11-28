@@ -144,9 +144,7 @@ module LLVM-DECLARATIONS
         <basicBlocks>... .Map => Name:SymbolicValueRef |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
 */
     rule
-        <k> setBlock(Label:SymbolicValueRef) => .K ...</k>
-        <currBlock> Label':K => basicBlockNum(N, Label) </currBlock>
-        <prevBlock> _ => Label' </prevBlock>
-        <blockCount> N:Int => N +Int 1 </blockCount>
+        <k> setBlock(Label:K) => .K ...</k>
+        <currBlock> Label':K => Label </currBlock>
 
 endmodule

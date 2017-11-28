@@ -32,13 +32,13 @@ module LLVM-CONFIGURATION
                     <cdb> .List </cdb>
                     <reservations> .List </reservations>
                     <loads> .List </loads>
-                    <specNextBlockMap> .Map </specNextBlockMap>
+                    <specChoice> allowChoice(.List) </specChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </cpu>
                 <callStack color="Goldenrod"> .List </callStack>
                 <control color="LightGoldenrod">
                     <currBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </currBlock>
-                    <prevBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </prevBlock>
+                    //<prevBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </prevBlock>
                     <currModule color="Orchid"> name(globalVar, "main") </currModule>
                     <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                     <valist> .List </valist>

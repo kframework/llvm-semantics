@@ -16,6 +16,7 @@ module LLVM-BRANCHING
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
+/*
     rule
         <k> unconditional(name(Label:K, S:String))
                 => blockExecution(setBlock(name(Label:K, S:String))
@@ -27,6 +28,7 @@ module LLVM-BRANCHING
         <basicBlocks>... name(Label:K, S:String)
                              |-> blockContent(B:Map, _:Set, _:Set, _:Set,
                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+*/
 
     rule
         <k> conditional(I:Int, Label:K, _)

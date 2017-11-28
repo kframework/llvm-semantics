@@ -641,8 +641,7 @@ module LLVM-NORMALIZING
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas)
-             ~> checkSingleAssignmentInBlock(N, .K, false)
-         ...</k>
+             ~> checkSingleAssignmentInBlock(N, .K, false) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>

@@ -43,8 +43,10 @@ module LLVM-CALL-RET
         <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
-            ~> blockExecution(ListItem(setBlock(IBBName)) formInstList(1, .K, Body))
+            ~> setBlock(basicBlockNum(Count, IBBName)) ~>
+               blockExecution(basicBlockNum(Count, IBBName), formInstList(1, .K, Body))
         </k>
+        <blockCount> Count:Int => Count +Int 1 </blockCount>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -55,6 +57,62 @@ module LLVM-CALL-RET
                             |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
+
+    //moving instruction into instQueue if it is not full
+    rule <k> blockExecution(basicBlockNum(N:Int, _:K),
+               (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</k>
+         <instQueue> InQueue:List => InQueue ListItem(dynInstInfo(N, Num, In, T)) </instQueue>
+         requires size(InQueue) <Int numOfMaxInQueue andBool T =/=K terminators
+         [transition]
+
+    //this rule is to do a speculative move by guessing a next block to execute.
+    rule <k> blockExecution(basicBlockNum(N:Int, Name:K),
+               ListItem(instNumInfo(Num:Int, instruction(In:K, Attrs:Set, Meta:K), terminators)))
+            => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
+               formInstList(1, .K, Body)) ...</k>
+         <instQueue> InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
+                     instruction(In:K, Attrs:Set, Meta:K), terminators)) </instQueue>
+         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
+         <blockCount> Count:Int => Count +Int 1 </blockCount> 
+         <specChoice> allowChoice(Chi:List => Chi ListItem(selectSpec(basicBlockNum(N, Name),
+                      SetItem(basicBlockNum(Count, guessNextBlock(In))),
+                      SetItem(guessNextBlock(In)), getAllBrBlocks(In)))) </specChoice>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <basicBlocks>... guessNextBlock(In)
+                            |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
+                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires size(InQueue) <Int numOfMaxInQueue andBool Count -Int maxSpecGap <Int BN
+         [transition]
+
+     //rules for speculative moves by choosing a different direction because of 
+     //hitting return operators.
+     rule <k> blockExecution(basicBlockNum(N:Int, Name:K), .List)
+              => blockExecutionAux(findNextBlock(.List, Chi)) ...</k>
+          <specChoice> allowChoice(Chi:List)
+                      => holdChoice(Chi) </specChoice>
+          [structural]
+
+     rule <k> blockExecutionAux(selectResult(basicBlockNum(PreCount:Int, PreName:K),
+                    Name:K, Chi':List))
+            => blockExecution(basicBlockNum(Count, Name),
+               formInstList(1, .K, Body)) ...</k>
+         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
+         <blockCount> Count:Int => Count +Int 1 </blockCount> 
+         <specChoice> holdChoice(Chi:List)  => allowChoice(
+                      insertBlockNum(basicBlockNum(PreCount:Int, PreName:K),
+                       basicBlockNum(Count, Name), Chi')) </specChoice>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <basicBlocks>... Name |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
+                                _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires Count -Int maxSpecGap <Int BN
+         [transition]
+
 
 /*
     rule <k> blockExecution(L:List) => blockHOLE ...</k>

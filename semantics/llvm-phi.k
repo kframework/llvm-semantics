@@ -18,6 +18,7 @@ module LLVM-PHI
     imports LLVM-CONFIGURATION
 
     //change second argument of PHI from KLIst to listK(KList)
+/*
     rule
         <k> phi(_:K, val(edge(K':K, Label:SymbolicValueRef)), _:ElemList)
             => K'
@@ -30,5 +31,6 @@ module LLVM-PHI
                         => L) ...</k>
         <prevBlock> Label':SymbolicValueRef </prevBlock>
         when Label =/=K Label'
+*/
 
 endmodule

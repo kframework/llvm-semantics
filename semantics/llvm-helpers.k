@@ -144,7 +144,7 @@ module LLVM-HELPERS
     rule formInstList(N, .K, (N:K |-> V:K) M:Map)
          => formInstList(N, V, M)
     rule formInstList(N:Int, instNumInfo(Num:K, In:K, T:K), M:Map)
-        => ListItem(In) formInstList(N +Int 1, .K, M)
+        => ListItem(instNumInfo(Num, In, T)) formInstList(N +Int 1, .K, M)
 
     syntax ElemList ::= StringToList(String) [function]
     rule StringToList("") => .ElemList
@@ -1040,10 +1040,39 @@ module LLVM-HELPERS
     rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
     rule guessNextBlock(_:K) => .K [owise]
 
-    syntax K ::= getValueFromBlockMap(Int, Map) [function]
-    rule getValueFromBlockMap(N:Int, M:Map (N |-> I:K))
-              => I ~> getValueFromBlockMap(N +Int 1, M)
-    rule getValueFromBlockMap(N:Int, .Map)
-              => .K
+    syntax Set ::= getAllBrBlocks(K) [function]
+    rule getAllBrBlocks(unconditional(A:K)) => SetItem(A)
+    rule getAllBrBlocks(conditional(A:K, B:K, C:K))
+               => SetItem(B) SetItem(C)
+    rule getAllBrBlocks(switch(A:K, B:K, C:K, Es:ElemList))
+               => SetItem(C) elemListToSet(Es)
+    rule getAllBrBlocks(indirectbr(A:K, Es:ElemList)) => elemListToSet(Es)
+
+    syntax Set ::= elemListToSet(ElemList) [function]
+    rule elemListToSet(.ElemList) => .Set
+    rule elemListToSet(val(A:K), Es:ElemList)
+                        => SetItem(A) elemListToSet(Es)
+    rule elemListToSet(valValue(A:K), Es:ElemList)
+                        => SetItem(A) elemListToSet(Es)
+
+    syntax KItem ::= findNextBlock(List, List)  [function]
+                   | findNextBlockAux(List, K, Set, Set, Set, Set, List) [function]
+
+    rule findNextBlock(L, .List) => emptyHOLE
+    rule findNextBlock(Pre:List, 
+            ListItem(selectSpec(A:K, V:Set, Visited:Set, All:Set)) L:List)
+             => findNextBlockAux(Pre, A, V, All -Set Visited, Visited, All, L)
+    rule findNextBlockAux(Pre:List, A:K, V:Set, .Set, Visited:Set, All:Set, L:List)
+                => findNextBlock(Pre ListItem(selectSpec(A, V, Visited, All)), L)
+    rule findNextBlockAux(Pre:List, A:K, V:Set, SetItem(B:K) S:Set, Visited:Set, All:Set, L:List)
+         => selectResult(A, B, Pre ListItem(selectSpec(A, V, SetItem(B) Visited, All)) L)
+
+    syntax List ::= insertBlockNum(K, K, List) [function]
+    rule insertBlockNum(A:K, B:K, .List) => .List
+    rule insertBlockNum(A:K, B:K, ListItem(selectSpec(A, V:Set, Vis:Set, All:Set)) L:List)
+           => ListItem(selectSpec(A, V:Set SetItem(B), Vis:Set, All:Set)) L:List
+    rule insertBlockNum(A:K, B:K, ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) L:List)
+           => ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) insertBlockNum(A,B, L)
+         requires A =/=K A'
 
 endmodule

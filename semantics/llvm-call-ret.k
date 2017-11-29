@@ -61,7 +61,8 @@ module LLVM-CALL-RET
     //moving instruction into instQueue if it is not full
     rule <k> blockExecution(basicBlockNum(N:Int, _:K),
                (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</k>
-         <instQueue> InQueue:List => InQueue ListItem(dynInstInfo(N, Num, In, T)) </instQueue>
+         <instQueue> instList(InQueue:List =>
+                         InQueue ListItem(dynInstInfo(N, Num, In, T))) </instQueue>
          requires size(InQueue) <Int numOfMaxInQueue andBool T =/=K terminators
          [transition]
 
@@ -70,8 +71,8 @@ module LLVM-CALL-RET
                ListItem(instNumInfo(Num:Int, instruction(In:K, Attrs:Set, Meta:K), terminators)))
             => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
                formInstList(1, .K, Body)) ...</k>
-         <instQueue> InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
-                     instruction(In:K, Attrs:Set, Meta:K), terminators)) </instQueue>
+         <instQueue> instList(InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
+                     instruction(In:K, Attrs:Set, Meta:K), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
          <specChoice> allowChoice(Chi:List => Chi ListItem(selectSpec(basicBlockNum(N, Name),
@@ -89,13 +90,13 @@ module LLVM-CALL-RET
 
      //rules for speculative moves by choosing a different direction because of 
      //hitting return operators.
-     rule <k> blockExecution(basicBlockNum(N:Int, Name:K), .List)
+    rule <k> blockExecution(basicBlockNum(N:Int, Name:K), .List)
               => blockExecutionAux(findNextBlock(.List, Chi)) ...</k>
-          <specChoice> allowChoice(Chi:List)
+         <specChoice> allowChoice(Chi:List)
                       => holdChoice(Chi) </specChoice>
           [structural]
 
-     rule <k> blockExecutionAux(selectResult(basicBlockNum(PreCount:Int, PreName:K),
+    rule <k> blockExecutionAux(selectResult(basicBlockNum(PreCount:Int, PreName:K),
                     Name:K, Chi':List))
             => blockExecution(basicBlockNum(Count, Name),
                formInstList(1, .K, Body)) ...</k>
@@ -104,15 +105,62 @@ module LLVM-CALL-RET
          <specChoice> holdChoice(Chi:List)  => allowChoice(
                       insertBlockNum(basicBlockNum(PreCount:Int, PreName:K),
                        basicBlockNum(Count, Name), Chi')) </specChoice>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName </functionName>
-        <basicBlocks>... Name |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... Name |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
                                 _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-         requires Count -Int maxSpecGap <Int BN
+          requires Count -Int maxSpecGap <Int BN
          [transition]
 
+    rule <instQueue> instList(ListItem(A:K) L:List)
+                      => splitQueue(.List, ListItem(A), L) </instQueue>
+         [structural]
+
+    rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
+                        IN:Int, Inst:K, T:K)) Pre:List, L:List)
+               => instList(Pre L) </instQueue>
+         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
+          requires (T ==K terminators) orBool (T ==K returnInst)
+         [structural]
+
+    rule <instQueue> splitQueue(Av:List ListItem(dynInstInfo(BN:Int,
+                  IN:Int, Inst:K, T:K)), L:List, .List)
+                   => instList(removeInst(BN,IN,L)) </instQueue>
+         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
+         [transition]
+
+    rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
+                        IN:Int, Inst:K, T:K)) Pre:List, L:List)
+               => instList(Pre L) </instQueue>
+         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
+          requires (T =/=K terminators) andBool (T =/=K returnInst)
+         [transition]
+
+    rule <instQueue> splitQueue(AV:List, Pre:List,
+                ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)) L:List)
+               => instList(Pre L) </instQueue>
+         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
+          requires (T =/=K terminators) andBool (T =/=K returnInst)
+                  andBool (T =/=K callInst) andBool (isAvailable(Inst))
+         [transition]
+
+    rule <instQueue> splitQueue(AV:List, Pre:List,
+                ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)) L:List)
+          => splitQueue(AV ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)),
+              Pre ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)), L) </instQueue>
+          requires (T =/=K terminators) andBool (T =/=K returnInst)
+                  andBool (T =/=K callInst) andBool (isAvailable(Inst))
+         [transition]
+
+    rule <instQueue> splitQueue(AV:List, Pre:List,
+                ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)) L:List)
+          => splitQueue(AV, Pre ListItem(dynInstInfo(BN:Int,
+                                IN:Int, Inst:K, T:K)), L) </instQueue>
+          requires (T ==K terminators) orBool (T ==K returnInst)
+                  orBool (T ==K callInst) orBool (notBool isAvailable(Inst))
+         [structural]
 
 /*
     rule <k> blockExecution(L:List) => blockHOLE ...</k>

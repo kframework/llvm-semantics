@@ -1075,4 +1075,38 @@ module LLVM-HELPERS
            => ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) insertBlockNum(A,B, L)
          requires A =/=K A'
 
+    syntax Bool ::= isAvailable(K) [function]
+    rule isAvailable(Op:KLabel(Ty:K,, V1:KResult,, V2:KResult)) => true
+        requires isIntOp(Op:KLabel(Ty:K,, V1:KResult,, V2:KResult))
+    rule isAvailable(Op:KLabel(Ty:K,, V1:SymbolicValueRef,, V2:K)) => false
+        requires isIntOp(Op:KLabel(Ty:K,, V1:SymbolicValueRef,, V2:K))
+    rule isAvailable(Op:KLabel(Ty:K,, V1:K,, V2:SymbolicValueRef)) => false
+        requires isIntOp(Op:KLabel(Ty:K,, V1,, V2))
+    rule isAvailable(A:K) => false [owise]
+
+    syntax Bool ::= isIntOp(K) [function]
+    rule isIntOp(A:K) => true
+        requires getKLabel(A) ==KLabel 'theAdd
+              orBool getKLabel(A) ==KLabel 'theSub
+              orBool getKLabel(A) ==KLabel 'theMul
+              orBool getKLabel(A) ==KLabel 'theUDiv
+              orBool getKLabel(A) ==KLabel 'theSDiv
+              orBool getKLabel(A) ==KLabel 'theURem
+              orBool getKLabel(A) ==KLabel 'theSRem
+              orBool getKLabel(A) ==KLabel 'theShl
+              orBool getKLabel(A) ==KLabel 'theLShr
+              orBool getKLabel(A) ==KLabel 'theAShr
+              orBool getKLabel(A) ==KLabel 'theOr
+              orBool getKLabel(A) ==KLabel 'theAnd
+              orBool getKLabel(A) ==KLabel 'theXor
+   rule isIntOp(A:K) => false [owise]
+
+   syntax List ::= removeInst(Int, Int, List) [function]
+   rule removeInst(A:Int, B:Int, .List) => .List
+   rule removeInst(A:Int, B:Int, ListItem(dynInstInfo(A:Int,
+           B:Int, Is:K, T:K)) L:List) => L
+   rule removeInst(A:Int, B:Int, ListItem(X:K) L:List)
+             => ListItem(X:K) (removeInst(A, B, L))
+        [owise]
+
 endmodule

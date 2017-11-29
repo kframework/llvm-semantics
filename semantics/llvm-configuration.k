@@ -33,16 +33,15 @@ module LLVM-CONFIGURATION
                 <buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
                 <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
                 //main cell containing program code
-                <cpu>
-                    <instQueue> .List </instQueue>
-                    <rob> .List </rob>
+                <tomasulo>
+                    <instQueue> instList(.List) </instQueue> //instruction queue
+                    <cpu> .K </cpu> //central execution unit
                     <toCommit> .List </toCommit>
-                    <cdb> .List </cdb>
+                    <cdb> .List </cdb> //common data bus
                     <reservations> .List </reservations>
-                    <loads> .List </loads>
                     <specChoice> allowChoice(.List) </specChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
-                </cpu>//simulating tomosulo execution model.
+                </tomasulo>//simulating tomosulo execution model.
                 <callStack color="Goldenrod"> .List </callStack>
                 //stack for function calls
                 <control color="LightGoldenrod">

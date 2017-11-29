@@ -38,8 +38,6 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "emptyHOLE"
     syntax KItem ::= instNumInfo(Int, K, K)
                       //Inst num, stmt, inst type
-    syntax KItem ::= dynInstInfo(Int, Int, K, K)
-                      //block num, inst num, inst, inst type
     
 
     syntax KItem ::= "terminators" | "loadInst" | "storeInst"
@@ -217,6 +215,11 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= allowChoice(List) //used for specChoice cell
     syntax KItem ::= holdChoice(List) //used for specChoice cell
+    syntax KItem ::= splitQueue(List, List, List) //used for instQueue cell
+                                     //availables, Pre, remains
+    syntax KItem ::= instList(List) //used for instQueue cell
+    syntax KItem ::= dynInstInfo(Int, Int, K, K)
+                      //block num, inst num, inst, inst type
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination

@@ -1109,4 +1109,74 @@ module LLVM-HELPERS
              => ListItem(X:K) (removeInst(A, B, L))
         [owise]
 
+   syntax List ::= updateVarInList(List, K, K) [function]
+                 | updateVarInInst(List, Int, Int, K, K, K, K) [function]
+   syntax KItem ::= updateVarInTerm(K, K, K) [function]
+                  | updateVarInValue(K, K, K) [function]
+                  | updateVarInTermMap(K, Map) [function]
+                  | updateVarInValueMap(K, Map) [function]
+
+   rule updateVarInList(.List, X:K, V:K) => .List
+   rule updateVarInList(ListItem(dynInstInfo(Bn:Int,
+                     In:Int, Inst:K, T:K)) L:List, X:K, V:K)
+        => updateVarInInst(L, Bn, In, Inst, T, X, V)
+   rule updateVarInInst(L:List, Bn:Int, In:Int,
+                assign(X:K, Inst:K), T:K, X:K, V:K)
+        => ListItem(dynInstInfo(Bn, In, assign(X, Inst), T)) L
+   rule updateVarInInst(L:List, Bn:Int, In:Int,
+                assign(X':K, Inst:K), T:K, X:K, V:K)
+        => ListItem(dynInstInfo(Bn, In, assign(X',
+          updateVarInTerm(Inst, X, V)), T)) updateVarInList(L, X, V)
+        requires X' =/=K X
+
+   rule updateVarInTerm(instruction(In:K, Attrs:Set, Meta:K), X:K, Y:K)
+        => instruction(updateVarInTerm(In, X, Y), Attrs, Meta)
+   rule updateVarInTerm(Op:KLabel(Ty:K,, V1:K,,
+                 V2:K), X:K, Y:K)
+        => Op:KLabel(Ty,, updateVarInValue(V1, X, Y),,
+                      updateVarInValue(V2, X, Y))
+        requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+
+   rule updateVarInTerm(ret(Ty:K, V:K), X:K, Y:K)
+        => ret(Ty, updateVarInValue(V, X, Y))
+
+   rule updateVarInValue(X:SymbolicValueRef, X, Y:K) => Y
+   rule updateVarInValue(X':SymbolicValueRef, X, Y:K) => X'
+        requires X' =/=K X
+   rule updateVarInValue(A:KResult, X, Y:K) => A
+
+   rule updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M:Map)
+        => instruction(updateVarInTermMap(In, M), Attrs, Meta)
+   rule updateVarInTermMap(assign(X:K, Inst:K), M:Map)
+        => assign(X, updateVarInTermMap(Inst, removeEntry(M, X)))
+   rule updateVarInTermMap(Op:KLabel(Ty:K,, V1:K,,
+                 V2:K), M:Map)
+        => Op:KLabel(Ty,, updateVarInValueMap(V1, M),,
+                      updateVarInValueMap(V2, M))
+        requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+
+   rule updateVarInTermMap(ret(Ty:K, V:K), M:Map)
+        => ret(Ty, updateVarInValueMap(V, M))
+
+   rule updateVarInValueMap(X:K, (X:K |-> Y:K) M:Map) => Y
+   rule updateVarInValueMap(X':K, M:Map) => X'
+        requires notBool (X' in keys(M))
+   rule updateVarInValueMap(A:KResult, M:Map) => A
+
+   syntax Bool ::= hasDefInList(List, K)  [function]
+   rule hasDefInList(.List, X:K) => false
+   rule hasDefInList(ListItem(dynInstInfo(Bn, In,
+              assign(X, Inst), T)) L:List, X:K) => true
+   rule hasDefInList(ListItem(dynInstInfo(Bn, In,
+              assign(X', Inst), T)) L:List, X:K)
+         => hasDefInList(L, X)
+        requires X =/=K X'
+
+   syntax Map ::= removeEntry(Map, K) [function]
+   rule removeEntry(M:Map (X:K |-> Y:K),
+        assign(X:K, Inst:K)) => M
+   rule removeEntry(M:Map, assign(X:K, Inst:K)) => M
+        requires notBool (X in keys(M))
+   rule removeEntry(M:Map, A:K) => M [owise]
+
 endmodule

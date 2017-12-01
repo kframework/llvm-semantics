@@ -220,6 +220,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= instList(List) //used for instQueue cell
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
                       //block num, inst num, inst, inst type
+    syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
+    syntax KItem ::= runDynInst(K) [strict]
+    syntax KResult ::= dynResult(K, K)
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination

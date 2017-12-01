@@ -62,7 +62,9 @@ module LLVM-CALL-RET
     rule <k> blockExecution(basicBlockNum(N:Int, _:K),
                (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</k>
          <instQueue> instList(InQueue:List =>
-                         InQueue ListItem(dynInstInfo(N, Num, In, T))) </instQueue>
+                         InQueue ListItem(dynInstInfo(N, Num,
+                               updateVarInTermMap(In, M), T))) </instQueue>
+         <reserveReg> M:Map => removeEntry(M, In) </reserveReg>
          requires size(InQueue) <Int numOfMaxInQueue andBool T =/=K terminators
          [transition]
 
@@ -72,7 +74,8 @@ module LLVM-CALL-RET
             => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
                formInstList(1, .K, Body)) ...</k>
          <instQueue> instList(InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
-                     instruction(In:K, Attrs:Set, Meta:K), terminators))) </instQueue>
+             updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M), terminators))) </instQueue>
+         <reserveReg> M:Map => removeEntry(M, In) </reserveReg>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
          <specChoice> allowChoice(Chi:List => Chi ListItem(selectSpec(basicBlockNum(N, Name),
@@ -116,6 +119,7 @@ module LLVM-CALL-RET
 
     rule <instQueue> instList(ListItem(A:K) L:List)
                       => splitQueue(.List, ListItem(A), L) </instQueue>
+         <cpu> .K </cpu>
          [structural]
 
     rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
@@ -161,6 +165,21 @@ module LLVM-CALL-RET
           requires (T ==K terminators) orBool (T ==K returnInst)
                   orBool (T ==K callInst) orBool (notBool isAvailable(Inst))
          [structural]
+
+    rule <cpu> dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)
+                 => dynInstHold(BN, IN, T) </cpu>
+         <k> (.K => runDynInst(Inst)) ~> K:K </k>
+ 
+    rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
+         <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
+         <reserveReg> M:Map => M[X <- V] </reserveReg>
+         <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue> 
+         requires notBool hasDefInList(L, X)
+
+    rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
+         <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
+         <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue> 
+         requires hasDefInList(L, X)
 
 /*
     rule <k> blockExecution(L:List) => blockHOLE ...</k>

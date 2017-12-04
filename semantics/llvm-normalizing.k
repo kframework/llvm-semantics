@@ -436,7 +436,7 @@ module LLVM-NORMALIZING
                vectorTypeValue(integerType(N:Int), I:Int),
                           V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
               => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                  vectorTypeValue(integerType(N:Int), I:Int),
+                  vectorTypeValue(integerType(N:Int), I:Int), I,
                              val(V1),val(V2),.ElemList))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(integerType(N:Int), I:Int),
@@ -463,7 +463,7 @@ module LLVM-NORMALIZING
                V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
               => .K </k>
          <output>... .List => ListItem("error: invalid vector number for instruction") </output>
-         requires I <= 0
+         requires I <=Int 0
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                     Ty:KResult, V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
@@ -489,12 +489,12 @@ module LLVM-NORMALIZING
     rule <k> typeCheckConstExpr(T:K, name(localVar, X:K)) ~> K:K => .K </k>
          <output>... .List => ListItem("error: invalid use of function-local name.") </output>
 
-    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) => T ...<k>
+    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) => T ...</k>
          <globalRegisters>... name(globalVar, X:K) |-> value(T:K, V:K) ...</globalRegisters>
-    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) ~> K:K => .K <k>
+    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) ~> K:K => .K </k>
          <globalRegisters>... name(globalVar, X:K) |-> value(T':K, V:K) ...</globalRegisters>
          <output>... .List => ListItem("error: const expression type failed.") </output>
-         requires T =/= T'
+         requires T =/=K T'
     rule typeCheckConstExpr(integerType(N:Int), A:KResult)
                => typecheckIntExpr(integerType(N:Int), A)
 
@@ -503,6 +503,9 @@ module LLVM-NORMALIZING
                                    V1:ResolvedVal,, V2:ResolvedVal))
            => 
 */
+
+    //start type checking vector arguments
+    //rule typeCheckVectorArgs
 
     //start type checking integer arguments
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
@@ -514,9 +517,9 @@ module LLVM-NORMALIZING
     //type check each integer argument
     rule typecheckIntExpr(T:KResult, A:ConstExpr)
          => constExprType(typeCheckConstExpr(T, A:ConstExpr))
-           ~> typecheckIntExpr(Name:SymbolicValueRef, T:KResult, emptyHOLE)
+           ~> typecheckIntExpr(T:KResult, emptyHOLE)
     rule T:KResult ~>
-            typecheckIntExpr(Name:SymbolicValueRef, T:KResult, emptyHOLE) => T
+            typecheckIntExpr(T:KResult, emptyHOLE) => T
 
     //type check interger expressions
     rule typecheckIntExpr(T:KResult, undef) => T
@@ -576,6 +579,7 @@ module LLVM-NORMALIZING
          requires I >Int 0 andBool N >Int 0
 
     //define type checking rules for vector types in integer opeartors.
+/*
     rule typeCheckIntArg(Name:SymbolicValueRef,
                              T:K, 0, vector(.ElemList)) => .K
     rule typeCheckIntArg(Name:SymbolicValueRef,
@@ -678,7 +682,7 @@ module LLVM-NORMALIZING
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, instruction(ret(T,V) ,.Set
                                         ,insMetas(formElemList(Meta))), returnInst)) </tempBlockMap>
-
+*/
 
     //set out edges for a block
     rule setOutEdge(N:K, .ElemList) => .K

@@ -223,6 +223,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)
+    syntax KItem ::= exprType(K) [strict]
+    syntax KItem ::= constExprType(K) [strict]
 
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
@@ -323,6 +325,7 @@ module LLVM-ABSTRACTSYNTAX
     //syntax KItmm ::= checkUseVars(List, K, Set, Set)
     //syntax KItem ::= checkUseVars(List, K, Set)
     //syntax KItem ::= checkUseVars(Set, Set, Set)
+    syntax KItem ::= checkUseVarInside(K, K, K)
     syntax KItem ::= checkUseVarInBlock(K, Set, Set)
     syntax KItem ::= checkUseVarInPhiAux(ElemList)
     syntax KItem ::= checkUseVarInPhi(Int, Map, K, List)

@@ -29,6 +29,14 @@ design for data flow analysis:
 4, In calculating the data dependency edges, we are implementing a map from each instruction number to a set of depedency instructions previously. We first generate all data depedency edges in each basic block and fill outgoing read/write sets for each block. Then, we mark each blocks as unchange first, and start front the initial graphs, and we check if we need to add outgoing read/write sets to any incomming read/write sets of a block, if it is, then we mark the block as changed, and then change all its instruction map, and move to the next one. We also remember all blocks that we have visited, if a block loop back to a visited block, then we do not need to change anything for the block, if it changed, then we need to changed the loop back block, and mark the current block as unchange. We do this again and again until all blocks have been marked unchange.
 
 
+type checking design adds:
+
+1, pointer type should take into account of different address space. and if not specifeid, the pointer has address space 0.
+2, int instructions and logic instructions cannot have vector type with an local variable. 
+3, global variables are all pointers. 
+
+
+
 
 
 

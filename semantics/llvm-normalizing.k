@@ -27,6 +27,9 @@ module LLVM-NORMALIZING
     rule assignUses(Name:K, Count:Int, Ty:K, val(V1:ConstValueRef),E:ElemList)
            => assignUses(Name:K, Count:Int, Ty:K, E:ElemList)
 
+    rule constExprType(A:KResult) => A
+    rule exprType(K:KResult) => .K
+
     rule <k> badType ~> K => .K </k>
          <output>... .List => ListItem("error: expected type") </output>
 
@@ -37,8 +40,11 @@ module LLVM-NORMALIZING
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
                    | typeCheckIntArgs(K, K, ElemList)
+                   | typeCheckVectorArgs(K, K, Int, ElemList) //block, t, integer, terms
+                   | typeCheckConstExpr(K, K) //type var
+                   | typecheckIntExpr(K, K) //type, var
                    | typeCheckIntArg(K, K, K)//block, t, var
-                   | typeCheckIntArg(K, K, K, K)
+                   | typeCheckVectorArg(K, K, Int, K) //block, t, integer, terms
                    | typeCheckInGepList(K, K, ElemList) //reference type, current type, index list
                    | typeCheckInGepListStruct(K, K, ElemList, K)//reference type, current type, index_list, structural_list
                    | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
@@ -86,17 +92,9 @@ module LLVM-NORMALIZING
            => typeCheckIntOp(Name:SymbolicValueRef, X, L, Ty,
                            addNameToString(V1), addNameToString(V2), .Set, Ins)
 
-    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc Ty1:Type V:ValueRef
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:CastOps Ty1:Type V:ValueRef
                                             to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(Name:SymbolicValueRef, X, trunc,
-                                          Ty1, addNameToString(V), Ty2, Ins)
-    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, zext Ty1:Type V:ValueRef
-                                            to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(Name:SymbolicValueRef, X, zext,
-                                          Ty1, addNameToString(V), Ty2, Ins)
-    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, sext Ty1:Type V:ValueRef
-                                            to Ty2:Type Ins:InstructionMetadatas)
-           => typeCheckCastOp(Name:SymbolicValueRef, X, sext,
+           => typeCheckCastOp(Name:SymbolicValueRef, X, Op,
                                           Ty1, addNameToString(V), Ty2, Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -243,13 +241,188 @@ module LLVM-NORMALIZING
                         addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
 
 
+    //deal with cast operators
+/*
+   <result> = trunc <ty> <value> to <ty2>             ; yields ty2
+    LLVM documentation mistake. trunc is not just working on values.
+*/
 
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, trunc, integerType(N:Int),
+                  V:K, integerType(N':Int), Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name, integerType(N), V)
+                 ~> assignUses(Name, TheCount,
+                       integerType(N:Int), (val(V),.ElemList))
+                   ~> assignType(Name, TheCount, X, integerType(N')) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(trunc)(
+                 integerType(N:Int),, V,, integerType(N':Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires N >Int N'
+
+/*
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
+               vectorTypeValue(integerType(N:Int), I:Int), V:K,
+               vectorTypeValue(integerType(N':Int), I:Int), Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
+                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(trunc)(
+                 vectorTypeValue(integerType(N:Int), I:Int),,
+                 V,, vectorTypeValue(integerType(N':Int), I:Int)),
+                 .Set, insMetas(formElemList(Meta)))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
+         requires N >Int N'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, trunc, integerType(N:Int),
+                  V:K, integerType(N':Int), Meta:K) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
+                             +String Int2String(N) +String "' to 'i"
+                             +String Int2String(N') +String "'") </output>
+         requires N <=Int N'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
+               vectorTypeValue(integerType(N:Int), I:Int), V:K,
+               vectorTypeValue(integerType(N':Int), I':Int),
+               _:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid cast opcode for cast from '<"
+                             +String Int2String(I) +String " x "
+                             +String Int2String(N) +String ">' to '<"
+                             +String Int2String(I') +String " x "
+                             +String Int2String(N') +String ">'") </output>
+         requires N <=Int N' orBool I =/=Int I'
+
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                 X:SymbolicValueRef, Op:K, integerType(N:Int),
+                    V:K, integerType(N':Int), Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name, integerType(N), V)
+                 ~> assignType(Name, X, integerType(N'))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(Op)(
+                 integerType(N:Int),, V,, integerType(N':Int)), .Set,
+                     insMetas(formElemList(Meta)))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
+         requires N <Int N' andBool Op =/=K trunc
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+             Op:K, integerType(N:Int), V:K,
+             integerType(N':Int), _:InstructionMetadatas)
+             ~> K => .K </k>
+         <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
+                             +String Int2String(N) +String "' to 'i"
+                             +String Int2String(N') +String "'") </output>
+         requires N >=Int N' andBool Op =/=K trunc
+
+    rule <k>typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(integerType(N:Int), I:Int), V:K,
+               vectorTypeValue(integerType(N':Int), I:Int), Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
+                 ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(Op)(
+                 vectorTypeValue(integerType(N:Int), I:Int),,
+                 V,, vectorTypeValue(integerType(N':Int), I:Int)),
+                 .Set, insMetas(formElemList(Meta)))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
+         requires N <Int N' andBool Op =/=K trunc
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(integerType(N:Int), I:Int), V:K,
+               vectorTypeValue(integerType(N':Int), I':Int),
+                _:InstructionMetadatas) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid cast opcode for cast from '<"
+                             +String Int2String(I) +String " x "
+                             +String Int2String(N) +String ">' to '<"
+                             +String Int2String(I') +String " x "
+                             +String Int2String(N') +String ">'") </output>
+         requires (N >=Int N' orBool I =/=Int I') andBool Op =/=K trunc
+
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, trunc, integerType(N:Int),
+                   V:K, integerType(N':Int), _:InstructionMetadatas)
+             ~> K => .K </k>
+         <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
+                             +String Int2String(N) +String "' to 'i"
+                             +String Int2String(N') +String "'") </output>
+         requires N <=Int N'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
+               vectorTypeValue(integerType(N:Int), I:Int), V:K,
+               vectorTypeValue(integerType(N':Int), I:Int), Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
+                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(trunc)(
+                 vectorTypeValue(integerType(N:Int), I:Int),,
+                 V,, vectorTypeValue(integerType(N':Int), I:Int)),
+                 .Set, insMetas(formElemList(Meta)))), X,
+                    .K, .K, .K, getAllLocalVar(V),
+                 normalInst)]  </instNumInfo>
+         requires N >Int N'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
+               vectorTypeValue(integerType(N:Int), I:Int), V:K,
+               vectorTypeValue(integerType(N':Int), I':Int),
+               _:InstructionMetadatas) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid cast opcode for cast from '<"
+                             +String Int2String(I) +String " x "
+                             +String Int2String(N) +String ">' to '<"
+                             +String Int2String(I') +String " x "
+                             +String Int2String(N') +String ">'") </output>
+         requires N <=Int N' orBool I =/=Int I'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+            Op:K, vectorTypeValue(Ty:KResult, I:Int), V:K,
+            vectorTypeValue(Ty':KResult, I':Int), _:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid operand type for instruction") </output>
+         requires getKLabel(Ty) =/=KLabel 'integerType orBool getKLabel(Ty') =/=KLabel 'integerType
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+             Op:K, T:K, V:K, T':K, _:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
+         requires (getKLabel(T) =/=KLabel 'integerType
+                    andBool getKLabel(T) =/=KLabel 'vectorTypeValue)
+                    orBool (getKLabel(T') =/=KLabel 'integerType
+                    andBool getKLabel(T') =/=KLabel 'vectorTypeValue)
+*/
 
     //type checking and instruction AST from with integer ops and logical ops.
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                  integerType(N:Int), V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
-              => typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N), val(V1),val(V2),.ElemList)
+              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V1),val(V2),.ElemList))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V1),val(V2),.ElemList))
                  ~> assignType(Name, TheCount, X, integerType(N:Int)) ...</k>
@@ -262,11 +435,12 @@ module LLVM-NORMALIZING
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int),
                           V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
-              => typeCheckIntArgs(Name:SymbolicValueRef,
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
                   vectorTypeValue(integerType(N:Int), I:Int),
-                             val(V1),val(V2),.ElemList)
-                ~> assignUses(Name, TheCount, integerType(N:Int),
-                         mergeVectorList(V1,V2))
+                             val(V1),val(V2),.ElemList))
+                ~> assignUses(Name, TheCount,
+                       vectorTypeValue(integerType(N:Int), I:Int),
+                  (val(V1),val(V2),.ElemList))
                  ~> assignType(Name, TheCount, X,
                       vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
@@ -275,6 +449,7 @@ module LLVM-NORMALIZING
                    vectorTypeValue(integerType(N:Int), I:Int),, V1,, V2), S,
                      insMetas(formElemList(Meta)))),
                  normalInst)) </tempBlockMap>
+          requires I >Int 0
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(Ty:KResult, I:Int),
@@ -282,6 +457,13 @@ module LLVM-NORMALIZING
               => .K </k>
          <output>... .List => ListItem("error: invalid operand type for instruction") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
+
+    rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(Ty:KResult, I:Int),
+               V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid vector number for instruction") </output>
+         requires I <= 0
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                     Ty:KResult, V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
@@ -303,20 +485,59 @@ module LLVM-NORMALIZING
            Def:Set (.Set => SetItem(varOp(Name, TheCount, T, X))),
           _:Set, _:Set) ...</basicBlocks>
 
+    //type checking const expr
+    rule <k> typeCheckConstExpr(T:K, name(localVar, X:K)) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid use of function-local name.") </output>
+
+    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) => T ...<k>
+         <globalRegisters>... name(globalVar, X:K) |-> value(T:K, V:K) ...</globalRegisters>
+    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) ~> K:K => .K <k>
+         <globalRegisters>... name(globalVar, X:K) |-> value(T':K, V:K) ...</globalRegisters>
+         <output>... .List => ListItem("error: const expression type failed.") </output>
+         requires T =/= T'
+    rule typeCheckConstExpr(integerType(N:Int), A:KResult)
+               => typecheckIntExpr(integerType(N:Int), A)
+
+/*
+    rule typeCheckConstExpr(T:K, 'constBin(Op:BinaryIntOps,,
+                                   V1:ResolvedVal,, V2:ResolvedVal))
+           => 
+*/
+
     //start type checking integer arguments
-    rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, .ElemList) => .K
-    rule typeCheckIntArgs(Name:SymbolicValueRef, T:Type, val(V:K),Vs:ElemList)
-                    => typeCheckIntArg(Name:SymbolicValueRef, T, V)
-                          ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
+    rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
+    rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, val(V:K),Vs:ElemList)
+                    => exprType(typecheckIntExpr(T, V))
+                          ~> checkUseVarInside(Name, T, V)
+                           ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
 
     //type check each integer argument
-    rule typeCheckIntArg(Name:SymbolicValueRef, T:KResult, undef) => .K
-    rule typeCheckIntArg(Name:SymbolicValueRef,
-                            T:KResult, zeroinitializer) => .K
-    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I:Int) => .K
-    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(1), B:Bool) => .K
+    rule typecheckIntExpr(T:KResult, A:ConstExpr)
+         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
+           ~> typecheckIntExpr(Name:SymbolicValueRef, T:KResult, emptyHOLE)
+    rule T:KResult ~>
+            typecheckIntExpr(Name:SymbolicValueRef, T:KResult, emptyHOLE) => T
 
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
+    //type check interger expressions
+    rule typecheckIntExpr(T:KResult, undef) => T
+    rule typecheckIntExpr(T:KResult, zeroinitializer) => T
+    rule typecheckIntExpr(integerType(N:Int), I:Int) => integerType(N:Int)
+    rule typecheckIntExpr(integerType(1), B:Bool) => integerType(1)
+    rule typecheckIntExpr(T:KResult, X:SymbolicValueRef) => T
+
+    rule <k> typecheckIntExpr(Ty:K, I:Int) ~> K => .K </k>
+         <output>... .List => ListItem("error: integer constant must have integer type") </output>
+         requires getKLabel(Ty) =/=KLabel 'integerType
+    rule <k> typecheckIntExpr(Ty:K, B:Bool) ~> K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires getKLabel(Ty) =/=KLabel 'integerType
+    rule <k> typecheckIntExpr(integerType(N:Int), B:Bool) ~> K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires N =/=K 1
+
+    //type check int variables and the uses of the variables
+
+    rule <k> checkUseVarInside(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -326,7 +547,7 @@ module LLVM-NORMALIZING
                _:Set, _:Set, Defs:Set, _:Set, _:Set) ...</basicBlocks>
          requires isInDefs(addNameToString(X),.K,Defs)
 
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
+    rule <k> checkUseVarInside(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -335,6 +556,18 @@ module LLVM-NORMALIZING
                _:Set, _:Set, Defs:Set, _:Set,
               Uses:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
          requires notBool isInDefs(addNameToString(X),.K, Defs)
+
+    rule <k> checkUseVarInside(Name:SymbolicValueRef,
+                                        T:K, X:SymbolicValueRef) ~> K => .K </k>
+         <output>... .List => ListItem("error: "+String "'" +String
+                              #tokenToString(X) +String " defined with type '"
+                             +String #tokenToString(T') +String "'") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
+         requires T =/=K T'
 
     //moving type checking vector type to another function, ensure that a zero vector is not allowed
     rule typeCheckIntArg(Name:SymbolicValueRef,
@@ -396,6 +629,27 @@ module LLVM-NORMALIZING
          requires integerType(N:Int) =/=K T'
 
     rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                       vectorTypeValue(T:K, I:Int), vector(R:ElemList)) ~> K
+         => .K </k>
+         <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                 vectorTypeValue(integerType(N:Int), 0), vector(R:ElemList)) ~> K
+                   => .K </k>
+         <output>... .List => ListItem("error: zero element vector is illegal") </output>
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+                 vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
+                  => .K </k>
+         <output>... .List => ListItem("error: expected number in address space") </output>
+         requires I <Int 0
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
+              vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: constant vector must not be empty") </output>
+         requires I >Int 0
+
+
+    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
                     integerType(N:Int), N':Int, A:K, integerType(N:Int), K:K) ~> K'
                       => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
@@ -415,49 +669,6 @@ module LLVM-NORMALIZING
                          T:K, 0, vector(R:ElemList)) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires R =/=K .ReturnedVal
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                       vectorTypeValue(T:K, I:Int), vector(R:ElemList)) ~> K
-         => .K </k>
-         <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), 0), vector(R:ElemList)) ~> K
-                   => .K </k>
-         <output>... .List => ListItem("error: zero element vector is illegal") </output>
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
-                  => .K </k>
-         <output>... .List => ListItem("error: expected number in address space") </output>
-         requires I <Int 0
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-              vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
-              => .K </k>
-         <output>... .List => ListItem("error: constant vector must not be empty") </output>
-         requires I >Int 0
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                                     Ty:K, I:Int) ~> K => .K </k>
-         <output>... .List => ListItem("error: integer constant must have integer type") </output>
-         requires getKLabel(Ty) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                                     Ty:K, B:Bool) ~> K => .K </k>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires getKLabel(Ty) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                           integerType(N:Int), B:Bool) ~> K => .K </k>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires N =/=K 1
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                                        T:K, X:SymbolicValueRef) ~> K => .K </k>
-         <output>... .List => ListItem("error: "+String "'" +String
-                              #tokenToString(X) +String " defined with type '"
-                             +String #tokenToString(T') +String "'") </output>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
-         requires T =/=K T'
 
     //deal with ret, first deal with integer variable only
     rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K

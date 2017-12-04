@@ -742,11 +742,12 @@ module LLVM-SYNTAX
       as is the case with the vector data type. The result value has the same
       type as its operands.
     */
-    syntax BinaryOps ::= IntConstructors OptNW
-                      | DivConstructors OptExact
-                      | FloatOps FastMathFlags
-                      | ArithmeticOps
+    syntax BinaryIntOps ::= IntConstructors OptNW
+                          | DivConstructors OptExact
+                          | ArithmeticOps
 
+    syntax BinaryOps ::= BinaryIntOps
+                       | FloatOps FastMathFlags
 
     /*@
       The two arguments to the ‘xor‘ instruction must be integer or vector
@@ -908,19 +909,20 @@ module LLVM-SYNTAX
       The following is the syntax for constant expressions.
     */
     syntax ConstantIndexList ::= "," UnsignedInt | UnsignedInt "," ConstantIndexList
-    syntax ConstExpr::= CastOps "(" ResolvedVal "to" Type ")"
-                      | BinaryOps "(" ResolvedVal "," ResolvedVal ")"
-                      | LogicalOps "(" ResolvedVal "," ResolvedVal ")"
-                      | blockaddress(ValueRef, ValueRef)
-                      | "icmp" IPredicate "(" ResolvedVal "," ResolvedVal ")"
-                      | "fcmp" FPredicate "(" ResolvedVal "," ResolvedVal ")"
-                      | "extractvalue" "(" ResolvedVal ConstantIndexList ")"
+    syntax ConstExpr ::= CastOps "(" ResolvedVal "to" Type ")"              [klabel('constCast)]
+                      | BinaryOps "(" ResolvedVal "," ResolvedVal ")"       [klabel('constBin)]
+                      | LogicalOps "(" ResolvedVal "," ResolvedVal ")"      [klabel('constLogic)]
+                      | blockaddress(ValueRef, ValueRef)                    [klabel('constBlock)]
+                      | "icmp" IPredicate "(" ResolvedVal "," ResolvedVal ")"   [klabel('constIcmp)]
+                      | "fcmp" FPredicate "(" ResolvedVal "," ResolvedVal ")"   [klabel('constFcmp)]
+                      | "extractvalue" "(" ResolvedVal ConstantIndexList ")"    [klabel('constExtract)]
                       | "insertvalue" "(" ResolvedVal "," ResolvedVal ConstantIndexList ")"
-                      | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)
-                      | "getelementptr" OptInBounds "(" Type "," ReturnedVal ")"
-                      | Select "(" ResolvedVal "," ResolvedVal "," ResolvedVal ")"
-                      | extractelement(ResolvedVal, ResolvedVal)
-                      | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)
+                                                                            [klabel('constInsert)]
+                      | shufflevector(ResolvedVal, ResolvedVal, ResolvedVal)    [klabel('constShuffle)]
+                      | "getelementptr" OptInBounds "(" Type "," ReturnedVal ")" [klabel('constGep)]
+                      | Select "(" ResolvedVal "," ResolvedVal "," ResolvedVal ")" [klabel('constSelect)]
+                      | extractelement(ResolvedVal, ResolvedVal)                   [klabel('constExElem)]
+                      | insertelement(ResolvedVal, ResolvedVal, ResolvedVal)       [klabel('constInsertElem)]
 
 
    //definition the constructs for tail call and call

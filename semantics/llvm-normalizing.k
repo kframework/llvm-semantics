@@ -40,11 +40,12 @@ module LLVM-NORMALIZING
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
                    | typeCheckIntArgs(K, K, ElemList)
-                   | typeCheckVectorArgs(K, K, Int, ElemList) //block, t, integer, terms
+                   | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
                    | typeCheckConstExpr(K, K) //type var
                    | typecheckIntExpr(K, K) //type, var
                    | typeCheckIntArg(K, K, K)//block, t, var
-                   | typeCheckVectorArg(K, K, Int, K) //block, t, integer, terms
+                   | typeCheckVectorArg(K, Int, K) //t, integer, terms
+                   | typeCheckVectorAux(K, K) //t, terms
                    | typeCheckInGepList(K, K, ElemList) //reference type, current type, index list
                    | typeCheckInGepListStruct(K, K, ElemList, K)//reference type, current type, index_list, structural_list
                    | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
@@ -436,7 +437,7 @@ module LLVM-NORMALIZING
                vectorTypeValue(integerType(N:Int), I:Int),
                           V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
               => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                  vectorTypeValue(integerType(N:Int), I:Int), I,
+                  vectorTypeValue(integerType(N:Int), I:Int),
                              val(V1),val(V2),.ElemList))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(integerType(N:Int), I:Int),
@@ -505,7 +506,47 @@ module LLVM-NORMALIZING
 */
 
     //start type checking vector arguments
-    //rule typeCheckVectorArgs
+    rule typeCheckVectorArgs(Name:SymbolicValueRef,
+           vectorTypeValue(T:K, I:Int), .ElemList) => vectorTypeValue(T:K, I:Int)
+    rule typeCheckVectorArgs(Name:SymbolicValueRef,
+           vectorTypeValue(T:K, I:Int), val(V:K),Es:ElemList)
+         => exprType(typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
+             ~> checkUseVarInside(Name, T, V)
+             ~> typeCheckVectorArgs(Name, vectorTypeValue(T:K, I:Int), Es)
+
+    //type check single vector argument
+    rule typeCheckVectorArg(T:KResult, I:Int, undef) => T
+    rule typeCheckVectorArg(T:KResult, I:Int, zeroinitializer) => T
+    rule typeCheckVectorArg(T:KResult, I:Int, X:SymbolicValueRef) => T
+
+    rule typeCheckVectorArg(T:KResult, I:Int, A:ConstExpr)
+         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
+           ~> typeCheckVectorArg(T:KResult, I:Int, emptyHOLE)
+    rule T:KResult ~>
+            typeCheckVectorArg(T:KResult, I:Int, emptyHOLE) => T
+
+    rule typeCheckVectorArg(T:KResult, 0, vector(.ElemList)) => .K
+    rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N:Int,
+                 vector(val(operand(T:KResult, V:ValueRef)), R:ElemList))
+         => typeCheckVectorAux(T, V) 
+              ~> typeCheckVectorArg(T, N -Int 1, vector(R))
+         requires N >Int 0
+
+    rule <k> typeCheckVectorArg(vectorTypeValue(T:K, I:Int), N:Int,
+                 vector(val(operand(T':KResult, V:ValueRef)), R:ElemList)) ~> K:K
+                => .K </k>
+         <output>... .List => ListItem("error: vector element type mismatch") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckVectorArg(T:K, 0, vector(R:ElemList)) ~> K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires R =/=K .ElemList
+    rule <k> typeCheckVectorArg(T:K, I:Int, vector(.ElemList)) ~> K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires I >Int 0
+
+    rule typeCheckVectorAux(integerType(N:Int), V:K)
+             => exprType(typecheckIntExpr(integerType(N:Int), V:K))
 
     //start type checking integer arguments
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
@@ -539,6 +580,8 @@ module LLVM-NORMALIZING
          requires N =/=K 1
 
     //type check int variables and the uses of the variables
+    rule checkUseVarInside(Name:SymbolicValueRef, T:K, X:K) => .K
+         requires notBool isLocalVariable(X)
 
     rule <k> checkUseVarInside(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -572,117 +615,15 @@ module LLVM-NORMALIZING
          <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
          requires T =/=K T'
 
-    //moving type checking vector type to another function, ensure that a zero vector is not allowed
-    rule typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), I:Int), vector(val(operand(T':Type, V:ValueRef)), R:ElemList))
-         => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), I, vector(R), T', V)
-         requires I >Int 0 andBool N >Int 0
-
-    //define type checking rules for vector types in integer opeartors.
-/*
-    rule typeCheckIntArg(Name:SymbolicValueRef,
-                             T:K, 0, vector(.ElemList)) => .K
-    rule typeCheckIntArg(Name:SymbolicValueRef,
-                     T:K, I:Int, vector(val(operand(T':Type, V:ValueRef)), R:ElemList))
-         => typeCheckIntArg(Name:SymbolicValueRef, T, I, vector(R), T', V)
-         requires I >Int 0
-
-    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int),
-                                            N':Int, A:K, integerType(N:Int), I':Int)
-         => typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int), N' -Int 1, A:K)
-    rule typeCheckIntArg(Name:SymbolicValueRef, integerType(1),
-                                          I:Int, A:K, integerType(1), B:Bool)
-         => typeCheckIntArg(Name:SymbolicValueRef, integerType(1), I -Int 1, A)
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                integerType(N:Int), N':Int, A:K, integerType(N:Int), X:SymbolicValueRef)
-         => typeCheckIntArg(Name:SymbolicValueRef,
-                                        integerType(N), N' -Int 1, A) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... addNameToString(X) |-> integerType(N:Int) ...</varTypes>
-         <basicBlocks>... Name |-> blockContent(_:Map, _:Set, _:Set,
-               Defs:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-         requires isInDefs(addNameToString(X),.K, Defs)
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                integerType(N:Int), N':Int, A:K, integerType(N:Int), X:SymbolicValueRef)
-         => typeCheckIntArg(Name:SymbolicValueRef,
-                                        integerType(N), N' -Int 1, A) ...</k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <basicBlocks>... Name |-> blockContent(_:Map, _:Set, _:Set, _:Set,
-               _:Set, Defs:Set, _:Set, Use:Set
-                (.Set => SetItem(operand(integerType(N:Int), addNameToString(X))))) ...</basicBlocks>
-         requires notBool isInDefs(addNameToString(X),.K,Defs)
-
-    //define illform situations for type checking of integer operators.
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                integerType(N:Int), N':Int, A:K, integerType(N:Int), X:SymbolicValueRef)
-             ~> K:K => .K </k>
-         <currModule> ModName:SymbolicValueRef </currModule>
-         <funModuleName> ModName </funModuleName>
-         <currFunction> FunName:SymbolicValueRef </currFunction>
-         <functionName> FunName </functionName>
-         <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires integerType(N:Int) =/=K T'
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                       vectorTypeValue(T:K, I:Int), vector(R:ElemList)) ~> K
-         => .K </k>
-         <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), 0), vector(R:ElemList)) ~> K
-                   => .K </k>
-         <output>... .List => ListItem("error: zero element vector is illegal") </output>
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                 vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
-                  => .K </k>
-         <output>... .List => ListItem("error: expected number in address space") </output>
-         requires I <Int 0
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-              vectorTypeValue(integerType(N:Int), I:Int), vector(R:ElemList)) ~> K
-              => .K </k>
-         <output>... .List => ListItem("error: constant vector must not be empty") </output>
-         requires I >Int 0
-
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                    integerType(N:Int), N':Int, A:K, integerType(N:Int), K:K) ~> K'
-                      => .K </k>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires (notBool isTheInt(K)) andBool (notBool isTheBool(K))
-                   andBool (notBool isTheLocalName(K))
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, integerType(N:Int),
-                  I:Int, A:K, integerType(N:Int), B:Bool) ~> K
-                   => .K </k>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires N =/=Int 1 orBool N =/=Int 1
-
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef, T:K, I:Int, vector(.ElemList)) ~> K => .K </k>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires I >Int 0
-    rule <k> typeCheckIntArg(Name:SymbolicValueRef,
-                         T:K, 0, vector(R:ElemList)) ~> K => .K </k>
-         <output>... .List => ListItem("error: constant expression type mismatch") </output>
-         requires R =/=K .ReturnedVal
-
     //deal with ret, first deal with integer variable only
     rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas)
-          => typeCheckIntArg(N, T, V) ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
+          => exprType(typeCheckIntArgs(N, T, val(V),.ElemList))
+               ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, instruction(ret(T,V) ,.Set
                                         ,insMetas(formElemList(Meta))), returnInst)) </tempBlockMap>
-*/
 
     //set out edges for a block
     rule setOutEdge(N:K, .ElemList) => .K
@@ -891,7 +832,7 @@ module LLVM-NORMALIZING
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, _:Bool) ~> K':K
-         => .K
+              => .K
          </k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>

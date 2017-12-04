@@ -1179,4 +1179,8 @@ module LLVM-HELPERS
         requires notBool (X in keys(M))
    rule removeEntry(M:Map, A:K) => M [owise]
 
+   syntax Bool ::= isLocalVariable(K) [function]
+   rule isLocalVariable(name(localVar, X:K)) => true
+   rule isLocalVariable(_:K) => false [owise]
+
 endmodule

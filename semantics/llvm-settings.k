@@ -9,6 +9,15 @@ module LLVM-SETTINGS
     syntax Int ::= "numBitsPerByte" [function]
     rule numBitsPerByte => 8
 
+    syntax Int ::= "numOfMaxInQueue" [function]
+    rule numOfMaxInQueue => 20
+
+    syntax Int ::= "maxSpecGap"  [function]
+    rule maxSpecGap => 4
+
+    syntax Int ::= "numOfReservations" [function]
+    rule numOfReservations => 20
+
     syntax Int ::= "numBytesPerPointer" [function]
     rule numBytesPerPointer => 4
 

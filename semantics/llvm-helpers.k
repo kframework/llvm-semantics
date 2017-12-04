@@ -8,6 +8,72 @@ module LLVM-HELPERS
     imports LLVM-ABSTRACTSYNTAX
     imports LLVM-SETTINGS
 
+    //helper functions for type checking phi functions, switches and gep
+    syntax ElemList ::= getValueOfPhi(PHIList) [function]
+                   | getLabelOfPhi(PHIList) [function]
+                   | getAllTypes(K)   [function]
+                   | getValueOfSwitch(JumpTable) [function]
+    syntax KItem ::= getVar(K)    [function]
+                   | getGepType(K, ElemList)         [function]
+                   | getGepInType(K, ElemList, K)         [function]
+                   | getGepTypeInStruct(K, K)           [function]
+
+    rule getValueOfSwitch(.JumpTable) => .ElemList
+    rule getValueOfSwitch(T:IntType V:ConstValueRef, La:LabelValue Ju:JumpTable)
+           => val(typeOperand(T, addNameToString(V))),getValueOfSwitch(Ju)
+
+    rule getAllTypes(.ParamList) => .ElemList
+    rule getAllTypes(T:Type _:ParamAttrs _:ValueRef, Pl:ParamList)
+                   => val(T), getAllTypes(Pl)
+    rule getAllTypes(.ElemList) => .ElemList
+    rule getAllTypes(val(arg(A:K, B:K, C:K)), Pl:ElemList)
+                   => val(B), getAllTypes(Pl)
+
+    rule getValueOfPhi([ V:ValueRef , L:ValueRef ]) => val(addNameToString(V)),.ElemList
+    rule getValueOfPhi([ V:ValueRef , L:ValueRef ], Pl:PHIList)
+                                         => val(addNameToString(V)),getValueOfPhi(Pl)
+    rule getLabelOfPhi([ V:ValueRef , L:ValueRef ]) => val(addNameToString(L)),.ElemList
+    rule getLabelOfPhi([ V:ValueRef , L:ValueRef ], Pl:PHIList)
+                                         => val(addNameToString(L)),getLabelOfPhi(Pl)
+
+    rule getVar(assign(A:K, B:K)) => A
+    rule getVar(K:K) => .K [owise]
+
+    rule getGepType(T:KResult, .ElemList) => T
+    rule getGepType(gepTypeBag(T:KResult), .ElemList) => T
+    rule getGepType(gepTypeBag(T:KResult), val(A:K),Es:ElemList) => getGepType(T, Es)
+    rule getGepType(arrayTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(vectorTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(structTypeValue(T1:K), val(typeOperand(A:K, B:K)),Es:ElemList)
+               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
+
+    rule getGepType(gepTypeBag(T:KResult), valValue(A:K),Es:ElemList) => getGepType(T, Es)
+    rule getGepType(arrayTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(vectorTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
+               => getGepType(T1, Es)
+    rule getGepType(structTypeValue(T1:K),
+                valValue(typeOperandResult(A:K, B:K)),Es:ElemList)
+               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
+
+    rule getGepType(K:K, Es:ElemList) => badType [owise]
+
+
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList, I:Int)
+               => getGepType(getGepTypeInStruct(T1, I), Es)
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList,
+               vector(valValue(I:Int), Es':ElemList))
+               => getGepType(getGepTypeInStruct(T1, I), Es)
+    rule getGepInType(structTypeValue(T1:K), Es:ElemList, A:K) => badType
+
+    rule getGepTypeInStruct(T1:KResult, T2:TypeList, 0) => T1
+    rule getGepTypeInStruct(T1:KResult, T2:TypeList, I:Int)
+               => getGepTypeInStruct(T2, I -Int 1)
+         requires I >Int 0
+    rule getGepTypeInStruct(T:K, I:Int) => badType [owise]
+
     syntax KItem ::= "none"
     syntax KItem ::= searchElemInMap(Map,K,K) [function]
 
@@ -20,6 +86,24 @@ module LLVM-HELPERS
     rule searchElemInMap(M:Map,Key:K,Key':K)
          => searchElemInMap(removeAll(M,SetItem(Key)),.K,Key')
          when Key =/=K Key' andBool Key =/=K .K
+
+    syntax Bool ::= typeMatchInDefs(K,K,K,Set) //type, var name, varop, Set of varops
+    rule typeMatchInDefs(T:K, V:K, varOp(B:K, N:K, T, V), S:Set) => true
+    rule typeMatchInDefs(T:K, V:K, varOp(B:K, N:K, T', V'), S:Set)
+         => typeMatchInDefs(T:K, V:K, .K, S:Set)
+         requires T =/=K T' andBool V =/=K V'
+    rule typeMatchInDefs(T:K, V:K, .K, SetItem(X:K) S:Set)
+         => typeMatchInDefs(T:K, V:K, X, S:Set)
+    rule typeMatchInDefs(T:K, V:K, .K, .Set) => false
+
+    syntax Bool ::= isInDefs(K,K,Set) //var name, varop, Set of varops
+    rule isInDefs(V:K, varOp(B:K, N:K, T, V), S:Set) => true
+    rule isInDefs(V:K, varOp(B:K, N:K, T', V'), S:Set)
+         => isInDefs(V:K, .K, S:Set)
+         requires V =/=K V'
+    rule isInDefs(V:K, .K, SetItem(X:K) S:Set)
+         => isInDefs(V:K, X, S:Set)
+    rule isInDefs(V:K, .K, .Set) => false
 
     syntax Bool ::= isHexDigit(String) [function]
     rule isHexDigit(A:String) =>
@@ -55,16 +139,23 @@ module LLVM-HELPERS
     rule isAInt(I:Int) => true
     rule isAInt(K:K) => false [owise]
 
-    syntax List ::= StringToList(String) [function]
-    rule StringToList("") => .List
+    syntax List ::= formInstList(Int, K, Map) [function]
+    rule formInstList(N, .K, .Map) => .List
+    rule formInstList(N, .K, (N:K |-> V:K) M:Map)
+         => formInstList(N, V, M)
+    rule formInstList(N:Int, instNumInfo(Num:K, In:K, T:K), M:Map)
+        => ListItem(instNumInfo(Num, In, T)) formInstList(N +Int 1, .K, M)
+
+    syntax ElemList ::= StringToList(String) [function]
+    rule StringToList("") => .ElemList
     rule
         StringToList(S:String)
-            => ListItem(ordChar(substrString(S:String, 0, 1)))
+            => valValue(ordChar(substrString(S:String, 0, 1))),
                 StringToList(substrString(S:String, 1, lengthString(S:String)))
         requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) =/=Int 92
     rule
         StringToList(S:String)
-            => ListItem(ordChar(substrString(S:String, 0, 1)))
+            => valValue(ordChar(substrString(S:String, 0, 1))),
                 StringToList(substrString(S:String, 2, lengthString(S:String)))
         requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
              andBool lengthString(S:String) >Int 1
@@ -72,14 +163,34 @@ module LLVM-HELPERS
 
     rule
         StringToList(S:String)
-            => ListItem(String2Int(substrString(S, 1, 2))
-                        *Int 16 +Int String2Int(substrString(S, 2, 3)))
+            => valValue(String2Int(substrString(S, 1, 2))
+                        *Int 16 +Int String2Int(substrString(S, 2, 3))),
                 StringToList(substrString(S:String, 3, lengthString(S:String)))
         requires S =/=String "" andBool ordChar(substrString(S, 0, 1)) ==Int 92
              andBool lengthString(S:String) >Int 2
              andBool isHexDigit(substrString(S, 1, 2))
              andBool isHexDigit(substrString(S, 2, 3))
 
+    syntax Set ::= makeLabelToVars(Set, Set) [function]
+    rule makeLabelToVars(.Set, S:Set) => S
+    rule makeLabelToVars(SetItem(A:K) S1:Set, S2:Set)
+                 => makeLabelToVars(S1, SetItem(varOp(A, 0, label, A)) S2)
+
+    syntax KItem ::= setLabelVarsAux(Set, Map, K, K, Map) [function]
+    rule setLabelVarsAux(S:Set, .Map, .K, .K, M:Map) => setLabelVars(M)
+    rule setLabelVarsAux(S:Set, (A:K |-> V:K) M1:Map, .K, .K, M2:Map)
+        => setLabelVarsAux(S:Set, M1:Map, A, V, M2:Map)
+    rule setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M2:Map)
+        => setLabelVarsAux(S:Set, M1:Map, .K, .K,
+               (A |-> blockContent(Is:Map, Out:Set, In:Set, S InDef:Set,
+            InUse:Set, S OutDef:Set, OutUse:Set, TheUse:Set)) M2:Map)
+
+    syntax List ::= getAllInsts(List)  [function]
+    rule getAllInsts(.List) => .List
+    rule getAllInsts(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List)
+          => ListItem(instMap(Is)) getAllInsts(L)
 
     // TODO many possible errors will slip by with this, but lots of stuff will work
     rule 'nullOfConstValueRef(.KList) => loc(startMemoryLoc -Int 1, 0, undef, undef) [anywhere]
@@ -127,6 +238,9 @@ module LLVM-HELPERS
     rule innerType('pointerType(K:K,, _)) => K:K
     rule innerType(arrayType(K:K, _)) => K:K
     rule innerType(arrayTypeValue(K:K, _)) => K:K
+    rule innerType(vectorType(K:K, _)) => K:K
+    rule innerType(vectorTypeValue(K:K, _)) => K:K
+
 
     // these give the two's complement signed max and min of a type
     syntax Int ::= smax(K) [function]
@@ -188,7 +302,6 @@ module LLVM-HELPERS
 
     syntax Bool ::= isFloatType(K) [function]
     rule isFloatType(F:FPType) => true
-    rule isFloatType(x86_mmx) => true
     rule isFloatType(_) => false [owise]
 
     syntax Bool ::= isPointerType(K) [function]
@@ -206,11 +319,18 @@ module LLVM-HELPERS
     rule isStructType(structTypeValue(_)) => true
     rule isStructType(_) => false [owise]
 
+    syntax Bool ::= isPackedStructType(K)
+    rule isPackedStructType('packedStructType(_)) => true
+    rule isPackedStructType(packedStructTypeValue(_)) => true
+    rule isPackedStructType(_) => false [owise]
+
     // fixme size should depend on architecture
     rule sizeofInBits('pointerType(_,, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(pointerTypeValue(_, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(arrayType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
     rule sizeofInBits(arrayTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
+    rule sizeofInBits(vectorType(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
+    rule sizeofInBits(vectorTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
 
     rule sizeofInBits(integerType(N:Int)) => N
     rule sizeofInBits(float) => 32
@@ -336,8 +456,7 @@ module LLVM-HELPERS
              => val(arg(formSet(Pa),addNameToString(Ty)
                                                         ,addNameToString(Na)))
     rule formElemList(Ty:Type Pa:ParamAttrs, Al:ArgList)
-             => val(arg(formSet(Pa),addNameToString(Ty),.K))
-                                                                 ,formElemList(Al)
+             => val(arg(formSet(Pa),addNameToString(Ty),.K)),formElemList(Al)
     rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar), Al:ArgList)
              => val(arg(formSet(Pa),addNameToString(Ty)
                                            ,addNameToString(Na))),formElemList(Al)
@@ -727,7 +846,7 @@ module LLVM-HELPERS
          requires A >Int B
 
     syntax Bool ::= isValidAlign(Int) [function]
-    rule isValidAlign(A:Int) => A ==K 0 orBool isPowOfTwo(A, 1)
+    rule isValidAlign(A:Int) => isPowOfTwo(A, 1)
 
     syntax KItem ::= getAlign(Set, K) [function]
     rule getAlign(.Set, .K) => 'alignEmpty(.KList)
@@ -806,6 +925,24 @@ module LLVM-HELPERS
                   Es:ElemList) => hasVectorInList(Es)
          requires getKLabel(A) =/=KLabel 'vectorType
 
+    syntax Bool ::= isVector(K)   [function]
+    rule isVector(vectorValue(E:ElemList)) => true
+    rule isVector(vector(E:ElemList)) => true
+    rule isVector(_:K) => false [owise]
+
+    syntax Bool ::= isVectorType(K)   [function]
+    rule isVectorType(vectorTypeValue(A:K, B:K)) => true
+    rule isVectorType(vectorType(A:K, B:K)) => true
+    rule isVectorType(_:K) => false [owise]
+
+    syntax Bool ::= hasVectorInValueList(ElemList) [function]
+    rule hasVectorInValueList(.ElemList) => false
+    rule hasVectorInValueList(valValue(vectorValue(_:K)),
+                                             Es:ElemList) => true
+    rule hasVectorInValueList(valValue(A:K), Es:ElemList)
+                                         => hasVectorInValueList(Es)
+         requires notBool isVector(A)
+
     syntax Bool ::= hasVectorInReturnedVal(ReturnedVal)    [function]
     rule hasVectorInReturnedVal(.ReturnedVal) => false
     rule hasVectorInReturnedVal(
@@ -846,5 +983,200 @@ module LLVM-HELPERS
     rule evalToIntInList(.ElemList) => .ElemList
     rule evalToIntInList(val(operand(T:K, B:K)),
              Es:ElemList) => valValue(evalToInt(B)), evalToIntInList(Es)
+
+    syntax List ::= formListFromTypeList(TypeList)  [function]
+    rule formListFromTypeList(.TypeList) => .List
+    rule formListFromTypeList(T:Type, Ts:TypeList)
+                        => ListItem(T) formListFromTypeList(Ts)
+
+    rule { Es:ReturnedVal } => constantStruct(formElemList(Es))  [structural]
+    rule < { Es:ReturnedVal } > => packedStruct(formElemList(Es))  [structural]
+
+    syntax Set ::= getAllLocalVar(K)   [function]
+    syntax Set ::= getAllLocalVars(ElemList)  [function]
+
+    rule getAllLocalVar(X:SymbolicValueRef) => SetItem(X)
+    rule getAllLocalVar(vector(Es:ElemList)) => getAllLocalVars(Es)
+    rule getAllLocalVar(K:K) => .Set  [owise]
+    rule getAllLocalVars(.ElemList) => .Set
+    rule getAllLocalVars(val(edge(V:K, L:K)), Es:ElemList)
+                                       => getAllLocalVar(V) getAllLocalVars(Es)
+    rule getAllLocalVars(val(operand(T':Type, V:ValueRef)), Es:ElemList)
+                                       => getAllLocalVar(V) getAllLocalVars(Es)
+    rule getAllLocalVars(valValue(typeOperandResult(T:K, V:K)), Es:ElemList)
+                                          => getAllLocalVar(V) getAllLocalVars(Es)
+
+    syntax List ::= setBlockToPath(List, K, K) [function]
+    rule setBlockToPath(.List, _:K, _:K) => .List
+    rule setBlockToPath(ListItem(blockPath(L:List ListItem(A:K))) BL:List, A:K, B:K)
+          => ListItem(blockPath(L ListItem(A) ListItem(B))) setBlockToPath(BL, A, B)
+    rule setBlockToPath(ListItem(blockPath(L:List ListItem(A:K))) BL:List, A':K, B:K)
+          => ListItem(blockPath(L ListItem(A))) setBlockToPath(BL, A', B)
+         requires A =/=K A'
+
+    syntax List ::= mergeList(List, List) [function]
+    rule mergeList(.List, L:List) => L
+    rule mergeList(ListItem(A:K) L:List, L':List)
+             => mergeList(L, ListItem(A) L')
+         requires notBool A in L'
+    rule mergeList(ListItem(A:K) L:List, L':List)
+             => mergeList(L, L')
+         requires A in L'
+
+    syntax List ::= addElemToList(K, List) [function]
+    rule addElemToList(A:K, .List) => .List
+    rule addElemToList(A:K, ListItem(blockPath(L':List)) L:List)
+                 => ListItem(blockPath(L' ListItem(A))) addElemToList(A, L)
+/*
+    syntax List ::= dealWithDependList(List, K, K, Set)
+    rule dealWithDependList(L:List, I:K, Def:K, .Set) => L
+    rule dealWithDependList(L:List, I:K, Def:K, SetItem(Use:K) Uses:Set)
+          => 
+*/
+    syntax KItem ::= guessNextBlock(K) [function]
+    rule guessNextBlock(unconditional(A:K)) => A
+    rule guessNextBlock(conditional(A:K, B:K, C:K)) => B
+    rule guessNextBlock(switch(A:K, B:K, C:K, Es:ElemList)) => C
+    rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
+    rule guessNextBlock(_:K) => .K [owise]
+
+    syntax Set ::= getAllBrBlocks(K) [function]
+    rule getAllBrBlocks(unconditional(A:K)) => SetItem(A)
+    rule getAllBrBlocks(conditional(A:K, B:K, C:K))
+               => SetItem(B) SetItem(C)
+    rule getAllBrBlocks(switch(A:K, B:K, C:K, Es:ElemList))
+               => SetItem(C) elemListToSet(Es)
+    rule getAllBrBlocks(indirectbr(A:K, Es:ElemList)) => elemListToSet(Es)
+
+    syntax Set ::= elemListToSet(ElemList) [function]
+    rule elemListToSet(.ElemList) => .Set
+    rule elemListToSet(val(A:K), Es:ElemList)
+                        => SetItem(A) elemListToSet(Es)
+    rule elemListToSet(valValue(A:K), Es:ElemList)
+                        => SetItem(A) elemListToSet(Es)
+
+    syntax KItem ::= findNextBlock(List, List)  [function]
+                   | findNextBlockAux(List, K, Set, Set, Set, Set, List) [function]
+
+    rule findNextBlock(L, .List) => emptyHOLE
+    rule findNextBlock(Pre:List, 
+            ListItem(selectSpec(A:K, V:Set, Visited:Set, All:Set)) L:List)
+             => findNextBlockAux(Pre, A, V, All -Set Visited, Visited, All, L)
+    rule findNextBlockAux(Pre:List, A:K, V:Set, .Set, Visited:Set, All:Set, L:List)
+                => findNextBlock(Pre ListItem(selectSpec(A, V, Visited, All)), L)
+    rule findNextBlockAux(Pre:List, A:K, V:Set, SetItem(B:K) S:Set, Visited:Set, All:Set, L:List)
+         => selectResult(A, B, Pre ListItem(selectSpec(A, V, SetItem(B) Visited, All)) L)
+
+    syntax List ::= insertBlockNum(K, K, List) [function]
+    rule insertBlockNum(A:K, B:K, .List) => .List
+    rule insertBlockNum(A:K, B:K, ListItem(selectSpec(A, V:Set, Vis:Set, All:Set)) L:List)
+           => ListItem(selectSpec(A, V:Set SetItem(B), Vis:Set, All:Set)) L:List
+    rule insertBlockNum(A:K, B:K, ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) L:List)
+           => ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) insertBlockNum(A,B, L)
+         requires A =/=K A'
+
+    syntax Bool ::= isAvailable(K) [function]
+    rule isAvailable(Op:KLabel(Ty:K,, V1:KResult,, V2:KResult)) => true
+        requires isIntOp(Op:KLabel(Ty:K,, V1:KResult,, V2:KResult))
+    rule isAvailable(Op:KLabel(Ty:K,, V1:SymbolicValueRef,, V2:K)) => false
+        requires isIntOp(Op:KLabel(Ty:K,, V1:SymbolicValueRef,, V2:K))
+    rule isAvailable(Op:KLabel(Ty:K,, V1:K,, V2:SymbolicValueRef)) => false
+        requires isIntOp(Op:KLabel(Ty:K,, V1,, V2))
+    rule isAvailable(A:K) => false [owise]
+
+    syntax Bool ::= isIntOp(K) [function]
+    rule isIntOp(A:K) => true
+        requires getKLabel(A) ==KLabel 'theAdd
+              orBool getKLabel(A) ==KLabel 'theSub
+              orBool getKLabel(A) ==KLabel 'theMul
+              orBool getKLabel(A) ==KLabel 'theUDiv
+              orBool getKLabel(A) ==KLabel 'theSDiv
+              orBool getKLabel(A) ==KLabel 'theURem
+              orBool getKLabel(A) ==KLabel 'theSRem
+              orBool getKLabel(A) ==KLabel 'theShl
+              orBool getKLabel(A) ==KLabel 'theLShr
+              orBool getKLabel(A) ==KLabel 'theAShr
+              orBool getKLabel(A) ==KLabel 'theOr
+              orBool getKLabel(A) ==KLabel 'theAnd
+              orBool getKLabel(A) ==KLabel 'theXor
+   rule isIntOp(A:K) => false [owise]
+
+   syntax List ::= removeInst(Int, Int, List) [function]
+   rule removeInst(A:Int, B:Int, .List) => .List
+   rule removeInst(A:Int, B:Int, ListItem(dynInstInfo(A:Int,
+           B:Int, Is:K, T:K)) L:List) => L
+   rule removeInst(A:Int, B:Int, ListItem(X:K) L:List)
+             => ListItem(X:K) (removeInst(A, B, L))
+        [owise]
+
+   syntax List ::= updateVarInList(List, K, K) [function]
+                 | updateVarInInst(List, Int, Int, K, K, K, K) [function]
+   syntax KItem ::= updateVarInTerm(K, K, K) [function]
+                  | updateVarInValue(K, K, K) [function]
+                  | updateVarInTermMap(K, Map) [function]
+                  | updateVarInValueMap(K, Map) [function]
+
+   rule updateVarInList(.List, X:K, V:K) => .List
+   rule updateVarInList(ListItem(dynInstInfo(Bn:Int,
+                     In:Int, Inst:K, T:K)) L:List, X:K, V:K)
+        => updateVarInInst(L, Bn, In, Inst, T, X, V)
+   rule updateVarInInst(L:List, Bn:Int, In:Int,
+                assign(X:K, Inst:K), T:K, X:K, V:K)
+        => ListItem(dynInstInfo(Bn, In, assign(X, Inst), T)) L
+   rule updateVarInInst(L:List, Bn:Int, In:Int,
+                assign(X':K, Inst:K), T:K, X:K, V:K)
+        => ListItem(dynInstInfo(Bn, In, assign(X',
+          updateVarInTerm(Inst, X, V)), T)) updateVarInList(L, X, V)
+        requires X' =/=K X
+
+   rule updateVarInTerm(instruction(In:K, Attrs:Set, Meta:K), X:K, Y:K)
+        => instruction(updateVarInTerm(In, X, Y), Attrs, Meta)
+   rule updateVarInTerm(Op:KLabel(Ty:K,, V1:K,,
+                 V2:K), X:K, Y:K)
+        => Op:KLabel(Ty,, updateVarInValue(V1, X, Y),,
+                      updateVarInValue(V2, X, Y))
+        requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+
+   rule updateVarInTerm(ret(Ty:K, V:K), X:K, Y:K)
+        => ret(Ty, updateVarInValue(V, X, Y))
+
+   rule updateVarInValue(X:SymbolicValueRef, X, Y:K) => Y
+   rule updateVarInValue(X':SymbolicValueRef, X, Y:K) => X'
+        requires X' =/=K X
+   rule updateVarInValue(A:KResult, X, Y:K) => A
+
+   rule updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M:Map)
+        => instruction(updateVarInTermMap(In, M), Attrs, Meta)
+   rule updateVarInTermMap(assign(X:K, Inst:K), M:Map)
+        => assign(X, updateVarInTermMap(Inst, removeEntry(M, X)))
+   rule updateVarInTermMap(Op:KLabel(Ty:K,, V1:K,,
+                 V2:K), M:Map)
+        => Op:KLabel(Ty,, updateVarInValueMap(V1, M),,
+                      updateVarInValueMap(V2, M))
+        requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+
+   rule updateVarInTermMap(ret(Ty:K, V:K), M:Map)
+        => ret(Ty, updateVarInValueMap(V, M))
+
+   rule updateVarInValueMap(X:K, (X:K |-> Y:K) M:Map) => Y
+   rule updateVarInValueMap(X':K, M:Map) => X'
+        requires notBool (X' in keys(M))
+   rule updateVarInValueMap(A:KResult, M:Map) => A
+
+   syntax Bool ::= hasDefInList(List, K)  [function]
+   rule hasDefInList(.List, X:K) => false
+   rule hasDefInList(ListItem(dynInstInfo(Bn, In,
+              assign(X, Inst), T)) L:List, X:K) => true
+   rule hasDefInList(ListItem(dynInstInfo(Bn, In,
+              assign(X', Inst), T)) L:List, X:K)
+         => hasDefInList(L, X)
+        requires X =/=K X'
+
+   syntax Map ::= removeEntry(Map, K) [function]
+   rule removeEntry(M:Map (X:K |-> Y:K),
+        assign(X:K, Inst:K)) => M
+   rule removeEntry(M:Map, assign(X:K, Inst:K)) => M
+        requires notBool (X in keys(M))
+   rule removeEntry(M:Map, A:K) => M [owise]
 
 endmodule

@@ -17,7 +17,8 @@ module LLVM-REGISTERS
     imports LLVM-CONFIGURATION
 
     rule [assign-register]:
-        <k> assign(X:SymbolicValueRef, V:KResult) => . ...</k>
+        <k> assign(X:SymbolicValueRef, V:KResult)
+                    => dynResult(X, V) ...</k>
         <registers> M:Map => M[X <- V] </registers>
 
     // TODO using constructors in the AST instead of matching on a string

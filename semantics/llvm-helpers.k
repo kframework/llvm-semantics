@@ -442,9 +442,10 @@ module LLVM-HELPERS
                        => val(Or)
     rule formElemList(singlethread Or:Ordering)
                        => val(singlethread),val(Or)
-    rule formElemList(, Ui:UnsignedInt) => val(Ui)
-    rule formElemList(Ui:UnsignedInt, Cil:ConstantIndexList)
-                 => val(Ui),formElemList(Cil)
+    rule formElemList(, N:UnsignedInt)
+              => val(String2Int(#tokenToString(N)))
+    rule formElemList(N:UnsignedInt, Cil:ConstantIndexList)
+           => val(String2Int(#tokenToString(N))),formElemList(Cil)
     rule formElemList(X:Ordering) => val(X)
     rule formElemList(X:Ordering Xl:OrderingList)
                  => val(X),formElemList(Xl)
@@ -464,6 +465,11 @@ module LLVM-HELPERS
     rule formElemList(T:Type V:ValueRef , R:ReturnedVal)
                             => val(operand(T, addNameToString(V))),formElemList(R)
     rule formElemList(K:K) => K [owise]
+
+    syntax ElemList ::= formElemListInGep(ReturnedVal) [function]
+    rule formElemListInGep(.ReturnedVal) => .ElemList
+    rule formElemListInGep(T:Type V:ValueRef, R:ReturnedVal)
+            => val(typeOperand(T, addNameToString(V))), formElemListInGep(R)
 
 
     syntax ElemList ::= formTypeCheckList(K)   [function]
@@ -577,7 +583,6 @@ module LLVM-HELPERS
                 => val(callee(operand(addNameToString(Ty)
                   ,addNameToString(V)),modifiers(formElemList(Pa)))),toCallees(Pl)
 */
-
     syntax SymbolicValueRef ::= addNameToString(K) [function]
 
     rule addNameToString(Var:LocalName) => name(localVar, substrString(#tokenToString(Var),1
@@ -587,6 +592,44 @@ module LLVM-HELPERS
     rule addNameToString(Var:LabelStringConstant) => name(localVar, substrString(#tokenToString(Var),0
                           ,lengthString(#tokenToString(Var)) -Int 1))
     rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
+    rule addNameToString('constCast(C:CastOps,, T1:Type V:ValueRef,, T2:Type))
+            => constCastAST(C, T1, addNameToString(V), T2)
+    rule addNameToString('constBin(C:BinaryOps,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constBinAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constLogic(C:LogicalOps,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constLogicAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constBlock(V1:ValueRef,, V2:ValueRef))
+            => blockAddAST(addNameToString(V1), addNameToString(V2))
+    rule addNameToString('constIcmp(C:IPredicate,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constIcmpAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constFcmp(C:FPredicate,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constFcmpAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constExtract(T1:Type V1:ValueRef,, C:ConstantIndexList))
+            => constExValueAST(T1, addNameToString(V1), formElemList(C))
+    rule addNameToString('constInsert(T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, C:ConstantIndexList))
+            => constInValueAST(T1, addNameToString(V1),
+                                   T2, addNameToString(V2), formElemList(C))
+    rule addNameToString('constShuffle(T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, T3:Type V3:ValueRef))
+            => constSuffleAST(T1, addNameToString(V1),
+                        T2, addNameToString(V2), T3, addNameToString(V3))
+    rule addNameToString('constGep(F:OptInBounds,, T:Type,, R:ReturnedVal))
+            => constGepAST(F, T, formElemList(R))
+    rule addNameToString('constSelect(Op:Select,, T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, T3:Type V3:ValueRef))
+            => constSelectAST(T1, addNameToString(V1),
+                        T2, addNameToString(V2), T3, addNameToString(V3))
+    rule addNameToString('constExElem(T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constExElemAST(T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constInsertElem(T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, T3:Type V3:ValueRef))
+            => constInElemAST(T1, addNameToString(V1),
+                        T2, addNameToString(V2), T3, addNameToString(V3))
     rule addNameToString(K:K) => K [owise]
 
     syntax Int ::= mod(Int, Int)   [function]
@@ -1182,5 +1225,7 @@ module LLVM-HELPERS
    syntax Bool ::= isLocalVariable(K) [function]
    rule isLocalVariable(name(localVar, X:K)) => true
    rule isLocalVariable(_:K) => false [owise]
+
+   
 
 endmodule

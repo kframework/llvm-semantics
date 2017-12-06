@@ -421,5 +421,31 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theAnd(K, K, K) [strict] // Type, Left op, Right op
     syntax KItem ::= theXor(K, K, K) [strict] // Type, Left op, Right op
 
+    //const exprs
+    syntax KItem ::= constCastAST(K, K, K, K) [strict(2,3,4)]
+                             //op, type, val, type
+                   | constBinAST(K, K, K, K, K) [strict(2,3,4,5)]
+                             //op, type, val, type, val
+                   | constLogicAST(K, K, K, K, K) [strict(2,3,4,5)]
+                             //op, type, val, type, val
+                   | blockAddAST(K, K) //val, val
+                   | constIcmpAST(K, K, K, K, K) [strict(2,3,4,5)]
+                             //op, type, val, type, val
+                   | constFcmpAST(K, K, K, K, K) [strict(2,3,4,5)]
+                             //op, type, val, type, val
+                   | constExValueAST(K, K, ElemList) [strict(1,2)]
+                             //type, val, index list
+                   | constInValueAST(K, K, K, K, ElemList) [strict(1,2,3,4)]
+                             //type, val, type, val, index list
+                   | constSuffleAST(K, K, K, K, K, K) [strict]
+                             //type, val, type, val, type, val
+                   | constGepAST(K, K, ElemList) [strict(2,3)]
+                             //op, ty, ty-val list
+                   | constSelectAST(K, K, K, K, K, K) [strict]
+                             //type, val, type, val, type, val
+                   | constExElemAST(K, K, K, K) [strict]
+                             //type, val, type, val
+                   | constInElemAST(K, K, K, K, K, K) [strict]
+                             //type, val, type, val, type, val
 
 endmodule

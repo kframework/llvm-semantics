@@ -41,7 +41,9 @@ module LLVM-NORMALIZING
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
                    | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
-                   | typeCheckConstExpr(K, K) //type var
+                   | typeCheckConstExpr(K, K)   [strict(1)]//type var
+                   | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
+                   | typeMatch(K, K)            [strict] //type, type
                    | typecheckIntExpr(K, K) //type, var
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | typeCheckVectorArg(K, Int, K) //t, integer, terms
@@ -496,14 +498,55 @@ module LLVM-NORMALIZING
          <globalRegisters>... name(globalVar, X:K) |-> value(T':K, V:K) ...</globalRegisters>
          <output>... .List => ListItem("error: const expression type failed.") </output>
          requires T =/=K T'
+    rule typeCheckConstExpr(T:KResult, undef) => .K
+    rule typeCheckConstExpr(T:KResult, zeroinitializer) => .K
     rule typeCheckConstExpr(integerType(N:Int), A:KResult)
-               => typecheckIntExpr(integerType(N:Int), A)
+               => exprType(typecheckIntExpr(integerType(N:Int), A))
 
-/*
-    rule typeCheckConstExpr(T:K, 'constBin(Op:BinaryIntOps,,
-                                   V1:ResolvedVal,, V2:ResolvedVal))
-           => 
-*/
+    /*rule typeCheckConstExpr(T:K, constCastAST(Op:K, T1:K, V1:K, T2:K))
+          => typeMatch(T, T2) ~> typeCheckConstExpr(T1, V1)
+       not very correct
+    */
+    rule typeCheckConstExpr(vectorTypeValue(T:K, I:Int), vector(Es:ElemList))
+          => exprType(typeCheckVectorArg(
+                    vectorTypeValue(T:K, I:Int), I, vector(Es:ElemList)))
+
+    rule typeCheckConstExpr(integerType(N:Int), constBinAST(Op:BinaryIntOps,
+                                T1:K, V1:K, T2:K, V2:K))
+          => typeCheckConstExprs(integerType(N:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+    rule typeCheckConstExpr(vectorTypeValue(integerType(N:Int), I:Int),
+              constBinAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K))
+          => typeCheckConstExprs(vectorTypeValue(integerType(N:Int), I:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+
+    rule typeCheckConstExpr(integerType(N:Int), constLogicAST(Op:BinaryIntOps,
+                                T1:K, V1:K, T2:K, V2:K))
+          => typeCheckConstExprs(integerType(N:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+    rule typeCheckConstExpr(vectorTypeValue(integerType(N:Int), I:Int),
+              constLogicAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K))
+          => typeCheckConstExprs(vectorTypeValue(integerType(N:Int), I:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+
+    rule typeCheckConstExpr(T:FPType, constBinAST(Op:FloatOps Fl:FastMathFlags,
+                                T1:K, V1:K, T2:K, V2:K))
+          => typeCheckConstExprs(T,
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+    rule typeCheckConstExpr(vectorTypeValue(T:FPType, I:Int),
+              constBinAST(Op:FloatOps Fl:FastMathFlags, T1:K, V1:K, T2:K, V2:K))
+          => typeCheckConstExprs(vectorTypeValue(T:FPType, I:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+
+    //type check elements of const exprs
+    rule typeCheckConstExprs(T:K, .ElemList) => .K
+    rule typeCheckConstExprs(T:KResult, (typeOperandResult(T, A:K), Es:ElemList))
+          => typeCheckConstExpr(T, A)
+                     ~> typeCheckConstExprs(T, Es)
+    rule <k> typeCheckConstExprs(T:K, (typeOperandResult(T':KResult, A:K), Es:ElemList))
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+         requires T =/=K T'
 
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,

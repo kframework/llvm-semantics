@@ -21,11 +21,24 @@ module LLVM-NORMALIZING
 
     //helper processes for type check
     rule assignUses(Name:K, X:K, Ty:K, .ElemList) => .K
-    rule <k> assignUses(Name:K, Count:Int, Ty:K, val(V1:SymbolicValueRef),E:ElemList)
+    rule <k> assignUses(Name:K, Count:Int, Ty:K, val(V1:K),E:ElemList)
            => assignUses(Name:K, Count:Int, Ty:K, E:ElemList) ...</k>
          <tempUses> Uses:Set (.Set => SetItem(varOp(Name, Count, Ty, V1))) </tempUses>
-    rule assignUses(Name:K, Count:Int, Ty:K, val(V1:ConstValueRef),E:ElemList)
+         requires isLocalVariable(V1)
+    rule assignUses(Name:K, Count:Int, Ty:K, val(V1:K),E:ElemList)
            => assignUses(Name:K, Count:Int, Ty:K, E:ElemList)
+         requires notBool isLocalVariable(V1)
+
+    rule assignUsesInCall(Name:K, X:K, .ElemList) => .K
+    rule <k> assignUsesInCall(Name:K, Count:Int,
+              val(arg(S:Set, T:KResult, V1:K)),E:ElemList)
+           => assignUsesInCall(Name:K, Count:Int, E:ElemList) ...</k>
+         <tempUses> Uses:Set (.Set => SetItem(varOp(Name, Count, T, V1))) </tempUses>
+         requires isLocalVariable(V1)
+    rule assignUsesInCall(Name:K, Count:Int,
+               val(arg(S:Set, T:KResult, V1:K)),E:ElemList)
+           => assignUsesInCall(Name:K, Count:Int, E:ElemList)
+         requires notBool isLocalVariable(V1)
 
     rule constExprType(A:KResult) => A
     rule exprType(K:KResult) => .K
@@ -39,12 +52,14 @@ module LLVM-NORMALIZING
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
+                   | typeCheckArgList(K, ElemList)        [strict(2)]
+                   | typeCheckSingleArg(K, K, K) //block t, arg
                    | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
                    | typeCheckConstExpr(K, K)   [strict(1)]//type var
                    | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
                    | typeMatch(K, K)            [strict] //type, type
-                   | typecheckIntExpr(K, K) //type, var
+                   | typeCheckIntExpr(K, K) //type, var
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | typeCheckVectorArg(K, Int, K) //t, integer, terms
                    | typeCheckVectorAux(K, K) //t, terms
@@ -62,7 +77,6 @@ module LLVM-NORMALIZING
                    | typeCheckIntArgList(K, ElemList)        [strict(2)]
                    | typeCheckGepArgList(K, ElemList)        [strict(2)]
                    | typeCheckGepArgListInNum(K, ElemList) //int number of vector, list of indexes
-                   | typeCheckArgList(K, ElemList)        [strict(2)]
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
                    | typeCheckBr(K, K, K, K, K, InstructionMetadatas)    [strict(2)]//block, t, ..., instmeta
                    | typeCheckCmp(K, K, K, K, K, K, InstructionMetadatas)
@@ -243,6 +257,67 @@ module LLVM-NORMALIZING
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
 
+    //deal with calls
+    rule typeCheckArgList(Name:SymbolicValueRef, .ElemList) => .K
+    rule typeCheckArgList(Name:SymbolicValueRef,
+                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
+                    => typeCheckSingleArg(Name:SymbolicValueRef, T, V)
+                                ~> typeCheckArgList(Name:SymbolicValueRef, Vs)
+
+    rule TypeMatchFunctions(A:K, .ElemList, .ElemList) => .K
+    rule TypeMatchFunctions(A:K, valValue(T:KResult), E:ElemList, valValue(T:KResult), E':ElemList)
+             => TypeMatchFunctions(A, E, E')
+    rule <k> TypeMatchFunctions(name(globalVar, S:String),
+                               valValue(T:KResult), E:ElemList, valValue(T':KResult), E':ElemList)
+          ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid forward reference to function '@"
+                                   +String S +String"' with wrong type!") </output>
+         requires T =/=K T'
+    rule <k> TypeMatchFunctions(name(globalVar, S:String),
+                     valValue(T:KResult), E:ElemList, .ElemList) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid forward reference to function '@"
+                                   +String S +String"' with wrong type!") </output>
+    rule <k> TypeMatchFunctions(name(globalVar, S:String),
+              .ElemList, valValue(T':KResult), E':ElemList) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid forward reference to function '@"
+                                   +String S +String"' with wrong type!") </output>
+
+    rule <k> typeCheckCall(Name:SymbolicValueRef, .K, Ca:OptTailCall, void,
+             V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
+             Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
+              ~> typeCheckArgList(Name, Tv)
+              ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg)) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <formalParameters> arguments(Ts':ElemList) </formalParameters>
+        <functionName> V1 </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, instruction(getKLabelFromOp(Ca)(void,, callee(V1,
+                           arguments(formArgList(Tv,Arg)))),
+              Mods, insMetas(formElemList(Meta))), callInst)) </tempBlockMap>
+
+    rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
+             T:TypeResult, V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
+             Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckArgList(Name, Tv)
+           ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
+           ~> assignType(Name, TheCount, A, T) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <formalParameters> arguments(Ts':ElemList) </formalParameters>
+        <functionName> V1 </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(A, instruction(getKLabelFromOp(Ca)(T,,
+                           callee(V1, arguments(formArgList(Tv,Arg))))
+                          ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
+
+    rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall, void,
+             V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
+             Arg:ParamList, Mods:Set, Meta:InstructionMetadatas) ~> K:K </k>
+         <output>... .List => ListItem("error: void call instruction must not have return variable.") </output>
 
     //deal with cast operators
 /*
@@ -501,7 +576,7 @@ module LLVM-NORMALIZING
     rule typeCheckConstExpr(T:KResult, undef) => .K
     rule typeCheckConstExpr(T:KResult, zeroinitializer) => .K
     rule typeCheckConstExpr(integerType(N:Int), A:KResult)
-               => exprType(typecheckIntExpr(integerType(N:Int), A))
+               => exprType(typeCheckIntExpr(integerType(N:Int), A))
 
     /*rule typeCheckConstExpr(T:K, constCastAST(Op:K, T1:K, V1:K, T2:K))
           => typeMatch(T, T2) ~> typeCheckConstExpr(T1, V1)
@@ -548,6 +623,16 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires T =/=K T'
 
+    //type check an arg without specifying the type
+    rule typeCheckSingleArg(Name:SymbolicValueRef,
+                  vectorTypeValue(T:K, I:Int), V:K)
+         => exprType(typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
+             ~> checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
+    rule typeCheckSingleArg(Name:SymbolicValueRef,
+                  integerType(N:Int), V:K)
+         => exprType(typeCheckIntExpr(integerType(N:Int), V))
+             ~> checkUseVarInside(Name, integerType(N:Int), V)
+
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
            vectorTypeValue(T:K, I:Int), .ElemList) => vectorTypeValue(T:K, I:Int)
@@ -589,36 +674,36 @@ module LLVM-NORMALIZING
          requires I >Int 0
 
     rule typeCheckVectorAux(integerType(N:Int), V:K)
-             => exprType(typecheckIntExpr(integerType(N:Int), V:K))
+             => exprType(typeCheckIntExpr(integerType(N:Int), V:K))
 
     //start type checking integer arguments
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, val(V:K),Vs:ElemList)
-                    => exprType(typecheckIntExpr(T, V))
+                    => exprType(typeCheckIntExpr(T, V))
                           ~> checkUseVarInside(Name, T, V)
                            ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
 
     //type check each integer argument
-    rule typecheckIntExpr(T:KResult, A:ConstExpr)
+    rule typeCheckIntExpr(T:KResult, A:ConstExpr)
          => constExprType(typeCheckConstExpr(T, A:ConstExpr))
-           ~> typecheckIntExpr(T:KResult, emptyHOLE)
+           ~> typeCheckIntExpr(T:KResult, emptyHOLE)
     rule T:KResult ~>
-            typecheckIntExpr(T:KResult, emptyHOLE) => T
+            typeCheckIntExpr(T:KResult, emptyHOLE) => T
 
     //type check interger expressions
-    rule typecheckIntExpr(T:KResult, undef) => T
-    rule typecheckIntExpr(T:KResult, zeroinitializer) => T
-    rule typecheckIntExpr(integerType(N:Int), I:Int) => integerType(N:Int)
-    rule typecheckIntExpr(integerType(1), B:Bool) => integerType(1)
-    rule typecheckIntExpr(T:KResult, X:SymbolicValueRef) => T
+    rule typeCheckIntExpr(T:KResult, undef) => T
+    rule typeCheckIntExpr(T:KResult, zeroinitializer) => T
+    rule typeCheckIntExpr(integerType(N:Int), I:Int) => integerType(N:Int)
+    rule typeCheckIntExpr(integerType(1), B:Bool) => integerType(1)
+    rule typeCheckIntExpr(T:KResult, X:SymbolicValueRef) => T
 
-    rule <k> typecheckIntExpr(Ty:K, I:Int) ~> K => .K </k>
+    rule <k> typeCheckIntExpr(Ty:K, I:Int) ~> K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
-    rule <k> typecheckIntExpr(Ty:K, B:Bool) ~> K => .K </k>
+    rule <k> typeCheckIntExpr(Ty:K, B:Bool) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType
-    rule <k> typecheckIntExpr(integerType(N:Int), B:Bool) ~> K => .K </k>
+    rule <k> typeCheckIntExpr(integerType(N:Int), B:Bool) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires N =/=K 1
 

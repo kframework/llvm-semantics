@@ -1157,6 +1157,7 @@ module LLVM-HELPERS
    syntax KItem ::= updateVarInTerm(K, K, K) [function]
                   | updateVarInValue(K, K, K) [function]
                   | updateVarInTermMap(K, Map) [function]
+                  | updateVarInTermMapList(ElemList, Map) [function]
                   | updateVarInValueMap(K, Map) [function]
 
    rule updateVarInList(.List, X:K, V:K) => .List
@@ -1179,7 +1180,14 @@ module LLVM-HELPERS
         => Op:KLabel(Ty,, updateVarInValue(V1, X, Y),,
                       updateVarInValue(V2, X, Y))
         requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
-
+   rule updateVarInTerm(tailCall(T:K,
+                     callee(V:K, arguments(Es:ElemList))), X:K, Y:K)
+          => tailCall(T:K, callee(V:K,
+                      arguments(updateVarInTermMapList(Es, (X:K |-> Y:K)))))
+   rule updateVarInTerm(call(T:K,
+                      callee(V:K, arguments(Es:ElemList))), X:K, Y:K)
+          => call(T:K, callee(V:K,
+                         arguments(updateVarInTermMapList(Es, (X:K |-> Y:K)))))
    rule updateVarInTerm(ret(Ty:K, V:K), X:K, Y:K)
         => ret(Ty, updateVarInValue(V, X, Y))
 
@@ -1197,9 +1205,22 @@ module LLVM-HELPERS
         => Op:KLabel(Ty,, updateVarInValueMap(V1, M),,
                       updateVarInValueMap(V2, M))
         requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
-
+   rule updateVarInTermMap(tailCall(T:K, callee(V:K,
+                       arguments(Es:ElemList))), M:Map)
+          => tailCall(T:K, callee(V:K,
+                       arguments(updateVarInTermMapList(Es, M))))
+   rule updateVarInTermMap(call(T:K,
+               callee(V:K, arguments(Es:ElemList))), M:Map)
+          => call(T:K, callee(V:K,
+                   arguments(updateVarInTermMapList(Es, M))))
    rule updateVarInTermMap(ret(Ty:K, V:K), M:Map)
         => ret(Ty, updateVarInValueMap(V, M))
+
+   rule updateVarInTermMapList(.ElemList, M:Map) => .ElemList
+   rule updateVarInTermMapList(
+          val(arg(S:Set, T:K, X:K)),Es:ElemList, M:Map)
+        => val(arg(S:Set, T:K, updateVarInValueMap(X, M))),
+               (updateVarInTermMapList(Es, M:Map))
 
    rule updateVarInValueMap(X:K, (X:K |-> Y:K) M:Map) => Y
    rule updateVarInValueMap(X':K, M:Map) => X'

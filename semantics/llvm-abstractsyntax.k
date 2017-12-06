@@ -205,6 +205,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
+    syntax KItem ::= assignUsesInCall(K, K, ElemList)//blockname, inst num, args
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
     syntax KItem ::= setLabelVars(Map)
     syntax KItem ::= operand(K, K) [strict] // Type, Value

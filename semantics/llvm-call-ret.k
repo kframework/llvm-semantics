@@ -16,7 +16,7 @@ module LLVM-CALL-RET
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
-    syntax KItem ::= frame(K, Bag)
+    syntax KItem ::= frame(K, Bag, Bag)
     syntax KItem ::= bind(ElemList, ElemList)
 
     rule arguments(L:ElemList) => L
@@ -49,7 +49,6 @@ module LLVM-CALL-RET
         <blockCount> Count:Int => Count +Int 1 </blockCount>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
@@ -286,7 +285,15 @@ module LLVM-CALL-RET
         <control>...
             <currFunction> FunName:SymbolicValueRef </currFunction>
         ...</control>)
-        <callStack> .List => ListItem(frame(Tail, C)) ...</callStack>
+        (<tomasulo>
+            D:Bag
+         </tomasulo>
+         =>
+         <tomasulo>...
+           <instQueue> instList(.List) </instQueue>
+         ...</tomasulo>
+         )
+        <callStack> .List => ListItem(frame(Tail, C, D)) ...</callStack>
 
 
     // TODO perhaps a pattern: turning a list of pairs into a map
@@ -319,8 +326,9 @@ module LLVM-CALL-RET
             ~> initializer(T, V) ~> clearVoid
             ~> Tail
         </k>
-        <callStack> ListItem(frame(Tail:K, C:Bag)) => .List ...</callStack>
+        <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag)) => .List ...</callStack>
         <control> <localMemory> Locals:List </localMemory> _ => C </control>
+        <tomasulo> _:Bag => D </tomasulo>
 
     rule
         <k> clearLocalMemory((ListItem(Base:Int) => .List) _) ...</k>

@@ -951,12 +951,12 @@ module LLVM-HELPERS
     rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
            vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)
          => applyInts(Op, T, vectorValue(E1), vectorValue(E2), S,
-                addElemToEnd(valValue(applyInt(Op, T, V1, V2, S)), Es))
-         requires applyInt(Op, T, V1, V2, S) =/=K badValue
+                addElemToEnd(valValue(applyInt(Op, getIntType(T), V1, V2, S)), Es))
+         requires applyInt(Op, getIntType(T), V1, V2, S) =/=K badValue
     rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
            vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)
          => badValue
-         requires applyInt(Op, T, V1, V2, S) ==K badValue
+         requires applyInt(Op, getIntType(T), V1, V2, S) ==K badValue
 
     rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
                => applyOp(Op,
@@ -1096,6 +1096,12 @@ module LLVM-HELPERS
     rule getKLabelFromOp('sub(.KList)) => 'theSub
     rule getKLabelFromOp(mul) => 'theMul
     rule getKLabelFromOp(shl) => 'theShl
+    rule getKLabelFromOp('udiv(.KList)) => 'theUDiv
+    rule getKLabelFromOp('sdiv(.KList)) => 'theSDiv
+    rule getKLabelFromOp('urem(.KList)) => 'theURem
+    rule getKLabelFromOp('srem(.KList)) => 'theSRem
+    rule getKLabelFromOp('lshr(.KList)) => 'theLShr
+    rule getKLabelFromOp('ashr(.KList)) => 'theAShr
     rule getKLabelFromOp('and(.KList)) => 'theAnd
     rule getKLabelFromOp('or(.KList)) => 'theOr
     rule getKLabelFromOp('xor(.KList)) => 'theXor
@@ -1314,8 +1320,8 @@ module LLVM-HELPERS
     rule toIntOp('theMul) => 'mul(.KList)
     rule toIntOp('theUDiv) => 'udiv(.KList)
     rule toIntOp('theSDiv) => 'sdiv(.KList)
-    rule toIntOp('theURem) => 'udiv(.KList)
-    rule toIntOp('theSRem) => 'sdiv(.KList)
+    rule toIntOp('theURem) => 'urem(.KList)
+    rule toIntOp('theSRem) => 'srem(.KList)
     rule toIntOp('theShl) => 'shl(.KList)
     rule toIntOp('theLShr) => 'lshr(.KList)
     rule toIntOp('theAShr) => 'ashr(.KList)

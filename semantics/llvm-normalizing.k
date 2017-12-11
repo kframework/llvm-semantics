@@ -62,6 +62,8 @@ module LLVM-NORMALIZING
                    | typeCheckIntExpr(K, K) //type, var
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | typeCheckVectorArg(K, Int, K) //t, integer, terms
+                   | typeCheckVectorArg(K, Int, K, K, K)  [strict(3)]
+                                                //t, integer, type, value, terms
                    | typeCheckVectorAux(K, K) //t, terms
                    | typeCheckInGepList(K, K, ElemList) //reference type, current type, index list
                    | typeCheckInGepListStruct(K, K, ElemList, K)//reference type, current type, index_list, structural_list
@@ -103,7 +105,15 @@ module LLVM-NORMALIZING
                              V2:ValueRef Ins:InstructionMetadatas)
            => typeCheckIntOp(Name:SymbolicValueRef, X, IntOp, Ty,
                            addNameToString(V1), addNameToString(V2), formSet(Onw), Ins)
-
+    rule typeCheckOp(Name:SymbolicValueRef,X:SymbolicValueRef, IntOp:DivConstructors
+                             Onw:OptExact Ty:Type V1:ValueRef,
+                             V2:ValueRef Ins:InstructionMetadatas)
+           => typeCheckIntOp(Name:SymbolicValueRef, X, IntOp, Ty,
+                           addNameToString(V1), addNameToString(V2), formSet(Onw), Ins)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, L:ArithmeticOps Ty:Type V1:ValueRef,
+                  V2:ValueRef Ins:InstructionMetadatas)
+           => typeCheckIntOp(Name:SymbolicValueRef, X, L, Ty,
+                           addNameToString(V1), addNameToString(V2), .Set, Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, L:LogicalOps Ty:Type V1:ValueRef,
                   V2:ValueRef Ins:InstructionMetadatas)
            => typeCheckIntOp(Name:SymbolicValueRef, X, L, Ty,
@@ -653,19 +663,23 @@ module LLVM-NORMALIZING
     rule T:KResult ~>
             typeCheckVectorArg(T:KResult, I:Int, emptyHOLE) => T
 
-    rule typeCheckVectorArg(T:KResult, 0, vector(.ElemList)) => .K
+    rule typeCheckVectorArg(T:KResult, 0, vector(.ElemList)) => T
     rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N:Int,
-                 vector(val(operand(T:KResult, V:ValueRef)), R:ElemList))
-         => typeCheckVectorAux(T, V) 
-              ~> typeCheckVectorArg(T, N -Int 1, vector(R))
+                 vector(val(operand(T':K, V:ValueRef)), R:ElemList))
+         => typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N:Int,
+                 T':K, V:ValueRef, vector(R:ElemList))
          requires N >Int 0
+    rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
+                         N:Int, T:KResult, V:K, Vs:K)
+         => typeCheckVectorAux(T, V) 
+              ~> typeCheckVectorArg(
+                   vectorTypeValue(T:KResult, I:Int), N -Int 1, Vs)
 
-    rule <k> typeCheckVectorArg(vectorTypeValue(T:K, I:Int), N:Int,
-                 vector(val(operand(T':KResult, V:ValueRef)), R:ElemList)) ~> K:K
+    rule <k> typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
+                          N:Int, T':KResult, V:K, Vs:K) ~> K:K
                 => .K </k>
          <output>... .List => ListItem("error: vector element type mismatch") </output>
          requires T =/=K T'
-
     rule <k> typeCheckVectorArg(T:K, 0, vector(R:ElemList)) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires R =/=K .ElemList

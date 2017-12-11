@@ -51,7 +51,7 @@ module LLVM-ARITHMETIC
         <output>... .List => ListItem("error: urem by zero undefined behavior") </output>
 
     rule [srem-failed]:
-        <k> flagStage(urem, badValue) ~> K:K => .K </k>
+        <k> flagStage(srem, badValue) ~> K:K => .K </k>
         <output>... .List => ListItem("error: srem by zero or overflow undefined behavior") </output>
 
 endmodule

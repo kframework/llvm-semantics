@@ -28,108 +28,31 @@ module LLVM-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule <k> flagStage(T:K, I1:K, V:K) => flagStage2(T, I1, checkNuw(T, V)) ...</k>
-         <currentModifiers> S:Set </currentModifiers>
-         requires nuw in S
-    rule <k> flagStage(T:K, I1:K, V:K) => flagStage2(T, I1, V) ...</k>
-         <currentModifiers> S:Set </currentModifiers>
-         requires notBool nuw in S
-    rule <k> flagStage2(T:K, I1:K, V:K) => normalizingInt(T,checkNsw(T, I1, V)) ...</k>
-         <currentModifiers> S:Set </currentModifiers>
-         requires nsw in S
-    rule <k> flagStage2(T:K,I1:K, V:K) => normalizingInt(T, V) ...</k>
-         <currentModifiers> S:Set </currentModifiers>
-         requires notBool nsw in S
+    rule [int-arith]:
+        <k> Op:KLabel(Type:KResult,, I1:KResult,, I2:KResult)
+            => flagStage(toIntOp(Op), applyInts(toIntOp(Op),
+                                Type, I1, I2, S, .ElemList)) ...</k>
+        <currentModifiers> S:Set </currentModifiers>
+        requires isIntOp(Op(Type,, I1,, I2))
 
-    rule [add]:
-        theAdd(Type:KResult, I1:KResult , I2:KResult)
-            => flagStage(getIntType(Type), applyInts('add(.KList), getIntType(Type),
-                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
-                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
-                            , applyInts('add(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
-    rule [sub]:
-        theSub(Type:KResult, I1:KResult , I2:KResult)
-            => flagStage(getIntType(Type), applyInts('sub(.KList), getIntType(Type),
-                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
-                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
-                            , applyInts('sub(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
+    rule flagStage(Op:K, V:KResult) => V
+         requires V =/=K badValue
 
-    rule [mul]:
-        theMul(Type:KResult, I1:KResult , I2:KResult)
-            => flagStage(getIntType(Type), applyInts('mul(.KList), getIntType(Type),
-                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
-                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
-                            , applyInts('mul(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
+    rule [udiv-failed]:
+        <k> flagStage(udiv, badValue) ~> K:K => .K </k>
+        <output>... .List => ListItem("error: udiv by zero undefined behavior") </output>
 
-    rule [shl]:
-        theShl(Type:KResult, I1:KResult , I2:KResult)
-            => flagStage(getIntType(Type), applyInts('shl(.KList), getIntType(Type),
-                             deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I1))
-                                   , deNormalizingInt(getIntType(Type), normalizingInt(getIntType(Type), I2)))
-                            , applyInts('shl(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2)))
-        requires I2 <Int getIntInIntType(getIntType(Type))
+    rule [sdiv-failed]:
+        <k> flagStage(sdiv, badValue) ~> K:K => .K </k>
+        <output>... .List => ListItem("error: sdiv by zero or overflow undefined behavior") </output>
 
-    rule [shl-failed]:
-        <k> theShl(Type:KResult, I1:KResult , I2:KResult) ~> K => .K </k>
-         <output>... .List => ListItem("error: undefined behavior") </output>
-        requires I2 >=Int getIntInIntType(getIntType(Type))
+    rule [urem-failed]:
+        <k> flagStage(urem, badValue) ~> K:K => .K </k>
+        <output>... .List => ListItem("error: urem by zero undefined behavior") </output>
 
-    rule [or]:
-        theOr(Type:KResult, I1:KResult , I2:KResult)
-            => applyInts('or(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2))
-
-    rule [xor]:
-        theXor(Type:KResult, I1:KResult , I2:KResult)
-            => applyInts('xor(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2))
-
-    rule [and]:
-        theAnd(Type:KResult, I1:KResult , I2:KResult)
-            => applyInts('and(.KList), getIntType(Type),
-                             normalizingInt(getIntType(Type), I1), normalizingInt(getIntType(Type), I2))
-
-    rule
-        <k> theSDiv(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, (signed(Type, I1) /Int signed(Type, I2)))
-        ...</k>
-        when signed(Type, I2) =/=Int 0 // catch undefined
-    rule
-        <k> theUDiv(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, (unsigned(Type, I1) /Int unsigned(Type, I2)))
-        ...</k>
-        when unsigned(Type, I2) =/=Int 0 // catch undefined
-    rule
-        <k> theSRem(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, (signed(Type, I1) %Int signed(Type, I2)))
-        ...</k>
-        when signed(Type, I2) =/=Int 0 // catch undefined
-    rule
-        <k> theURem(Type:KResult, I1:Int, I2:Int)
-            => signed(Type, (unsigned(Type, I1) %Int unsigned(Type, I2)))
-        ...</k>
-        when unsigned(Type, I2) =/=Int 0 // catch undefined
-
-    rule
-        <k> theLShr(Type:KResult, I:Int, Len:Int)
-            => signed(Type, unsigned(Type, I) >>Int Len)
-        ...</k>
-        when Len >=Int 0
-    rule
-        <k> theAShr(Type:KResult, I:Int, Len:Int)
-            => signed(Type, signed(Type, I:Int) >>Int Len)
-        ...</k>
-        when Len >=Int 0
-
-
-    // weave into add
-        // checkNSW(unsign(I1) +Int unsign(I2), Type)
-        // ~> checkNUW(sign(I1) +Int sign(I2), Type)
-    // before RHS
+    rule [srem-failed]:
+        <k> flagStage(urem, badValue) ~> K:K => .K </k>
+        <output>... .List => ListItem("error: srem by zero or overflow undefined behavior") </output>
 
 endmodule
 

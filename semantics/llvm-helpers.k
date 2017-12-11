@@ -96,9 +96,9 @@ module LLVM-HELPERS
          => typeMatchInDefs(T:K, V:K, X, S:Set)
     rule typeMatchInDefs(T:K, V:K, .K, .Set) => false
 
-    syntax Bool ::= isInDefs(K,K,Set) //var name, varop, Set of varops
-    rule isInDefs(V:K, varOp(B:K, N:K, T, V), S:Set) => true
-    rule isInDefs(V:K, varOp(B:K, N:K, T', V'), S:Set)
+    syntax Bool ::= isInDefs(K,K,Set) [function]//var name, varop, Set of varops
+    rule isInDefs(V:K, varOp(B:K, N:K, T:K, V:K), S:Set) => true
+    rule isInDefs(V:K, varOp(B:K, N:K, T':K, V':K), S:Set)
          => isInDefs(V:K, .K, S:Set)
          requires V =/=K V'
     rule isInDefs(V:K, .K, SetItem(X:K) S:Set)
@@ -659,9 +659,15 @@ module LLVM-HELPERS
     rule getIntInIntType(K:K) => K [owise]
 
     syntax KItem ::= normalizingInt(K, K) [function]// type, int
-                   | deNormalizingInt(K, K) [function]
-                   | applyInts(K, K, K, K) [function] // op, type, int, int
-                   | applyInt(K, K, K, K) [function] // op, type, int, int
+                   | deNormalizingInt(K, Int) [function]
+                   | applyInts(K, K, K, K, Set, ElemList) [function]
+                              // op, type, int, int, flags
+                   | applyInt(K, K, K, K, Set) [function]
+                                // op, type, int, int, flags
+                   | checkInt(K, K, K, Set) [function]
+                                 //type, unsign, sign, flags
+                   | checkExact(K, K, K, Set) [function]
+                                 //type, value, flags
                    | applyOp(K, K, K)     [function] // op, int, int
                    | applyCast(K, K, K, K)   [function] //op, type ints, type
                    | applyCasts(K, K, K, K)   [function] //op, type ints, type
@@ -669,40 +675,33 @@ module LLVM-HELPERS
                    | applySelects(K, K, K, K) [function] //op, bool, first, second
                    | applyIcmps(K, K, K, K) [function] // op, type, int, int
                    | applyIcmp(K, K, K, K) [function] // op, type, int, int
+                   | outOfSignScope(Int, K) [function]
+                   | calShiftValue(Int, Int) [function]
+
+    syntax ElemList ::= makeUndefList(Int) [function]
+    rule makeUndefList(0) => .ElemList
+    rule makeUndefList(N:Int)
+              => valValue(undef),makeUndefList(N -Int 1)
+         requires N >Int 0
+    rule makeUndefList(N:Int) => .ElemList [owise]
+
+    rule calShiftValue(N:Int, 0) => 0
+    rule calShiftValue(N:Int, I:Int)
+           => (2 ^Int N) +Int calShiftValue(N -Int 1, I -Int 1)
+         requires N >=Int 0 andBool I =/=K 0
+    rule calShiftValue(N:Int, I:Int) => 0
+         requires N <Int 0
+
+    rule outOfSignScope(V:Int, integerType(N:Int)) => true
+         requires V >=Int (2 ^Int (N -Int 1))
+    rule outOfSignScope(V:Int, integerType(N:Int)) => true
+         requires V <Int (0 -Int (2 ^Int (N -Int 1)))
+    rule outOfSignScope(V:Int, A:K) => false [owise]
 
     rule deNormalizingInt(integerType(N:Int), V:Int) => V
          requires V <Int (2 ^Int (N -Int 1))
-    rule deNormalizingInt(integerType(N:Int), V:Int) => 0 -Int (V -Int (2 ^Int (N -Int 1)))
+    rule deNormalizingInt(integerType(N:Int), V:Int) => (V -Int (2 ^Int N))
          requires V >=Int (2 ^Int (N -Int 1))
-    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
-                       => vectorValue(valValue(I),
-                           deNormalizingInt(integerType(N:Int), Es:ElemList))
-         requires I <Int (2 ^Int (N -Int 1))
-    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
-                       => vectorValue(valValue(0 -Int (I -Int (2 ^Int (N -Int 1)))),
-                           deNormalizingInt(integerType(N:Int), Es:ElemList))
-         requires I >=Int (2 ^Int (N -Int 1))
-    rule deNormalizingInt(integerType(N:Int), valValue(I:Int),Es:ElemList)
-                       => valValue(I),
-                           deNormalizingInt(integerType(N:Int), Es:ElemList)
-         requires I <Int (2 ^Int (N -Int 1))
-    rule deNormalizingInt(integerType(N:Int), valValue(I:Int),Es:ElemList)
-                       => valValue(0 -Int (I -Int (2 ^Int (N -Int 1)))),
-                           deNormalizingInt(integerType(N:Int), Es:ElemList)
-         requires I  >=Int (2 ^Int (N -Int 1))
-    rule deNormalizingInt(integerType(N:Int), vectorValue(valValue(K:K),Es:ElemList))
-                       => vectorValue(valValue(K),
-                           deNormalizingInt(integerType(N:Int), vectorValue(Es:ElemList)))
-         requires notBool isTheInt(K)
-    rule deNormalizingInt(integerType(N:Int), valValue(K:K),Es:ElemList)
-                       => valValue(K),
-                           deNormalizingInt(integerType(N:Int), vectorValue(Es:ElemList))
-         requires notBool isTheInt(K)
-    rule deNormalizingInt(A:K, .ElemList) => .ElemList
-    rule deNormalizingInt(A:K, K:K) => K
-         requires getKLabel(K) ==KLabel 'poisonVal
-                             orBool getKLabel(K) ==KLabel 'undef
-
 
     rule normalizingInt(integerType(N:Int), V:Int) => mod(V, 2 ^Int N)
     rule normalizingInt(integerType(N:Int), vectorValue(valValue(I:Int),Es:ElemList))
@@ -731,6 +730,12 @@ module LLVM-HELPERS
     rule applyOp('or(.KList), V1:Int, V2:Int) => V1 |Int V2
     rule applyOp('and(.KList), V1:Int, V2:Int) => V1 &Int V2
     rule applyOp('xor(.KList), V1:Int, V2:Int) => V1 xorInt V2
+    rule applyOp('sdiv(.KList), V1:Int, V2:Int) => V1 /Int V2
+    rule applyOp('udiv(.KList), V1:Int, V2:Int) => V1 /Int V2
+    rule applyOp(lshr, V1:Int, V2:Int) => V1 /Int (2 ^Int V2)
+    rule applyOp(ashr, V1:Int, V2:Int) => V1 /Int (2 ^Int V2)
+    rule applyOp(urem, V1:Int, V2:Int) => V1 modInt V2
+    rule applyOp(srem, V1:Int, V2:Int) => V1 %Int V2
     rule applyOp('eq(.KList), V1:Int, V2:Int) => V1 ==Int V2
     rule applyOp('neq(.KList), V1:Int, V2:Int) => V1 =/=Int V2
     rule applyOp(Op:K, V1:Int, V2:Int) => V1 >Int V2
@@ -742,24 +747,216 @@ module LLVM-HELPERS
     rule applyOp(Op:K, V1:Int, V2:Int) => V1 <=Int V2
          requires Op ==K 'uleOfIcmp(.KList) orBool Op ==K sle
 
-    rule applyInt(Op:K, integerType(N:Int), V1:Int, V2:Int) => mod(applyOp(Op, V1, V2), 2 ^Int N)
-    rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => poisonVal
-         requires A ==K poisonVal orBool A' ==K poisonVal
-    rule applyInt(Op:K, integerType(N:Int), A:K, A':K) => undef
-         requires (A ==K undef orBool A' ==K undef)
-                   andBool A =/=K poisonVal
-                   andBool A' =/=K poisonVal
+    rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set)
+                      => normalizingInt(integerType(N:Int), V1)
+         requires (nuw in S) andBool (nsw in S)
+               andBool goodNuw(integerType(N:Int), V1)
+               andBool goodNsw(integerType(N:Int), V2)
+    rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set)
+                  => normalizingInt(integerType(N:Int), V1)
+         requires (nuw in S) andBool (notBool (nsw in S))
+               andBool goodNuw(integerType(N:Int), V1)
+    rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set)
+                 => normalizingInt(integerType(N:Int), V1)
+         requires (notBool (nuw in S)) andBool (nsw in S)
+               andBool goodNsw(integerType(N:Int), V2)
+    rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set) => poisonVal
+         requires (nuw in S) andBool
+                    notBool goodNuw(integerType(N:Int), V1)
+    rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set) => poisonVal
+         requires (nsw in S) andBool
+                    notBool goodNsw(integerType(N:Int), V2)
 
-    rule applyInts(Op:K, integerType(N:Int), .ElemList, .ElemList) => .ElemList
-    rule applyInts(Op:K, integerType(N:Int), vectorValue(Es:ElemList)
-                                       , vectorValue(Es':ElemList))
-               => vectorValue(applyInts(Op, integerType(N:Int), Es, Es'))
-    rule applyInts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList)
-                                       , (valValue(K':K),Es':ElemList))
-               => valValue(applyInt(Op, integerType(N:Int), K, K')),
-                                       applyInts(Op, integerType(N:Int), Es, Es')
-    rule applyInts(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+    //input of apply int, assuming that v1 and v2 have been normalized.
+    rule applyInt(Op:K, X:K, poisonVal, V2:K, S:Set) => poisonVal
+    rule applyInt(Op:K, X:K, V1:K, poisonVal, S:Set) => poisonVal
+    rule applyInt(Op:K, X:K, V1:K, undef, S:Set) => undef
+         requires Op =/=K 'or(.KList) andBool Op =/=K 'and(.KList)
+    rule applyInt(Op:K, X:K, undef, V2:K, S:Set) => undef
+         requires Op =/=K 'or(.KList) andBool Op =/=K 'and(.KList)
+    rule applyInt('or(.KList), integerType(N:Int),
+                      V1:Int, undef, S:Set) => undef
+         requires V1 =/=K ((2 ^Int N) -Int 1)
+    rule applyInt('or(.KList), integerType(N:Int),
+                      V1:Int, undef, S:Set) => V1
+         requires V1 ==K ((2 ^Int N) -Int 1)
+    rule applyInt('or(.KList), integerType(N:Int),
+                      undef, V2:Int, S:Set) => undef
+         requires V2 =/=K ((2 ^Int N) -Int 1)
+    rule applyInt('or(.KList), integerType(N:Int),
+                      undef, V2:Int, S:Set) => V2
+         requires V2 ==K ((2 ^Int N) -Int 1)
+    rule applyInt('and(.KList), integerType(N:Int),
+                      V1:Int, undef, S:Set) => undef
+         requires V1 =/=K 0
+    rule applyInt('and(.KList), integerType(N:Int),
+                      V1:Int, undef, S:Set) => V1
+         requires V1 ==K 0
+    rule applyInt('and(.KList), integerType(N:Int),
+                      undef, V2:Int, S:Set) => undef
+         requires V2 =/=K 0
+    rule applyInt('and(.KList), integerType(N:Int),
+                      undef, V2:Int, S:Set) => V2
+         requires V2 ==K 0
+    rule applyInt(Op:K, T:K, V1:Int, V2:Int, S:Set)
+             => checkInt(T, applyOp(Op, V1, V2),
+                 applyOp(Op, deNormalizingInt(T, V1),
+                            deNormalizingInt(T,V2)), S)
+         requires Op ==K 'add(.KList)
+                  orBool Op ==K 'sub(.KList)
+                  orBool Op ==K 'mul(.KList)
+    rule applyInt(Op:LogicalOps, T:K, V1:Int, V2:Int, S:Set)
+             => applyOp(Op, V1, V2)
+    rule applyInt(shl, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => poisonVal
+         requires V2 >=Int N
+    rule applyInt(shl, integerType(N:Int),
+                V1:Int, V2:Int, S:Set) => poisonVal
+         requires V2 <Int N
+         andBool deNormalizingInt(integerType(N:Int), V1) <Int 0
+           andBool applyOp(shl,
+                 deNormalizingInt(integerType(N:Int), V1), V2) >=Int 0
 
+    rule applyInt(shl, integerType(N:Int), V1:Int, V2:Int, S:Set)
+             => checkInt(integerType(N:Int), applyOp(shl, V1, V2),
+             applyOp(shl,
+                 deNormalizingInt(integerType(N:Int), V1), V2), S)
+         requires V2 <Int N
+          andBool deNormalizingInt(integerType(N:Int), V1) <Int 0
+           andBool applyOp(shl,
+            deNormalizingInt(integerType(N:Int), V1), V2) <Int 0
+    rule applyInt(shl, integerType(N:Int), V1:Int, V2:Int, S:Set)
+             => checkInt(integerType(N:Int), applyOp(shl, V1, V2),
+                 applyOp(shl,
+                    deNormalizingInt(integerType(N:Int), V1), V2), S)
+         requires V2 <Int N
+               andBool deNormalizingInt(integerType(N:Int), V1) >=Int 0
+    rule applyInt(udiv, T:K, V1:Int, V2:Int, S:Set) => badValue
+         requires V2 ==K 0
+    rule applyInt(udiv, T:K, V1:Int, V2:Int, S:Set) => poisonVal
+         requires V2 =/=K 0 andBool (exact in S andBool V1 %Int V2 =/=K 0)
+    rule applyInt(udiv, T:K, V1:Int, V2:Int, S:Set) => applyOp(udiv, V1, V2)
+         requires V2 =/=K 0 andBool
+                ((exact in S andBool V1 %Int V2 ==K 0)
+                orBool (notBool (exact in S)))
+    rule applyInt(sdiv, T:K, V1:Int, V2:Int, S:Set) => badValue
+         requires V2 ==K 0
+    rule applyInt(sdiv, integerType(N:Int),
+               V1:Int, V2:Int, S:Set) => badValue
+         requires V2 =/=K 0
+            andBool outOfSignScope(applyOp(sdiv,
+             deNormalizingInt(integerType(N:Int), V1),
+              deNormalizingInt(integerType(N:Int),V2)), integerType(N:Int))
+    rule applyInt(sdiv, integerType(N:Int),
+               V1:Int, V2:Int, S:Set) => poisonVal
+         requires V2 =/=K 0
+            andBool notBool outOfSignScope(applyOp(sdiv,
+             deNormalizingInt(integerType(N:Int), V1),
+              deNormalizingInt(integerType(N:Int),V2)), integerType(N:Int))
+           andBool (exact in S andBool deNormalizingInt(integerType(N:Int), V1)
+                         %Int deNormalizingInt(integerType(N:Int),V2) =/=K 0)
+    rule applyInt(sdiv, integerType(N:Int),
+               V1:Int, V2:Int, S:Set) => applyOp(sdiv,
+                          deNormalizingInt(integerType(N:Int), V1),
+                                    deNormalizingInt(integerType(N:Int),V2))
+         requires V2 =/=K 0
+            andBool notBool outOfSignScope(applyOp(sdiv,
+             deNormalizingInt(integerType(N:Int), V1),
+              deNormalizingInt(integerType(N:Int),V2)), integerType(N:Int))
+           andBool ((exact in S
+                     andBool deNormalizingInt(integerType(N:Int), V1)
+                           %Int deNormalizingInt(integerType(N:Int),V2) ==K 0)
+                      orBool (notBool (exact in S)))
+    rule applyInt(Op:K, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => poisonVal
+         requires V2 >=Int N andBool (Op ==K lshr orBool Op ==K ashr)
+    rule applyInt(Op:K, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => poisonVal
+         requires V2 <Int N andBool (exact in S)
+             andBool (Op ==K lshr orBool Op ==K ashr)
+              andBool V1 %Int (2 ^Int V2) =/=K 0
+    rule applyInt(lshr, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => applyOp(lshr, V1, V2)
+         requires V2 <Int N
+           andBool ((notBool (exact in S))
+                 orBool ((exact in S)
+                  andBool V1 %Int (2 ^Int V2) ==K 0))
+    rule applyInt(ashr, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => applyOp(ashr, V1, V2)
+         requires V2 <Int N
+           andBool V2 <Int (2 ^Int (N -Int 1))
+           andBool ((notBool (exact in S))
+                 orBool ((exact in S)
+                  andBool V1 %Int (2 ^Int V2) ==K 0))
+    rule applyInt(ashr, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) =>
+            calShiftValue(N -Int 1, V2) +Int applyOp(ashr, V1, V2)
+         requires V2 <Int N
+           andBool V2 >=Int (2 ^Int (N -Int 1))
+           andBool ((notBool (exact in S))
+                 orBool ((exact in S)
+                  andBool V1 %Int (2 ^Int V2) ==K 0))
+    rule applyInt(urem, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => badValue
+         requires V2 ==K 0
+    rule applyInt(urem, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set)
+                          => applyOp(urem, V1, V2)
+         requires V2 =/=K 0
+    rule applyInt(srem, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => badValue
+         requires V2 ==K 0
+    rule applyInt(srem, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set) => badValue
+         requires V2 =/=K 0
+           andBool outOfSignScope(applyOp(sdiv,
+             deNormalizingInt(integerType(N:Int), V1),
+              deNormalizingInt(integerType(N:Int),V2)),
+                integerType(N:Int))
+    rule applyInt(srem, integerType(N:Int),
+                   V1:Int, V2:Int, S:Set)
+            => applyOp(srem,
+             deNormalizingInt(integerType(N:Int), V1),
+              deNormalizingInt(integerType(N:Int),V2))
+         requires V2 =/=K 0
+           andBool notBool outOfSignScope(applyOp(sdiv,
+             deNormalizingInt(integerType(N:Int), V1),
+              deNormalizingInt(integerType(N:Int),V2)),
+                integerType(N:Int))
+
+    rule applyInts(Op:K, T:K, V1:Int, V2:Int, S:Set, Es:ElemList)
+         => applyInt(Op, T, V1, V2, S)
+    rule applyInts(Op:K, T:K, poisonVal, V2:K, S:Set, Es:ElemList)
+         => poisonVal
+    rule applyInts(Op:K, T:K, V1:K, poisonVal, S:Set, Es:ElemList)
+         => poisonVal
+    rule applyInts(Op:K, T:K, undef, undef, S:Set, Es:ElemList)
+         => undef
+    rule applyInts(Op:K, T:K, undef, V2:Int, S:Set, Es:ElemList)
+         => applyInt(Op, T, undef, V2, S:Set)
+    rule applyInts(Op:K, T:K, V1:Int, undef, S:Set, Es:ElemList)
+         => applyInt(Op, T, V1, undef, S:Set)
+    rule applyInts(Op:K, T:K, vectorValue(.ElemList),
+                        vectorValue(.ElemList), S:Set, Es:ElemList)
+         => vectorValue(Es)
+    rule applyInts(Op:K, T:K, undef,
+                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
+         => applyInts(Op:K, T:K, vectorValue(makeUndefList(lengthOfList(E1))),
+                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
+    rule applyInts(Op:K, T:K,  vectorValue(E1:ElemList),
+                       undef, S:Set, Es:ElemList)
+         => applyInts(Op:K, T:K, vectorValue(E1:ElemList),
+                        vectorValue(makeUndefList(lengthOfList(E1))),
+                            S:Set, Es:ElemList)
+    rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
+           vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)
+         => applyInts(Op, T, vectorValue(E1), vectorValue(E2), S,
+                addElemToEnd(valValue(applyInt(Op, T, V1, V2, S)), Es))
+         requires applyInt(Op, T, V1, V2, S) =/=K badValue
+    rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
+           vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)
+         => badValue
+         requires applyInt(Op, T, V1, V2, S) ==K badValue
 
     rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
                => applyOp(Op,
@@ -791,7 +988,7 @@ module LLVM-HELPERS
                                        , (valValue(K':K),Es':ElemList))
                => valValue(applyIcmp(Op, integerType(N:Int), K, K')),
                                        applyIcmps(Op, integerType(N:Int), Es, Es')
-    rule applyIcmps(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2)        [owise]
+    rule applyIcmps(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2, .Set)        [owise]
 
 
     syntax Int ::= seqAdds(Int, Int) [function]
@@ -833,52 +1030,19 @@ module LLVM-HELPERS
               => applySelect(Op, I, A, B) [owise]
 
 
-    syntax KItem ::= checkNuw(K, K)          [function]//type,  int value
-                   | checkNsw(K, K, K)    [function]//type, int signed value, int value
-    rule checkNuw(integerType(N:Int), V:Int) => V
+    syntax Bool ::= goodNuw(K, Int)          [function] //type,  int value
+                   | goodNsw(K, Int)         [function] //type, int signed value
+    rule goodNuw(integerType(N:Int), V:Int) => true
          requires V <Int (2 ^Int N) andBool V >=Int 0
-    rule checkNuw(integerType(N:Int), V:Int) => poisonVal
-         requires V >=Int (2 ^Int N) orBool V <Int 0
-    rule checkNuw(integerType(N:Int), V:K) => V
-         requires getKLabel(V) ==KLabel 'poisonVal
-                             orBool getKLabel(V) ==KLabel 'undef
-    rule checkNuw(integerType(N:Int), .ElemList) => .ElemList
-    rule checkNuw(integerType(N:Int), vectorValue(Es:ElemList))
-            => vectorValue(checkNuw(integerType(N:Int), Es:ElemList))
-    rule checkNuw(integerType(N:Int), valValue(K:K), Es:ElemList)
-            => valValue(K), checkNuw(integerType(N:Int),  Es:ElemList)
-         requires notBool isTheInt(K)
-    rule checkNuw(integerType(N:Int), valValue(V:Int), Es:ElemList)
-            => valValue(V), checkNuw(integerType(N:Int), Es:ElemList)
-         requires V <Int (2 ^Int N) andBool V >=Int 0
-    rule checkNuw(integerType(N:Int), valValue(V:Int), Es:ElemList)
-            => valValue(poisonVal), checkNuw(integerType(N:Int), Es:ElemList)
+    rule goodNuw(integerType(N:Int), V:Int) => false
          requires V >=Int (2 ^Int N) orBool V <Int 0
 
-    rule checkNsw(integerType(N:Int), I1:Int, V:Int) => poisonVal
-         requires I1 <Int (0 -Int (2 ^Int (N -Int 1))) orBool I1 >=Int (2 ^Int (N -Int 1))
-    rule checkNsw(integerType(N:Int), I1:Int, V:Int) => V
-         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
-    rule checkNsw(integerType(N:Int), I1:K, V:K) => V
-         requires getKLabel(V) ==KLabel 'poisonVal
-                             orBool getKLabel(V) ==KLabel 'undef
-    rule checkNsw(integerType(N:Int), I1:K, .ElemList) => .ElemList
-    rule checkNsw(integerType(N:Int), I1:K, vectorValue(Es:ElemList))
-            => vectorValue(checkNsw(integerType(N:Int), I1:K, Es:ElemList))
-    rule checkNsw(integerType(N:Int), I1:K, valValue(V:K), Es:ElemList)
-            => valValue(V), checkNsw(integerType(N:Int), I1:K, Es:ElemList)
-         requires notBool isTheInt(V)
-
-    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList)
-                                                           , valValue(V:Int), Es:ElemList)
-            => valValue(poisonVal),
-                   checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList)
-                 , Es:ElemList)
-         requires I1 <Int (0 -Int (2 ^Int (N -Int 1))) orBool I1 >=Int (2 ^Int (N -Int 1))
-
-    rule checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), valValue(V:Int), Es:ElemList)
-            => valValue(V), checkNsw(integerType(N:Int), vectorValue(valValue(I1:Int), Is1:ElemList), Es:ElemList)
-         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1))) andBool I1 <Int (2 ^Int (N -Int 1))
+    rule goodNsw(integerType(N:Int), I1:Int) => false
+         requires I1 <Int (0 -Int (2 ^Int (N -Int 1)))
+                    orBool I1 >=Int (2 ^Int (N -Int 1))
+    rule goodNsw(integerType(N:Int), I1:Int) => true
+         requires I1 >=Int (0 -Int (2 ^Int (N -Int 1)))
+                    andBool I1 <Int (2 ^Int (N -Int 1))
 
     syntax Bool ::= isPowOfTwo(Int, Int)  [function]
     rule isPowOfTwo(A:Int, B:Int) => false
@@ -1143,6 +1307,22 @@ module LLVM-HELPERS
               orBool getKLabel(A) ==KLabel 'theAnd
               orBool getKLabel(A) ==KLabel 'theXor
    rule isIntOp(A:K) => false [owise]
+
+    syntax KItem ::= toIntOp(KLabel) [function]
+    rule toIntOp('theAdd) => 'add(.KList)
+    rule toIntOp('theSub) => 'sub(.KList)
+    rule toIntOp('theMul) => 'mul(.KList)
+    rule toIntOp('theUDiv) => 'udiv(.KList)
+    rule toIntOp('theSDiv) => 'sdiv(.KList)
+    rule toIntOp('theURem) => 'udiv(.KList)
+    rule toIntOp('theSRem) => 'sdiv(.KList)
+    rule toIntOp('theShl) => 'shl(.KList)
+    rule toIntOp('theLShr) => 'lshr(.KList)
+    rule toIntOp('theAShr) => 'ashr(.KList)
+    rule toIntOp('theOr) => 'or(.KList)
+    rule toIntOp('theAnd) => 'and(.KList)
+    rule toIntOp('theXor) => 'xor(.KList)
+    rule toIntOp(A:KLabel) => A(.KList) [owise]
 
    syntax List ::= removeInst(Int, Int, List) [function]
    rule removeInst(A:Int, B:Int, .List) => .List

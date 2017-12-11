@@ -27,6 +27,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax Type ::= TypeResult
     syntax Type ::= "badType"
+    syntax KResult ::= "badValue"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
     syntax Element ::= val(K) [strict]
@@ -394,8 +395,7 @@ module LLVM-ABSTRACTSYNTAX
 
 
     //@ Binary Operations
-    syntax KItem ::= flagStage(K, K, K) //type, int singed value, int unsined value
-    syntax KItem ::= flagStage2(K, K, K) //type, int singed value, int unsined value
+    syntax KItem ::= flagStage(K, K) //op, int value
     syntax KResult ::= intValue(K, K) //int type, int value, flags
     syntax KItem ::= theAdd(K, K, K) [strict] // Type, Left op, Right op, flags
     syntax KItem ::= theSub(K, K, K) [strict] // Type, Left op, Right op

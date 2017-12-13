@@ -760,6 +760,9 @@ module LLVM-HELPERS
                  => normalizingInt(integerType(N:Int), V1)
          requires (notBool (nuw in S)) andBool (nsw in S)
                andBool goodNsw(integerType(N:Int), V2)
+    rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set)
+                 => normalizingInt(integerType(N:Int), V1)
+         requires (notBool (nuw in S)) andBool (notBool (nsw in S))
     rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set) => poisonVal
          requires (nuw in S) andBool
                     notBool goodNuw(integerType(N:Int), V1)

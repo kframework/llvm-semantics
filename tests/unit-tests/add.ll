@@ -12,10 +12,10 @@ entry:
   ret i32 0
 }
 
-define <2 x i32> @main() #0 {
+define i32 @main() #0 {
 entry:
-  %b = urem <2 x i32> <i32 2, i32 4>, <i32 1, i32 2>
-  ret <2 x i32> %b
+  %a = add i32 1, 1
+  ret i32 %a
 }
 
 declare i32 @printf(i8*, ...) #1

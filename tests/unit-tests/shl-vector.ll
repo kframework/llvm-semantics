@@ -12,10 +12,10 @@ entry:
   ret i32 0
 }
 
-define i32 @main() #0 {
+define <2 x i32> @main() #0 {
 entry:
   %b = shl <2 x i32> undef, <i32 1, i32 2>
-  ret i32 0
+  ret <2 x i32> %b
 }
 
 declare i32 @printf(i8*, ...) #1

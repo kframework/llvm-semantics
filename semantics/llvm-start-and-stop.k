@@ -82,7 +82,7 @@ module LLVM-START-AND-STOP
 
     rule [terminate-exit]:
         <T>...
-            <k> I:Int => call(void, callee(name(globalVar, "exit"), arguments(val(I)))) </k>
+            <k> I:KResult => call(void, callee(name(globalVar, "exit"), arguments(val(I)))) </k>
         ...</T>
 
     // TODO it's not clear whether this belongs here or in SYSCALLS-IMPL

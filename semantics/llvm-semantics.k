@@ -1027,9 +1027,9 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name(globalVar, "exit")), _))
-            => .K
-        ...</k>
+        <k> call(_, calleeValue(funptr(name(globalVar, "exit")), V:K))
+            => .K ...</k>
+        (.Bag => <result><returnValue> V </returnValue></result>)
 
 endmodule
 

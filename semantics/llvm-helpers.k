@@ -673,12 +673,18 @@ module LLVM-HELPERS
                    | applyCasts(K, K, K, K)   [function] //op, type ints, type
                    | applySelect(K, K, K, K) [function] //op, bool, first, second
                    | applySelects(K, K, K, K) [function] //op, bool, first, second
-                   | applyIcmps(K, K, K, K) [function] // op, type, int, int
+                   | applyIcmps(K, K, K, K, ElemList) [function]
+                                        // op, type, value1, value2, vector
                    | applyIcmp(K, K, K, K) [function] // op, type, int, int
                    | outOfSignScope(Int, K) [function]
                    | calShiftValue(Int, Int) [function]
+     
+    syntax Int ::= boolToInt(Bool)   [function]
+    rule boolToInt(true) => 1
+    rule boolToInt(false) => 0
 
     syntax ElemList ::= makeResultList(Int, K) [function]
+
     rule makeResultList(0, A:K) => .ElemList
     rule makeResultList(N:Int, A:KResult)
               => valValue(A),makeResultList(N -Int 1, A)
@@ -736,16 +742,34 @@ module LLVM-HELPERS
     rule applyOp(ashr, V1:Int, V2:Int) => V1 /Int (2 ^Int V2)
     rule applyOp(urem, V1:Int, V2:Int) => V1 modInt V2
     rule applyOp(srem, V1:Int, V2:Int) => V1 %Int V2
-    rule applyOp('eq(.KList), V1:Int, V2:Int) => V1 ==Int V2
-    rule applyOp('neq(.KList), V1:Int, V2:Int) => V1 =/=Int V2
-    rule applyOp(Op:K, V1:Int, V2:Int) => V1 >Int V2
+    rule applyOp(eq, V1:Int, V2:Int) => boolToInt(V1 ==Int V2)
+    rule applyOp(eq, loc(X:Int, Y:Int, L:K, A:K),
+          loc(X':Int, Y':Int, L':K, A':K))
+                  => boolToInt((X +Int Y) ==Int (X' +Int Y'))
+    rule applyOp(ne, V1:Int, V2:Int) => boolToInt(V1 =/=Int V2)
+    rule applyOp(ne, loc(X:Int, Y:Int, L:K, A:K),
+          loc(X':Int, Y':Int, L':K, A':K))
+                  => boolToInt((X +Int Y) =/=Int (X' +Int Y'))
+    rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 >Int V2)
          requires Op ==K 'ugtOfIcmp(.KList) orBool Op ==K sgt
-    rule applyOp(Op:K, V1:Int, V2:Int) => V1 >=Int V2
+    rule applyOp(Op:K, loc(X:Int, Y:Int, L:K, A:K),
+          loc(X':Int, Y':Int, L':K, A':K))
+                => boolToInt((X +Int Y) >Int (X' +Int Y'))
+    rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 >=Int V2)
          requires Op ==K 'ugeOfIcmp(.KList) orBool Op ==K sge
-    rule applyOp(Op:K, V1:Int, V2:Int) => V1 <Int V2
+    rule applyOp(Op:K, loc(X:Int, Y:Int, L:K, A:K),
+          loc(X':Int, Y':Int, L':K, A':K))
+            => boolToInt((X +Int Y) >=Int (X' +Int Y'))
+    rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 <Int V2)
          requires Op ==K 'ultOfIcmp(.KList) orBool Op ==K slt
-    rule applyOp(Op:K, V1:Int, V2:Int) => V1 <=Int V2
+    rule applyOp(Op:K, loc(X:Int, Y:Int, L:K, A:K),
+          loc(X':Int, Y':Int, L':K, A':K))
+              => boolToInt((X +Int Y) <Int (X' +Int Y'))
+    rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 <=Int V2)
          requires Op ==K 'uleOfIcmp(.KList) orBool Op ==K sle
+    rule applyOp(Op:K, loc(X:Int, Y:Int, L:K, A:K),
+          loc(X':Int, Y':Int, L':K, A':K))
+         => boolToInt((X +Int Y) <=Int (X' +Int Y'))
 
     rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set)
                       => normalizingInt(integerType(N:Int), V1)
@@ -771,16 +795,22 @@ module LLVM-HELPERS
                     notBool goodNsw(integerType(N:Int), V2)
 
     //input of apply int, assuming that v1 and v2 have been normalized.
+    rule applyInt(Op:K, X:K, badValue, V2:K, S:Set) => badValue
+    rule applyInt(Op:K, X:K, V1:K, badValue, S:Set) => badValue
+    rule applyInt(Op:K, X:K, poisonVal, V2:K, S:Set) => poisonVal
+         requires V2 =/=K badValue
+    rule applyInt(Op:K, X:K, V1:K, poisonVal, S:Set) => poisonVal
+         requires V1 =/=K badValue
     rule applyInt(Op:K, X:K, zeroinitializer, V2:K, S:Set)
           => applyInt(Op, X, 0, V2, S)
     rule applyInt(Op:K, X:K, V1:K, zeroinitializer, S:Set)
           => applyInt(Op, X, V1, 0, S)
-    rule applyInt(Op:K, X:K, poisonVal, V2:K, S:Set) => poisonVal
-    rule applyInt(Op:K, X:K, V1:K, poisonVal, S:Set) => poisonVal
     rule applyInt(Op:K, X:K, V1:K, undef, S:Set) => undef
          requires Op =/=K 'or(.KList) andBool Op =/=K 'and(.KList)
+               andBool V1 =/=K badValue andBool V1 =/=K poisonVal
     rule applyInt(Op:K, X:K, undef, V2:K, S:Set) => undef
          requires Op =/=K 'or(.KList) andBool Op =/=K 'and(.KList)
+               andBool V2 =/=K badValue andBool V2 =/=K poisonVal
     rule applyInt('or(.KList), integerType(N:Int),
                       V1:Int, undef, S:Set) => undef
          requires V1 =/=K ((2 ^Int N) -Int 1)
@@ -933,42 +963,58 @@ module LLVM-HELPERS
 
     rule applyInts(Op:K, T:K, V1:Int, V2:Int, S:Set, Es:ElemList)
          => applyInt(Op, T, V1, V2, S)
+    rule applyInts(Op:K, T:K, badValue, V2:K, S:Set, Es:ElemList)
+         => badValue
+    rule applyInts(Op:K, T:K, V1:K, badValue, S:Set, Es:ElemList)
+         => badValue
     rule applyInts(Op:K, T:K, poisonVal, V2:K, S:Set, Es:ElemList)
          => poisonVal
+         requires V2 =/=K badValue
     rule applyInts(Op:K, T:K, V1:K, poisonVal, S:Set, Es:ElemList)
          => poisonVal
+         requires V1 =/=K badValue
     rule applyInts(Op:K, T:K, undef, undef, S:Set, Es:ElemList)
          => undef
-    rule applyInts(Op:K, T:K, zeroinitializer, V2:Int, S:Set, Es:ElemList)
-         => applyInt(Op, T, zeroinitializer, V2, S:Set)
-    rule applyInts(Op:K, T:K, V1:Int, zeroinitializer, S:Set, Es:ElemList)
-         => applyInt(Op, T, V1, zeroinitializer, S:Set)
-    rule applyInts(Op:K, T:K, undef, V2:Int, S:Set, Es:ElemList)
-         => applyInt(Op, T, undef, V2, S:Set)
-    rule applyInts(Op:K, T:K, V1:Int, undef, S:Set, Es:ElemList)
-         => applyInt(Op, T, V1, undef, S:Set)
+    rule applyInts(Op:K, integerType(N:Int),
+                    undef, V2:Int, S:Set, Es:ElemList)
+         => applyInt(Op, integerType(N:Int), undef, V2, S:Set)
+    rule applyInts(Op:K, integerType(N:Int),
+                    V1:Int, undef, S:Set, Es:ElemList)
+         => applyInt(Op, integerType(N:Int), V1, undef, S:Set)
+    rule applyInts(Op:K, T:K, zeroinitializer,
+                    zeroinitializer, S:Set, Es:ElemList)
+         => applyInt(Op, T:K, 0, 0, S:Set)
+    rule applyInts(Op:K, integerType(N:Int),
+                  zeroinitializer, V2:Int, S:Set, Es:ElemList)
+         => applyInt(Op, integerType(N:Int), zeroinitializer, V2, S:Set)
+    rule applyInts(Op:K, integerType(N:Int),
+                     V1:Int, zeroinitializer, S:Set, Es:ElemList)
+         => applyInt(Op, integerType(N:Int), V1, zeroinitializer, S:Set)
     rule applyInts(Op:K, T:K, vectorValue(.ElemList),
                         vectorValue(.ElemList), S:Set, Es:ElemList)
          => vectorValue(Es)
-    rule applyInts(Op:K, T:K, undef,
-                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
-         => applyInts(Op:K, T:K, vectorValue(makeResultList(lengthOfList(E1), undef)),
-                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
-    rule applyInts(Op:K, T:K,  vectorValue(E1:ElemList),
-                       undef, S:Set, Es:ElemList)
-         => applyInts(Op:K, T:K, vectorValue(E1:ElemList),
-                        vectorValue(makeResultList(lengthOfList(E1), undef)),
+    rule applyInts(Op:K, vectorTypeValue(T:K, N:Int), undef,
+                        V2:K, S:Set, Es:ElemList)
+         => applyInts(Op:K, vectorTypeValue(T:K, N:Int),
+               vectorValue(makeResultList(N, undef)),
+                        V2, S:Set, Es:ElemList)
+    rule applyInts(Op:K, vectorTypeValue(T:K, N:Int),
+          V1:K, undef, S:Set, Es:ElemList)
+         => applyInts(Op:K, vectorTypeValue(T:K, N:Int), V1,
+               vectorValue(makeResultList(N, undef)),
                             S:Set, Es:ElemList)
-    rule applyInts(Op:K, T:K, zeroinitializer,
-                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
-         => applyInts(Op:K, T:K,
-               vectorValue(makeResultList(lengthOfList(E1), zeroinitializer)),
-                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
-    rule applyInts(Op:K, T:K,  vectorValue(E1:ElemList),
-                       zeroinitializer, S:Set, Es:ElemList)
-         => applyInts(Op:K, T:K, vectorValue(E1:ElemList),
-               vectorValue(makeResultList(lengthOfList(E1), zeroinitializer)),
+
+    rule applyInts(Op:K, vectorTypeValue(T:K, N:Int), zeroinitializer,
+                        V2:K, S:Set, Es:ElemList)
+         => applyInts(Op:K, vectorTypeValue(T:K, N:Int),
+               vectorValue(makeResultList(N, zeroinitializer)),
+                        V2, S:Set, Es:ElemList)
+    rule applyInts(Op:K, vectorTypeValue(T:K, N:Int),
+          V1:K, zeroinitializer, S:Set, Es:ElemList)
+         => applyInts(Op:K, vectorTypeValue(T:K, N:Int), V1,
+               vectorValue(makeResultList(N, zeroinitializer)),
                             S:Set, Es:ElemList)
+
     rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
            vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)
          => applyInts(Op, T, vectorValue(E1), vectorValue(E2), S,
@@ -979,37 +1025,102 @@ module LLVM-HELPERS
          => badValue
          requires applyInt(Op, getIntType(T), V1, V2, S) ==K badValue
 
+    rule applyIcmp(OP:K, T:K, badValue, V2:K) => badValue
+    rule applyIcmp(OP:K, T:K, V1:K, badValue) => badValue
+    rule applyIcmp(OP:K, T:K, poisonVal, V2:K) => poisonVal
+         requires V2 =/=K badValue
+    rule applyIcmp(OP:K, T:K, V1:K, poisonVal) => poisonVal
+         requires V1 =/=K badValue
+    rule applyIcmp(OP:K, T:K, undef, V2:K) => undef
+         requires V2 =/=K badValue andBool V2 =/=K poisonVal
+    rule applyIcmp(OP:K, T:K, V1:K, undef) => undef
+         requires V1 =/=K badValue andBool V1 =/=K poisonVal
+    rule applyIcmp(OP:K,
+              integerType(N:Int), zeroinitializer, V2:K)
+            => applyIcmp(OP, integerType(N:Int), 0, V2)
+    rule applyIcmp(OP:K,
+               integerType(N:Int), V1:K, zeroinitializer)
+            => applyIcmp(OP, integerType(N:Int), V1, 0)
+    rule applyIcmp(OP:K, pointerTypeValue(T:K, Ad:K),
+                zeroinitializer, V2:K)
+            => applyIcmp(OP, pointerTypeValue(T:K, Ad:K),
+                loc(startMemoryLoc, 0, undef, undef), V2)
+    rule applyIcmp(OP:K, pointerTypeValue(T:K, Ad:K),
+                V1:K, zeroinitializer)
+            => applyIcmp(OP, pointerTypeValue(T:K, Ad:K),
+                    V1, loc(startMemoryLoc, 0, undef, undef))
     rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
-               => applyOp(Op,
-                       deNormalizingInt(integerType(N:Int), normalizingInt(integerType(N:Int), V1)),
-                       deNormalizingInt(integerType(N:Int), normalizingInt(integerType(N:Int), V2)))
-         requires Op =/=K 'ugtOfIcmp(.KList) andBool Op =/=K 'ugeOfIcmp(.KList)
-                  andBool Op =/=K 'ultOfIcmp(.KList) andBool Op =/=K 'uleOfIcmp(.KList)
-    rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
-               => applyOp(Op,
-                       normalizingInt(integerType(N:Int), V1),
-                       normalizingInt(integerType(N:Int), V2))
-         requires Op ==K 'ugtOfIcmp(.KList) orBool Op ==K 'ugeOfIcmp(.KList)
-                  orBool Op ==K 'ultOfIcmp(.KList) orBool Op ==K 'uleOfIcmp(.KList)
-    rule applyIcmp(Op:K, pointerTypeValue(T1:K, Addr:K),
-              loc(A:Int, B:Int, C:K, D:K), loc(A':Int, B':Int, C':K, D':K))
-               => applyOp(Op, A +Int B, A' +Int B')
-    rule applyIcmp(Op:K, T:K, A:K, A':K) => poisonVal
-         requires A ==K poisonVal orBool A' ==K poisonVal
-    rule applyIcmp(Op:K, T:K, A:K, A':K) => undef
-         requires (A ==K undef orBool A' ==K undef)
-                   andBool A =/=K poisonVal
-                   andBool A' =/=K poisonVal
+      => applyOp(Op, normalizingInt(integerType(N:Int), V1),
+                 normalizingInt(integerType(N:Int), V2))
+         requires Op ==K eq orBool Op ==K ne
+         orBool Op ==K 'ultOfIcmp(.KList)
+         orBool Op ==K 'ugtOfIcmp(.KList)
+         orBool Op ==K 'ugeOfIcmp(.KList)
+         orBool Op ==K 'uleOfIcmp(.KList)
 
-    rule applyIcmps(Op:K, integerType(N:Int), .ElemList, .ElemList) => .ElemList
-    rule applyIcmps(Op:K, vectorTypeValue(integerType(I:Int), N:Int),
-                      vectorValue(Es:ElemList), vectorValue(Es':ElemList))
-               => vectorValue(applyIcmps(Op, integerType(N:Int), Es, Es'))
-    rule applyIcmps(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList)
-                                       , (valValue(K':K),Es':ElemList))
-               => valValue(applyIcmp(Op, integerType(N:Int), K, K')),
-                                       applyIcmps(Op, integerType(N:Int), Es, Es')
-    rule applyIcmps(Op:K, A:K, I1:K, I2:K) => applyInt(Op, A, I1, I2, .Set)        [owise]
+    rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
+      => applyOp(Op, deNormalizingInt( integerType(N:Int),
+                normalizingInt(integerType(N:Int), V1)),
+                 deNormalizingInt(integerType(N:Int),
+                   normalizingInt(integerType(N:Int), V2)))
+         requires Op ==K slt orBool Op ==K sgt
+           orBool Op ==K sle orBool Op ==K sge
+
+    rule applyIcmp(Op:K, pointerTypeValue(_, _), V1:Loc, V2:Loc)
+      => applyOp(Op, V1, V2)
+
+    rule applyIcmps(Op:K, T:K, badValue, V2:K, Es:ElemList)
+         => badValue
+    rule applyIcmps(Op:K, T:K, V1:K, badValue, Es:ElemList)
+         => badValue
+    rule applyIcmps(Op:K, T:K, V1:Int, V2:Int, Es:ElemList)
+         => applyIcmp(Op, T, V1, V2)
+    rule applyIcmps(Op:K, T:K, V1:Loc, V2:Loc, Es:ElemList)
+         => applyIcmp(Op, T, V1, V2)
+    rule applyIcmps(Op:K, T:K, poisonVal, V2:K, Es:ElemList)
+         => poisonVal
+         requires V2 =/=K badValue
+    rule applyIcmps(Op:K, T:K, V1:K, poisonVal, Es:ElemList)
+         => poisonVal
+         requires V1 =/=K badValue
+    rule applyIcmps(Op:K, T:K, undef, V2:K, Es:ElemList)
+         => undef
+         requires V2 =/=K badValue andBool V2 =/=K poisonVal
+    rule applyIcmps(Op:K, T:K, V1:K, undef, Es:ElemList)
+         => undef
+         requires V1 =/=K badValue andBool V1 =/=K poisonVal
+    rule applyIcmps(Op:K, T:K, V1:K, zeroinitializer, Es:ElemList)
+         => applyIcmp(Op, T, V1, zeroinitializer)
+         requires getKLabel(T) ==KLabel 'integerType
+                  orBool getKLabel(T) ==KLabel 'pointerTypeValue
+    rule applyIcmps(Op:K, T:K, zeroinitializer, V2:K, Es:ElemList)
+         => applyIcmp(Op, T, zeroinitializer, V2)
+         requires getKLabel(T) ==KLabel 'integerType
+                  orBool getKLabel(T) ==KLabel 'pointerTypeValue
+    rule applyIcmps(Op:K, T:K, vectorValue(.ElemList),
+                        vectorValue(.ElemList), Es:ElemList)
+         => vectorValue(Es)
+
+    rule applyIcmps(Op:K, vectorTypeValue(T:K, N:Int),
+         zeroinitializer, V2:K, Es:ElemList)
+         => applyIcmps(Op:K, vectorTypeValue(T:K, N:Int),
+               vectorValue(makeResultList(N, zeroinitializer)),
+                        V2, Es:ElemList)
+    rule applyIcmps(Op:K, vectorTypeValue(T:K, N:Int), V1:K,
+         zeroinitializer, Es:ElemList)
+         => applyIcmps(Op:K, vectorTypeValue(T:K, N:Int),
+           V1, vectorValue(makeResultList(N, zeroinitializer)),
+              Es:ElemList)
+
+    rule applyIcmps(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
+           vectorValue(valValue(V2:K),E2:ElemList), Es:ElemList)
+         => applyIcmps(Op, T, vectorValue(E1), vectorValue(E2),
+                addElemToEnd(valValue(applyIcmp(Op, getIntType(T), V1, V2)), Es))
+         requires applyIcmp(Op, getIntType(T), V1, V2) =/=K badValue
+    rule applyIcmps(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
+           vectorValue(valValue(V2:K),E2:ElemList), Es:ElemList)
+         => badValue
+         requires applyIcmp(Op, getIntType(T), V1, V2) ==K badValue
 
 
     syntax Int ::= seqAdds(Int, Int) [function]
@@ -1387,6 +1498,9 @@ module LLVM-HELPERS
         => Op:KLabel(Ty,, updateVarInValue(V1, X, Y),,
                       updateVarInValue(V2, X, Y))
         requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+   rule updateVarInTerm(iCmp(Op:K, T:K, V1:K, V2:K), X:K, Y:K)
+        => iCmp(Op:K, T:K, updateVarInValue(V1, X, Y),
+               updateVarInValue(V2, X, Y))
    rule updateVarInTerm(tailCall(T:K,
                      callee(V:K, arguments(Es:ElemList))), X:K, Y:K)
           => tailCall(T:K, callee(V:K,
@@ -1412,6 +1526,9 @@ module LLVM-HELPERS
         => Op:KLabel(Ty,, updateVarInValueMap(V1, M),,
                       updateVarInValueMap(V2, M))
         requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+   rule updateVarInTermMap(iCmp(Op:K, T:K, V1:K, V2:K), M:Map)
+        => iCmp(Op:K, T:K, updateVarInValueMap(V1, M),
+               updateVarInValueMap(V2, M))
    rule updateVarInTermMap(tailCall(T:K, callee(V:K,
                        arguments(Es:ElemList))), M:Map)
           => tailCall(T:K, callee(V:K,

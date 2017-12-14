@@ -55,7 +55,9 @@ module LLVM-NORMALIZING
                    | typeCheckArgList(K, ElemList)        [strict(2)]
                    | typeCheckSingleArg(K, K, K) //block t, arg
                    | typeCheckIntArgs(K, K, ElemList)
+                   | typeCheckPointerArgs(K, K, ElemList)
                    | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
+                   | typeCheckPointerExpr(K, K)
                    | typeCheckConstExpr(K, K)   [strict(1)]//type var
                    | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
                    | typeMatch(K, K)            [strict] //type, type
@@ -506,6 +508,71 @@ module LLVM-NORMALIZING
                     andBool getKLabel(T') =/=KLabel 'vectorTypeValue)
 */
 
+    //type checking icmp ops
+    rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
+               integerType(N:Int), V1:K, V2:K, Meta:InstructionMetadatas)
+               => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V1),val(V2),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       integerType(N:Int), (val(V1),val(V2),.ElemList))
+                  ~> assignType(Name, TheCount, X, integerType(1)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
+                     integerType(N:Int), V1, V2), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
+               pointerTypeValue(T:KResult, Ad:KResult), V1:K, V2:K, Meta:InstructionMetadatas)
+               => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
+            pointerTypeValue(T, Ad), val(V1),val(V2),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                   pointerTypeValue(T, Ad), (val(V1),val(V2),.ElemList))
+                  ~> assignType(Name, TheCount, X, integerType(1)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
+                pointerTypeValue(T, Ad), V1, V2), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
+                     vectorTypeValue(T:KResult, I:Int),
+                     V1:K, V2:K, Meta:InstructionMetadatas)
+               => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(T, I:Int), val(V1),val(V2),.ElemList))
+                ~> assignUses(Name, TheCount, vectorTypeValue(T, I:Int),
+                  (val(V1),val(V2),.ElemList))
+                     ~> assignType(Name, TheCount, X,
+          vectorTypeValue(integerType(1), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
+                  vectorTypeValue(T, I:Int), V1, V2), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+          requires I >Int 0 andBool (getKLabel(T) ==KLabel 'integerType
+               orBool getKLabel(T) ==KLabel 'pointerTypeValue)
+
+    rule <k> typeCheckICmp(Name:SymbolicValueRef, X, Op:K,
+              T:KResult, V1:K, V2:K, _:InstructionMetadatas) ~> K:K  => .K </k>
+         <output>... .List => ListItem("error: icmp requires integer/pointer/int vector operands") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+               andBool getKLabel(T) =/=KLabel 'pointerTypeValue
+               andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+
+    rule <k> typeCheckICmp(Name:SymbolicValueRef, X, Op:K,
+             vectorTypeValue(T:K, I:Int), V1:K, V2:K,
+             _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: icmp vector requires integer operands") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+                andBool getKLabel(T) =/=KLabel 'pointerTypeValue
+
+    rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(Ty:KResult, I:Int),
+               V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid vector number for instruction") </output>
+         requires I <=Int 0
+
     //type checking and instruction AST from with integer ops and logical ops.
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                  integerType(N:Int), V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
@@ -587,6 +654,8 @@ module LLVM-NORMALIZING
     rule typeCheckConstExpr(T:KResult, zeroinitializer) => .K
     rule typeCheckConstExpr(integerType(N:Int), A:KResult)
                => exprType(typeCheckIntExpr(integerType(N:Int), A))
+    rule typeCheckConstExpr(pointerTypeValue(T:KResult, Ad:KResult), A:KResult)
+               => exprType(typeCheckPointerExpr(pointerTypeValue(T, Ad), A))
 
     /*rule typeCheckConstExpr(T:K, constCastAST(Op:K, T1:K, V1:K, T2:K))
           => typeMatch(T, T2) ~> typeCheckConstExpr(T1, V1)
@@ -689,6 +758,9 @@ module LLVM-NORMALIZING
 
     rule typeCheckVectorAux(integerType(N:Int), V:K)
              => exprType(typeCheckIntExpr(integerType(N:Int), V:K))
+    rule typeCheckVectorAux(pointerTypeValue(T:KResult, Ad:KResult), V:K)
+             => exprType(typeCheckPointerExpr(
+                          pointerTypeValue(T:KResult, Ad:KResult), V:K))
 
     //start type checking integer arguments
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
@@ -696,6 +768,39 @@ module LLVM-NORMALIZING
                     => exprType(typeCheckIntExpr(T, V))
                           ~> checkUseVarInside(Name, T, V)
                            ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
+
+    //start type checking pointer arguments
+    rule typeCheckPointerArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
+    rule typeCheckPointerArgs(Name:SymbolicValueRef,
+                           T:TypeResult, val(V:K),Vs:ElemList)
+                    => exprType(typeCheckPointerExpr(T, V))
+                          ~> checkUseVarInside(Name, T, V)
+                           ~> typeCheckPointerArgs(Name:SymbolicValueRef, T, Vs)
+
+    //type checking each pointer argument
+    rule typeCheckPointerExpr(
+                      pointerTypeValue(T:KResult, Ad:KResult), undef)
+                   => pointerTypeValue(T:KResult, Ad:KResult)
+    rule typeCheckPointerExpr(
+                pointerTypeValue(T:KResult, Ad:KResult), zeroinitializer)
+                   => pointerTypeValue(T:KResult, Ad:KResult)
+    rule typeCheckPointerExpr(
+           pointerTypeValue(T:KResult, Ad:KResult), X:SymbolicValueRef)
+                     => pointerTypeValue(T:KResult, Ad:KResult)
+    rule typeCheckPointerExpr(
+              pointerTypeValue(T:KResult, Ad:KResult), A:ConstExpr)
+         => constExprType(typeCheckConstExpr(
+               pointerTypeValue(T:KResult, Ad:KResult), A:ConstExpr))
+           ~> typeCheckPointerExpr(
+                   pointerTypeValue(T:KResult, Ad:KResult), emptyHOLE)
+    rule T:KResult ~> typeCheckPointerExpr(T, emptyHOLE) => T
+
+    rule <k> typeCheckPointerExpr(Ty:K, I:Int) ~> K => .K </k>
+         <output>... .List => ListItem("error: integer constant must have integer type") </output>
+    rule <k> typeCheckPointerExpr(Ty:K, B:Bool) ~> K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
+    rule <k> typeCheckPointerExpr(Ty:K, F:FpVal) ~> K => .K </k>
+         <output>... .List => ListItem("error: constant expression type mismatch") </output>
 
     //type check each integer argument
     rule typeCheckIntExpr(T:KResult, A:ConstExpr)
@@ -711,6 +816,8 @@ module LLVM-NORMALIZING
     rule typeCheckIntExpr(integerType(1), B:Bool) => integerType(1)
     rule typeCheckIntExpr(T:KResult, X:SymbolicValueRef) => T
 
+    rule <k> typeCheckIntExpr(Ty:K, F:FpVal) ~> K => .K </k>
+         <output>... .List => ListItem("error: float constant must have float type") </output>
     rule <k> typeCheckIntExpr(Ty:K, I:Int) ~> K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
          requires getKLabel(Ty) =/=KLabel 'integerType

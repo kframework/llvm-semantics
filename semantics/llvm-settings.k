@@ -22,5 +22,5 @@ module LLVM-SETTINGS
     rule numBytesPerPointer => 4
 
     syntax Int ::= "startMemoryLoc" [function]
-    rule startMemoryLoc => randomRandom(37)
+    rule startMemoryLoc => 0
 endmodule

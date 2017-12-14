@@ -6,12 +6,12 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KResult ::= Int | String | Floating
                       | Loc
-                      | OptAddrSpace
                       //| listK(List)    [latex({#1})]//bytes
                       | region(List, Int)  //nextlevel, number of nextlevel
                       | VoidType
                       | vectorValue(ElemList)
                       | arrayValue(ElemList)
+                      | addrSpaceResult(Int)
 
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
@@ -112,6 +112,8 @@ module LLVM-ABSTRACTSYNTAX
     rule argListToTypeList('argTypeThree(T:Type,, Pas:ParamAttrs,, L:LocalVar), As:ArgList)
                             => T,argListToTypeList(As)
 
+    rule addrspace(I:UnsignedInt) => addrSpaceResult(String2Int(#tokenToString(I)))
+    rule 'addrEmpty(.KList) => addrSpaceResult(0)
     rule arrayType(K1:KResult, K2:KResult) => arrayTypeValue(K1, K2) [structural]
     rule 'structType(K1:KResult) => structTypeValue(K1) [structural]
     rule 'packedStructType(K1:KResult) => packedStructTypeValue(K1) [structural]

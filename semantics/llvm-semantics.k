@@ -783,7 +783,8 @@ module LLVM-COMPARISONS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule iCmp(Op:K, T:KResult, V1:KResult, V2:KResult) => applyIcmps(Op, T, V1, V2)
+    rule iCmp(Op:K, T:KResult, V1:KResult, V2:KResult)
+                        => applyIcmps(Op, T, V1, V2, .ElemList)
 
     // TODO not handling QNAN
     rule oEQ(Type:KResult, F1:Float, F2:Float)

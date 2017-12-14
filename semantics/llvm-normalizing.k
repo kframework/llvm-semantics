@@ -81,7 +81,7 @@ module LLVM-NORMALIZING
                    | typeCheckGepArgListInNum(K, ElemList) //int number of vector, list of indexes
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
                    | typeCheckBr(K, K, K, K, K, InstructionMetadatas)    [strict(2)]//block, t, ..., instmeta
-                   | typeCheckCmp(K, K, K, K, K, K, InstructionMetadatas)
+                   | typeCheckICmp(K, K, K, K, K, K, InstructionMetadatas)
                               [strict(4)]//block, var, op, type, v1, v2, instmeta
                    | typeCheckFCmp(K, K, K, K, K, K, InstructionMetadatas)
                               [strict(4)]//block, var, op, type, v1, v2, instmeta
@@ -217,7 +217,7 @@ module LLVM-NORMALIZING
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, icmp Op:IPredicate
                    Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
-         => typeCheckCmp(Name:SymbolicValueRef, X, Op, Ty,
+         => typeCheckICmp(Name:SymbolicValueRef, X, Op, Ty,
                    addNameToString(V1), addNameToString(V2), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, fcmp Op:FPredicate

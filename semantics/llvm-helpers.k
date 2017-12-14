@@ -678,12 +678,12 @@ module LLVM-HELPERS
                    | outOfSignScope(Int, K) [function]
                    | calShiftValue(Int, Int) [function]
 
-    syntax ElemList ::= makeUndefList(Int) [function]
-    rule makeUndefList(0) => .ElemList
-    rule makeUndefList(N:Int)
-              => valValue(undef),makeUndefList(N -Int 1)
+    syntax ElemList ::= makeResultList(Int, K) [function]
+    rule makeResultList(0, A:K) => .ElemList
+    rule makeResultList(N:Int, A:KResult)
+              => valValue(A),makeResultList(N -Int 1, A)
          requires N >Int 0
-    rule makeUndefList(N:Int) => .ElemList [owise]
+    rule makeResultList(N:Int, A:K) => .ElemList [owise]
 
     rule calShiftValue(N:Int, 0) => 0
     rule calShiftValue(N:Int, I:Int)
@@ -771,6 +771,10 @@ module LLVM-HELPERS
                     notBool goodNsw(integerType(N:Int), V2)
 
     //input of apply int, assuming that v1 and v2 have been normalized.
+    rule applyInt(Op:K, X:K, zeroinitializer, V2:K, S:Set)
+          => applyInt(Op, X, 0, V2, S)
+    rule applyInt(Op:K, X:K, V1:K, zeroinitializer, S:Set)
+          => applyInt(Op, X, V1, 0, S)
     rule applyInt(Op:K, X:K, poisonVal, V2:K, S:Set) => poisonVal
     rule applyInt(Op:K, X:K, V1:K, poisonVal, S:Set) => poisonVal
     rule applyInt(Op:K, X:K, V1:K, undef, S:Set) => undef
@@ -935,6 +939,10 @@ module LLVM-HELPERS
          => poisonVal
     rule applyInts(Op:K, T:K, undef, undef, S:Set, Es:ElemList)
          => undef
+    rule applyInts(Op:K, T:K, zeroinitializer, V2:Int, S:Set, Es:ElemList)
+         => applyInt(Op, T, zeroinitializer, V2, S:Set)
+    rule applyInts(Op:K, T:K, V1:Int, zeroinitializer, S:Set, Es:ElemList)
+         => applyInt(Op, T, V1, zeroinitializer, S:Set)
     rule applyInts(Op:K, T:K, undef, V2:Int, S:Set, Es:ElemList)
          => applyInt(Op, T, undef, V2, S:Set)
     rule applyInts(Op:K, T:K, V1:Int, undef, S:Set, Es:ElemList)
@@ -944,12 +952,22 @@ module LLVM-HELPERS
          => vectorValue(Es)
     rule applyInts(Op:K, T:K, undef,
                         vectorValue(E1:ElemList), S:Set, Es:ElemList)
-         => applyInts(Op:K, T:K, vectorValue(makeUndefList(lengthOfList(E1))),
+         => applyInts(Op:K, T:K, vectorValue(makeResultList(lengthOfList(E1), undef)),
                         vectorValue(E1:ElemList), S:Set, Es:ElemList)
     rule applyInts(Op:K, T:K,  vectorValue(E1:ElemList),
                        undef, S:Set, Es:ElemList)
          => applyInts(Op:K, T:K, vectorValue(E1:ElemList),
-                        vectorValue(makeUndefList(lengthOfList(E1))),
+                        vectorValue(makeResultList(lengthOfList(E1), undef)),
+                            S:Set, Es:ElemList)
+    rule applyInts(Op:K, T:K, zeroinitializer,
+                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
+         => applyInts(Op:K, T:K,
+               vectorValue(makeResultList(lengthOfList(E1), zeroinitializer)),
+                        vectorValue(E1:ElemList), S:Set, Es:ElemList)
+    rule applyInts(Op:K, T:K,  vectorValue(E1:ElemList),
+                       zeroinitializer, S:Set, Es:ElemList)
+         => applyInts(Op:K, T:K, vectorValue(E1:ElemList),
+               vectorValue(makeResultList(lengthOfList(E1), zeroinitializer)),
                             S:Set, Es:ElemList)
     rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
            vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)

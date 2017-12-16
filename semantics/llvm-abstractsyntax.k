@@ -211,6 +211,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= assignUsesInCall(K, K, ElemList)//blockname, inst num, args
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
     syntax KItem ::= setLabelVars(Map)
+    syntax KItem ::= "setLabelVars"
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KResult ::= typeOperandResult(K, K)
@@ -324,6 +325,7 @@ module LLVM-ABSTRACTSYNTAX
                    //cur block, defs, uses, nexts,next block, new blocks, visited blocks
     syntax KItem ::= phiEdges(K, Set)//block
     syntax KItem ::= "checkingPhisInEdges"
+    syntax KItem ::= "checkUseVars"
     syntax KItem ::= checkUseVars(List)
     //syntax KItem ::= checkUseVars(ElemList) [strict]
     //syntax KItmm ::= checkUseVars(List, K, Set, Set)
@@ -331,6 +333,7 @@ module LLVM-ABSTRACTSYNTAX
     //syntax KItem ::= checkUseVars(Set, Set, Set)
     syntax KItem ::= checkUseVarInside(K, K, K)
     syntax KItem ::= checkUseVarInBlock(K, Set, Set)
+    syntax KItem ::= "checkUseVarInPhi"
     syntax KItem ::= checkUseVarInPhiAux(ElemList)
     syntax KItem ::= checkUseVarInPhi(Int, Map, K, List)
                //inst num, inst map, single inst, List of inst maps

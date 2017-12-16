@@ -1571,6 +1571,11 @@ module LLVM-HELPERS
    rule isLocalVariable(name(localVar, X:K)) => true
    rule isLocalVariable(_:K) => false [owise]
 
-   
+   syntax Set ::= varsToOperands(K, Set)  [function]
+   rule varsToOperands(.K, .Set) => .Set
+   rule varsToOperands(.K, SetItem(A:K) S:Set)
+             => varsToOperands(A, S)
+   rule varsToOperands(varOp(N:K, C:K, T:K, V:K), S:Set)
+           => SetItem(operand(T, V)) varsToOperands(.K, S)
 
 endmodule

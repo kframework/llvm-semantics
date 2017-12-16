@@ -269,6 +269,61 @@ module LLVM-NORMALIZING
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
 
+    //type check braching ops.
+    rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
+                   _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas)
+              => checkUseVarInside(Name, label, A)
+                 ~> assignUses(Name, TheCount,
+                       label, (val(A),.ElemList)) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <varTypes>... A |-> label ...</varTypes>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, instruction(unconditional(A),.Set
+                                  ,insMetas(formElemList(Meta))), terminators)) </tempBlockMap>
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
+                   _:K, A:K, _:K, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: branching label must be a basic block name.") </output>
+         requires notBool isLocalVariable(A)
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef, integerType(1),
+                   _:K, A:K, B:K, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: branching label must be a basic block name.") </output>
+         requires (notBool isLocalVariable(A)) orBool (notBool isLocalVariable(B))
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+             integerType(1), A:K, L1:SymbolicValueRef,
+                     L2:SymbolicValueRef, Meta:InstructionMetadatas)
+                 => exprType(typeCheckIntArgs(Name, integerType(1), val(A),.ElemList))
+                   ~> checkUseVarInside(Name, label, L1)
+                    ~> checkUseVarInside(Name, label, L2)
+                    ~> assignUses(Name, TheCount,
+                       integerType(1), (val(A),.ElemList))
+                    ~> assignUses(Name, TheCount,
+                       label, (val(L1),val(L2),.ElemList)) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
+                             insMetas(formElemList(Meta))), terminators)) </tempBlockMap>
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+            integerType(N:Int), A:K, L1:K, L2:K, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: branch condition must have 'i1' type") </output>
+         requires N =/=Int 1
+
+    rule <k> typeCheckBr(Name:SymbolicValueRef,
+            T:K, A:K, L1:K, L2:K, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: branch condition must have 'i1' type") </output>
+         requires getKLabel(T) =/=KLabel 'integerType
+
     //deal with calls
     rule typeCheckArgList(Name:SymbolicValueRef, .ElemList) => .K
     rule typeCheckArgList(Name:SymbolicValueRef,
@@ -1497,25 +1552,48 @@ create an abstract for fence and do the same for fence operation.
          <matchPhisWithInEdges> .List </matchPhisWithInEdges>
 
     //set label names as variables for all blocks
+    rule <k> setLabelVars => setLabelVarsAux(makeLabelToVars(keys(M),
+                       .Set), M, .K, .K, .Map) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+
     rule <k> setLabelVars(M':Map) => .K ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-         <basicBlocks> M:Map => M </basicBlocks>
+         <basicBlocks> M:Map => M' </basicBlocks>
 
     //check the unchecked uses indeed have fathers.
+    rule <k> checkUseVars => checkUseVars(values(M)) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+
     rule checkUseVars(.List) => .K
     rule checkUseVars(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List)
          => checkUseVars(L)
-         requires TheUse <=Set InDef
+         requires TheUse <=Set varsToOperands(.K, InDef)
     rule <k> checkUseVars(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List) ~> K:K =>  .K </k>
          <output>... .List => ListItem("Some used variables have not yet defined.") </output>
-         requires notBool (TheUse <=Set InDef)
+         requires notBool (TheUse <=Set varsToOperands(.K, InDef))
 
     //check the unchecked uses of phi function and phi functions should always be the first of a block
+    rule <k> checkUseVarInPhi => checkUseVarInPhi(1, .Map,
+                                   .K, getAllInsts(values(M))) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+
     rule checkUseVarInPhi(N:Int, .Map, .K, .List) => .K
     rule checkUseVarInPhi(N:Int, .Map, .K, ListItem(instMap(M:Map)) L:List)
               => checkUseVarInPhi(1, M, .K, L)
@@ -1576,8 +1654,8 @@ create an abstract for fence and do the same for fence operation.
                   //~> setBlockInUses(.K, keys(M))
                   //~> setBlockDependencies(.K, keys(M))
                   ~> checkingPhisInEdges
-                  ~> checkUseVarInPhi(1, .Map, .K, getAllInsts(values(M)))
-                    ~> checkUseVars(values(M)) ...</k>
+                  ~> checkUseVarInPhi
+                    ~> checkUseVars ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <initialBasicBlock> InitName:SymbolicValueRef </initialBasicBlock>

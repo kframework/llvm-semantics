@@ -785,7 +785,7 @@ module LLVM-COMPARISONS
 
     rule iCmp(Op:K, T:KResult, V1:KResult, V2:KResult)
                         => applyIcmps(Op, T, V1, V2, .ElemList)
-
+/*
     // TODO not handling QNAN
     rule oEQ(Type:KResult, F1:Float, F2:Float)
         => boolToInt(F1:Float ==Float F2:Float)
@@ -815,7 +815,7 @@ module LLVM-COMPARISONS
         => boolToInt(F1:Float =/=Float F2:Float)
     // rule UNO(Type:KResult, F1:Float, F2:Float)
         // => if either is QNAN
-
+*/
     syntax KItem ::= boolToInt(K)
     rule boolToInt(true) => 1
     rule boolToInt(false) => 0

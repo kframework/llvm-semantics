@@ -218,8 +218,9 @@ module LLVM-ABSTRACTSYNTAX
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
     syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block name, typeoperand
 
-    syntax KItem ::= allowChoice(List) //used for specChoice cell
-    syntax KItem ::= holdChoice(List) //used for specChoice cell
+    syntax KItem ::= allowChoice(Map) //used for specChoice cell
+    syntax KItem ::= holdChoice(Map) //used for specChoice cell
+    syntax KItem ::= nextSpecs(Set) //used for map element of specChoice
     syntax KItem ::= splitQueue(List, List, List) //used for instQueue cell
                                      //availables, Pre, remains
     syntax KItem ::= instList(List) //used for instQueue cell
@@ -228,6 +229,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)
+    syntax KResult ::= dynNoResult(K)
     syntax KItem ::= exprType(K) [strict]
     syntax KItem ::= constExprType(K) [strict]
 
@@ -236,12 +238,13 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
+    syntax KItem ::= noAssign(K) [strict] // Name, Instruction
     syntax KItem ::= instruction(K, Set, K) 
     syntax KItem ::= instMap(Map)
         //body, modifiers, instructionMetadatas
-    syntax KItem ::= selectSpec(K, Set, Set, Set)
-        //previous block, next blocks, next block names, choices
-    syntax KItem ::= selectResult(K, K, List)
+    syntax KItem ::= selectSpec(K, K, Set)
+        //previous block, next blocks, remain choices
+    //syntax KItem ::= selectResult(K, K, List)
           //cur block, next block name, list
 
     syntax KItem ::= "unreachable"
@@ -309,12 +312,15 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions
-    syntax KItem ::= blockContent(Map, Set, Set, Set, Set, Set, Set, Set)
+    syntax KItem ::= blockContent(Map, Bool, Set, Set, Set, Set, Set, Set, Set)
                                    //instructions map from number (0...) to line of code
+                                   //flag indicating that if the block will lead to a loop.
                                    //,outgoing edges, incoming edges, all incoming defs,
                                    //all incomming uses, all outgoing defs, all outgoing uses.
                                    //use vars that have not been defined in current block
     syntax KItem ::= setOutEdge(K, ElemList) //name, outEdges
+    syntax KItem ::= "setLoopFlag"
+    syntax KItem ::= setLoopFlag(K, K, Map, Map)
     syntax KItem ::= setInEdges(Set)
     syntax KItem ::= setInEdgesForNode(K)
     syntax KItem ::= setInEdgesForNode(K, K, Set)
@@ -371,10 +377,12 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= assignType(K, Int, K, K) //block, inst num, var, t
 
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
+    syntax KItem ::= varInstance(Int, SymbolicValueRef)
     syntax KItem ::= "globalVar" | "localVar"
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= iCmp(K, K, K, K)      [strict(2,3,4)]//op, type, left, right
+/*
     syntax KItem ::= iNotEq(K, K, K) [strict] // type, left op, right op
     syntax KItem ::= iEq(K, K, K) [strict]
     syntax KItem ::= uGT(K, K, K) [strict]
@@ -397,7 +405,7 @@ module LLVM-ABSTRACTSYNTAX
     //syntax LLVM ::= uNE(K, K, K) [strict]
     syntax KItem ::= uNO(K, K, K) [strict]
     syntax KItem ::= uEQ(K, K, K) [strict]
-
+*/
 
     //@ Binary Operations
     syntax KItem ::= flagStage(K, K) //op, int value

@@ -282,8 +282,8 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
          <varTypes>... A |-> label ...</varTypes>
         <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, instruction(unconditional(A),.Set
-                                  ,insMetas(formElemList(Meta))), terminators)) </tempBlockMap>
+             instNumInfo(TheCount, noAssign(instruction(unconditional(A),.Set
+                                  ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
 
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
                    _:K, A:K, _:K, Meta:InstructionMetadatas) ~> K:K => .K </k>
@@ -311,8 +311,8 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
-                             insMetas(formElemList(Meta))), terminators)) </tempBlockMap>
+             instNumInfo(TheCount, noAssign(instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
+                             insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
 
     rule <k> typeCheckBr(Name:SymbolicValueRef,
             integerType(N:Int), A:K, L1:K, L2:K, _:InstructionMetadatas) ~> K:K => .K </k>
@@ -361,9 +361,9 @@ module LLVM-NORMALIZING
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, instruction(getKLabelFromOp(Ca)(void,, callee(V1,
+             instNumInfo(TheCount, noAssign(instruction(getKLabelFromOp(Ca)(void,, callee(V1,
                            arguments(formArgList(Tv,Arg)))),
-              Mods, insMetas(formElemList(Meta))), callInst)) </tempBlockMap>
+              Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
              T:TypeResult, V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
@@ -691,7 +691,7 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
           <varTypes> _:Map (.Map => X |-> T) </varTypes>
          <basicBlocks>... Name
-             |-> blockContent(_:Map, _:Set, _:Set, _:Set, _:Set,
+             |-> blockContent(_:Map, _:Bool, _:Set, _:Set, _:Set, _:Set,
            Def:Set (.Set => SetItem(varOp(Name, TheCount, T, X))),
           _:Set, _:Set) ...</basicBlocks>
 
@@ -893,7 +893,7 @@ module LLVM-NORMALIZING
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <varTypes>... addNameToString(X) |-> T:K ...</varTypes>
-         <basicBlocks>... Name |-> blockContent(_:Map, _:Set, _:Set,
+         <basicBlocks>... Name |-> blockContent(_:Map, _:Bool, _:Set, _:Set,
                _:Set, _:Set, Defs:Set, _:Set, _:Set) ...</basicBlocks>
          requires isInDefs(addNameToString(X),.K,Defs)
 
@@ -902,7 +902,7 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks>... Name |-> blockContent(_:Map, _:Set, _:Set,
+         <basicBlocks>... Name |-> blockContent(_:Map, _:Bool, _:Set, _:Set,
                _:Set, _:Set, Defs:Set, _:Set,
               Uses:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
          requires notBool isInDefs(addNameToString(X),.K, Defs)
@@ -926,8 +926,8 @@ module LLVM-NORMALIZING
                ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, instruction(ret(T,V) ,.Set
-                                        ,insMetas(formElemList(Meta))), returnInst)) </tempBlockMap>
+              instNumInfo(TheCount, noAssign(instruction(ret(T,V) ,.Set
+                                        ,insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>
 
     //set out edges for a block
     rule setOutEdge(N:K, .ElemList) => .K
@@ -938,8 +938,34 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <basicBlocks>... N |-> 
-                blockContent(_:Map, Out:Set (.Set => SetItem(V)), _:Set,
+                blockContent(_:Map, _:Bool, Out:Set (.Set => SetItem(V)), _:Set,
                                       _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    //set loop flag for each block
+    rule <k> setLoopFlag => setLoopFlag(.K, .K, M, M) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+
+    rule setLoopFlag(.K, .K, .Map, M:Map) => .K
+    rule setLoopFlag(.K, .K, (A:K |-> V:K) M1:Map, M:Map)
+              => setLoopFlag(A, V, M1, M)
+    rule setLoopFlag(A:SymbolicValueRef, V:KItem, M1:Map, M:Map)
+               => setLoopFlag(.K, .K, M1, M)
+         requires notBool hasLasso(SetItem(A), V, M)
+    rule <k> setLoopFlag(A:SymbolicValueRef, V:KItem, M1:Map, M:Map)
+               => setLoopFlag(.K, .K, M1, M) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <initialBasicBlock> InitName:SymbolicValueRef </initialBasicBlock>
+         <basicBlocks>... A |-> 
+               blockContent(_:Map, F:Bool => true, _:Set, _:Set,
+                            _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires hasLasso(SetItem(A), V, M)
 
     //set inedges
     rule setInEdges(.Set) => .K
@@ -952,7 +978,7 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-                blockContent(_:Map, Out:Set, _:Set,
+                blockContent(_:Map, _:Bool, Out:Set, _:Set,
                             _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     rule setInEdgesForNode(A:K, .K, .Set) => .K
@@ -963,7 +989,7 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... B |-> 
-              blockContent(_:Map, _:Set, In:Set (.Set => SetItem(A)),
+              blockContent(_:Map, _:Bool, _:Set, In:Set (.Set => SetItem(A)),
                                         _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //set up all def/use for each block. 
@@ -976,7 +1002,7 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... A |-> 
-              blockContent(_:Map, Out:Set, _:Set, _:Set,
+              blockContent(_:Map, _:Bool, Out:Set, _:Set, _:Set,
            _:Set, OutDef:Set, OutUse:Set, _:Set) ...</basicBlocks>
 
     rule calDefUse(A:K, Def, Use, .Set, .K, S1:Set, S2:Set)
@@ -990,7 +1016,7 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... B |-> 
-              blockContent(_:Map, _:Set, _:Set,
+              blockContent(_:Map, _:Bool, _:Set, _:Set,
                                         InDef:Set, InUse:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         requires B in S2 andBool Def <=Set InDef andBool Use <=Set InUse
 
@@ -1001,7 +1027,7 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... B |-> 
-              blockContent(_:Map, _:Set, _:Set, (InDef:Set => InDef Def),
+              blockContent(_:Map, _:Bool, _:Set, _:Set, (InDef:Set => InDef Def),
                 (InUse:Set => InUse Use), (OutDef:Set => OutDef Def), (OutUse:Set => OutUse Use), _:Set)
          ...</basicBlocks>
          requires notBool (B in S2)
@@ -1023,7 +1049,7 @@ module LLVM-NORMALIZING
         <functionName> FunName </functionName>
         <tempBlockMap> K:Map => .Map </tempBlockMap>
         <tempUses> Uses => .Set </tempUses>
-        <basicBlocks>... N |-> blockContent((_:Map => K),
+        <basicBlocks>... N |-> blockContent((_:Map => K), _:Bool,
                        _:Set, _:Set, _:Set, _:Set,
                  _:Set, OutUses => OutUses Uses, _:Set) ...</basicBlocks>
 
@@ -1090,8 +1116,8 @@ module LLVM-NORMALIZING
          => checkSingleAssignmentInBlock(N, .K, false) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          <tempBlockMap> Now:Map => Now (TheCount |-> 
-           instNumInfo(TheCount, instruction(unreachable,.Set,
-                  insMetas(formElemList(Meta))), returnInst)) </tempBlockMap>
+           instNumInfo(TheCount, noAssign(instruction(unreachable,.Set,
+                  insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
                                        Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
@@ -1492,7 +1518,7 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks>... N |->
-                 blockContent(_:Map, _:Set, _:Set, Def:Set
+                 blockContent(_:Map, _:Bool, _:Set, _:Set, Def:Set
                     (.Set => SetItem(varOp(N,-1,T, V))), _:Set,
              Def':Set (.Set => SetItem(varOp(N,-1,T, V))), _:Set, _:Set) ...</basicBlocks>
          <varTypes> M:Map (.Map => V |-> T) </varTypes>
@@ -1520,7 +1546,7 @@ create an abstract for fence and do the same for fence operation.
          <output>... .List => ListItem("error: define argument '" +String
                          #tokenToString(V) +String "' twices in the function header") </output>
          <basicBlocks>... N |->
-                 blockContent(_:Map, _:Set, _:Set,
+                 blockContent(_:Map, _:Bool, _:Set, _:Set,
                                Def:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         requires varOp(N, 0, T, V) in Def
 
@@ -1530,7 +1556,7 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks>... A |->
-                 blockContent(_:Map, _:Set, In:Set,
+                 blockContent(_:Map, _:Bool, _:Set, In:Set,
                              _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
@@ -1542,7 +1568,7 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks>... A |->
-                 blockContent(_:Map, _:Set, In:Set, 
+                 blockContent(_:Map, _:Bool, _:Set, In:Set, 
                            _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
@@ -1576,11 +1602,11 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M:Map </basicBlocks>
 
     rule checkUseVars(.List) => .K
-    rule checkUseVars(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+    rule checkUseVars(ListItem(blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List)
          => checkUseVars(L)
          requires TheUse <=Set varsToOperands(.K, InDef)
-    rule <k> checkUseVars(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+    rule <k> checkUseVars(ListItem(blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List) ~> K:K =>  .K </k>
          <output>... .List => ListItem("Some used variables have not yet defined.") </output>
          requires notBool (TheUse <=Set varsToOperands(.K, InDef))
@@ -1628,7 +1654,7 @@ create an abstract for fence and do the same for fence operation.
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <basicBlocks>... L |-> blockContent(_:Map, _:Set, _:Set, _:Set, _:Set,
+        <basicBlocks>... L |-> blockContent(_:Map, _:Bool, _:Set, _:Set, _:Set, _:Set,
                         OutDef:Set, _:Set, _:Set) ...</basicBlocks>
          requires V in OutDef
 
@@ -1639,7 +1665,7 @@ create an abstract for fence and do the same for fence operation.
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <basicBlocks>... L |-> blockContent(_:Map, _:Set, _:Set, _:Set, _:Set,
+        <basicBlocks>... L |-> blockContent(_:Map, _:Bool, _:Set, _:Set, _:Set, _:Set,
                         OutDef:Set, _:Set, _:Set) ...</basicBlocks>
          requires notBool (V in OutDef)
 
@@ -1647,6 +1673,7 @@ create an abstract for fence and do the same for fence operation.
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M))
+                  ~> setLoopFlag
                   ~> setLabelVarsAux(makeLabelToVars(keys(M), .Set), M, .K, .K, .Map)
                   ~> calDefUse(.K, SetItem(InitName), .Set)
                   //~> setBlockPaths(.K, keys(M))
@@ -1676,7 +1703,7 @@ create an abstract for fence and do the same for fence operation.
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-              |-> blockContent(.Map, .Set, .Set,
+              |-> blockContent(.Map, false, .Set, .Set,
                   SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
                .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1714,7 +1741,7 @@ create an abstract for fence and do the same for fence operation.
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.Map, .Set, .Set,
+                         |-> blockContent(.Map, false, .Set, .Set,
                       SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
             .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>
@@ -1753,7 +1780,7 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-              |-> blockContent(.Map, .Set, .Set,
+              |-> blockContent(.Map, false, .Set, .Set,
                   SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
                .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
@@ -1788,7 +1815,7 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M':Map (.Map  => addNameToString(L)
-                         |-> blockContent(.Map, .Set, .Set,
+                         |-> blockContent(.Map, false, .Set, .Set,
                       SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
             .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
@@ -1829,7 +1856,7 @@ create an abstract for fence and do the same for fence operation.
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
-                         |-> blockContent(.Map, .Set, .Set,
+                         |-> blockContent(.Map, false, .Set, .Set,
                       SetItem(varOp(name(localVar, Int2String(I)),0,label,
                              name(localVar, Int2String(I)))),
             .Set, SetItem(varOp(name(localVar, Int2String(I)),
@@ -1865,7 +1892,7 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
         <basicBlocks> M':Map (.Map  => name(localVar, Int2String(I))
-                         |-> blockContent(.Map, .Set, .Set,
+                         |-> blockContent(.Map, false, .Set, .Set,
                       SetItem(varOp(name(localVar, Int2String(I)),0,label,
                              name(localVar, Int2String(I)))),
             .Set, SetItem(varOp(name(localVar, Int2String(I)),

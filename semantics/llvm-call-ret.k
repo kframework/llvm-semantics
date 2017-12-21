@@ -53,7 +53,7 @@ module LLVM-CALL-RET
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
         <basicBlocks>... IBBName
-                            |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
+                            |-> blockContent(Body:Map, _:Bool, _:Set, _:Set, _:Set,
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
 
@@ -63,7 +63,7 @@ module LLVM-CALL-RET
          <instQueue> instList(InQueue:List =>
                          InQueue ListItem(dynInstInfo(N, Num,
                                updateVarInTermMap(In, M), T))) </instQueue>
-         <reserveReg> M:Map => removeEntry(M, In) </reserveReg>
+         <registers> M:Map </registers>
          requires size(InQueue) <Int numOfMaxInQueue andBool T =/=K terminators
          [transition]
 
@@ -72,47 +72,53 @@ module LLVM-CALL-RET
                ListItem(instNumInfo(Num:Int, instruction(In:K, Attrs:Set, Meta:K), terminators)))
             => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
                formInstList(1, .K, Body)) ...</k>
+         <registers> M:Map </registers>
          <instQueue> instList(InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
              updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M), terminators))) </instQueue>
-         <reserveReg> M:Map => removeEntry(M, In) </reserveReg>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-         <specChoice> allowChoice(Chi:List => Chi ListItem(selectSpec(basicBlockNum(N, Name),
-                      SetItem(basicBlockNum(Count, guessNextBlock(In))),
-                      SetItem(guessNextBlock(In)), getAllBrBlocks(In)))) </specChoice>
+         <specChoice> allowChoice(Chi:Map => Chi[N <- nextSpecs(SetItem(Count))]) </specChoice>
+         <reverseChoice> Rev:Map => Rev[Count <- N] </reverseChoice>
+         <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
+                   (guessNextBlock(In) |-> blockContent(Body, Flag,
+                     InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <basicBlocks>... guessNextBlock(In)
-                            |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
-                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+        <basicBlocks> guessNextBlock(In) |-> blockContent(Body:Map,
+                          Flag:Bool, InEg:Set, OutEgs:Set, InDef:Set,
+                             InUse:Set, OutDef:Set, OutUse:Set, Use:Set) BM:Map </basicBlocks>
          requires size(InQueue) <Int numOfMaxInQueue andBool Count -Int maxSpecGap <Int BN
          [transition]
 
      //rules for speculative moves by choosing a different direction because of 
      //hitting return operators.
     rule <k> blockExecution(basicBlockNum(N:Int, Name:K), .List)
-              => blockExecutionAux(findNextBlock(.List, Chi)) ...</k>
-         <specChoice> allowChoice(Chi:List)
+              => blockExecutionAux(findNextBlock(N, .K, Chi, Rev, RM)) ...</k>
+         <specChoice> allowChoice(Chi:Map)
                       => holdChoice(Chi) </specChoice>
+         <reverseChoice> Rev:Map </reverseChoice>
+         <restChoice> RM:Map </restChoice>
           [structural]
 
-    rule <k> blockExecutionAux(selectResult(basicBlockNum(PreCount:Int, PreName:K),
-                    Name:K, Chi':List))
+    rule <k> blockExecutionAux(selectSpec(PreCount:Int,
+                    Name:K, Rest:Set))
             => blockExecution(basicBlockNum(Count, Name),
                formInstList(1, .K, Body)) ...</k>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-         <specChoice> holdChoice(Chi:List)  => allowChoice(
-                      insertBlockNum(basicBlockNum(PreCount:Int, PreName:K),
-                       basicBlockNum(Count, Name), Chi')) </specChoice>
+         <specChoice> holdChoice(Chi:Map) 
+              => allowChoice(updateChoiceMap(Chi, .K, PreCount, Count)) </specChoice>
+         <reverseChoice> Rev:Map => Rev[Count <- PreCount] </reverseChoice>
+         <restChoice> (PreCount |-> Rest':K) RM:Map
+              => changeBlocks(PreCount, Name, Rest, RM, Flag) </restChoice>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks>... Name |-> blockContent(Body:Map, _:Set, _:Set, _:Set,
-                                _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         <basicBlocks>... Name |-> blockContent(Body:Map, Flag:Bool,
+                _:Set, _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
           requires Count -Int maxSpecGap <Int BN
          [transition]
 
@@ -171,14 +177,11 @@ module LLVM-CALL-RET
  
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
-         <reserveReg> M:Map => M[X <- V] </reserveReg>
+         <registers> M:Map => M[varInstance(BN, X) <- V] </registers>
          <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue> 
-         requires notBool hasDefInList(L, X)
 
-    rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
+    rule <k> runDynInst(dynNoResult(V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
-         <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue> 
-         requires hasDefInList(L, X)
 
 /*
     rule <k> blockExecution(L:List) => blockHOLE ...</k>
@@ -246,7 +249,7 @@ module LLVM-CALL-RET
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... guessNextBlock(Inst)
-                            |-> blockContent(Body:List, _:Set, _:Set, _:Set,
+                            |-> blockContent(Body:List, _:Bool, _:Set, _:Set, _:Set,
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          <instNumInfo>... N |->
                   instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>
@@ -268,7 +271,7 @@ module LLVM-CALL-RET
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks>... guessNextBlock(Inst)
-                            |-> blockContent(Body:List, _:Set, _:Set, _:Set,
+                            |-> blockContent(Body:List, _:Bool, _:Set, _:Set, _:Set,
                                             _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
          <instNumInfo>... N |->
                   instNumInfo(Inst:K, _:K, _:K, _:K, _:K, _:Set, InstL:K) ...</instNumInfo>

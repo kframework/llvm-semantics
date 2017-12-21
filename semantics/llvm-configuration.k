@@ -38,8 +38,9 @@ module LLVM-CONFIGURATION
                     <cpu> .K </cpu> //central execution unit
                     <toCommit> .List </toCommit>
                     <cdb> .List </cdb> //common data bus
-                    <reserveReg> .Map </reserveReg>
-                    <specChoice> allowChoice(.List) </specChoice>
+                    <specChoice> allowChoice(.Map) </specChoice>
+                    <reverseChoice> .Map </reverseChoice>
+                    <restChoice> .Map </restChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </tomasulo>//simulating tomosulo execution model.
                 <callStack color="Goldenrod"> .List </callStack>

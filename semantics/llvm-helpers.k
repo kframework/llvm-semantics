@@ -180,15 +180,15 @@ module LLVM-HELPERS
     rule setLabelVarsAux(S:Set, .Map, .K, .K, M:Map) => setLabelVars(M)
     rule setLabelVarsAux(S:Set, (A:K |-> V:K) M1:Map, .K, .K, M2:Map)
         => setLabelVarsAux(S:Set, M1:Map, A, V, M2:Map)
-    rule setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+    rule setLabelVarsAux(S:Set, M1:Map, A, blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M2:Map)
         => setLabelVarsAux(S:Set, M1:Map, .K, .K,
-               (A |-> blockContent(Is:Map, Out:Set, In:Set, S InDef:Set,
+               (A |-> blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, S InDef:Set,
             InUse:Set, S OutDef:Set, OutUse:Set, TheUse:Set)) M2:Map)
 
     syntax List ::= getAllInsts(List)  [function]
     rule getAllInsts(.List) => .List
-    rule getAllInsts(ListItem(blockContent(Is:Map, Out:Set, In:Set, InDef:Set,
+    rule getAllInsts(ListItem(blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List)
           => ListItem(instMap(Is)) getAllInsts(L)
 
@@ -1393,6 +1393,54 @@ module LLVM-HELPERS
                => SetItem(C) elemListToSet(Es)
     rule getAllBrBlocks(indirectbr(A:K, Es:ElemList)) => elemListToSet(Es)
 
+    syntax Set ::= getRestBlocks(K, K, Map) [function]
+    rule getRestBlocks(unconditional(A:K), .K, (A |-> B:K) M:Map)
+           => getRestBlocks(unconditional(A:K), B, M:Map)
+    rule getRestBlocks(unconditional(A:K), blockContent(
+               _:Map, true, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+              => SetItem(A)
+    rule getRestBlocks(unconditional(A:K), blockContent(
+               _:Map, false, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+              => .Set
+    rule getRestBlocks(conditional(A:K, B:K, C:K), .K, (A |-> B:K) M:Map)
+             => getRestBlocks(conditional(A:K, B:K, C:K), B, M:Map)
+    rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
+               _:Map, true, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+               => SetItem(B) SetItem(C)
+    rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
+               _:Map, false, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+               => SetItem(C)
+    rule getRestBlocks(switch(A:K, B:K, C:K, Es:ElemList),
+               .K, (A |-> B:K) M:Map)
+             => getRestBlocks(
+                   switch(A:K, B:K, C:K, Es:ElemList), B, M:Map)
+    rule getRestBlocks(switch(A:K, B:K, C:K,
+               (val(D:K), Es:ElemList)), blockContent(
+               _:Map, true, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+             => SetItem(C) SetItem(D) elemListToSet(Es)
+    rule getRestBlocks(switch(A:K, B:K, C:K,
+               (val(D:K), Es:ElemList)), blockContent(
+               _:Map, false, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+             => SetItem(C) elemListToSet(Es)
+    rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList)),
+               .K, (A |-> B:K) M:Map)
+             => getRestBlocks(indirectbr(A:K,
+                       (val(B:K), Es:ElemList)), B, M:Map)
+    rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList))
+           , blockContent( _:Map, true, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+                   => SetItem(B) elemListToSet(Es)
+    rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList))
+           , blockContent( _:Map, false, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+                   => elemListToSet(Es)
+
     syntax Set ::= elemListToSet(ElemList) [function]
     rule elemListToSet(.ElemList) => .Set
     rule elemListToSet(val(A:K), Es:ElemList)
@@ -1400,25 +1448,58 @@ module LLVM-HELPERS
     rule elemListToSet(valValue(A:K), Es:ElemList)
                         => SetItem(A) elemListToSet(Es)
 
-    syntax KItem ::= findNextBlock(List, List)  [function]
-                   | findNextBlockAux(List, K, Set, Set, Set, Set, List) [function]
+    syntax KItem ::= findNextBlock(K, K, Map, Map, Map)  [function]
+                   | findNextBlockAux(K, K, Set, Map, Map) [function]
+                   | findNextBlockAux(K, K, Set, K, Map, Map) [function]
+                   | getNextBlockResult(K, K)  [function]
 
-    rule findNextBlock(L, .List) => emptyHOLE
-    rule findNextBlock(Pre:List, 
-            ListItem(selectSpec(A:K, V:Set, Visited:Set, All:Set)) L:List)
-             => findNextBlockAux(Pre, A, V, All -Set Visited, Visited, All, L)
-    rule findNextBlockAux(Pre:List, A:K, V:Set, .Set, Visited:Set, All:Set, L:List)
-                => findNextBlock(Pre ListItem(selectSpec(A, V, Visited, All)), L)
-    rule findNextBlockAux(Pre:List, A:K, V:Set, SetItem(B:K) S:Set, Visited:Set, All:Set, L:List)
-         => selectResult(A, B, Pre ListItem(selectSpec(A, V, SetItem(B) Visited, All)) L)
+    syntax Set ::= getSet(K) [function]
+    rule getSet(nextSpecs(S:Set)) => S
+    rule getSet(A:K) => .Set [owise]
 
-    syntax List ::= insertBlockNum(K, K, List) [function]
-    rule insertBlockNum(A:K, B:K, .List) => .List
-    rule insertBlockNum(A:K, B:K, ListItem(selectSpec(A, V:Set, Vis:Set, All:Set)) L:List)
-           => ListItem(selectSpec(A, V:Set SetItem(B), Vis:Set, All:Set)) L:List
-    rule insertBlockNum(A:K, B:K, ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) L:List)
-           => ListItem(selectSpec(A', V:Set, Vis:Set, All:Set)) insertBlockNum(A,B, L)
-         requires A =/=K A'
+    rule findNextBlock(A:K, .K, EX:Map, RV:Map, RM:Map)
+            => emptyHOLE
+         requires notBool (A in keys(RV))
+    rule findNextBlock(A:K, .K, (A |-> B:K) EX:Map, RV:Map, RM:Map)
+            => findNextBlock(A, findNextBlockAux(A, .K, getSet(B), EX, RM),
+                        (A |-> B:K) EX:Map, RV:Map, RM:Map)
+    rule findNextBlock(A:K, emptyHOLE, EX:Map, (A |-> B:K) RV:Map, RM:Map)
+            => findNextBlock(B, .K, EX, RV, RM)
+    rule findNextBlock(A:K, selectSpec(X:K, Y:K, RS:Set), EX:Map, RV:Map, RM:Map)
+            => selectSpec(X:K, Y:K, RS:Set)
+
+    rule findNextBlockAux(A:K, .K, .Set, EX:Map, (A |-> B:K) RM:Map)
+              => getNextBlockResult(A, B)
+    rule findNextBlockAux(A:K, .K, SetItem(B:K) S:Set, EX:Map, RM:Map)
+              => findNextBlockAux(A, B, S, EX, RM)
+    rule findNextBlockAux(A:K, B:K, S:Set, (B |-> C:K) EX:Map, RM:Map)
+              => findNextBlockAux(A, B, S,
+                       findNextBlockAux(B, .K, getSet(C),
+                         (B |-> C:K) EX:Map, RM:Map), EX, RM)
+
+    rule findNextBlockAux(A:K, B:K, S:Set, emptyHOLE, EX:Map, RM:Map)
+              => findNextBlockAux(A, .K, S, EX, RM)
+    rule findNextBlockAux(A:K, B:K, S:Set,
+                  selectSpec(X:K, Y:K, RS:Set), EX:Map, RM:Map)
+              => selectSpec(X:K, Y:K, RS:Set)
+
+    rule getNextBlockResult(A:K, nextSpecs(.Set)) => emptyHOLE
+    rule getNextBlockResult(A:K, nextSpecs(SetItem(B:K) S:Set))
+               => selectSpec(A, B, S)
+
+    syntax Map ::= changeBlocks(Int, K, Set, Map, Bool)  [function]
+
+    rule changeBlocks(Count:Int, Name:K, S:Set, M:Map, true)
+          => M (Count |-> nextSpecs(SetItem(Name) S))
+    rule changeBlocks(Count:Int, Name:K, S:Set, M:Map, false)
+          => M (Count |-> nextSpecs(S))
+
+    syntax Map ::= updateChoiceMap(Map, K, K, K) [function]
+
+    rule updateChoiceMap(Chi:Map (A:K |-> B:K), .K, A:K, X:K)
+           => updateChoiceMap(Chi, B, A, X)
+    rule updateChoiceMap(Chi:Map, nextSpecs(S:Set), A:K, X:K)
+           => Chi (A |-> nextSpecs(S:Set SetItem(X)))
 
     syntax Bool ::= isAvailable(K) [function]
     rule isAvailable(Op:KLabel(Ty:K,, V1:KResult,, V2:KResult)) => true
@@ -1472,9 +1553,7 @@ module LLVM-HELPERS
 
    syntax List ::= updateVarInList(List, K, K) [function]
                  | updateVarInInst(List, Int, Int, K, K, K, K) [function]
-   syntax KItem ::= updateVarInTerm(K, K, K) [function]
-                  | updateVarInValue(K, K, K) [function]
-                  | updateVarInTermMap(K, Map) [function]
+   syntax KItem ::= updateVarInTermMap(K, Map) [function]
                   | updateVarInTermMapList(ElemList, Map) [function]
                   | updateVarInValueMap(K, Map) [function]
 
@@ -1488,34 +1567,8 @@ module LLVM-HELPERS
    rule updateVarInInst(L:List, Bn:Int, In:Int,
                 assign(X':K, Inst:K), T:K, X:K, V:K)
         => ListItem(dynInstInfo(Bn, In, assign(X',
-          updateVarInTerm(Inst, X, V)), T)) updateVarInList(L, X, V)
+          updateVarInTermMap(Inst, (X |-> V))), T)) updateVarInList(L, X, V)
         requires X' =/=K X
-
-   rule updateVarInTerm(instruction(In:K, Attrs:Set, Meta:K), X:K, Y:K)
-        => instruction(updateVarInTerm(In, X, Y), Attrs, Meta)
-   rule updateVarInTerm(Op:KLabel(Ty:K,, V1:K,,
-                 V2:K), X:K, Y:K)
-        => Op:KLabel(Ty,, updateVarInValue(V1, X, Y),,
-                      updateVarInValue(V2, X, Y))
-        requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
-   rule updateVarInTerm(iCmp(Op:K, T:K, V1:K, V2:K), X:K, Y:K)
-        => iCmp(Op:K, T:K, updateVarInValue(V1, X, Y),
-               updateVarInValue(V2, X, Y))
-   rule updateVarInTerm(tailCall(T:K,
-                     callee(V:K, arguments(Es:ElemList))), X:K, Y:K)
-          => tailCall(T:K, callee(V:K,
-                      arguments(updateVarInTermMapList(Es, (X:K |-> Y:K)))))
-   rule updateVarInTerm(call(T:K,
-                      callee(V:K, arguments(Es:ElemList))), X:K, Y:K)
-          => call(T:K, callee(V:K,
-                         arguments(updateVarInTermMapList(Es, (X:K |-> Y:K)))))
-   rule updateVarInTerm(ret(Ty:K, V:K), X:K, Y:K)
-        => ret(Ty, updateVarInValue(V, X, Y))
-
-   rule updateVarInValue(X:SymbolicValueRef, X, Y:K) => Y
-   rule updateVarInValue(X':SymbolicValueRef, X, Y:K) => X'
-        requires X' =/=K X
-   rule updateVarInValue(A:KResult, X, Y:K) => A
 
    rule updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M:Map)
         => instruction(updateVarInTermMap(In, M), Attrs, Meta)
@@ -1529,6 +1582,12 @@ module LLVM-HELPERS
    rule updateVarInTermMap(iCmp(Op:K, T:K, V1:K, V2:K), M:Map)
         => iCmp(Op:K, T:K, updateVarInValueMap(V1, M),
                updateVarInValueMap(V2, M))
+   rule updateVarInTermMap(conditional(operand(T:K, V:K),
+                            V1:K, V2:K), M:Map)
+        => conditional(operand(T:K, updateVarInValueMap(V:K, M)),
+               V1, V2)
+   rule updateVarInTermMap(unconditional(V:K), M:Map)
+        => unconditional(V:K)
    rule updateVarInTermMap(tailCall(T:K, callee(V:K,
                        arguments(Es:ElemList))), M:Map)
           => tailCall(T:K, callee(V:K,
@@ -1577,5 +1636,26 @@ module LLVM-HELPERS
              => varsToOperands(A, S)
    rule varsToOperands(varOp(N:K, C:K, T:K, V:K), S:Set)
            => SetItem(operand(T, V)) varsToOperands(.K, S)
+
+   syntax Bool ::= hasLasso(Set, K, Map)  [function]
+                 | hasLassoAux(Set, K, Set, Map) [function]
+
+   rule hasLasso(S:Set, blockContent(In:Map, F:Bool, Out:Set, InEd:Set,
+               InDef:Set, InUse:Set, OutDef:Set, OutUse:Set, Cur:Set), M:Map)
+        => hasLassoAux(S, .K, Out, M)
+        requires intersectSet(S, Out) <=Set .Set
+   rule hasLasso(S:Set, blockContent(In:Map, F:Bool, Out:Set, InEd:Set,
+               InDef:Set, InUse:Set, OutDef:Set, OutUse:Set, Cur:Set), M:Map)
+        => true
+        requires notBool (intersectSet(S, Out) <=Set .Set)
+   rule hasLassoAux(S:Set, .K, .Set, M:Map) => false
+   rule hasLassoAux(S:Set, .K, SetItem(A:K) Out:Set, M:Map)
+            => hasLassoAux(S, A, Out, M)
+   rule hasLassoAux(S:Set, A:SymbolicValueRef, Out:Set, (A |-> X:K) M:Map)
+          => true
+        requires hasLasso(S SetItem(A), X, (A |-> X:K) M:Map)
+   rule hasLassoAux(S:Set, A:SymbolicValueRef, Out:Set, (A |-> X:K) M:Map)
+          => hasLassoAux(S, .K, Out, (A |-> X:K) M:Map)
+        requires notBool hasLasso(S SetItem(A), X, (A |-> X:K) M:Map)
 
 endmodule

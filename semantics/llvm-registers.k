@@ -16,15 +16,22 @@ module LLVM-REGISTERS
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
+    rule assign(X:SymbolicValueRef, V:KResult) => dynResult(X, V)
+    rule noAssign(V:KResult) => dynNoResult(V)
+
+/*
     rule [assign-register]:
         <k> assign(X:SymbolicValueRef, V:KResult)
                     => dynResult(X, V) ...</k>
-        <registers> M:Map => M[X <- V] </registers>
+        <currBlock> basicBlockNum(N:Int, B:K) </currBlock>
+        <registers> M:Map => M[varInstance(N, X) <- V] </registers>
+*/
 
     // TODO using constructors in the AST instead of matching on a string
     rule [lookup-register]:
         <k> name(localVar, S:String) => V ...</k>
-        <registers>... name(localVar, S:String) |-> V:K ...</registers>
+        <currBlock> basicBlockNum(N:Int, B:K) </currBlock>
+        <registers>... varInstance(N, name(localVar, S:String)) |-> V:K ...</registers>
 
     rule [lookup-global-register]:
         <k> name(globalVar, S:String) => V ...</k>

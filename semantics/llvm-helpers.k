@@ -1596,6 +1596,8 @@ module LLVM-HELPERS
           updateVarInTermMap(Inst, (X |-> V))), T)) updateVarInList(L, X, V)
         requires X' =/=K X
 
+   rule updateVarInTermMap(noAssign(In:K), M:Map)
+        => noAssign(updateVarInTermMap(In, M))
    rule updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M:Map)
         => instruction(updateVarInTermMap(In, M), Attrs, Meta)
    rule updateVarInTermMap(assign(X:K, Inst:K), M:Map)
@@ -1723,7 +1725,7 @@ module LLVM-HELPERS
             basicBlockNum(N:Int, New:K), Next:K)
          => newSpecMap(collectTreeMap(New, M), minusSet(.K,
              getAllKeysFromMap(.K, OldM),
-                getAllKeysFromMap(.K, collectTreeMap(New, M))))
+                SetItem(N) getAllKeysFromMap(.K, collectTreeMap(New, M))))
 
    syntax Map ::= collectTreeMap(K, Map) [function]
                 | collectTreeMapAux(K, Set, Map) [function]

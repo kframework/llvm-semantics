@@ -187,6 +187,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= blockExecutionAux(K) 
     syntax KItem ::= blockExecution(K, List)//prev block with num, inst list
     syntax KItem ::= "blockHOLE"
+    syntax KItem ::= "findNewBlock"
+    syntax KItem ::= setExecutionInst(Int, Set, K, K)
+                //new block, not good specs, NewEx, NewQueue
 
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
@@ -218,8 +221,12 @@ module LLVM-ABSTRACTSYNTAX
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
     syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block name, typeoperand
 
+    syntax KItem ::= setSpecChoice(Int, Int, K, K, K)
+               //Old, New, choice map, toEx inst, queue inst
     syntax KItem ::= allowChoice(Map) //used for specChoice cell
     syntax KItem ::= holdChoice(Map) //used for specChoice cell
+    syntax KItem ::= newSpecMap(Map, Set)
+                    //used for calculating new specChoice after br
     syntax KItem ::= nextSpecs(Set) //used for map element of specChoice
     syntax KItem ::= splitQueue(List, List, List) //used for instQueue cell
                                      //availables, Pre, remains
@@ -325,6 +332,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setInEdgesForNode(K)
     syntax KItem ::= setInEdgesForNode(K, K, Set)
     syntax KItem ::= setInitBlock(K)
+    syntax KItem ::= startInitBlock(K)
     syntax KItem ::= calDefUse(K, Set, Set)
                    //new blocks, visited blocks
     syntax KItem ::= calDefUse(K, Set, Set, Set, K, Set, Set)

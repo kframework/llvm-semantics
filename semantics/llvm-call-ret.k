@@ -43,23 +43,21 @@ module LLVM-CALL-RET
         <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
-            ~> setBlock(basicBlockNum(Count, IBBName)) ~>
-               blockExecution(basicBlockNum(Count, IBBName), formInstList(1, .K, Body))
+            ~> startInitBlock(IBBName)
         </k>
-        <blockCount> Count:Int => Count +Int 1 </blockCount>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <functionName> FunName </functionName>
         <formalParameters> arguments(Formals:ElemList) </formalParameters>
         <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
-        <basicBlocks>... IBBName
-                            |-> blockContent(Body:Map, _:Bool, _:Set, _:Set, _:Set,
-                                            _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
         [large]
 
+    rule <k> blockExecution(A:K, B:List) => .K ...</k>
+         <toExecute> _:K => blockExecution(A:K, B:List) </toExecute>
+
     //moving instruction into instQueue if it is not full
-    rule <k> blockExecution(basicBlockNum(N:Int, _:K),
-               (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</k>
+    rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
+               (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</toExecute>
          <instQueue> instList(InQueue:List =>
                          InQueue ListItem(dynInstInfo(N, Num,
                                updateVarInTermMap(In, M), T))) </instQueue>
@@ -68,16 +66,19 @@ module LLVM-CALL-RET
          [transition]
 
     //this rule is to do a speculative move by guessing a next block to execute.
-    rule <k> blockExecution(basicBlockNum(N:Int, Name:K),
-               ListItem(instNumInfo(Num:Int, instruction(In:K, Attrs:Set, Meta:K), terminators)))
+    rule <toExecute> blockExecution(basicBlockNum(N:Int, Name:K),
+               ListItem(instNumInfo(Num:Int,
+                     noAssign(instruction(In:K, Attrs:Set, Meta:K)), terminators)))
             => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
-               formInstList(1, .K, Body)) ...</k>
+               formInstList(1, .K, Body)) ...</toExecute>
          <registers> M:Map </registers>
          <instQueue> instList(InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
              updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-         <specChoice> allowChoice(Chi:Map => Chi[N <- nextSpecs(SetItem(Count))]) </specChoice>
+         <specChoice> allowChoice(Chi:Map =>
+               Chi[N <- nextSpecs(SetItem(
+                   basicBlockNum(Count, guessNextBlock(In))))]) </specChoice>
          <reverseChoice> Rev:Map => Rev[Count <- N] </reverseChoice>
          <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
                    (guessNextBlock(In) |-> blockContent(Body, Flag,
@@ -89,27 +90,30 @@ module LLVM-CALL-RET
         <basicBlocks> guessNextBlock(In) |-> blockContent(Body:Map,
                           Flag:Bool, InEg:Set, OutEgs:Set, InDef:Set,
                              InUse:Set, OutDef:Set, OutUse:Set, Use:Set) BM:Map </basicBlocks>
-         requires size(InQueue) <Int numOfMaxInQueue andBool Count -Int maxSpecGap <Int BN
+         requires size(InQueue) <Int numOfMaxInQueue andBool (Count -Int maxSpecGap) <Int BN
          [transition]
 
      //rules for speculative moves by choosing a different direction because of 
      //hitting return operators.
-    rule <k> blockExecution(basicBlockNum(N:Int, Name:K), .List)
-              => blockExecutionAux(findNextBlock(N, .K, Chi, Rev, RM)) ...</k>
+    rule <toExecute> blockExecution(basicBlockNum(N:Int, Name:K), .List)
+              => blockExecutionAux(findNextBlock(N, .K, Chi, Rev, RM)) ...</toExecute>
          <specChoice> allowChoice(Chi:Map)
                       => holdChoice(Chi) </specChoice>
          <reverseChoice> Rev:Map </reverseChoice>
          <restChoice> RM:Map </restChoice>
+         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
+         <blockCount> Count:Int </blockCount> 
+         requires hasRestBlocks(.K, RM) andBool (Count -Int maxSpecGap <Int BN)
           [structural]
 
-    rule <k> blockExecutionAux(selectSpec(PreCount:Int,
+    rule <toExecute> blockExecutionAux(selectSpec(PreCount:Int,
                     Name:K, Rest:Set))
             => blockExecution(basicBlockNum(Count, Name),
-               formInstList(1, .K, Body)) ...</k>
-         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
+               formInstList(1, .K, Body)) ...</toExecute>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
          <specChoice> holdChoice(Chi:Map) 
-              => allowChoice(updateChoiceMap(Chi, .K, PreCount, Count)) </specChoice>
+              => allowChoice(updateChoiceMap(Chi, .K, PreCount,
+                           basicBlockNum(Count, Name))) </specChoice>
          <reverseChoice> Rev:Map => Rev[Count <- PreCount] </reverseChoice>
          <restChoice> (PreCount |-> Rest':K) RM:Map
               => changeBlocks(PreCount, Name, Rest, RM, Flag) </restChoice>
@@ -119,7 +123,6 @@ module LLVM-CALL-RET
          <functionName> FunName </functionName>
          <basicBlocks>... Name |-> blockContent(Body:Map, Flag:Bool,
                 _:Set, _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-          requires Count -Int maxSpecGap <Int BN
          [transition]
 
     rule <instQueue> instList(ListItem(A:K) L:List)
@@ -174,11 +177,11 @@ module LLVM-CALL-RET
     rule <cpu> dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)
                  => dynInstHold(BN, IN, T) </cpu>
          <k> (.K => runDynInst(Inst)) ~> K:K </k>
- 
+
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
          <registers> M:Map => M[varInstance(BN, X) <- V] </registers>
-         <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue> 
+         <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue>
 
     rule <k> runDynInst(dynNoResult(V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>

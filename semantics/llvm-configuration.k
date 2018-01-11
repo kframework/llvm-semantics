@@ -34,6 +34,7 @@ module LLVM-CONFIGURATION
                 <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
                 //main cell containing program code
                 <tomasulo>
+                    <toExecute> .K </toExecute>
                     <instQueue> instList(.List) </instQueue> //instruction queue
                     <cpu> .K </cpu> //central execution unit
                     <toCommit> .List </toCommit>

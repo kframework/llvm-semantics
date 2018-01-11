@@ -1381,7 +1381,8 @@ module LLVM-HELPERS
     syntax KItem ::= guessNextBlock(K) [function]
     rule guessNextBlock(unconditional(A:K)) => A
     rule guessNextBlock(conditional(A:K, B:K, C:K)) => B
-    rule guessNextBlock(switch(A:K, B:K, C:K, Es:ElemList)) => C
+    rule guessNextBlock(switch(A:K, B:K, C:K,
+                         (val(D:K), Es:ElemList))) => D
     rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
     rule guessNextBlock(_:K) => .K [owise]
 
@@ -1404,8 +1405,8 @@ module LLVM-HELPERS
                _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
               => .Set
-    rule getRestBlocks(conditional(A:K, B:K, C:K), .K, (A |-> B:K) M:Map)
-             => getRestBlocks(conditional(A:K, B:K, C:K), B, M:Map)
+    rule getRestBlocks(conditional(A:K, B:K, C:K), .K, (B |-> D:K) M:Map)
+             => getRestBlocks(conditional(A:K, B:K, C:K), D, M:Map)
     rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
                _:Map, true, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
@@ -1414,10 +1415,16 @@ module LLVM-HELPERS
                _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
                => SetItem(C)
-    rule getRestBlocks(switch(A:K, B:K, C:K, Es:ElemList),
-               .K, (A |-> B:K) M:Map)
+         requires C =/=K B
+        rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
+               _:Map, false, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map)
+               => .Set
+         requires C ==K B
+    rule getRestBlocks(switch(A:K, B:K, C:K, (val(D:K),Es:ElemList)),
+               .K, (D |-> E:K) M:Map)
              => getRestBlocks(
-                   switch(A:K, B:K, C:K, Es:ElemList), B, M:Map)
+                   switch(A:K, B:K, C:K, Es:ElemList), E, M:Map)
     rule getRestBlocks(switch(A:K, B:K, C:K,
                (val(D:K), Es:ElemList)), blockContent(
                _:Map, true, _:Set, _:Set, _:Set,
@@ -1427,11 +1434,11 @@ module LLVM-HELPERS
                (val(D:K), Es:ElemList)), blockContent(
                _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
-             => SetItem(C) elemListToSet(Es)
+             => removeItemFromSet(D, .K, SetItem(C) elemListToSet(Es))
     rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList)),
-               .K, (A |-> B:K) M:Map)
+               .K, (B |-> C:K) M:Map)
              => getRestBlocks(indirectbr(A:K,
-                       (val(B:K), Es:ElemList)), B, M:Map)
+                       (val(B:K), Es:ElemList)), C, M:Map)
     rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList))
            , blockContent( _:Map, true, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
@@ -1439,7 +1446,26 @@ module LLVM-HELPERS
     rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList))
            , blockContent( _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
-                   => elemListToSet(Es)
+                   => removeItemFromSet(B, .K, elemListToSet(Es))
+
+    syntax Set ::= removeItemFromSet(K, K, Set) [function]
+    rule removeItemFromSet(A:K, .K, .Set) => .Set
+    rule removeItemFromSet(A:K, .K, SetItem(B:Set) S:Set)
+           => removeItemFromSet(A, B, S)
+    rule removeItemFromSet(A:K, B:K, S:Set)
+          => SetItem(B) removeItemFromSet(A, .K, S)
+         requires A =/=K B
+    rule removeItemFromSet(A:K, A:K, S:Set)
+          => removeItemFromSet(A, .K, S)
+
+    syntax Bool ::= hasRestBlocks(K, Map)  [function]
+    rule hasRestBlocks(.K, .Map) => false
+    rule hasRestBlocks(.K, (A:K |-> B:K) M:Map)
+              => hasRestBlocks(B, M)
+    rule hasRestBlocks(nextSpecs(.Set), M:Map)
+            => hasRestBlocks(.K, M)
+    rule hasRestBlocks(nextSpecs(SetItem(A:K) S:Set), M:Map)
+            => true
 
     syntax Set ::= elemListToSet(ElemList) [function]
     rule elemListToSet(.ElemList) => .Set
@@ -1657,5 +1683,159 @@ module LLVM-HELPERS
    rule hasLassoAux(S:Set, A:SymbolicValueRef, Out:Set, (A |-> X:K) M:Map)
           => hasLassoAux(S, .K, Out, (A |-> X:K) M:Map)
         requires notBool hasLasso(S SetItem(A), X, (A |-> X:K) M:Map)
+
+   syntax Set ::= getAllKeysFromMap(K, Map) [function]
+                | getAllKeysFromMapAux(K, Set) [function]
+   rule getAllKeysFromMap(.K, .Map) => .Set
+   rule getAllKeysFromMap(.K, (A:K |-> B:K) M:Map)
+        => SetItem(A) getAllKeysFromMap(B, M)
+   rule getAllKeysFromMap(nextSpecs(S:Set), M:Map)
+             => getAllKeysFromMapAux(.K, S)
+                    getAllKeysFromMap(.K, M)
+   rule getAllKeysFromMapAux(.K, .Set) => .Set
+   rule getAllKeysFromMapAux(.K, SetItem(X:K) S:Set)
+         => getAllKeysFromMapAux(X, S)
+   rule getAllKeysFromMapAux(basicBlockNum(X:Int, B:K), S:Set)
+          => SetItem(X) getAllKeysFromMapAux(.K, S)
+
+   syntax KItem ::= collectNewSpecMap(K, Map, K) [function]
+                  | collectNewSpecMapAux(K, Map, Map, K, K) [function]
+   rule collectNewSpecMap(New:K, M:Map, .K)
+         => newSpecMap(.Map, getAllKeysFromMap(.K, M))
+   rule collectNewSpecMap(New:K, (A |-> V:K) M:Map, A:Int)
+         => collectNewSpecMapAux(New, (A |-> V:K) M, M, .K, V)
+   rule collectNewSpecMap(New:K, M:Map, A:Int)
+         => newSpecMap(.Map, SetItem(A) getAllKeysFromMap(.K, M))
+        requires notBool A in keys(M)
+
+
+   rule collectNewSpecMapAux(New:K, OldM:Map, M:Map, .K, nextSpecs(.Set))
+                  => newSpecMap(.Map, getAllKeysFromMap(.K, OldM))
+   rule collectNewSpecMapAux(New:K, OldM:Map, M:Map,
+          .K, nextSpecs(SetItem(A:K) R:Set))
+       => collectNewSpecMapAux(New:K, OldM:Map, M:Map,
+             A, nextSpecs(R:Set))
+   rule collectNewSpecMapAux(New, OldM:Map, M:Map,
+            basicBlockNum(N:Int, New':K), Next:K)
+       => collectNewSpecMapAux(New, OldM, M, .K, Next)
+        requires New =/=K New'
+   rule collectNewSpecMapAux(New, OldM:Map, M:Map,
+            basicBlockNum(N:Int, New:K), Next:K)
+         => newSpecMap(collectTreeMap(New, M), minusSet(.K,
+             getAllKeysFromMap(.K, OldM),
+                getAllKeysFromMap(.K, collectTreeMap(New, M))))
+
+   syntax Map ::= collectTreeMap(K, Map) [function]
+                | collectTreeMapAux(K, Set, Map) [function]
+   rule collectTreeMap(A:K, (A |-> B:K) M:Map)
+           => (A |-> B:K) collectTreeMapAux(.K,
+                       getSet(B), (A |-> B:K) M)
+   rule collectTreeMap(A:K, M:Map) => .Map
+        requires notBool A in keys(M)
+   rule collectTreeMapAux(.K, .Set, M:Map) => .Map
+   rule collectTreeMapAux(.K, SetItem(A) S:Set, M:Map)
+         => collectTreeMapAux(A, S, M)
+   rule collectTreeMapAux(basicBlockNum(New:Int, N:K), S:Set, M:Map)
+         => collectTreeMap(New, M) collectTreeMapAux(.K, S, M)
+
+   syntax KItem ::= collectNewMap(Map, K, Set) [function]
+   rule collectNewMap(M:Map, .K, .Set) => M
+   rule collectNewMap(M:Map, .K, SetItem(A:K) S:Set)
+           => collectNewMap(M, A, S)
+   rule collectNewMap((A |-> C:K) M:Map, A:K, S:Set)
+              => collectNewMap(M, .K, S)
+   rule collectNewMap(M:Map, A:K, S:Set)
+               => collectNewMap(M, .K, S)
+        requires notBool A in keys(M)
+
+   syntax Map ::= cutItemInMapAux(Map, K, K, K) [function]
+                | cutItemInMap(Map, K, Set) [function]
+   rule cutItemInMap(M:Map, .K, .Set) => M
+   rule cutItemInMap(M:Map, .K, SetItem(A:K) S:Set)
+         => cutItemInMap(M, A, S)
+   rule cutItemInMap(M:Map, A:Int, S:Set)
+         => cutItemInMap(cutItemInMapAux(M, .K, .K, A), .K, S)
+   rule cutItemInMapAux(.Map, .K, .K, A:K) => .Map
+   rule cutItemInMapAux((A:K |-> C:K) M:Map, .K, .K, B:K)
+          => cutItemInMapAux(M, A, C, B)
+   rule cutItemInMapAux(M:Map, A:Int, B:Int, B:Int)
+             => cutItemInMapAux(M, .K, .K, B)
+   rule cutItemInMapAux(M:Map, A:Int, B:Int, B':Int)
+             => (A |-> B) cutItemInMapAux(M, .K, .K, B')
+        requires B =/=K B'
+
+   syntax Bool ::= inChoiceMap(K, K, K, Map) [function]
+                 | inChoiceMapAux(K, K, Set) [function]
+   rule inChoiceMap(Old:K, New:K, .K, (Old |-> V:K) M:Map)
+         => inChoiceMap(Old, New, V, M)
+   rule inChoiceMap(Old:K, New:K, .K, M:Map) => false
+        requires notBool Old in keys(M)
+   rule inChoiceMap(Old:K, New:K, nextSpecs(S:Set), M:Map)
+           => inChoiceMapAux(New, .K, S)
+   rule inChoiceMapAux(New:K, .K, .Set) => false
+   rule inChoiceMapAux(New:K, .K, SetItem(A:K) S:Set)
+          => inChoiceMapAux(New, A, S)
+   rule inChoiceMapAux(New:K, basicBlockNum(X:Int, New:K), S:Set)
+         => true
+   rule inChoiceMapAux(New:K, basicBlockNum(X:Int, New':K), S:Set)
+         => inChoiceMapAux(New, .K, S)
+        requires New =/=K New'
+
+   syntax Int ::= getBlockNum(K, K, K, Map) [function]
+                | getBlockNumAux(K, K, Set) [function]
+   rule getBlockNum(Old:K, New:K, .K, (Old |-> B:K) S:Map)
+         => getBlockNum(Old, New, B, S)
+   rule getBlockNum(Old:K, New:K, .K, S:Map) => -1
+        requires notBool Old in keys(S)
+   rule getBlockNum(Old:K, New:K, nextSpecs(S:Set), M:Map)
+           => getBlockNumAux(New, .K, S)
+   rule getBlockNumAux(New:K, .K, .Set) => -1
+   rule getBlockNumAux(New:K, .K, SetItem(A:K) S:Set)
+          => getBlockNumAux(New, A, S)
+   rule getBlockNumAux(New:K, basicBlockNum(X:Int, New:K), S:Set)
+           => X
+   rule getBlockNumAux(New:K, basicBlockNum(X:Int, New':K), S:Set)
+         => getBlockNumAux(New, .K, S)
+        requires New =/=K New'
+
+   syntax KItem ::= mergeBackInstQueue(K) [function]
+   rule mergeBackInstQueue(splitQueue(A:List, B:List, C:List))
+                 => instList(A B C)
+   rule mergeBackInstQueue(A:K) => A [owise]
+
+   syntax KItem ::= removeFailSpec(K, Set) [function]
+   rule removeFailSpec(instList(L:List), S:Set)
+          => instList(removeFailSpecAux(L, S))
+   rule removeFailSpec(A:K, S:Set) => A [owise]
+
+   syntax List ::= removeFailSpecAux(List, Set)  [function]
+   rule removeFailSpecAux(.List, S:Set) => .List
+   rule removeFailSpecAux(ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K))
+                L:List, S:Set)  => ListItem(dynInstInfo(
+              BN:Int, IN:Int, Inst:K, T:K)) removeFailSpecAux(L,S)
+        requires notBool BN in S
+   rule removeFailSpecAux(ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K))
+                L:List, S:Set)  => removeFailSpecAux(L,S)
+        requires BN in S
+
+   syntax KItem ::= correctNewBlock(K, Set) [function]
+   rule correctNewBlock(blockExecution(basicBlockNum(
+                   Count:Int, B:K), L:List), S:Set)
+         => blockExecution(basicBlockNum(Count:Int, B:K), L:List)
+        requires notBool (Count in S)
+   rule correctNewBlock(blockExecution(basicBlockNum(
+                   Count:Int, B:K), L:List), S:Set)
+         => findNewBlock
+        requires (Count in S)
+
+   syntax Set ::= minusSet(K, Set, Set) [function]
+   rule minusSet(.K, S:Set, .Set) => S
+   rule minusSet(.K, S:Set, SetItem(A) S1:Set)
+        => minusSet(A, S, S1)
+   rule minusSet(A:KItem, SetItem(A) S:Set, S1:Set)
+        => minusSet(.K, S, S1)
+   rule minusSet(A:KItem, S:Set, S1:Set)
+        => minusSet(.K, S, S1)
+       requires notBool A in S
 
 endmodule

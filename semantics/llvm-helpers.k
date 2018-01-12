@@ -105,6 +105,19 @@ module LLVM-HELPERS
          => isInDefs(V:K, X, S:Set)
     rule isInDefs(V:K, .K, .Set) => false
 
+    syntax Bool ::= isInDefsWithType(K, K, Set) [function]
+                 //operand, varop, set
+    rule isInDefsWithType(A:K, .K, .Set) => false
+    rule isInDefsWithType(A:K, .K, SetItem(X:K) S:Set)
+              => isInDefsWithType(A, X, S)
+    rule isInDefsWithType(operand(T:K, V:K),
+            varOp(B:K, N:K, T:K, V:K), S:Set)
+            => true
+    rule isInDefsWithType(operand(T:K, V:K),
+            varOp(B:K, N:K, T':K, V':K), S:Set)
+            => isInDefsWithType(operand(T, V), .K, S)
+         requires T =/=K T' orBool V =/=K V'
+
     syntax Bool ::= isHexDigit(String) [function]
     rule isHexDigit(A:String) =>
           ((ordChar(A) >=Int ordChar("0"))
@@ -1850,11 +1863,11 @@ module LLVM-HELPERS
               Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), S:Set, M:Map)
          => allHaveDef(A, .K, .K, S, M)
-        requires X in OutDef
+        requires isInDefsWithType(A, .K, OutDef)
    rule allHaveDef(A:K, X:K, blockContent(Is:Map, Fl:Bool,
               Out:Set, In:Set, InDef:Set,
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), S:Set, M:Map)
          => false
-        requires notBool (X in OutDef)
+        requires notBool isInDefsWithType(A, .K, OutDef)
 
 endmodule

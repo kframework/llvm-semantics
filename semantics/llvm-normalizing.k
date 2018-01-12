@@ -1612,7 +1612,7 @@ create an abstract for fence and do the same for fence operation.
     rule checkUseVarsAux(.K, In:Set, .Set) => .K
     rule checkUseVarsAux(.K, In:Set, SetItem(A:K) S:Set)
             => checkUseVarsAux(A, In, S)
-    rule <k> checkUseVarsAux(A:SymbolicValueRef, In:Set, S:Set)
+    rule <k> checkUseVarsAux(A:KItem, In:Set, S:Set)
                 => checkUseVarsAux(.K, In:Set, S) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
@@ -1621,7 +1621,7 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M:Map </basicBlocks>
          requires allHaveDef(A, .K, .K, In, M)
 
-    rule <k> checkUseVarsAux(A:SymbolicValueRef, In:Set, S:Set)
+    rule <k> checkUseVarsAux(A:KItem, In:Set, S:Set)
                 ~> K:K => .K </k>
          <output>... .List => ListItem("Some used variables have not defined dominantly.") </output>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -1629,7 +1629,7 @@ create an abstract for fence and do the same for fence operation.
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
          <basicBlocks> M:Map </basicBlocks>
-         requires allHaveDef(A, .K, .K, In, M)
+         requires notBool allHaveDef(A, .K, .K, In, M)
 
     //check the unchecked uses of phi function and phi functions should always be the first of a block
     rule <k> checkUseVarInPhi => checkUseVarInPhi(1, .Map,

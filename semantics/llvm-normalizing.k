@@ -1594,22 +1594,42 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M:Map => M' </basicBlocks>
 
     //check the unchecked uses indeed have fathers.
-    rule <k> checkUseVars => checkUseVars(values(M)) ...</k>
+    rule <k> checkUseVars => checkUseVars(.K, M) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <basicBlocks> M:Map </basicBlocks>
 
-    rule checkUseVars(.List) => .K
-    rule checkUseVars(ListItem(blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, InDef:Set,
-            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List)
-         => checkUseVars(L)
-         requires TheUse <=Set varsToOperands(.K, InDef)
-    rule <k> checkUseVars(ListItem(blockContent(Is:Map, Fl:Bool, Out:Set, In:Set, InDef:Set,
-            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set)) L:List) ~> K:K =>  .K </k>
-         <output>... .List => ListItem("Some used variables have not yet defined.") </output>
-         requires notBool (TheUse <=Set varsToOperands(.K, InDef))
+    rule checkUseVars(.K, .Map) => .K
+    rule checkUseVars(.K, (A:K |-> B:K) M:Map)
+            => checkUseVars(B, M)
+    rule checkUseVars(blockContent(Is:Map,
+              Fl:Bool, Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), M:Map)
+            => checkUseVarsAux(.K, In, TheUse) ~> checkUseVars(.K, M)
+
+    rule checkUseVarsAux(.K, In:Set, .Set) => .K
+    rule checkUseVarsAux(.K, In:Set, SetItem(A:K) S:Set)
+            => checkUseVarsAux(A, In, S)
+    rule <k> checkUseVarsAux(A:SymbolicValueRef, In:Set, S:Set)
+                => checkUseVarsAux(.K, In:Set, S) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires allHaveDef(A, .K, .K, In, M)
+
+    rule <k> checkUseVarsAux(A:SymbolicValueRef, In:Set, S:Set)
+                ~> K:K => .K </k>
+         <output>... .List => ListItem("Some used variables have not defined dominantly.") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires allHaveDef(A, .K, .K, In, M)
 
     //check the unchecked uses of phi function and phi functions should always be the first of a block
     rule <k> checkUseVarInPhi => checkUseVarInPhi(1, .Map,

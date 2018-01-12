@@ -1840,4 +1840,21 @@ module LLVM-HELPERS
         => minusSet(.K, S, S1)
        requires notBool A in S
 
+   syntax Bool ::= allHaveDef(K, K, K, Set, Map) [function]
+   rule allHaveDef(A:K, .K, R:K, .Set, M:Map) => true
+   rule allHaveDef(A:K, .K, R:K, SetItem(X:K) S:Set, M:Map)
+          => allHaveDef(A:K, X, R, S, M)
+   rule allHaveDef(A:K, X:K, .K, S:Set, (X |-> B:K) M:Map)
+         => allHaveDef(A, X, B, S, (X |-> B:K) M)
+   rule allHaveDef(A:K, X:K, blockContent(Is:Map, Fl:Bool,
+              Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), S:Set, M:Map)
+         => allHaveDef(A, .K, .K, S, M)
+        requires X in OutDef
+   rule allHaveDef(A:K, X:K, blockContent(Is:Map, Fl:Bool,
+              Out:Set, In:Set, InDef:Set,
+            InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), S:Set, M:Map)
+         => false
+        requires notBool (X in OutDef)
+
 endmodule

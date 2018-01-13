@@ -79,7 +79,6 @@ module LLVM-CALL-RET
          <specChoice> allowChoice(Chi:Map =>
                Chi[N <- nextSpecs(SetItem(
                    basicBlockNum(Count, guessNextBlock(In))))]) </specChoice>
-         <reverseChoice> Rev:Map => Rev[Count <- N] </reverseChoice>
          <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
                    (guessNextBlock(In) |-> blockContent(Body, Flag,
                      InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
@@ -96,10 +95,9 @@ module LLVM-CALL-RET
      //rules for speculative moves by choosing a different direction because of 
      //hitting return operators.
     rule <toExecute> blockExecution(basicBlockNum(N:Int, Name:K), .List)
-              => blockExecutionAux(findNextBlock(N, .K, Chi, Rev, RM)) ...</toExecute>
+              => blockExecutionAux(findNextBlock(BN, Chi, RM)) ...</toExecute>
          <specChoice> allowChoice(Chi:Map)
                       => holdChoice(Chi) </specChoice>
-         <reverseChoice> Rev:Map </reverseChoice>
          <restChoice> RM:Map </restChoice>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int </blockCount> 
@@ -114,7 +112,6 @@ module LLVM-CALL-RET
          <specChoice> holdChoice(Chi:Map) 
               => allowChoice(updateChoiceMap(Chi, .K, PreCount,
                            basicBlockNum(Count, Name))) </specChoice>
-         <reverseChoice> Rev:Map => Rev[Count <- PreCount] </reverseChoice>
          <restChoice> (PreCount |-> Rest':K) RM:Map
               => changeBlocks(PreCount, Name, Rest, RM, Flag) </restChoice>
          <currModule> ModName:SymbolicValueRef </currModule>

@@ -1487,44 +1487,44 @@ module LLVM-HELPERS
     rule elemListToSet(valValue(A:K), Es:ElemList)
                         => SetItem(A) elemListToSet(Es)
 
-    syntax KItem ::= findNextBlock(K, K, Map, Map, Map)  [function]
-                   | findNextBlockAux(K, K, Set, Map, Map) [function]
-                   | findNextBlockAux(K, K, Set, K, Map, Map) [function]
-                   | getNextBlockResult(K, K)  [function]
+    syntax KItem ::= findNextBlock(K, Map, Map)  [function]
+                   | findNextBlockAux(Set, K, Set, Map, Map) [function]
+                   | findNextBlockNext(Set, K, Map, Map) [function]
 
     syntax Set ::= getSet(K) [function]
     rule getSet(nextSpecs(S:Set)) => S
     rule getSet(A:K) => .Set [owise]
 
-    rule findNextBlock(A:K, .K, EX:Map, RV:Map, RM:Map)
-            => emptyHOLE
-         requires notBool (A in keys(RV))
-    rule findNextBlock(A:K, .K, (A |-> B:K) EX:Map, RV:Map, RM:Map)
-            => findNextBlock(A, findNextBlockAux(A, .K, getSet(B), EX, RM),
-                        (A |-> B:K) EX:Map, RV:Map, RM:Map)
-    rule findNextBlock(A:K, emptyHOLE, EX:Map, (A |-> B:K) RV:Map, RM:Map)
-            => findNextBlock(B, .K, EX, RV, RM)
-    rule findNextBlock(A:K, selectSpec(X:K, Y:K, RS:Set), EX:Map, RV:Map, RM:Map)
-            => selectSpec(X:K, Y:K, RS:Set)
+    syntax Int ::= getIntKey(K) [function]
+    rule getIntKey(basicBlockNum(X:Int, Y:K)) => X
+    rule getIntKey(A:K) => -1
 
-    rule findNextBlockAux(A:K, .K, .Set, EX:Map, (A |-> B:K) RM:Map)
-              => getNextBlockResult(A, B)
-    rule findNextBlockAux(A:K, .K, SetItem(B:K) S:Set, EX:Map, RM:Map)
+    rule findNextBlock(A:K, EX:Map, RM:Map) => emptyHOLE
+         requires notBool (A in keys(EX))
+    rule findNextBlock(A:K, (A |-> B:K) EX:Map, RM:Map)
+          => findNextBlockAux(.Set, .K, getSet(B), EX, RM)
+
+    rule findNextBlockAux(A:Set, .K, .Set, EX:Map, RM:Map)
+              => findNextBlockNext(A, .K, EX, RM)
+    rule findNextBlockAux(A:Set, .K, SetItem(B:K) S:Set, EX:Map, RM:Map)
               => findNextBlockAux(A, B, S, EX, RM)
-    rule findNextBlockAux(A:K, B:K, S:Set, (B |-> C:K) EX:Map, RM:Map)
-              => findNextBlockAux(A, B, S,
-                       findNextBlockAux(B, .K, getSet(C),
-                         (B |-> C:K) EX:Map, RM:Map), EX, RM)
+    rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
+                   In:K), S:Set, EX:Map, (Count |-> nextSpecs(.Set)) RM:Map)
+         => findNextBlockAux(A, .K, S, EX, (Count |-> nextSpecs(.Set)) RM)
+    rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
+                   In:K), S:Set, EX:Map,
+            (Count |-> nextSpecs(SetItem(B:K) S':Set)) RM:Map)
+         => selectSpec(Count, B, S')
 
-    rule findNextBlockAux(A:K, B:K, S:Set, emptyHOLE, EX:Map, RM:Map)
-              => findNextBlockAux(A, .K, S, EX, RM)
-    rule findNextBlockAux(A:K, B:K, S:Set,
-                  selectSpec(X:K, Y:K, RS:Set), EX:Map, RM:Map)
-              => selectSpec(X:K, Y:K, RS:Set)
-
-    rule getNextBlockResult(A:K, nextSpecs(.Set)) => emptyHOLE
-    rule getNextBlockResult(A:K, nextSpecs(SetItem(B:K) S:Set))
-               => selectSpec(A, B, S)
+    rule findNextBlockNext(.Set, .K, EX:Map, RM:Map) => emptyHOLE
+    rule findNextBlockNext(SetItem(B:K) S:Set, .K, EX:Map, RM:Map)
+                 => findNextBlockNext(S, findNextBlock(
+                            getIntKey(B), EX, RM), EX, RM)
+    rule findNextBlockNext(S:Set, emptyHOLE, EX, RM)
+             => findNextBlockNext(S, .K, EX, RM)
+    rule findNextBlockNext(S:Set, selectSpec(X:K,
+                            Y:K, Z:K), EX:Map, RM:Map)
+            => selectSpec(X, Y, Z)
 
     syntax Map ::= changeBlocks(Int, K, Set, Map, Bool)  [function]
 

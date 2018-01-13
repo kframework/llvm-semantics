@@ -40,7 +40,6 @@ module LLVM-CONFIGURATION
                     <toCommit> .List </toCommit>
                     <cdb> .List </cdb> //common data bus
                     <specChoice> allowChoice(.Map) </specChoice>
-                    <reverseChoice> .Map </reverseChoice>
                     <restChoice> .Map </restChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </tomasulo>//simulating tomosulo execution model.

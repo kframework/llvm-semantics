@@ -28,7 +28,6 @@ module LLVM-BRANCHING
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
             => basicBlockNum(Count,name(Label:K, S:String)) </currBlock>
         <specChoice> allowChoice(Cho:Map => .Map) </specChoice>
-        <reverseChoice> _:Map => .Map </reverseChoice>
         <restChoice> _:Map => .Map </restChoice>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -44,9 +43,10 @@ module LLVM-BRANCHING
             setSpecChoice(OldCount, getBlockNum(OldCount,
                              name(Label:K, S:String), .K, Cho),
               collectNewSpecMap(name(Label:K, S:String),
-              Cho, OldCount), Ex, mergeBackInstQueue(AnyQueue))
+              Cho, OldCount), blockExecution(OldId:K, BE:List),
+                 mergeBackInstQueue(AnyQueue))
              ~> dynNoResult(undef) ...</k>
-        <toExecute> Ex:K => .K </toExecute>
+        <toExecute> blockExecution(OldId:K, BE:List) => .K </toExecute>
         <instQueue> AnyQueue:K => instList(.List) </instQueue>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
             => basicBlockNum(getBlockNum(OldCount,
@@ -68,7 +68,6 @@ module LLVM-BRANCHING
                    removeFailSpec(Queue, S)) ...</k>
           <specChoice> holdChoice(Cho:Map)
                          => allowChoice(M) </specChoice>
-          <reverseChoice> Rev:Map => collectNewMap(Rev, .K, S) </reverseChoice>
           <restChoice> RM:Map => cutItemInMap(
                          collectNewMap(RM, .K, S), .K, S) </restChoice>
 
@@ -87,11 +86,10 @@ module LLVM-BRANCHING
      rule <k> setExecutionInst(New:Int, S:Set,
                           findNewBlock, Queue:K) => .K ...</k>
           <toExecute> OldEx:K =>
-               blockExecutionAux(findNextBlock(New, .K, Cho, Rev, RM)) </toExecute>
+               blockExecutionAux(findNextBlock(New, Cho, RM)) </toExecute>
           <instQueue> OldQueue:K => Queue </instQueue>
           <specChoice> allowChoice(Cho:Map)
                        => holdChoice(Cho) </specChoice>
-          <reverseChoice> Rev:Map </reverseChoice>
           <restChoice> RM:Map </restChoice>
          <blockCount> Count:Int </blockCount> 
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>

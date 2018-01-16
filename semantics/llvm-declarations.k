@@ -149,6 +149,7 @@ module LLVM-DECLARATIONS
                   formInstList(1, .K, Body)) ...</k>
         <currBlock> Label':K => basicBlockNum(Count, Label) </currBlock>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
+         <currChoice> CurCh:Map => CurCh[Count <- Label] </currChoice>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <functionName> FunName </functionName>

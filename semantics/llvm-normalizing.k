@@ -269,6 +269,70 @@ module LLVM-NORMALIZING
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
 
+
+    //deal with phi of type check
+    //there is a big bug in the implementaton of phi function
+    //TODO: from LLVM documentation, it is legal to associate two label values together.
+    //so we can branch to a label value with two different blocks. 
+    //hence, this is a undefined behavior for what it will goto in this case.
+    //clang doesnt this behavior
+
+    rule <k> (.K => typeCheckSingleArg(Name, T, V)
+               ~> assignUses(Name, TheCount, T, (val(V),.ElemList)))
+             ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                  (val(V:K), E1:ElemList => E1),
+                     _:ElemList, _:Set, _:ElemList, _:InstructionMetadatas)
+            ...</k>
+        <instructionCounter> TheCount:Int </instructionCounter>
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T:KResult, E1:ElemList, val(name(localVar, S:String)),
+                     L:ElemList, InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
+             => checkUseVarInside(Name, label, name(localVar, S:String))
+               ~> assignUses(Name, TheCount, label,
+                      (val(name(localVar, S:String)),.ElemList))
+            ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T:KResult, E1:ElemList, L, SetItem(name(localVar, S:String))
+                       InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
+         ...</k>
+        <instructionCounter> TheCount:Int </instructionCounter>
+        requires notBool name(localVar, S:String) in InSet
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+             T:KResult, .ElemList, .ElemList, InSet:Set,
+             Es:ElemList, Meta:InstructionMetadatas)
+                    => assignType(Name, TheCount, X, T) ...</k>
+         <matchPhisWithInEdges>... (.List => ListItem(phiEdges(Name, InSet))) </matchPhisWithInEdges>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X, instruction(phi(T, Es),.Set
+                          ,insMetas(formElemList(Meta)))), phiInst)) </tempBlockMap>
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, name(localVar, S:String),
+              T:KResult, E1:ElemList, val(Y:SymbolicValueRef),
+                L:ElemList, InSet:Set, _:ElemList, _:InstructionMetadatas) ~> K:K
+                => .K </k>
+         <output>... .List 
+                => ListItem("error: not a well form program because defining a edge twice in a phi function '%"
+                      +String S +String "'") </output>
+         requires Y in InSet
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
+             T:KResult, E1:ElemList, val(name(A:K, S:String)),
+             L:ElemList, InSet:Set, _:ElemList, _:InstructionMetadatas) ~> K:K
+                => .K </k>
+         <output>... .List => ListItem("error: use of undefined value '%"
+                               +String S +String "'") </output>
+         requires A =/=K localVar
+
+    rule <k> typeCheckPhi(Name:SymbolicValueRef,
+               X:SymbolicValueRef, T:KResult, E1:ElemList
+               , val(K:K), L:ElemList,
+             InSet:Set, _:ElemList, _:InstructionMetadatas) ~> K':K => .K </k>
+         <output>... .List => ListItem("error: '" +String #tokenToString(K)
+                               +String "' is not a basic block") </output>
+         requires getKLabel(K) =/=KLabel 'name
+
     //type check braching ops.
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
                    _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas)
@@ -284,6 +348,7 @@ module LLVM-NORMALIZING
         <tempBlockMap> Now:Map => Now (TheCount |->
              instNumInfo(TheCount, noAssign(instruction(unconditional(A),.Set
                                   ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
+         requires isLocalVariable(A)
 
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
                    _:K, A:K, _:K, Meta:InstructionMetadatas) ~> K:K => .K </k>
@@ -313,6 +378,7 @@ module LLVM-NORMALIZING
         <tempBlockMap> Now:Map => Now (TheCount |->
              instNumInfo(TheCount, noAssign(instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
                              insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
+         requires (isLocalVariable(L1)) andBool (isLocalVariable(L2))
 
     rule <k> typeCheckBr(Name:SymbolicValueRef,
             integerType(N:Int), A:K, L1:K, L2:K, _:InstructionMetadatas) ~> K:K => .K </k>

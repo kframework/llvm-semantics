@@ -39,6 +39,7 @@ module LLVM-CONFIGURATION
                     <cpu> .K </cpu> //central execution unit
                     <toCommit> .List </toCommit>
                     <cdb> .List </cdb> //common data bus
+                    <currChoice> .Map </currChoice>
                     <specChoice> allowChoice(.Map) </specChoice>
                     <reverseChoice> .Map </reverseChoice>
                     <restChoice> .Map </restChoice>
@@ -47,6 +48,7 @@ module LLVM-CONFIGURATION
                 <callStack color="Goldenrod"> .List </callStack>
                 //stack for function calls
                 <control color="LightGoldenrod">
+                    <prevBlock color="Orchid"> .K </prevBlock>
                     <currBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </currBlock>
                     //the current executing basic block
                     <currModule color="Orchid"> name(globalVar, "main") </currModule>

@@ -25,6 +25,7 @@ module LLVM-BRANCHING
               ~> dynNoResult(undef) ...</k>
         <toExecute> Ex:K => .K </toExecute>
         <instQueue> AnyQueue:K => instList(.List) </instQueue>
+        <prevBlock> PrevB:K => basicBlockNum(OldCount:Int, Name:K) </prevBlock>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
             => basicBlockNum(Count,name(Label:K, S:String)) </currBlock>
         <specChoice> allowChoice(Cho:Map => .Map) </specChoice>
@@ -34,6 +35,7 @@ module LLVM-BRANCHING
          <registers> RM:Map => updateMapByMap(RM, .K, .K,
                               getOffRegs(OldCount, .K, .K, SRM)) </registers>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
+        <currChoice> CurCh:Map => CurCh[Count <- name(Label:K, S:String)] </currChoice>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName </currFunction>
@@ -52,6 +54,7 @@ module LLVM-BRANCHING
              ~> dynNoResult(undef) ...</k>
         <toExecute> blockExecution(OldId:K, BE:List) => .K </toExecute>
         <instQueue> AnyQueue:K => instList(.List) </instQueue>
+        <prevBlock> PrevB:K => basicBlockNum(OldCount:Int, Name:K) </prevBlock>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
             => basicBlockNum(getBlockNum(OldCount,
                              name(Label:K, S:String), .K, Cho)

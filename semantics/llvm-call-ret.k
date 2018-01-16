@@ -81,6 +81,7 @@ module LLVM-CALL-RET
                Attrs:Set, Meta:K)), M', M, Rev), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
+        <currChoice> CurCh:Map => CurCh[Count <- guessNextBlock(In)] </currChoice>
          <specChoice> allowChoice(Chi:Map =>
                Chi[N <- nextSpecs(SetItem(
                    basicBlockNum(Count, guessNextBlock(In))))]) </specChoice>
@@ -115,6 +116,7 @@ module LLVM-CALL-RET
             => blockExecution(basicBlockNum(Count, Name),
                formInstList(1, .K, Body)) ...</toExecute>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
+        <currChoice> CurCh:Map => CurCh[Count <- Name] </currChoice>
          <specChoice> holdChoice(Chi:Map) 
               => allowChoice(updateChoiceMap(Chi, .K, PreCount,
                            basicBlockNum(Count, Name))) </specChoice>

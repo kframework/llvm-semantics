@@ -292,6 +292,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
     //syntax KItem ::= values(K) [function]
     //rule values(K:K) => K
+    syntax KItem ::= findPhi(K, ElemList) //block num, edge list
+    syntax KItem ::= findPhiAux(K, ElemList) //block, edge list
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
     syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val

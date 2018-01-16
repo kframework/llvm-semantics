@@ -1674,6 +1674,34 @@ module LLVM-HELPERS
         => val(arg(S:Set, T:K, updateVarInTerm(Cur, C:Int, X, M, RM, Rev))),
                (updateVarInTermList(Cur, C, Es, M:Map, RM, Rev))
 
+   syntax Map ::= cutOffRegs(Int, K, K, Map) [function]
+                | getOffRegs(Int, K, K, Map) [function]
+                | updateMapByMap(Map, K, K, Map) [function]
+
+   rule cutOffRegs(A:Int, .K, .K, .Map) => .Map
+   rule cutOffRegs(A:Int, .K, .K, (X:K |-> Y:K) M:Map)
+         => cutOffRegs(A, X, Y, M)
+   rule cutOffRegs(A:Int, varInstance(A:Int, X:K), Y:K, M:Map)
+         => cutOffRegs(A, .K, .K, M)
+   rule cutOffRegs(A:Int, varInstance(B:Int, X:K), Y:K, M:Map)
+        => (varInstance(B:Int, X:K) |-> Y:K) cutOffRegs(A, .K, .K, M)
+        requires A =/=K B
+
+   rule getOffRegs(A:Int, .K, .K, .Map) => .Map
+   rule getOffRegs(A:Int, .K, .K, (X:K |-> Y:K) M:Map)
+         => getOffRegs(A, X, Y, M)
+   rule getOffRegs(A:Int, varInstance(A:Int, X:K), Y:K, M:Map)
+         => (varInstance(A:Int, X:K) |-> Y:K) getOffRegs(A, .K, .K, M)
+   rule getOffRegs(A:Int, varInstance(B:Int, X:K), Y:K, M:Map)
+        => getOffRegs(A, .K, .K, M)
+        requires A =/=K B
+
+   rule updateMapByMap(M:Map, .K, .K, .Map) => M
+   rule updateMapByMap(M:Map, .K, .K, (A:K |-> B:K) RM:Map)
+          => updateMapByMap(M, A, B, RM)
+   rule updateMapByMap(M:Map, varInstance(A:Int, X:K), Y:K, RM:Map)
+          => updateMapByMap(M[X <- Y], .K, .K, RM)
+
    syntax Bool ::= hasDefInList(List, K)  [function]
    rule hasDefInList(.List, X:K) => false
    rule hasDefInList(ListItem(dynInstInfo(Bn, In,

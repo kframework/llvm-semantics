@@ -40,6 +40,7 @@ module LLVM-CONFIGURATION
                     <toCommit> .List </toCommit>
                     <cdb> .List </cdb> //common data bus
                     <specChoice> allowChoice(.Map) </specChoice>
+                    <reverseChoice> .Map </reverseChoice>
                     <restChoice> .Map </restChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </tomasulo>//simulating tomosulo execution model.
@@ -54,6 +55,7 @@ module LLVM-CONFIGURATION
                     //current function that is being executed
                     <valist> .List </valist> //a cell storing variable argument list info
                     <registers color="teal"> .Map </registers>
+                    <specRegisters color="teal"> .Map </specRegisters>
                     //registers (infinite) for a thread
                     // TODO: this should eventually be a Set
                     <currentProgPoint> 0 </currentProgPoint>

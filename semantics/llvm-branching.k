@@ -28,6 +28,7 @@ module LLVM-BRANCHING
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
             => basicBlockNum(Count,name(Label:K, S:String)) </currBlock>
         <specChoice> allowChoice(Cho:Map => .Map) </specChoice>
+        <reverseChoice> _:Map => .Map </reverseChoice>
         <restChoice> _:Map => .Map </restChoice>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -68,6 +69,7 @@ module LLVM-BRANCHING
                    removeFailSpec(Queue, S)) ...</k>
           <specChoice> holdChoice(Cho:Map)
                          => allowChoice(M) </specChoice>
+          <reverseChoice> Rev:Map => collectNewMap(Rev, .K, S) </reverseChoice>
           <restChoice> RM:Map => cutItemInMap(
                          collectNewMap(RM, .K, S), .K, S) </restChoice>
 

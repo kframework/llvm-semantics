@@ -60,8 +60,11 @@ module LLVM-CALL-RET
                (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</toExecute>
          <instQueue> instList(InQueue:List =>
                          InQueue ListItem(dynInstInfo(N, Num,
-                               updateVarInTermMap(In, M), T))) </instQueue>
+                               updateVarInTerm(CurN, N, In, M', M, Rev), T))) </instQueue>
          <registers> M:Map </registers>
+         <specRegisters> M':Map </specRegisters>
+         <reverseChoice> Rev:Map </reverseChoice>
+         <currBlock> basicBlockNum(CurN:Int, CurLabel:K) </currBlock>
          requires size(InQueue) <Int numOfMaxInQueue andBool T =/=K terminators
          [transition]
 
@@ -72,13 +75,16 @@ module LLVM-CALL-RET
             => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
                formInstList(1, .K, Body)) ...</toExecute>
          <registers> M:Map </registers>
+         <specRegisters> M':Map </specRegisters>
          <instQueue> instList(InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
-             updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M), terminators))) </instQueue>
+             updateVarInTerm(BN, N, noAssign(instruction(In:K,
+               Attrs:Set, Meta:K)), M', M, Rev), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
          <specChoice> allowChoice(Chi:Map =>
                Chi[N <- nextSpecs(SetItem(
                    basicBlockNum(Count, guessNextBlock(In))))]) </specChoice>
+         <reverseChoice> Rev:Map => Rev[Count <- N] </reverseChoice>
          <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
                    (guessNextBlock(In) |-> blockContent(Body, Flag,
                      InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
@@ -112,6 +118,7 @@ module LLVM-CALL-RET
          <specChoice> holdChoice(Chi:Map) 
               => allowChoice(updateChoiceMap(Chi, .K, PreCount,
                            basicBlockNum(Count, Name))) </specChoice>
+         <reverseChoice> Rev:Map => Rev[Count <- PreCount] </reverseChoice>
          <restChoice> (PreCount |-> Rest':K) RM:Map
               => changeBlocks(PreCount, Name, Rest, RM, Flag) </restChoice>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -177,8 +184,23 @@ module LLVM-CALL-RET
 
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
-         <registers> M:Map => M[varInstance(BN, X) <- V] </registers>
-         <instQueue> instList(L:List => updateVarInList(L, X, V)) </instQueue>
+         <specRegisters> M:Map => M[varInstance(BN, X) <- V] </specRegisters>
+         <registers> M':Map </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, BN,
+               L, M[varInstance(BN, X) <- V], M', Rev)) </instQueue>
+         <reverseChoice> Rev:Map </reverseChoice>
+         requires BN >Int Cur
+
+    rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
+         <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
+         <specRegisters> M:Map </specRegisters>
+         <registers> M':Map => M'[X <- V] </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, BN,
+               L, M, M'[X <- V], Rev)) </instQueue>
+         <reverseChoice> Rev:Map </reverseChoice>
+         requires BN <=Int Cur
 
     rule <k> runDynInst(dynNoResult(V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>

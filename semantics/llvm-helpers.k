@@ -1590,66 +1590,89 @@ module LLVM-HELPERS
              => ListItem(X:K) (removeInst(A, B, L))
         [owise]
 
-   syntax List ::= updateVarInList(List, K, K) [function]
-                 | updateVarInInst(List, Int, Int, K, K, K, K) [function]
-   syntax KItem ::= updateVarInTermMap(K, Map) [function]
-                  | updateVarInTermMapList(ElemList, Map) [function]
-                  | updateVarInValueMap(K, Map) [function]
+   syntax List ::= updateVarInList(Int, Int, List, Map, Map, Map) [function]
+   syntax KItem ::= updateVarInTerm(Int, Int, K, Map, Map, Map) [function]
+                  | updateVarInTermList(Int, Int, ElemList, Map, Map, Map) [function]
+                  | updateVarInVar(Int, Int, K, Map, Map, Map) [function]
 
-   rule updateVarInList(.List, X:K, V:K) => .List
-   rule updateVarInList(ListItem(dynInstInfo(Bn:Int,
-                     In:Int, Inst:K, T:K)) L:List, X:K, V:K)
-        => updateVarInInst(L, Bn, In, Inst, T, X, V)
-   rule updateVarInInst(L:List, Bn:Int, In:Int,
-                assign(X:K, Inst:K), T:K, X:K, V:K)
-        => ListItem(dynInstInfo(Bn, In, assign(X, Inst), T)) L
-   rule updateVarInInst(L:List, Bn:Int, In:Int,
-                assign(X':K, Inst:K), T:K, X:K, V:K)
-        => ListItem(dynInstInfo(Bn, In, assign(X',
-          updateVarInTermMap(Inst, (X |-> V))), T)) updateVarInList(L, X, V)
-        requires X' =/=K X
 
-   rule updateVarInTermMap(noAssign(In:K), M:Map)
-        => noAssign(updateVarInTermMap(In, M))
-   rule updateVarInTermMap(instruction(In:K, Attrs:Set, Meta:K), M:Map)
-        => instruction(updateVarInTermMap(In, M), Attrs, Meta)
-   rule updateVarInTermMap(assign(X:K, Inst:K), M:Map)
-        => assign(X, updateVarInTermMap(Inst, removeEntry(M, X)))
-   rule updateVarInTermMap(Op:KLabel(Ty:K,, V1:K,,
-                 V2:K), M:Map)
-        => Op:KLabel(Ty,, updateVarInValueMap(V1, M),,
-                      updateVarInValueMap(V2, M))
+   rule updateVarInList(Cur:Int, BN:Int, .List, M:Map, RM:Map, Rev:Map) => .List
+   rule updateVarInList(Cur:Int, Pre:Int, ListItem(dynInstInfo(Bn:Int,
+                     In:Int, Inst:K, T:K)) L:List, M:Map, RM:Map, Rev:Map)
+        => ListItem(dynInstInfo(Bn:Int, In:Int,
+                updateVarInTerm(Cur, Bn, Inst:K, M, RM, Rev), T:K))
+               updateVarInList(Cur, Pre, L, M, RM, Rev)
+        requires Bn >=Int Pre
+   rule updateVarInList(Cur:Int, Pre:Int, ListItem(dynInstInfo(Bn:Int,
+                     In:Int, Inst:K, T:K)) L:List, M:Map, RM:Map, Rev:Map)
+        => ListItem(dynInstInfo(Bn:Int,
+                     In:Int, Inst:K, T:K))
+            updateVarInList(Cur, Pre, L, M, RM, Rev)
+        requires Bn <Int Pre
+
+   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
+             (varInstance(Cb, X) |-> V:K) M:Map, RM:Map, Rev:Map)
+            => V
+   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
+             M:Map, RM:Map, (Cb:Int |-> CbNext:K) Rev:Map)
+        => updateVarInVar(Cur, CbNext, X, M, RM, Rev:Map)
+        requires notBool varInstance(Cb, X) in keys(M)
+                 andBool Cur <Int Cb
+   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
+             M:Map, (X |-> V:K) RM:Map, Rev:Map) => V
+        requires Cur >=Int Cb
+   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
+             M:Map, RM:Map, Rev:Map) => X
+        requires Cur >=Int Cb andBool notBool X in keys(RM)
+
+   rule updateVarInTerm(Cur:Int, C:Int, name(localVar, S:String),
+                M:Map, RM:Map, Rev:Map) =>
+             updateVarInVar(Cur, C, name(localVar, S:String),
+                M:Map, RM, Rev:Map)
+   rule updateVarInTerm(Cur:Int, C:Int, name(globalVar, S:String),
+                M:Map, RM:Map, Rev:Map) => name(globalVar, S:String)
+
+   rule updateVarInTerm(Cur:Int, C:Int, noAssign(In:K), M:Map, RM:Map, Rev:Map)
+        => noAssign(updateVarInTerm(Cur, C, In, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, assign(X:K, Inst:K), M:Map, RM:Map, Rev:Map)
+        => assign(X, updateVarInTerm(Cur, C, Inst, removeEntry(M, X), RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, instruction(In:K,
+                  Attrs:Set, Meta:K), M:Map, RM:Map, Rev:Map)
+        => instruction(updateVarInTerm(Cur, C, In, M, RM, Rev), Attrs, Meta)
+   rule updateVarInTerm(Cur:Int, C:Int, Op:KLabel(Ty:K,, V1:K,,
+                 V2:K), M:Map, RM:Map, Rev:Map)
+        => Op:KLabel(Ty,, updateVarInTerm(Cur, C, V1, M, RM, Rev),,
+                      updateVarInTerm(Cur, C, V2, M, RM, Rev))
         requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
-   rule updateVarInTermMap(iCmp(Op:K, T:K, V1:K, V2:K), M:Map)
-        => iCmp(Op:K, T:K, updateVarInValueMap(V1, M),
-               updateVarInValueMap(V2, M))
-   rule updateVarInTermMap(conditional(operand(T:K, V:K),
-                            V1:K, V2:K), M:Map)
-        => conditional(operand(T:K, updateVarInValueMap(V:K, M)),
+   rule updateVarInTerm(Cur:Int, C:Int, iCmp(Op:K, T:K,
+                        V1:K, V2:K), M:Map, RM:Map, Rev:Map)
+        => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
+               updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, conditional(operand(T:K, V:K),
+                            V1:K, V2:K), M:Map, RM:Map, Rev:Map)
+        => conditional(operand(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev)),
                V1, V2)
-   rule updateVarInTermMap(unconditional(V:K), M:Map)
+   rule updateVarInTerm(Cur:Int, C:Int, unconditional(V:K), M:Map, RM:Map, Rev:Map)
         => unconditional(V:K)
-   rule updateVarInTermMap(tailCall(T:K, callee(V:K,
-                       arguments(Es:ElemList))), M:Map)
+   rule updateVarInTerm(Cur:Int, C:Int, tailCall(T:K, callee(V:K,
+                       arguments(Es:ElemList))), M:Map, RM:Map, Rev:Map)
           => tailCall(T:K, callee(V:K,
-                       arguments(updateVarInTermMapList(Es, M))))
-   rule updateVarInTermMap(call(T:K,
-               callee(V:K, arguments(Es:ElemList))), M:Map)
+                       arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))))
+   rule updateVarInTerm(Cur:Int, C:Int, call(T:K,
+               callee(V:K, arguments(Es:ElemList))), M:Map, RM:Map, Rev:Map)
           => call(T:K, callee(V:K,
-                   arguments(updateVarInTermMapList(Es, M))))
-   rule updateVarInTermMap(ret(Ty:K, V:K), M:Map)
-        => ret(Ty, updateVarInValueMap(V, M))
+                   arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))))
+   rule updateVarInTerm(Cur:Int, C:Int, ret(Ty:K, V:K), M:Map, RM:Map, Rev:Map)
+        => ret(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, A:K, M, RM, Rev)
+         => A [owise]
 
-   rule updateVarInTermMapList(.ElemList, M:Map) => .ElemList
-   rule updateVarInTermMapList(
-          val(arg(S:Set, T:K, X:K)),Es:ElemList, M:Map)
-        => val(arg(S:Set, T:K, updateVarInValueMap(X, M))),
-               (updateVarInTermMapList(Es, M:Map))
-
-   rule updateVarInValueMap(X:K, (X:K |-> Y:K) M:Map) => Y
-   rule updateVarInValueMap(X':K, M:Map) => X'
-        requires notBool (X' in keys(M))
-   rule updateVarInValueMap(A:KResult, M:Map) => A
+   rule updateVarInTermList(Cur:Int, C:Int, .ElemList,
+                               M:Map, RM:Map, Rev:Map) => .ElemList
+   rule updateVarInTermList(Cur:Int, C:Int,
+          val(arg(S:Set, T:K, X:K)),Es:ElemList, M:Map, RM:Map, Rev:Map)
+        => val(arg(S:Set, T:K, updateVarInTerm(Cur, C:Int, X, M, RM, Rev))),
+               (updateVarInTermList(Cur, C, Es, M:Map, RM, Rev))
 
    syntax Bool ::= hasDefInList(List, K)  [function]
    rule hasDefInList(.List, X:K) => false

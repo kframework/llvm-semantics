@@ -351,7 +351,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= checkUseVarInside(K, K, K)
     syntax KItem ::= checkUseVarInBlock(K, Set, Set)
     syntax KItem ::= "checkUseVarInPhi"
-    syntax KItem ::= checkUseVarInPhiAux(ElemList)
+    syntax KItem ::= checkUseVarInPhiAux(K, ElemList)
     syntax KItem ::= checkUseVarInPhi(Int, Map, K, List)
                //inst num, inst map, single inst, List of inst maps
     syntax KItem ::= checkFirstInPhi(Int, Map, K, List)

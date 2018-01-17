@@ -57,6 +57,7 @@ module LLVM-NORMALIZING
                    | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckPointerArgs(K, K, ElemList)
                    | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
+                   | typeCheckExpr(K, K)//t, v
                    | typeCheckPointerExpr(K, K)
                    | typeCheckConstExpr(K, K)   [strict(1)]//type var
                    | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
@@ -277,7 +278,7 @@ module LLVM-NORMALIZING
     //hence, this is a undefined behavior for what it will goto in this case.
     //clang doesnt this behavior
 
-    rule <k> (.K => typeCheckSingleArg(Name, T, V)
+    rule <k> (.K => exprType(typeCheckExpr(T, V))
                ~> assignUses(Name, TheCount, T, (val(V),.ElemList)))
              ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                   (val(V:K), E1:ElemList => E1),
@@ -344,7 +345,6 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <varTypes>... A |-> label ...</varTypes>
         <tempBlockMap> Now:Map => Now (TheCount |->
              instNumInfo(TheCount, noAssign(instruction(unconditional(A),.Set
                                   ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
@@ -388,7 +388,7 @@ module LLVM-NORMALIZING
     rule <k> typeCheckBr(Name:SymbolicValueRef,
             T:K, A:K, L1:K, L2:K, _:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: branch condition must have 'i1' type") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
+         requires T =/=K undef andBool getKLabel(T) =/=KLabel 'integerType
 
     //deal with calls
     rule typeCheckArgList(Name:SymbolicValueRef, .ElemList) => .K
@@ -897,6 +897,14 @@ module LLVM-NORMALIZING
                     => exprType(typeCheckPointerExpr(T, V))
                           ~> checkUseVarInside(Name, T, V)
                            ~> typeCheckPointerArgs(Name:SymbolicValueRef, T, Vs)
+
+    //type check general expression
+    rule typeCheckExpr(pointerTypeValue(T:KResult, Ad:KResult), V:K)
+          => typeCheckPointerExpr(pointerTypeValue(T:KResult, Ad:KResult), V:K)
+    rule typeCheckExpr(vectorTypeValue(T:KResult, I:Int), V:K)
+          => typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), I, V:K)
+    rule typeCheckExpr(integerType(N:Int), V:K)
+          => typeCheckIntExpr(integerType(N:Int), V:K)
 
     //type checking each pointer argument
     rule typeCheckPointerExpr(
@@ -1713,7 +1721,7 @@ create an abstract for fence and do the same for fence operation.
         => checkUseVarInPhi(N:Int, M:Map, A, L:List)
     rule checkUseVarInPhi(N:Int, M:Map, instNumInfo(N, assign(Var:K,
           instruction(phi(T:K, El:ElemList),Ats:Set,Meta:K)), phiInst), L:List)
-        => checkUseVarInPhiAux(El) ~> checkUseVarInPhi(N +Int 1, M, .K, L:List)
+        => checkUseVarInPhiAux(T, El) ~> checkUseVarInPhi(N +Int 1, M, .K, L:List)
     rule checkUseVarInPhi(N:Int, M:Map, instNumInfo(N, In:K, La:K), L:List)
         => checkFirstInPhi(N +Int 1, M, .K, L:List)
          requires La =/=K phiInst
@@ -1731,20 +1739,32 @@ create an abstract for fence and do the same for fence operation.
          <output>... .List => ListItem("Having phi function not in the first place of a block.") </output>
 
 
-    rule checkUseVarInPhiAux(.ElemList) => .K
-    rule checkUseVarInPhiAux(val(edge(V:ConstValueRef, L:SymbolicValueRef)),El:ElemList)
-            => checkUseVarInPhiAux(El)
-    rule <k> checkUseVarInPhiAux(val(edge(V:SymbolicValueRef, L:SymbolicValueRef)),El:ElemList)
-            => checkUseVarInPhiAux(El) ...</k> 
+    rule checkUseVarInPhiAux(T:K, .ElemList) => .K
+    rule checkUseVarInPhiAux(T:KResult, val(edge(V:K, L:SymbolicValueRef)),El:ElemList)
+            => checkUseVarInPhiAux(T, El)
+         requires notBool isLocalVariable(V)
+    rule <k> checkUseVarInPhiAux(T:KResult, val(edge(V:K, L:SymbolicValueRef)),El:ElemList)
+            => checkUseVarInPhiAux(T, El) ...</k> 
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
+        <varTypes>... V |-> T ...</varTypes>
         <basicBlocks>... L |-> blockContent(_:Map, _:Bool, _:Set, _:Set, _:Set, _:Set,
                         OutDef:Set, _:Set, _:Set) ...</basicBlocks>
-         requires V in OutDef
+         requires isLocalVariable(V) andBool isInDefs(V, .K, OutDef)
 
-     rule <k> checkUseVarInPhiAux(val(edge(V:SymbolicValueRef, L:SymbolicValueRef)),El:ElemList)
+     rule <k> checkUseVarInPhiAux(T:KResult, val(edge(V:K, L:SymbolicValueRef)),El:ElemList)
+            ~> K:K => .K </k> 
+         <output>... .List => ListItem("phi function has a variable that does not match type.") </output>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <varTypes>... V |-> T':K ...</varTypes>
+         requires isLocalVariable(V) andBool T =/=K T'
+
+     rule <k> checkUseVarInPhiAux(T:K, val(edge(V:K, L:SymbolicValueRef)),El:ElemList)
             ~> K:K => .K </k> 
          <output>... .List => ListItem("phi function has a undefined variable.") </output>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -1753,14 +1773,14 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
         <basicBlocks>... L |-> blockContent(_:Map, _:Bool, _:Set, _:Set, _:Set, _:Set,
                         OutDef:Set, _:Set, _:Set) ...</basicBlocks>
-         requires notBool (V in OutDef)
+         requires isLocalVariable(V) andBool notBool isInDefs(V, .K, OutDef)
 
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M))
                   ~> setLoopFlag
-                  ~> setLabelVarsAux(makeLabelToVars(keys(M), .Set), M, .K, .K, .Map)
+                  ~> setLabelVars
                   ~> calDefUse(.K, SetItem(InitName), .Set)
                   //~> setBlockPaths(.K, keys(M))
                   //~> setBlockInDefs(.K, keys(M))

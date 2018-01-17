@@ -684,13 +684,15 @@ module LLVM-HELPERS
                    | applyOp(K, K, K)     [function] // op, int, int
                    | applyCast(K, K, K, K)   [function] //op, type ints, type
                    | applyCasts(K, K, K, K)   [function] //op, type ints, type
-                   | applySelect(K, K, K, K) [function] //op, bool, first, second
-                   | applySelects(K, K, K, K) [function] //op, bool, first, second
+                   | applySelect(K, K, K) [function] //bool, first, second
+                   | applySelects(K, K, K) [function] //bool, first, second
                    | applyIcmps(K, K, K, K, ElemList) [function]
                                         // op, type, value1, value2, vector
                    | applyIcmp(K, K, K, K) [function] // op, type, int, int
                    | outOfSignScope(Int, K) [function]
                    | calShiftValue(Int, Int) [function]
+
+    syntax ElemList ::= applySelectsAux(K, K, K) [function] //bool, first, second
      
     syntax Int ::= boolToInt(Bool)   [function]
     rule boolToInt(true) => 1
@@ -1160,20 +1162,25 @@ module LLVM-HELPERS
     rule applyCasts(Op:K, A:K, I1:K, I2:K) => applyCast(Op, A, I1, I2)        [owise]
 
 
-    rule applySelect(Op:K, 0, A:K, B:K) => A
-    rule applySelect(Op:K, I:Int, A:K, B:K) => B
+    rule applySelect(0, A:K, B:K) => A
+    rule applySelect(I:Int, A:K, B:K) => B
          requires I =/=Int 0
 
-    rule applySelects(Op:K, I:Int, operand(T:K, V:K), operand(T':K, V':K))
-              => operand(T, applySelects(Op, I, V, V'))
-    rule applySelects(Op:K, I:Int, vector(Es:ElemList), vector(Es':ElemList))
-              => vector(applySelects(Op, I, Es, Es'))
-    rule applySelects(Op:K, I:Int, .ElemList, .ElemList) => .ElemList
-    rule applySelects(Op:K, I:Int, (val(A:K),Es:ElemList), (val(B:K),Es':ElemList))
-              => val(applySelect(Op, I, A, B)),applySelects(Op, I, Es, Es')
-    rule applySelects(Op:K, I:K, A:K, B:K)
-              => applySelect(Op, I, A, B) [owise]
+    rule applySelects(I:Int, V1:K, V2:K) => applySelect(I, V1, V2)
+    rule applySelects(vectorValue(S:ElemList), vectorValue(V1:ElemList),
+                 vectorValue(V2:ElemList))
+              => vectorValue(applySelectsAux(vectorValue(S:ElemList),
+                  vectorValue(V1:ElemList), vectorValue(V2:ElemList)))
 
+    rule applySelectsAux(vectorValue(.ElemList), vectorValue(V1:ElemList),
+                   vectorValue(V2:ElemList)) => .ElemList
+    rule applySelectsAux(vectorValue(valValue(I:Int), S:ElemList),
+              vectorValue(valValue(V1:K),E1:ElemList),
+                          vectorValue(valValue(V2:K),E2:ElemList))
+                  => valValue(applySelect(I, V1, V2)),
+                          applySelectsAux(vectorValue(S),
+                            vectorValue(E1), vectorValue(E2))
+    rule applySelectsAux(X:K, Y:K, Z:K) => .ElemList [owise]
 
     syntax Bool ::= goodNuw(K, Int)          [function] //type,  int value
                    | goodNsw(K, Int)         [function] //type, int signed value
@@ -1652,6 +1659,12 @@ module LLVM-HELPERS
                             V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => conditional(operand(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev)),
                V1, V2)
+   rule updateVarInTerm(Cur:Int, C:Int, select(T:K, I:K
+                            operand(T1:K, V1:K), operand(T2:K, V2:K)),
+                       M:Map, RM:Map, Rev:Map)
+        => select(T, updateVarInTerm(Cur, C:Int, I, M, RM, Rev),
+              operand(T1:K, updateVarInTerm(Cur, C:Int, V1:K, M, RM, Rev)),
+              operand(T2:K, updateVarInTerm(Cur, C:Int, V2:K, M, RM, Rev)))
    rule updateVarInTerm(Cur:Int, C:Int, unconditional(V:K), M:Map, RM:Map, Rev:Map)
         => unconditional(V:K)
    rule updateVarInTerm(Cur:Int, C:Int, tailCall(T:K, callee(V:K,

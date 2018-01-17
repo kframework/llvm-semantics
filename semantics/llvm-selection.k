@@ -17,11 +17,11 @@ module LLVM-SELECTION
     imports LLVM-CONFIGURATION
 
     rule [select-vector]:
-        select(vectorTypeValue(T1:KResult, N:Int), I:KResult, A:K, B:K)
-                => applySelects('select(.KList), normalizingInt(getIntType(T1), I), A, B)
+        select(vectorTypeValue(T1:KResult, N:Int), I:KResult, A:KResult, B:KResult)
+                => applySelects(normalizingInt(getIntType(T1), I), A, B)
 
     rule [select-single]:
-        select(integerType(1), I:KResult, A:K, B:K)
-                => applySelects('select(.KList), normalizingInt(integerType(1), I), A, B)
+        select(integerType(1), I:KResult, A:KResult, B:KResult)
+                => applySelects(normalizingInt(integerType(1), I), A, B)
 
 endmodule

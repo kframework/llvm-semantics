@@ -270,6 +270,79 @@ module LLVM-NORMALIZING
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
 
+    //deal with Select
+    rule <k> typeCheckSelect(N:SymbolicValueRef, X:SymbolicValueRef,
+                    integerType(1), V1:K, T1:KResult, V2:K,
+                    T1:KResult, V3:K, Meta:InstructionMetadatas)
+            => exprType(typeCheckIntArgs(N, integerType(1), val(V1:K),.ElemList))
+               ~> typeCheckSingleArg(N, T1, V2)
+               ~> typeCheckSingleArg(N, T1, V3)
+               ~> assignUses(N, TheCount, integerType(1), val(V1),.ElemList)
+               ~> assignUses(N, TheCount, T1, val(V2),val(V3),.ElemList)
+               ~> assignType(N, TheCount, X, T1) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X, instruction(select(integerType(1)
+                                 ,V1 ,operand(T1,V2)
+                                     ,operand(T1,V3))
+              ,.Set ,insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+     rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                  vectorTypeValue(integerType(1), N:Int), V1:K,
+                 vectorTypeValue(T1:KResult, N:Int), V2:K,
+                 vectorTypeValue(T1:KResult, N:Int), V3:K, Meta:InstructionMetadatas)
+            => exprType(typeCheckVectorArgs(Name, vectorTypeValue(
+                               integerType(1), N:Int), (val(V1:K),.ElemList)))
+               ~> exprType(typeCheckVectorArgs(Name, vectorTypeValue(
+                                T1:KResult, N:Int), (val(V2),val(V3),.ElemList)))
+               ~> assignUses(Name, TheCount, vectorTypeValue(
+                              integerType(1), N:Int), val(V1),.ElemList)
+               ~> assignUses(Name, TheCount, vectorTypeValue(
+                           T1:KResult, N:Int), val(V2),val(V3),.ElemList)
+               ~> assignType(Name, TheCount, X, vectorTypeValue(
+                           T1:KResult, N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,
+                      assign(X, instruction(select(vectorTypeValue(integerType(1), N:Int)
+                                 ,V1 ,operand(vectorTypeValue(T1:KResult, N:Int), V2)
+                    ,operand(vectorTypeValue(T1:KResult, N:Int), V3))
+                  ,.Set ,insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                   integerType(A:Int), V1:K, T1:KResult, V2:K,
+                   T1:KResult, V3:K, _:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
+         requires A =/=K 1
+
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                           vectorTypeValue(integerType(A:Int), N:Int)
+                   , V1:K, T1:KResult, V2:K, T1:KResult, V3:K, _:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: vector select condition element type must be i1") </output>
+         requires A =/=K 1
+
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                T:KResult, V1:K, T1:KResult, V2:K, T2:KResult, V3:K, _:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: both values to select must have same type") </output>
+         requires T1 =/=K T2
+
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                  vectorTypeValue(integerType(1), N1:Int), V1:K,
+                 vectorTypeValue(T1:KResult, N:Int), V2:K,
+                 vectorTypeValue(T2:KResult, N':Int), V3:K, _:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: vector select requires selected vectors to have the same vector length as select condition") </output>
+         requires N1 =/=K N orBool N =/=K N'
+
+    rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, V1:K, T1:KResult, V2:K,
+                 T1:KResult, V3:K, _:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
+         requires getKLabel(T) =/=KLabel 'integerType andBool getKLabel(T) =/=KLabel 'vectorTypeValue
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function
@@ -839,7 +912,7 @@ module LLVM-NORMALIZING
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
            vectorTypeValue(T:K, I:Int), val(V:K),Es:ElemList)
          => exprType(typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
-             ~> checkUseVarInside(Name, T, V)
+             ~> checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
              ~> typeCheckVectorArgs(Name, vectorTypeValue(T:K, I:Int), Es)
 
     //type check single vector argument

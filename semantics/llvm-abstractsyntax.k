@@ -296,7 +296,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= findPhiAux(K, ElemList) //block, edge list
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
-    syntax KItem ::= select(K, K, K, K) [strict(1,2)] // condition, true val, false val
+    syntax KItem ::= select(K, K, K, K) [strict] //ty, condition, true val, false val
     syntax KItem ::= tailCall(K, K)
     rule tailCall(K:K, E:K) => call(K,E) [structural] //first assume that call and tailcall are the same.    
 

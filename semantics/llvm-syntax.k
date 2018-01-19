@@ -689,7 +689,7 @@ module LLVM-SYNTAX
     syntax NonVoidType ::= "metadata"
                          | "x86_mmx"
                          | PrimType
-                         | Type OptAddrSpace "*"              [klabel('pointerType), strict]
+                         | Type OptAddrSpace "*"              [klabel('pointerType), strict(1)]
                          | Type "(" ArgList ")"               [klabel('functionType)]
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"
@@ -1085,7 +1085,7 @@ module LLVM-SYNTAX
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
                        "(" ParamList ")" FuncAttrs InstructionMetadatas     [klabel('functionCall)]
-                     | "alloca" OptInalloca AllocMetadata InstructionMetadatas
+                     | "alloca" OptInalloca AllocMetadata OptAddrSpace InstructionMetadatas
                      // LLVM syntax 3.7.1 has a typo on this significantly without the first return type
                      //of load for atomic operator.
                      | "load" Atomic OptVolatile Type "," ResolvedVal

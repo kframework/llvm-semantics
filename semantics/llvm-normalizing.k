@@ -73,8 +73,8 @@ module LLVM-NORMALIZING
                    | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
                    | typeCheckGepOp(K, K, K, K, K, ElemList, Set, InstructionMetadatas)
                              [strict(3,4,6)]//block, var, t, t*, v, (t,v)lists, mods, instmeta
-                   | typeCheckAllocaOp(K, K, K, K, K, K, Set, InstructionMetadatas)
-                             [strict(3,4)]//block,var, t, int-t, v, align
+                   | typeCheckAllocaOp(K, K, K, Int, K, K, K, Set, InstructionMetadatas)
+                             [strict(3,5)]//block,var, t, addrspace, int-t, v, align
                    | typeCheckStore(K, K, K, K, K, K, K, Set, InstructionMetadatas)
                              [strict(2,4)]//block, t, v, pt, v, align, atomic, mods, instmeta
                    | typeCheckLoad(K, K, K, K, K, K, K, Set, InstructionMetadatas)
@@ -140,24 +140,26 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: no reference target pointer for getelementptr") </output>
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-                         alloca Oil:OptInalloca Ty:Type Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,
-                                    undef, undef, 1, formSet(Oil), Ins)
+                         alloca Oil:OptInalloca Ty:Type
+                           Oad:OptAddrSpace Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty, dealWithAddrSpace(Oad),
+                                    integerType(32), 1, 0, formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-                            alloca Oil:OptInalloca
-                                   Ty:Type, align A:UnsignedInt Ins:InstructionMetadatas)
+                            alloca Oil:OptInalloca Ty:Type,
+               align A:UnsignedInt Oad:OptAddrSpace Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef,
-                               X,Ty,undef,undef,
+                               X,Ty, dealWithAddrSpace(Oad), integerType(32), 1,
                                      String2Int(#tokenToString(A)), formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                         alloca Oil:OptInalloca Ty:Type,
-                           It:IntType V:ValueRef Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,It,
-                                          addNameToString(V), 1, formSet(Oil), Ins)
+                           It:IntType V:ValueRef Oad:OptAddrSpace Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,
+               dealWithAddrSpace(Oad),It,
+                          addNameToString(V), 0, formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                alloca Oil:OptInalloca Ty:Type, It:IntType V:ValueRef,
-                                   align A:UnsignedInt Ins:InstructionMetadatas)
-           => typeCheckAllocaOp(Name:SymbolicValueRef, X, Ty, It,
+                                   align A:UnsignedInt Oad:OptAddrSpace Ins:InstructionMetadatas)
+           => typeCheckAllocaOp(Name:SymbolicValueRef, X, Ty,dealWithAddrSpace(Oad), It,
                 addNameToString(V), String2Int(#tokenToString(A)), formSet(Oil), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
@@ -343,6 +345,36 @@ module LLVM-NORMALIZING
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: select condition must be i1 or <n x i1>") </output>
          requires getKLabel(T) =/=KLabel 'integerType andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+
+    //deal with type of alloca
+    rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, Ad:Int, integerType(I:Int), V:K, Align:Int,
+                 Mods:Set, Meta:InstructionMetadatas)
+              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(I:Int), val(V),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       integerType(I:Int), (val(V),.ElemList))
+                     ~> assignType(Name,TheCount, X, pointerTypeValue(T, Ad))
+         ...</k>
+         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X, instruction(
+                  alloca(T,preAlloca(integerType(I:Int), V), Align),
+                       Mods, insMetas(formElemList(Meta)))), allocaInst)) </tempBlockMap>
+         requires isValidAlign(Align)
+
+    rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                T:KResult,Ad:Int, T':KResult, V:K, Align:Int, _:Set,
+                _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: element count must have integer type") </output>
+         requires getKLabel(T') =/=KLabel 'integerType
+
+    rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                T:KResult,Ad:Int, T':KResult, V:K, Align:Int, _:Set,
+                _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment is not a power of two") </output>
+         requires notBool isValidAlign(Align)
+
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function

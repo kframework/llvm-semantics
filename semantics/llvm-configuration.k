@@ -66,7 +66,8 @@ module LLVM-CONFIGURATION
                     //the modifiers (attributes) for the current functions
                     <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
                     //the metadatas for the current function
-                    <localMemory> .List </localMemory>
+                    <localMemory> .Set </localMemory>
+                    <stackSize> 0 </stackSize>
                     //local memory (stack) 
                 </control> //control panel for function and basic blocks
             </thread>
@@ -74,6 +75,7 @@ module LLVM-CONFIGURATION
                 <object multiplicity="*" color="LightSkyBlue">
                     <basePtr color="orange" type="Key"> -1 </basePtr>
                     <type> .K </type>
+                    <range> .K </range>
                     <size> 0 </size>
                     <align> 'alignEmpty(.KList) </align>
                     <bytes> .Map </bytes>

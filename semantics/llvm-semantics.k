@@ -523,14 +523,8 @@ module LLVM-MEMORY
 
     syntax KItem ::= "nextSym" Loc [function]
 
-    rule nextSym loc(N:Int, 0, Limit:Int, Align:Int)
-                                       => loc(N:Int +Int Align, 0, undef, undef)
-         requires Align >Int Limit andBool isPowOfTwo(Align, 1) andBool Limit >Int 0
-    rule nextSym loc(N:Int, 0, Limit:Int, Align:Int)
-                                       => loc(N:Int +Int Limit, 0, undef, undef)
-         requires Align <=Int Limit
-    rule nextSym loc(N:Int, 0, Limit:Int, undef)
-                                       => loc(N:Int +Int Limit, 0, undef, undef)
+    rule nextSym loc(N:Int, B:Int, Limit:Int, Align:Int)
+                    => loc(N:Int +Int Limit +Int Align, 0, undef, undef)
 
     syntax KItem ::= insertLimit(Loc, K) [function]
     rule insertLimit(loc(A:K, B:K, Limit:K, Align:K), K:K) => loc(A, B, K, Align)
@@ -551,26 +545,37 @@ module LLVM-MEMORY
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
                 <align> Al </align>
+                <range> globalVar </range>
                 <size> sizeof(Type) *Int N </size>
             ...</object>
         )
         <nextLoc> Loc:Loc => nextSym insertAlign(
                        insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
         <memoryRange> value(I:Int, F:Int) => value(I, base(nextSym insertAlign(
-                       insertLimit(Loc, sizeof(Type) *Int N),Al)))      </memoryRange>
+                       insertLimit(Loc, sizeof(Type) *Int N),Al))) </memoryRange>
         requires N >Int 0
 
     rule
         <k> globalAlloca(Type:KResult, N:Int, Al:K) ~> K:K
                           => .K </k>
-         <output>... .List => ListItem("error: undefined behavior") </output>
+         <output>... .List => ListItem("error: undefined behavior due to alloca a zero byte.") </output>
         requires N ==Int 0
 
     rule
         <k> alloca(Type:KResult, N:Int, Al:K) ~> K:K
                           => .K </k>
-         <output>... .List => ListItem("error: undefined behavior") </output>
+         <output>... .List => ListItem("error: undefined behavior due to alloca a zero byte.") </output>
         requires N ==Int 0
+
+    rule
+        <k> alloca(Type:KResult, N:Int, Al:K) ~> K:K
+                          => .K </k>
+        <stackSize> X:Int </stackSize>
+        <nextLoc> Loc:Loc </nextLoc>
+         <output>... .List => ListItem("error: undefined behavior due to stack overflow.") </output>
+        requires N >Int 0 andBool (X +Int (base(nextSym insertAlign(
+                        insertLimit(Loc, sizeof(Type) *Int N),Al))
+                         -Int base(Loc))) >=Int maxStackSize
 
     rule
         <k> alloca(Type:KResult, N:Int, Al:K)
@@ -580,15 +585,47 @@ module LLVM-MEMORY
                 <basePtr> base(Loc) </basePtr>
                 <type> Type </type>
                 <align> Al </align>
+                <range> localVar </range>
                 <size> sizeof(Type) *Int N </size>
             ...</object>
         )
-        <localMemory>... .List => ListItem(base(Loc)) </localMemory>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <localMemory>... .Set => SetItem(base(Loc)) </localMemory>
+        <stackSize> X:Int => X +Int (base(nextSym insertAlign(
+             insertLimit(Loc, sizeof(Type) *Int N),Al)) -Int base(Loc)) </stackSize>
+        <nextLoc> Loc:Loc => nextSym insertAlign(
+                              insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
+        <memoryRange> value(I:Int, F:Int) => value(I, base(nextSym insertAlign(
+                       insertLimit(Loc, sizeof(Type) *Int N),Al))) </memoryRange>
+        requires N >Int 0 andBool (X +Int (base(nextSym insertAlign(
+                        insertLimit(Loc, sizeof(Type) *Int N),Al))
+                         -Int base(Loc))) <Int maxStackSize
+                   andBool notBool ('inallocaOfAlloca(.KList) in Mods)
+
+    rule
+        <k> alloca(Type:KResult, N:Int, Al:K)
+                          => insertAlign(insertLimit(Loc, sizeof(Type) *Int N),Al) ...</k>
+        (.Bag =>
+            <object>...
+                <basePtr> base(Loc) </basePtr>
+                <type> Type </type>
+                <align> Al </align>
+                <range> localVar </range>
+                <size> sizeof(Type) *Int N </size>
+            ...</object>
+        )
+        <currentModifiers> Mods:Set </currentModifiers>
+        <localMemory>... .Set => SetItem(inAlloca(base(Loc))) </localMemory>
+        <stackSize> X:Int => X +Int (base(nextSym insertAlign(
+             insertLimit(Loc, sizeof(Type) *Int N),Al)) -Int base(Loc)) </stackSize>
         <nextLoc> Loc:Loc => nextSym insertAlign(
                               insertLimit(Loc, sizeof(Type) *Int N),Al) </nextLoc>
         <memoryRange> value(I:Int, F:Int) => value(I, base(nextSym insertAlign(
                        insertLimit(Loc, sizeof(Type) *Int N),Al)))      </memoryRange>
-        requires N >Int 0
+        requires N >Int 0 andBool (X +Int (base(nextSym insertAlign(
+                        insertLimit(Loc, sizeof(Type) *Int N),Al))
+                    -Int base(Loc))) <Int maxStackSize
+              andBool ('inallocaOfAlloca(.KList) in Mods)
 
     //DONE: TODO: store must save to a pointer type
     rule

@@ -89,6 +89,11 @@ module LLVM-ABSTRACTSYNTAX
     rule addElemToEnd(E:Element, .ElemList) => E,.ElemList
     rule addElemToEnd(E:Element, E':Element,Es:ElemList) => E',addElemToEnd(E,Es)
 
+    syntax Int ::= dealWithAddrSpace(K) [function]
+    rule dealWithAddrSpace('addrEmpty(.KList)) => 0
+    rule dealWithAddrSpace(addrspace(X:UnsignedInt))
+          => String2Int(#tokenToString(X))
+
     syntax NonVoidType ::= arrayType(K, K) [strict] // inner type, length
                          | vectorType(K, K) [strict(1)]//inner type, length
                          | functionTypeEval(K, K) [strict]
@@ -120,7 +125,8 @@ module LLVM-ABSTRACTSYNTAX
     rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
                                                         [structural]
     rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
-    rule 'pointerType(K1:KResult,, K2:KResult) => pointerTypeValue(K1, K2) [structural]
+    rule 'pointerType(K1:KResult,, A:OptAddrSpace)
+                     => pointerTypeValue(K1, dealWithAddrSpace(A)) [structural]
 
     //uniform the types.
     rule [ I:UnsignedInt x T:Type ] => arrayType(T,
@@ -129,7 +135,8 @@ module LLVM-ABSTRACTSYNTAX
                                     String2Int(#tokenToString(I)))         [anywhere]
     rule vectorType(K:KResult, I:Int) => vectorTypeValue(K, I)
     //rule 'argTypeTwo(T:Type ,, Pas:ParamAttrs,, )
-    //rule T:Type A:OptAddrSpace * => pointerType(T, A) [structural]
+    //rule T:Type A:OptAddrSpace *
+     //        => pointerType(T, dealWithAddrSpace(A)) [structural]
     //rule { Ts:TypeList } => structType(Ts) [macro]
     //rule < { Ts:TypeList } > => structType(Ts) [macro]
 
@@ -206,6 +213,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalVariable(K, Set, K, K) [strict(3,4)]// Value/Name, Modifiers, Type, Initializer
     syntax KItem ::= modifiers(Set)
     syntax KItem ::= insMetas(ElemList)
+    syntax KItem ::= inAlloca(K)
     syntax KItem ::= alloca(K, K, K) [strict(1,2)] // Type, NumElements, align
     syntax KItem ::= globalAlloca(K, K, K)
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements

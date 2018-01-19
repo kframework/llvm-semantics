@@ -1205,7 +1205,7 @@ module LLVM-HELPERS
          requires A >Int B
 
     syntax Bool ::= isValidAlign(Int) [function]
-    rule isValidAlign(A:Int) => isPowOfTwo(A, 1)
+    rule isValidAlign(A:Int) => isPowOfTwo(A, 1) orBool A ==K 0
 
     syntax KItem ::= getAlign(Set, K) [function]
     rule getAlign(.Set, .K) => 'alignEmpty(.KList)
@@ -1667,6 +1667,12 @@ module LLVM-HELPERS
               operand(T2:K, updateVarInTerm(Cur, C:Int, V2:K, M, RM, Rev)))
    rule updateVarInTerm(Cur:Int, C:Int, unconditional(V:K), M:Map, RM:Map, Rev:Map)
         => unconditional(V:K)
+   rule updateVarInTerm(Cur:Int, C:Int, alloca(T:K, A:K, Al:K),
+                          M:Map, RM:Map, Rev:Map)
+          => alloca(T:K, updateVarInTerm(Cur, C, A, M, RM, Rev), Al:K)
+   rule updateVarInTerm(Cur:Int, C:Int, preAlloca(T:K, A:K),
+                          M:Map, RM:Map, Rev:Map)
+          => preAlloca(T:K, updateVarInTerm(Cur, C, A, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, tailCall(T:K, callee(V:K,
                        arguments(Es:ElemList))), M:Map, RM:Map, Rev:Map)
           => tailCall(T:K, callee(V:K,

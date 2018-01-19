@@ -249,24 +249,28 @@ module LLVM-CALL-RET
 
     // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
     syntax KItem ::= "clearVoid"
-    syntax KItem ::= clearLocalMemory(List)
+    syntax KItem ::= clearLocalMemory(K, Set)
 
     // TODO rename Tail
     rule
         <k> ret(T:KResult, V:KResult) ~> _
-            => clearLocalMemory(Locals)
+            => clearLocalMemory(.K, Locals)
             ~> initializer(T, V) ~> clearVoid
             ~> Tail
         </k>
         <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag)) => .List ...</callStack>
-        <control> <localMemory> Locals:List </localMemory> _ => C </control>
+        <control> <localMemory> Locals:Set </localMemory> _ => C </control>
         <tomasulo> _:Bag => D </tomasulo>
 
+    rule clearLocalMemory(.K, .Set) => .K
+    rule clearLocalMemory(.K, SetItem(A:K) S:Set) => clearLocalMemory(A, S)
     rule
-        <k> clearLocalMemory((ListItem(Base:Int) => .List) _) ...</k>
+        <k> clearLocalMemory((Base:Int => .K), _) ...</k>
         (<object>... <basePtr> Base:Int </basePtr> ...</object> => .)
 
-    rule clearLocalMemory(.List) => .K
+    rule
+        <k> clearLocalMemory((inAlloca(Base:Int) => .K), _) ...</k>
+        (<object>... <basePtr> Base:Int </basePtr> ...</object> => .)
 
     rule initializer(void, V:K) ~> clearVoid => .K
     rule initializer(T:K, V:KResult) ~> clearVoid => V

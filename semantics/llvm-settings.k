@@ -23,4 +23,8 @@ module LLVM-SETTINGS
 
     syntax Int ::= "startMemoryLoc" [function]
     rule startMemoryLoc => 0
+
+    syntax Int ::= "maxStackSize"  [function]
+    rule maxStackSize => 2 *Int (10 ^Int 7)
+
 endmodule

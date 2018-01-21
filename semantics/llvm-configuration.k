@@ -12,8 +12,8 @@ module LLVM-CONFIGURATION
 
     configuration
         <T>//top level
-            <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
-            //this is a cell to calculate the next memory location.
+            <nextBase color="gray"> 0 </nextBase>
+            //this is a cell to calculate the next memory start location.
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
             //this is a cell holding brk pointer
             <exBuffer> .List </exBuffer>
@@ -77,7 +77,7 @@ module LLVM-CONFIGURATION
                     <type> .K </type>
                     <range> .K </range>
                     <size> 0 </size>
-                    <align> 'alignEmpty(.KList) </align>
+                    <packing> 0 </packing>
                     <bytes> .Map </bytes>
                 </object>
             </memory>

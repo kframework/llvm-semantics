@@ -38,6 +38,7 @@ module LLVM-CALL-RET
     // TODO assuming single module
 
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
+    //need to modify the context switching to implement inalloca easily.
 
     rule
         <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K

@@ -989,10 +989,13 @@ module LLVM-SYNTAX
     */
     syntax Ordering ::= "unordered" | "monotonic" | "acquire" | "release"
                          | "acq_rel" | "seq_cst"
-    syntax OptSingleThread ::= "singlethread"
+    syntax SyncScopeKey ::= "singlethread" | "system" | "agent" | "workgroup"
+                           | "wavefront"
+    syntax OptSingleThread ::= "syncscope" "(" "\"" SyncScopeKey "\"" ")"
                              | "" [klabel('singlethreadEmpty),onlyLabel]
-    syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
+    /*syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
                            | "" [klabel('scopeorderEmpty),onlyLabel]
+     */
     syntax OrderingList ::= Ordering | Ordering OrderingList
     syntax OptDistinct ::= "distinct" | "" [klabel('distinctEmpty),onlyLabel]
 

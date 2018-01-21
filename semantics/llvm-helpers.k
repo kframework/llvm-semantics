@@ -346,6 +346,7 @@ module LLVM-HELPERS
     rule sizeofInBits(vectorTypeValue(Type:KResult, Len:Int)) => sizeofInBits(Type) *Int Len
 
     rule sizeofInBits(integerType(N:Int)) => N
+    rule sizeofInBits(half) => 16
     rule sizeofInBits(float) => 32
     rule sizeofInBits(double) => 64
     rule sizeofInBits(x86_fp80) => 80
@@ -451,15 +452,14 @@ module LLVM-HELPERS
     rule formElemList('volatileEmpty(.KList)) => .ElemList
     rule formElemList(volatile) => val(volatile)
     rule formElemList('scopeorderEmpty(.KList)) => .ElemList
-    rule formElemList('optScopeOrder('singlethreadEmpty(.KList),, Or:Ordering))
-                       => val(Or)
-    rule formElemList(singlethread Or:Ordering)
-                       => val(singlethread),val(Or)
+    rule formElemList('singlethreadEmpty(.KList)) => .ElemList
+    rule formElemList(syncscope(" S:SyncScopeKey "))
+                       => val(S),.ElemList
     rule formElemList(, N:UnsignedInt)
-              => val(String2Int(#tokenToString(N)))
+              => val(String2Int(#tokenToString(N))),.ElemList
     rule formElemList(N:UnsignedInt, Cil:ConstantIndexList)
            => val(String2Int(#tokenToString(N))),formElemList(Cil)
-    rule formElemList(X:Ordering) => val(X)
+    rule formElemList(X:Ordering) => val(X),.ElemList
     rule formElemList(X:Ordering Xl:OrderingList)
                  => val(X),formElemList(Xl)
     rule formElemList('argListUnit(.KList)) => .ElemList
@@ -553,8 +553,8 @@ module LLVM-HELPERS
     rule formSet('volatileEmpty(.KList)) => .Set
     rule formSet(volatile) => SetItem(volatile)
     rule formSet('scopeorderEmpty(.KList)) => .Set
-    rule formSet('optScopeOrder('singlethreadEmpty(.KList),, S:Ordering)) => SetItem(S)
-    rule formSet(singlethread S:Ordering) => SetItem(singlethread) SetItem(S)
+    rule formSet('singlethreadEmpty(.KList)) => .Set
+    rule formSet(syncscope(" S:SyncScopeKey ")) => SetItem(S)
     rule formSet(S:Ordering) => SetItem(S)
     rule formSet(S:Ordering Ss:OrderingList) => SetItem(S) formSet(Ss)
     rule formSet(.FastMathFlags) => .Set
@@ -1205,7 +1205,8 @@ module LLVM-HELPERS
          requires A >Int B
 
     syntax Bool ::= isValidAlign(Int) [function]
-    rule isValidAlign(A:Int) => isPowOfTwo(A, 1) orBool A ==K 0
+    rule isValidAlign(A:Int) => 
+          (isPowOfTwo(A, 1) orBool A ==K 0) andBool A <=Int (2 ^Int 29)
 
     syntax KItem ::= getAlign(Set, K) [function]
     rule getAlign(.Set, .K) => 'alignEmpty(.KList)
@@ -1939,5 +1940,41 @@ module LLVM-HELPERS
             InUse:Set, OutDef:Set, OutUse:Set, TheUse:Set), S:Set, M:Map)
          => false
         requires notBool isInDefsWithType(A, .K, OutDef)
+
+
+    syntax KItem ::= nextSym(Int, Int, Int) [function]
+                 //suppose base, Limit, Align
+    rule nextSym(N:Int, Limit:Int, Al:Int) => loc(N, Limit, undef, 0)
+         requires Al ==K 0
+    rule nextSym(N:Int, Limit:Int, Al:Int) => loc(N, Limit, undef, 0)
+         requires Al =/=K 0 andBool Al dividesInt N
+    rule nextSym(N:Int, Limit:Int, Al:Int)
+           => loc((N /Int Al) *Int Al +Int Al, Limit, undef,
+                   (N /Int Al) *Int Al +Int Al -Int N)
+         requires Al =/=K 0 andBool notBool (Al dividesInt N)
+
+    syntax Int ::= nextBase(Int, Int, Int)  [function]
+                 //suppose base, Limit, Align
+    rule nextBase(N:Int, Limit:Int, Al:Int) => N +Int Limit
+         requires Al ==K 0
+    rule nextBase(N:Int, Limit:Int, Al:Int) => N +Int Limit
+         requires Al =/=K 0 andBool Al dividesInt N
+    rule nextBase(N:Int, Limit:Int, Al:Int)
+           => (N /Int Al) *Int Al +Int Al +Int Limit
+         requires Al =/=K 0 andBool notBool (Al dividesInt N)
+
+    syntax Int ::= newPacking(Int, Int, Int) [function]
+                 //suppose base, Limit, Align
+    rule newPacking(N:Int, Limit:Int, Al:Int) => 0
+         requires Al ==K 0
+    rule newPacking(N:Int, Limit:Int, Al:Int) => 0
+         requires Al =/=K 0 andBool Al dividesInt N
+    rule newPacking(N:Int, Limit:Int, Al:Int)
+           => (N /Int Al) *Int Al +Int Al -Int N
+         requires Al =/=K 0 andBool notBool (Al dividesInt N)
+
+    syntax KItem ::= insertLimit(Loc, K) [function]
+    rule insertLimit(loc(A:K, B:K, Limit:K, Align:K), T:K)
+             => loc(A, B, sizeof(T), Align)
 
 endmodule

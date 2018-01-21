@@ -75,8 +75,8 @@ module LLVM-NORMALIZING
                              [strict(3,4,6)]//block, var, t, t*, v, (t,v)lists, mods, instmeta
                    | typeCheckAllocaOp(K, K, K, Int, K, K, K, Set, InstructionMetadatas)
                              [strict(3,5)]//block,var, t, addrspace, int-t, v, align
-                   | typeCheckStore(K, K, K, K, K, K, K, Set, InstructionMetadatas)
-                             [strict(2,4)]//block, t, v, pt, v, align, atomic, mods, instmeta
+                   | typeCheckStore(K, K, K, K, K, K, Set, InstructionMetadatas)
+                             [strict(2,4)]//block, t, v, pt, v, align, mods, instmeta
                    | typeCheckLoad(K, K, K, K, K, K, K, Set, InstructionMetadatas)
                              [strict(3,4)]//block, var, t, pt, v, align, atomic, mods, instmeta
                    | typeCheckIntArgList(K, ElemList)        [strict(2)]
@@ -167,19 +167,20 @@ module LLVM-NORMALIZING
                     Inm:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
                 addNameToString(V1), Ty2:Type, addNameToString(V2),
-                    String2Int(#tokenToString(I)), .K, formSet(Ovl) formSet(align I), Inm)
+                    String2Int(#tokenToString(I)), formSet(Ovl), Inm)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
-                      addNameToString(V1), Ty2:Type, addNameToString(V2), 1, .K, formSet(Ovl), Inm)
+                      addNameToString(V1), Ty2:Type, addNameToString(V2), 0, formSet(Ovl), Inm)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Oac:Atomic
                                                     Ovl:OptVolatile Ty1:Type V1:ValueRef,
                  Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering,
                                           align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
                    addNameToString(V1), Ty2:Type, addNameToString(V2),
-              String2Int(#tokenToString(I)), Oac, formSet(Oac) formSet(Ovl) formSet(Ost Ord) formSet(align I), Ins)
+              String2Int(#tokenToString(I)), formSet(Oac)
+                          formSet(Ovl) formSet(Ost) formSet(Ord), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef,
               X:SymbolicValueRef, load Ovl:OptVolatile
@@ -200,7 +201,7 @@ module LLVM-NORMALIZING
            => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
                                        Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), Oac,
                            formSet(Oac) formSet(Ovl)
-                           formSet(Ost:OptSingleThread Ord:Ordering) formSet(align I), Ins)
+                           formSet(Ost:OptSingleThread) formSet(Ord:Ordering) formSet(align I), Ins)
 /*
     rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas)
@@ -375,6 +376,106 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isValidAlign(Align)
 
+    //deal with type of store
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
+                     Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckSingleArg(Name:SymbolicValueRef, T, V1)
+                 ~> typeCheckSingleArg(Name:SymbolicValueRef,
+                             pointerTypeValue(T:KResult, A:K), V2)
+                 ~> assignUses(Name, TheCount, T, (val(V1),.ElemList))
+                 ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
+                           (val(V2),.ElemList))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,
+                  instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2)),
+                       Mods, insMetas(formElemList(Meta))),storeInst)) </tempBlockMap>
+         requires isValidAlign(Align) andBool notBool (atomic in Mods)
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K,
+                          Align:Int, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckSingleArg(Name:SymbolicValueRef, T, V1)
+                 ~> typeCheckSingleArg(Name:SymbolicValueRef,
+                             pointerTypeValue(T:KResult, A:K), V2)
+                 ~> assignUses(Name, TheCount, T, (val(V1),.ElemList))
+                 ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
+                           (val(V2),.ElemList))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, instruction(store(T:KResult, V1,
+                      operand(pointerTypeValue(T:KResult, A:K), V2)),
+                       Mods, insMetas(formElemList(Meta))),
+                 storeInst)) </tempBlockMap>
+         requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
+                  andBool notBool acquire in Mods
+                  andBool notBool acq_rel in Mods andBool (atomic in Mods)
+                  andBool Align >=Int sizeof(T)
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K,
+                          Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckSingleArg(Name:SymbolicValueRef, integerType(N:Int), V1)
+                 ~> typeCheckSingleArg(Name:SymbolicValueRef,
+                             pointerTypeValue(integerType(N:Int), A:K), V2)
+                 ~> assignUses(Name, TheCount, integerType(N:Int), (val(V1),.ElemList))
+                 ~> assignUses(Name, TheCount, pointerTypeValue(integerType(N:Int), A:K),
+                           (val(V2),.ElemList))
+         ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, instruction(store(integerType(N:Int), V1,
+                      operand(pointerTypeValue(integerType(N:Int), A:K), V2)),
+                       Mods, insMetas(formElemList(Meta))),
+                 storeInst)) </tempBlockMap>
+         requires isValidAlign(Align) andBool N >=Int 8
+                  andBool notBool acquire in Mods
+                  andBool notBool acq_rel in Mods andBool (atomic in Mods)
+                  andBool Align >=Int sizeof(integerType(N:Int))
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
+                 Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store must have simple type that greater than 8 bits.") </output>
+         requires notBool isIntegerType(T) andBool notBool isFloatType(T)
+                  andBool notBool isPointerType(T) andBool atomic in Mods
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int,
+                     Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
+         requires N <Int 8 andBool atomic in Mods
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
+                     Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic store cannot use Acquire ordering.") </output>
+         requires (acquire in Mods orBool acq_rel in Mods) andBool atomic in Mods
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T':KResult, A:K), V2:K, Align:Int,
+                    _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+             T':KResult, V2:K, Align:Int, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: store operand must be a pointer") </output>
+         requires getKLabel(T') =/=KLabel 'pointerTypeValue
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, T':KResult, V:K,
+             Align:Int, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment is not a valid number.") </output>
+         requires notBool isValidAlign(Align)
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult, T':KResult, V:K,
+             Align:Int, Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment must greater than the size of pointee if the store is an atomic store.") </output>
+         requires isValidAlign(Align) andBool atomic in Mods
+                  andBool Align <Int sizeof(T)
 
     //deal with phi of type check
     //there is a big bug in the implementaton of phi function
@@ -929,6 +1030,12 @@ module LLVM-NORMALIZING
          requires T =/=K T'
 
     //type check an arg without specifying the type
+    rule typeCheckSingleArg(Name:SymbolicValueRef,
+                   pointerTypeValue(T:KResult, Ad:KResult), V:K)
+          => exprType(typeCheckPointerExpr(
+              pointerTypeValue(T:KResult, Ad:KResult), V:K))
+             ~> checkUseVarInside(Name, pointerTypeValue(
+                                 T:KResult, Ad:KResult), V:K)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                   vectorTypeValue(T:K, I:Int), V:K)
          => exprType(typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))

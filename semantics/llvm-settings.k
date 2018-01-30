@@ -19,7 +19,7 @@ module LLVM-SETTINGS
     rule numOfReservations => 20
 
     syntax Int ::= "numBytesPerPointer" [function]
-    rule numBytesPerPointer => 4
+    rule numBytesPerPointer => 8
 
     syntax Int ::= "startMemoryLoc" [function]
     rule startMemoryLoc => 0

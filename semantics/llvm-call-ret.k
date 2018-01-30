@@ -56,13 +56,35 @@ module LLVM-CALL-RET
     rule <k> blockExecution(A:K, B:List) => .K ...</k>
          <toExecute> _:K => blockExecution(A:K, B:List) </toExecute>
 
+    //heating/cooling rules for putInMemoryOrder
+    rule constExpr(A:KResult) => constExprVal(A)
+    rule prePutInMemoryOrder(TID:Int, A:Int, B:Int, X:K, T:K) => .K
+         requires T =/=K loadInst andBool T =/=K storeInst 
+    rule prePutInMemoryOrder(TID:Int, A:Int, B:Int, X:K, T:K)
+          => putInMemoryOrder(TID, A, B, X)
+         requires T ==K loadInst orBool T ==K storeInst
+
+    rule putInMemoryOrder(TID:Int, A:Int, B:Int, X:K)
+         => constExpr(X) ~> putInMemoryOrder(TID:Int, A, B, emptyHOLE)
+         requires notBool isLocalVariable(X) andBool X =/=K emptyHOLE
+                 andBool notBool isConstExprVal(X)
+    rule constExprVal(X:K) ~> putInMemoryOrder(TID:Int, A:Int, B:Int, emptyHOLE)
+         => putInMemoryOrder(TID:Int, A, B, constExprVal(X))
+    rule putInMemoryOrder(TID:Int, A:Int, B:Int, X:K)
+           => putInMemoryOrder(TID:Int, A, B, constExprVal(X))
+         requires isLocalVariable(X)
+    rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int, constExprVal(X:K)) => .K ...</k>
+         <toCommit> memList(ML:List (.List => ListItem(singleMem(TID, A, B, X)))) </toCommit>
+
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
                (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</toExecute>
+         <k> (.K => prePutInMemoryOrder(TID, N, Num, getMemVar(In), T)) ~> K:K </k>
          <instQueue> instList(InQueue:List =>
                          InQueue ListItem(dynInstInfo(N, Num,
                                updateVarInTerm(CurN, N, In, M', M, Rev), T))) </instQueue>
          <registers> M:Map </registers>
+        <threadId> TID:Int </threadId>
          <specRegisters> M':Map </specRegisters>
          <reverseChoice> Rev:Map </reverseChoice>
          <currBlock> basicBlockNum(CurN:Int, CurLabel:K) </currBlock>
@@ -142,27 +164,13 @@ module LLVM-CALL-RET
                => instList(Pre L) </instQueue>
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
           requires (T ==K terminators) orBool (T ==K returnInst)
+                   orBool (T ==K callInst)
          [structural]
 
     rule <instQueue> splitQueue(Av:List ListItem(dynInstInfo(BN:Int,
-                  IN:Int, Inst:K, T:K)), L:List, .List)
-                   => instList(removeInst(BN,IN,L)) </instQueue>
+                  IN:Int, Inst:K, T:K)), Pre:List, L:List)
+                   => instList(removeInst(BN,IN,Pre L)) </instQueue>
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
-         [transition]
-
-    rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
-                        IN:Int, Inst:K, T:K)) Pre:List, L:List)
-               => instList(Pre L) </instQueue>
-         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
-          requires (T =/=K terminators) andBool (T =/=K returnInst)
-         [transition]
-
-    rule <instQueue> splitQueue(AV:List, Pre:List,
-                ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)) L:List)
-               => instList(Pre L) </instQueue>
-         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
-          requires (T =/=K terminators) andBool (T =/=K returnInst)
-                  andBool (T =/=K callInst) andBool (isAvailable(Inst))
          [transition]
 
     rule <instQueue> splitQueue(AV:List, Pre:List,
@@ -192,6 +200,8 @@ module LLVM-CALL-RET
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
                L, M[varInstance(BN, X) <- V], M', Rev)) </instQueue>
+         <toCommit> memList(ML:List => updateVarInList(Cur, BN, ML,
+                         M[varInstance(BN, X) <- V], M', Rev)) </toCommit>
          <reverseChoice> Rev:Map </reverseChoice>
          requires BN >Int Cur
 
@@ -267,11 +277,11 @@ module LLVM-CALL-RET
     rule clearLocalMemory(.K, SetItem(A:K) S:Set) => clearLocalMemory(A, S)
     rule
         <k> clearLocalMemory((Base:Int => .K), _) ...</k>
-        (<object>... <basePtr> Base:Int </basePtr> ...</object> => .)
+        (<object>... <chunckRange> value(Base:Int, X:K) </chunckRange> ...</object> => .Bag)
 
     rule
         <k> clearLocalMemory((inAlloca(Base:Int) => .K), _) ...</k>
-        (<object>... <basePtr> Base:Int </basePtr> ...</object> => .)
+        (<object>... <chunckRange> value(Base:Int, X:K) </chunckRange> ...</object> => .Bag)
 
     rule initializer(void, V:K) ~> clearVoid => .K
     rule initializer(T:K, V:KResult) ~> clearVoid => V

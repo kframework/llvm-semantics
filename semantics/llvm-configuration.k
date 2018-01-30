@@ -16,10 +16,9 @@ module LLVM-CONFIGURATION
             //this is a cell to calculate the next memory start location.
             <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
             //this is a cell holding brk pointer
+            <cdb> .Map </cdb> //common data bus
             <exBuffer> .List </exBuffer>
             //a cell to hold all to commit memory ops, simulating computer north bridge
-            <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
-            //a cell to hold the current all memory locations
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             //a helper cell to store all phi edges that have not been type checked
             <checkUseCount> 0 </checkUseCount>
@@ -37,8 +36,8 @@ module LLVM-CONFIGURATION
                     <toExecute> .K </toExecute>
                     <instQueue> instList(.List) </instQueue> //instruction queue
                     <cpu> .K </cpu> //central execution unit
-                    <toCommit> .List </toCommit>
-                    <cdb> .List </cdb> //common data bus
+                    <toCommit> memList(.List) </toCommit>
+                    <memChange> false </memChange>
                     <currChoice> .Map </currChoice>
                     <specChoice> allowChoice(.Map) </specChoice>
                     <reverseChoice> .Map </reverseChoice>
@@ -73,13 +72,21 @@ module LLVM-CONFIGURATION
             </thread>
             <memory color="teal" type="Map"> //main memory, heap
                 <object multiplicity="*" color="LightSkyBlue">
-                    <basePtr color="orange" type="Key"> -1 </basePtr>
-                    <type> .K </type>
-                    <range> .K </range>
-                    <size> 0 </size>
-                    <packing> 0 </packing>
-                    <bytes> .Map </bytes>
+                  <chunckRange> .K </chunckRange>
+                  <chunck> .List </chunck>
+                  <size> -1 </size>
+                  <align> 0 </align>
+                  <range> .K </range>
+                  <complete> .Map </complete>
+                    //use for non atomic loads/stores to count bytes they read/write
+                  <race> .Set </race> //use to store the inst nums when a non-atomic load/store
+                    //is accessing this field. 
                 </object>
+                <memOpList> .List </memOpList>
+                <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
+                <memoryList> .List </memoryList>
+                //a cell to hold the current all memory locations
+                <byteMap> .Map </byteMap>
             </memory>
             // auxiliary cells:
             <output stream="stdout" color="DodgerBlue"> .List </output>

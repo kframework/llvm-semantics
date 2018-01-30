@@ -191,6 +191,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= Zeroinitializer
     syntax KResult ::= blockValue(K)
 
+    syntax KResult ::= intByte(List)
+    syntax KItem ::= countByteResult(List, List)
+
     syntax KItem ::= blockExecutionAux(K) 
     syntax KItem ::= blockExecution(K, List)//prev block with num, inst list
     syntax KItem ::= "blockHOLE"
@@ -223,6 +226,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
     syntax KItem ::= setLabelVars(Map)
     syntax KItem ::= "setLabelVars"
+    syntax KItem ::= memId(Int, Int, Int)//tid, block id, inst id
+    syntax KItem ::= storeOperand(Int, K, K)//tid, type, value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KResult ::= typeOperandResult(K, K)
@@ -238,16 +243,33 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= nextSpecs(Set) //used for map element of specChoice
     syntax KItem ::= splitQueue(List, List, List) //used for instQueue cell
                                      //availables, Pre, remains
+    syntax KItem ::= splitMemList(List, List, List) //used for toCommit cell
+                                     //availables, Pre, remains
     syntax KItem ::= instList(List) //used for instQueue cell
+    syntax KItem ::= memList(List) //used for toCommit cell
+    syntax Kitem ::= pairResult(K, K)
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
+    syntax KItem ::= singleMem(Int, Int, Int, K) //block, inst num, inst
+    syntax KItem ::= writeAByte(K, K, K, Int, Int, Int, Int)
+                   //type value, original value, base, input offset, offset, size
+    syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
+                      //type, value, original base, offset limit, ordering
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)
     syntax KResult ::= dynNoResult(K)
     syntax KItem ::= exprType(K) [strict]
     syntax KItem ::= constExprType(K) [strict]
-
+    syntax KItem ::= prePutInMemoryOrder(Int, Int, Int, K, K)
+    syntax KItem ::= putInMemoryOrder(Int, Int, Int, K)
+    syntax KItem ::= constExpr(K) [strict]
+    syntax KResult ::= constExprVal(K) [strict]
+    syntax KItem ::= memChunck(Int, Int, Int, K, K, Bool, Set, Map)
+              //baseptr, size, align, type, range(heap, static, stack)
+              //initial?, set of sub-base, sub-chunck
+              //if a struct have two field, the base of the second field
+              //== base of first + size of first + align of second.
     //instructions
     syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
     syntax KItem ::= fence(K) [strict]
@@ -398,6 +420,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
     syntax KItem ::= varInstance(Int, SymbolicValueRef)
     syntax KItem ::= "globalVar" | "localVar"
+    syntax KItem ::= "heap" | "stack" | "static"
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= iCmp(K, K, K, K)      [strict(2,3,4)]//op, type, left, right

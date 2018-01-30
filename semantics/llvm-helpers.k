@@ -228,7 +228,73 @@ module LLVM-HELPERS
     rule loc(Base:Int, Offset:Int, Limit:K, Align:K) + Offset':Int
             => loc(Base:Int, Offset:Int +Int Offset':Int, Limit, Align)
 
-    syntax KItem ::= splitBytes(K, K) // value, type
+    //functions to split a whole data into list of bytes
+    syntax KItem ::= splitBytes(K, K) [function]// value, type
+    syntax List ::= splitBytesAux(K, K) [function]
+
+    rule splitBytes(V:KResult, T:K)
+                => region(splitBytesAux(V, T), sizeof(T))
+
+    rule splitBytesAux(V:KResult, integerType(N:Int))
+                  => splitIntByte(V, N, sizeof(integerType(N))
+                 *Int numBitsPerByte)
+    rule splitBytesAux(V:KResult, pointerTypeValue(A:K, B:K))
+                  => splitPointerByte(V, 0, sizeof(
+                             pointerTypeValue(A:K, B:K)))
+    rule splitBytesAux(V:KResult, arrayTypeValue(A:K, B:Int))
+                  => splitArrayByte(V, 0, B, A)
+    rule splitBytesAux(V:KResult, vectorTypeValue(A:K, B:Int))
+                  => splitArrayByte(V, 0, B, A)
+
+    syntax List ::= splitIntByteAux(K, Int) [function]
+                  | splitIntByte(K, Int, Int) [function]
+    rule splitIntByteAux(countByteResult(Re:List, L:List), A:Int)
+          => .List
+         requires A:Int <Int 0
+    rule splitIntByteAux(countByteResult(Re:List, L:List), A:Int)
+          => ListItem(intByte(L))
+         requires A:Int ==Int 0
+    rule splitIntByteAux(countByteResult(Re:List, L:List), A:Int)
+          => splitIntByteAux(countByte(Re, .List, numBitsPerByte),
+               A -Int numBitsPerByte) ListItem(intByte(L))
+         requires A:Int >Int 0
+    rule splitIntByte(A:K, N:Int, B:Int)
+          => splitIntByteAux(countByte(splitIntBits(A, N, B), .List,
+                              numBitsPerByte), B -Int numBitsPerByte)
+
+    syntax List ::= splitPointerByte(K, Int, Int) [function]
+    rule splitPointerByte(zeroinitializer, I:Int, N:Int)
+           => splitPointerByte('nullOfConstValueRef(.KList), I, N)
+    rule splitPointerByte(A:K, I:Int, N:Int)
+             => ListItem(A) splitPointerByte(A:K, I +Int 1, N)
+         requires I <Int N andBool (A ==K undef orBool A ==K poisonVal)
+    rule splitPointerByte(A:K, I:Int, N:Int) => .List
+         requires I >=Int N
+    rule splitPointerByte(X:Loc, I:Int, N:Int)
+             => splitPointerByte(X, I +Int 1, N) ListItem(ptrByte(X, I))
+         requires I <Int N
+    rule splitPointerByte(X:Loc, I:Int, N:Int) => .List
+         requires I >=Int N
+
+    syntax List ::= splitArrayByte(K, Int, Int, K)  [function]
+                  | splitArrayByteAux(ElemList, Int, Int, K)  [function]
+    rule splitArrayByte(X:K, I:Int, N:Int, A:K)
+          => splitBytesAux(X, A) splitArrayByte(X:K, I +Int 1, N, A)
+         requires I <Int N andBool (X ==K undef orBool X ==K poisonVal)
+    rule splitArrayByte(arrayValue(E:ElemList), I:Int, N:Int, A:K)
+          => splitArrayByteAux(E, I, N, A)
+         requires I <Int N
+    rule splitArrayByte(X:K, I:Int, N:Int, A:K) => .List
+         requires I >=Int N
+    rule splitArrayByteAux(.ElemList, I:Int, N:Int, A:K)
+          => splitBytesAux(undef, A) splitArrayByteAux(.ElemList, I +Int 1, N, A)
+         requires I <Int N
+    rule splitArrayByteAux((valValue(X:K),E:ElemList), I:Int, N:Int, A:K)
+          => splitBytesAux(X, A) splitArrayByteAux(E, I +Int 1, N, A)
+         requires I <Int N
+    rule splitArrayByteAux(E:ElemList, I:Int, N:Int, A:K) => .List
+         requires I >=Int N
+
     syntax KItem ::= joinBytes(K, K) [strict(1)]
 
     syntax Int ::= wvalist(List, K)
@@ -1594,6 +1660,8 @@ module LLVM-HELPERS
    rule removeInst(A:Int, B:Int, .List) => .List
    rule removeInst(A:Int, B:Int, ListItem(dynInstInfo(A:Int,
            B:Int, Is:K, T:K)) L:List) => L
+   rule removeInst(Bn:Int, In:Int, ListItem(singleMem(Tid:Int,
+           Bn:Int, In:Int, X:K)) L:List) => L
    rule removeInst(A:Int, B:Int, ListItem(X:K) L:List)
              => ListItem(X:K) (removeInst(A, B, L))
         [owise]
@@ -1617,6 +1685,17 @@ module LLVM-HELPERS
                      In:Int, Inst:K, T:K))
             updateVarInList(Cur, Pre, L, M, RM, Rev)
         requires Bn <Int Pre
+   rule updateVarInList(Cur:Int, Pre:Int, ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, X:SymbolicValueRef)) L:List, M:Map, RM:Map, Rev:Map)
+        => ListItem(singleMem(TID:Int, Bn:Int, In:Int,
+                updateVarInVar(Cur, Bn, X, M, RM, Rev)))
+               updateVarInList(Cur, Pre, L, M, RM, Rev)
+        requires Bn >=Int Pre
+   rule updateVarInList(Cur:Int, Pre:Int, ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, X:K)) L:List, M:Map, RM:Map, Rev:Map)
+        => ListItem(singleMem(TID:Int, Bn:Int, In:Int, X))
+               updateVarInList(Cur, Pre, L, M, RM, Rev)
+        requires Bn <Int Pre orBool notBool isLocalVariable(X)
 
    rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
              (varInstance(Cb, X) |-> V:K) M:Map, RM:Map, Rev:Map)
@@ -1741,6 +1820,10 @@ module LLVM-HELPERS
    syntax Bool ::= isLocalVariable(K) [function]
    rule isLocalVariable(name(localVar, X:K)) => true
    rule isLocalVariable(_:K) => false [owise]
+
+   syntax Bool ::= isConstExprVal(K) [function]
+   rule isConstExprVal(constExprVal(X:K)) => true
+   rule isConstExprVal(_:K) => false [owise]
 
    syntax Set ::= varsToOperands(K, Set)  [function]
    rule varsToOperands(.K, .Set) => .Set
@@ -1944,12 +2027,12 @@ module LLVM-HELPERS
 
     syntax KItem ::= nextSym(Int, Int, Int) [function]
                  //suppose base, Limit, Align
-    rule nextSym(N:Int, Limit:Int, Al:Int) => loc(N, Limit, undef, 0)
+    rule nextSym(N:Int, Limit:Int, Al:Int) => loc(N, 0, Limit, 0)
          requires Al ==K 0
-    rule nextSym(N:Int, Limit:Int, Al:Int) => loc(N, Limit, undef, 0)
+    rule nextSym(N:Int, Limit:Int, Al:Int) => loc(N, 0, Limit, 0)
          requires Al =/=K 0 andBool Al dividesInt N
     rule nextSym(N:Int, Limit:Int, Al:Int)
-           => loc((N /Int Al) *Int Al +Int Al, Limit, undef,
+           => loc((N /Int Al) *Int Al +Int Al, 0, Limit,
                    (N /Int Al) *Int Al +Int Al -Int N)
          requires Al =/=K 0 andBool notBool (Al dividesInt N)
 
@@ -1976,5 +2059,275 @@ module LLVM-HELPERS
     syntax KItem ::= insertLimit(Loc, K) [function]
     rule insertLimit(loc(A:K, B:K, Limit:K, Align:K), T:K)
              => loc(A, B, sizeof(T), Align)
+
+    syntax List ::= decToBin(Int, Int)  [function]
+    rule decToBin(I:Int, 0) => .List 
+    rule decToBin(I:Int, N:Int) => decToBin(I, N -Int 1) ListItem(0)
+         requires I <=Int 0 andBool N >Int 0
+    rule decToBin(I:Int, N:Int) => decToBin(I /Int 2, N -Int 1)
+                               ListItem(I %Int 2)
+         requires I >Int 0 andBool N >Int 0
+
+    syntax List ::= copyOfK(K, Int) [function]
+    rule copyOfK(A:K, N:Int) => .List
+         requires N <=Int 0
+    rule copyOfK(A:K, N:Int) => ListItem(A) copyOfK(A, N -Int 1)
+         requires N >Int 0
+
+    syntax List ::= splitIntBits(K, Int, Int) [function]
+                  //term, real bits, bound byte bits
+    rule splitIntBits(undef, N:Int, B:Int)
+             => copyOfK(undef, B)
+    rule splitIntBits(poisonVal, N:Int, B:Int)
+               => copyOfK(poisonVal, B)
+    rule splitIntBits(zeroinitializer, N:Int, B:Int)
+                => splitIntBits(0, N, B)
+    rule splitIntBits(I:Int, N:Int, B:Int)
+              => copyOfK(undef, numBitsPerByte)
+         requires N <Int 0 orBool B <Int 0 orBool (B -Int N <Int 0)
+    rule splitIntBits(I:Int, N:Int, B:Int)
+              => copyOfK(undef, B -Int N) decToBin(I, N)
+         requires N >=Int 0 andBool (B -Int N >Int 0)
+    rule splitIntBits(I:Int, N:Int, B:Int) => decToBin(I, N)
+         requires N >=Int 0 andBool (B -Int N ==Int 0)
+
+    syntax KItem ::= countByte(List, List, Int) [function]
+    rule countByte(.List, L:List, I:Int) => countByteResult(.List, L)
+         requires I <=Int 0
+    rule countByte(.List, L:List, I:Int)
+                 => countByte(.List, ListItem(undef) L, I -Int 1)
+         requires I >Int 0
+    rule countByte(L:List ListItem(A:K), L1:List, I:Int)
+                 => countByte(L, ListItem(A:K) L1, I -Int 1)
+          requires I >Int 0
+    rule countByte(L:List ListItem(A:K), L1:List, I:Int)
+                 => countByteResult(L:List ListItem(A:K), L1)
+         requires I <=Int 0
+
+    //a function to update toCommit cell with actually memoy op
+    syntax List ::= subPrototypeWithActual(List, Int, Int, Int, List) [function]
+    rule subPrototypeWithActual(.List, TID:Int, BN:Int, IN:Int, S:List) => .List
+    rule subPrototypeWithActual(ListItem(singleMem(TID:Int, BN:Int, IN:Int, X:K)) L:List, 
+                TID, BN, IN, S:List) => S L
+    rule subPrototypeWithActual(ListItem(singleMem(TID:Int, BN:Int, IN:Int, X:K)) L:List, 
+                TID':Int, BN':Int, IN':Int, S:List) => ListItem(singleMem(TID, BN, IN, X:K))
+              subPrototypeWithActual(L, TID', BN', IN', S)
+         requires TID =/=K TID' orBool BN =/=K BN' orBool IN =/=K IN'
+
+    syntax List ::= genWriteBytes(Int, Int, Int, K, K, K,
+                                        Int, Int, Int, Int)  [function]
+          //block, inst, type, Value, ori, Base, offset, offset count, limit
+    rule genWriteBytes(TID:Int, BN:Int, IN:Int,
+                  Ty:K, region(.List, A:Int), V1:K, B:Int, C:Int, I:Int, S:Int)
+            => genWriteBytes(TID, BN, IN, Ty:K, region(.List, A), V1, B, C, I +Int 1, S:Int)
+                    ListItem(singleMem(TID, BN, IN, writeAByte(Ty:K, undef, V1, B, C, I, S)))
+         requires I <Int A
+    rule genWriteBytes(TID, BN:Int, IN:Int, Ty:K, region(ListItem(V:K) L:List, A:Int), V1:K,
+               B:Int, C:Int, I:Int, S:Int)
+            => genWriteBytes(TID, BN:Int, IN:Int, Ty:K, region(L:List, A), V1:K,
+               B:Int, C:Int, I +Int 1, S)
+                   ListItem(singleMem(TID, BN, IN, writeAByte(Ty:K, V, V1:K, B, C, I, S)))
+         requires I <Int A
+    rule genWriteBytes(TID, BN:Int, IN:Int, Ty:K, region(L:List, A:Int), V1:K,
+                   B:Int, C:Int, I:Int, S:Int) => .List
+         requires I >=Int A
+
+    syntax KItem ::= getOrdering(K, Set) [function]
+    rule getOrdering(.K, .Set) => .K
+    rule getOrdering(.K, SetItem(A:K) S:Set) => getOrdering(A, S)
+    rule getOrdering(O:Ordering, S:Set) => O
+    rule getOrdering(A:KItem, S:Set) => getOrdering(.K, S:Set)
+         requires A =/=K unordered andBool A =/=K monotonic
+                  andBool A =/=K acquire andBool A =/=K release
+                  andBool A =/=K acq_rel andBool A =/=K seq_cst
+
+    syntax KItem ::= getMemVar(K) [function]
+    rule getMemVar(assign(X:K, In:K)) => getMemVar(In)
+    rule getMemVar(noAssign(X:K)) => getMemVar(X)
+    rule getMemVar(instruction(X:K, Y:Set, Z:K))
+             => getMemVar(X)
+    rule getMemVar(store(X:K, Y:K, Z:K)) => Z
+    rule getMemVar(load(X:K, Y:K)) => Y
+    rule getMemVar(A:K) => .K [owise]
+
+    syntax Set ::= getSubTypeBase(Int, K)  [function]
+                 | getSubTypeBaseArray(Int, K, Int, Int) [function]
+    rule getSubTypeBase(Base:Int, integerType(N:Int)) => .Set
+    rule getSubTypeBase(Base:Int, pointerTypeValue(_, _)) => .Set
+    rule getSubTypeBase(Base:Int, arrayTypeValue(A:K, N:Int))
+         => getSubTypeBaseArray(Base, A, 0, N)
+    rule getSubTypeBaseArray(Base:Int, A:K, I:Int, N:Int)
+       => SetItem(Base) getSubTypeBase(Base, A)
+           getSubTypeBaseArray(Base +Int sizeof(A), A, I +Int 1, N)
+         requires I <Int N
+    rule getSubTypeBaseArray(Base:Int, A:K, I:Int, N:Int) => .Set
+         requires I >=Int N
+
+    syntax Map ::= getSubTypeChunck(Int, K, K)  [function]
+                 | getSubTypeChunckArray(Int, K, Int, Int, K) [function]
+    rule getSubTypeChunck(Base:Int, integerType(N:Int), R:K) => .Map
+    rule getSubTypeChunck(Base:Int, pointerTypeValue(_, _), R:K) => .Map
+    rule getSubTypeChunck(Base:Int, arrayTypeValue(A:K, N:Int), R:K)
+          => getSubTypeChunckArray(Base, A, 0, N, R)
+    rule getSubTypeChunckArray(Base:Int, A:K, I:Int, N:Int, R:K)
+          => (Base |-> memChunck(Base, sizeof(A), 0, A, R, false, getSubTypeBase(
+                       Base, A), getSubTypeChunck(Base, A, R)))
+                getSubTypeChunckArray(Base +Int sizeof(A), A, I +Int 1, N, R)
+         requires I <Int N
+    rule getSubTypeChunckArray(Base:Int, A:K, I:Int, N:Int, R:K) => .Map
+         requires I >=Int N
+
+    syntax List ::= getTopMemList(Int, Int, Int, Int, K, K) [function]
+    rule getTopMemList(Base:Int, I:Int, N:Int, Size:Int, T:K, R:K)
+          => ListItem(memChunck(Base, Size, 0, T, R, false,
+               SetItem(Base) getSubTypeBase(Base, T),
+                getSubTypeChunck(Base, T, R)))
+            getTopMemList(Base +Int Size, I +Int 1, N, Size, T, R)
+         requires I <Int N
+    rule getTopMemList(Base:Int, I:Int, N:Int, Size:Int, T:K, R:K) => .List
+         requires I >=Int N
+
+    //check if two bases + offsets are in the same memory range 
+    syntax Bool ::= inSameMemRangeAux(Int, Int, Int, Int, K)
+                    //first base, first offset, second base, second offset, range
+                  | inSameMemRange(Int, Int, Int, Int, List)
+    rule inSameMemRangeAux(B:Int, O:Int, B':Int, O':Int, value(X:Int, Y:Int))
+           => (B >=Int X andBool B <Int Y andBool B' >=Int X andBool B' <Int Y)
+            orBool (B +Int O >=Int X andBool B +Int O <Int Y
+                             andBool B' >=Int X andBool B' <Int Y)
+            orBool (B >=Int X andBool B <Int Y
+                        andBool B' +Int O' >=Int X andBool B' +Int O' <Int Y)
+            orBool (B +Int O >=Int X andBool B +Int O <Int Y
+                    andBool B' +Int O' >=Int X andBool B' +Int O' <Int Y)
+    rule inSameMemRange(B:Int, O:Int, B':Int, O':Int, .List) => false
+    rule inSameMemRange(B:Int, O:Int, B':Int, O':Int, ListItem(A:K) L:List)
+           => inSameMemRange(B, O, B', O', L)
+         requires notBool inSameMemRangeAux(B, O, B', O', A)
+    rule inSameMemRange(B:Int, O:Int, B':Int, O':Int, ListItem(A:K) L:List)
+           => true
+         requires inSameMemRangeAux(B, O, B', O', A)
+
+    //determine if a memory op can be executed in toCommit cell
+    syntax KItem ::= getBaseAndOffset(K) [function]
+                   | getBaseAndSize(K) [function]
+    rule getBaseAndOffset(writeAByte(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
+            => pairResult(Ba, Of)
+    rule getBaseAndOffset(atomicWrite(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, A:K))
+            => pairResult(Ba, Of)
+
+    rule getBaseAndSize(writeAByte(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
+            => pairResult(Ba +Int Of, Size)
+    rule getBaseAndSize(atomicWrite(T:K, V:K,V1:K, Ba:Int, Of:Int, Size:Int, A:K))
+            => pairResult(Ba +Int Of, Size)
+
+    syntax Bool ::= isMemAvailable(List, K, List) [function]
+                  | isMemAvailableA(Int, Int, K, List)  [function]
+                  | isMemAvailableB(K, K)  [function]
+                  | isALoc(K) [function]
+
+    rule isALoc(loc(A:K, B:K, C:K, D:K)) => true
+    rule isALoc(A:K) => false [owise]
+    rule isMemAvailableA(B:Int, O:Int, pairResult(Ba:Int, Of:Int), L:List)
+           => notBool inSameMemRange(B, O, Ba, Of, L)
+    rule isMemAvailableB(pairResult(Bo:Int, Size:Int),
+                             pairResult(Boa:Int, Size':Int))
+           => (Bo +Int Size <Int Boa) orBool (Bo >=Int Boa +Int Size')
+
+    rule isMemAvailable(.List, A:K, S:List) => true
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, X:SymbolicValueRef)) L:List, A:K, S:List) => false
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, loc(Base:Int, Offset:Int, Y:K, Z:K))) L:List,
+                      singleMem(TID':Int, Bn':Int,In':Int,W:K), S:List) => false
+         requires notBool isMemAvailableA(Base, Offset, getBaseAndOffset(W), S)
+                  andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, loc(Base:Int, Offset:Int, Y:K, Z:K))) L:List,
+             singleMem(TID':Int, Bn':Int,In':Int,W:K), S:List) => isMemAvailable(L, W, S)
+         requires isMemAvailableA(Base, Offset, getBaseAndOffset(W), S)
+                  andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, X:K)) L:List,
+                      singleMem(TID':Int, Bn':Int,In':Int,W:K), S:List) => false
+         requires notBool isLocalVariable(X) andBool notBool isALoc(X)
+                andBool notBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
+                 andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, X:K)) L:List,
+         singleMem(TID':Int, Bn':Int,In':Int,W:K), S:List) => isMemAvailable(L, W, S)
+         requires notBool isLocalVariable(X) andBool notBool isALoc(X)
+                andBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
+                 andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, X:K)) L:List,
+         singleMem(TID:Int, Bn:Int,In:Int,W:K), S:List) => isMemAvailable(L, W, S)
+          requires notBool isLocalVariable(X)
+
+    //check if an op is a write
+    syntax Bool ::= isAWrite(K) [function]
+    rule isAWrite(writeAByte(T:K, A:K, B:K, C:Int, D:Int, E:Int, F:Int)) => true 
+    rule isAWrite(atomicWrite(T:K, A:K, B:K, C:Int, D:Int, E:Int, F:K)) => true
+    rule isAWrite(A:K) => false [owise]
+
+    syntax Bool ::= rightHitType(List, Int, K) [function]
+    syntax Bool ::= rightHitTypeMap(Map, K, Int, K) [function]
+    rule rightHitType(.List, Base:Int, T:K) => false
+    rule rightHitType(ListItem(memChunck(Base:Int, X:Int, Y:Int, T:K,
+        B:K, I:Bool, Bs:Set, Ne:Map)) L:List, Base:Int, T:K) => true
+    rule rightHitType(ListItem(memChunck(Base:Int, X:Int, Y:Int, T:K,
+        B:K, I:Bool, Bs:Set, Ne:Map)) L:List, Base':Int, T':K) => true
+         requires rightHitTypeMap(Ne, .K, Base', T')
+    rule rightHitType(ListItem(memChunck(Base:Int, X:Int, Y:Int, T:K,
+        B:K, I:Bool, Bs:Set, Ne:Map)) L:List, Base':Int, T':K)
+              => rightHitType(L, Base', T')
+         requires notBool rightHitTypeMap(Ne, .K, Base', T')
+             andBool Base =/=K Base' andBool T =/=K T'
+    rule rightHitTypeMap(.Map, .K, Base:Int, T:K) => false
+    rule rightHitTypeMap((X:K |-> Y:K) M:Map, .K, Base:Int, T:K)
+           => rightHitTypeMap(M, Y, Base, T)
+    rule rightHitTypeMap(M:Map, memChunck(Base:Int, X:Int, Y:Int, T:K,
+        B:K, I:Bool, Bs:Set, Ne:Map), Base:Int, T:K) => true
+    rule rightHitTypeMap(M:Map, memChunck(Base:Int, X:Int, Y:Int, T:K,
+        B:K, I:Bool, Bs:Set, Ne:Map), Base':Int, T':K) => true
+        requires rightHitTypeMap(Ne, .K, Base', T')
+    rule rightHitTypeMap(M, memChunck(Base:Int, X:Int, Y:Int, T:K,
+        B:K, I:Bool, Bs:Set, Ne:Map), Base':Int, T':K)
+         => rightHitTypeMap(M, .K, Base', T')
+        requires notBool rightHitTypeMap(Ne, .K, Base', T')
+              andBool Base =/=K Base' andBool T =/=K T'
+
+    syntax Bool ::= isOverlapAux(Int, Int, K) [function]
+                  | isOverlap(Int, Int, K, Set) [function]
+    rule isOverlapAux(Base:Int, Last:Int, singleMem(Tid, Bn, In,
+                        value(Base':Int, Last':Int)))
+           => (Base >=Int Base' andBool Base <Int Last')
+              orBool (Base <=Int Base' andBool Base' <Int Last)
+    rule isOverlap(Base:Int, Last:Int, .K, .Set) => true
+    rule isOverlap(Base:Int, Last:Int, .K, SetItem(A:K) S:Set) => 
+           isOverlap(Base:Int, Last:Int, A, S:Set)
+    rule isOverlap(Base:Int, Last:Int,
+               singleMem(Tid:Int, Bn:Int, In:Int, X:K), S:Set) => 
+           isOverlap(Base:Int, Last:Int, .K, S:Set)
+         requires notBool isOverlapAux(Base, Last,
+                          singleMem(Tid:Int, Bn:Int, In:Int, X:K))
+    rule isOverlap(Base:Int, Last:Int,
+               singleMem(Tid:Int, Bn:Int, In:Int, X:K), S:Set) => false
+         requires isOverlapAux(Base, Last,
+                          singleMem(Tid:Int, Bn:Int, In:Int, X:K))
+
+    syntax Bool ::= hasInstance(Int, Int, Int, K, Set) [function]
+    rule hasInstance(Tid:Int, Bn:Int, In:Int, .K, .Set) => false
+    rule hasInstance(Tid:Int, Bn:Int, In:Int, .K, SetItem(A:K) S:Set)
+           => hasInstance(Tid, Bn, In, A, S)
+    rule hasInstance(Tid, Bn, In, singleMem(Tid, Bn, In, X:K), S:Set)
+           => true
+    rule hasInstance(Tid, Bn, In, singleMem(Tid', Bn', In', X:K), S:Set)
+            => hasInstance(Tid, Bn, In, .K, S)
+         requires Tid =/=K Tid' orBool Bn =/=K Bn' orBool In =/=K In'
+
+    syntax Map ::= updateMemWithAtomic(Map, Int, K) [function]
+    rule updateMemWithAtomic(M:Map, B:Int, region(.List, A:K)) => M
+    rule updateMemWithAtomic(M:Map, B:Int, region(ListItem(X:K) L:List, A:K))
+           => updateMemWithAtomic(M[B <- X], B +Int 1, region(L, A))
 
 endmodule

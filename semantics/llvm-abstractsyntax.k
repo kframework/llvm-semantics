@@ -155,10 +155,13 @@ module LLVM-ABSTRACTSYNTAX
                orBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
-    syntax Loc ::= loc(K, K, K, K)    // TODO [semantic] base, offset, offset limit, alignment
+    syntax Loc ::= loc(K, K)    // TODO [semantic] base, offset, offset limit, alignment
+    syntax Loc ::= stackLoc(K, K)    // base, offset
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
-
+    syntax KItem ::= dealWithUnnamed(List)
+    syntax KItem ::= resultGlobalMap(Map)
+    syntax KItem ::= noUnnamedResult(K)
     syntax KItem ::= vector(ElemList)           [strict]
     rule vector(E:KResult) => vectorValue(E)
 
@@ -213,12 +216,20 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= invoke(K, K, K, K)//operand, Params, fromLabel toLabel
     syntax KItem ::= initializer(K, K) // type, value
-    syntax KItem ::= globalVariable(K, Set, K, K) [strict(3,4)]// Value/Name, Modifiers, Type, Initializer
+    syntax KItem ::= globalVariable(K, Set, K, K, Int, Int) [strict(3)]
+              // Value/Name, Modifiers, Type, Initializer, address space, align
+    syntax KItem ::= preInit(Set, K, K, K, K, Int, Int) [strict(4)]
+               //modifiers, type, var, location, init, address space, align
+    syntax KItem ::= postInit(Set, K, K, K, Int, Int) [strict(4)]
+               //modifiers, type, var, init, align  
+    syntax KItem ::= globalValue(Set, K, K, K)
+               //modifiers, type, location, content value
     syntax KItem ::= modifiers(Set)
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= inAlloca(K)
-    syntax KItem ::= alloca(K, K, K) [strict(1,2)] // Type, NumElements, align
-    syntax KItem ::= globalAlloca(K, K, K)
+    syntax KItem ::= alloca(K, K, Int, Bool) [strict(1,2)]
+                    // Type, NumElements, align, isConstant?
+    syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K) [strict]//type value
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
@@ -243,15 +254,15 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= nextSpecs(Set) //used for map element of specChoice
     syntax KItem ::= splitQueue(List, List, List) //used for instQueue cell
                                      //availables, Pre, remains
-    syntax KItem ::= splitMemList(List, List, List) //used for toCommit cell
-                                     //availables, Pre, remains
     syntax KItem ::= instList(List) //used for instQueue cell
-    syntax KItem ::= memList(List) //used for toCommit cell
+    syntax KItem ::= memList(List, List, List, List, List)
+            //used for toCommit cell: available to commit, available to commit
+            //already wire, avialable to wire, not available
     syntax Kitem ::= pairResult(K, K)
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
-    syntax KItem ::= singleMem(Int, Int, Int, K) //block, inst num, inst
+    syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
     syntax KItem ::= writeAByte(K, K, K, Int, Int, Int, Int)
                    //type value, original value, base, input offset, offset, size
     syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
@@ -271,7 +282,8 @@ module LLVM-ABSTRACTSYNTAX
               //if a struct have two field, the base of the second field
               //== base of first + size of first + align of second.
     //instructions
-    syntax KItem ::= store(K, K, K) [strict]  // Type, Value, Destination
+    syntax KItem ::= "guessExternal"
+    syntax KItem ::= store(K, K, K, Int) [strict]  // Type, Value, Destination, align
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
@@ -299,7 +311,9 @@ module LLVM-ABSTRACTSYNTAX
     rule case(K:KResult, K') => caseValue(K, K') [structural]
 
     syntax KItem ::= arguments(ElemList) [strict]
-    syntax KItem ::= arg(Set, K, K) // Modifiers, Type, Value/Name
+    syntax KItem ::= arg(Set, K, K) [strict(2)]// Modifiers, Type, Value/Name
+    syntax KResult ::= typedArg(Set, K, K)
+    rule arg(S:Set, T:KResult, A:K) => typedArg(S, T, A)
 
     //@ Conversion Operations
     syntax KItem ::= theTrunc(K, K, K) [strict] // type, op, totype
@@ -407,8 +421,8 @@ module LLVM-ABSTRACTSYNTAX
                      //block, inst, Def Set, insttype, use Set,  InstList, PathList, InstSet, BlockSet
 
     syntax KItem ::= "checkUseVarWait"
-    syntax KItem ::= functionDef(Set, K, K, K, K)  [strict(2)] // Attributes, RetType, Value/Name, Arguments, Body
-    syntax KItem ::= functionDecl(Set, K, K, K)  [strict(2)] // Attributes,Type, Value/Name, Arguments
+    syntax KItem ::= functionDef(Set, K, K, ElemList, K)  [strict(2,4)] // Attributes, RetType, Value/Name, Arguments, Body
+    syntax KItem ::= functionDecl(Set, K, K, ElemList)  [strict(2,4)] // Attributes,Type, Value/Name, Arguments
     syntax KItem ::= typedef(K, K)    [strict(2)]// name, type TODO: modifiers
     syntax KItem ::= fields(ElemList) [strict]
     syntax KItem ::= types(ElemList)  [strict]
@@ -418,9 +432,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= assignType(K, Int, K, K) //block, inst num, var, t
 
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
-    syntax KItem ::= varInstance(Int, SymbolicValueRef)
+    syntax KItem ::= varInstance(Int, K)
     syntax KItem ::= "globalVar" | "localVar"
-    syntax KItem ::= "heap" | "stack" | "static"
+    syntax KItem ::= "either" | "heap" | "stack" | GlobalType
 
     syntax KItem ::= theDefinition(K,K) [strict]
     syntax KItem ::= iCmp(K, K, K, K)      [strict(2,3,4)]//op, type, left, right

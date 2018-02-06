@@ -27,4 +27,7 @@ module LLVM-SETTINGS
     syntax Int ::= "maxStackSize"  [function]
     rule maxStackSize => 2 *Int (10 ^Int 7)
 
+    syntax Int ::= "numBytesFunHeader" [function]
+    rule numBytesFunHeader => 20
+
 endmodule

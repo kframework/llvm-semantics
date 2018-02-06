@@ -551,7 +551,8 @@ module LLVM-SYNTAX
       is known to not be significant and two identical functions can be merged.
     */
     syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
-    syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
+    syntax OptUnnamedAddr ::= "unnamed_addr" | "local_unnamed_addr"
+                            | "" [klabel('unnamedEmpty),onlyLabel]
 
 
     /*@

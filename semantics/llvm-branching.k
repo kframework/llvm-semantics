@@ -31,8 +31,8 @@ module LLVM-BRANCHING
         <specChoice> allowChoice(Cho:Map => .Map) </specChoice>
         <reverseChoice> _:Map => .Map </reverseChoice>
         <restChoice> _:Map => .Map </restChoice>
-         <specRegisters> SRM:Map => cutOffRegs(OldCount, .K, .K, SRM) </specRegisters>
-         <registers> RM:Map => updateMapByMap(RM, .K, .K,
+        <specRegisters> SRM:Map => cutOffRegs(OldCount, .K, .K, SRM) </specRegisters>
+        <registers> RM:Map => updateMapByMap(RM, .K, .K,
                               getOffRegs(OldCount, .K, .K, SRM)) </registers>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
         <currChoice> CurCh:Map => CurCh[Count <- name(Label:K, S:String)] </currChoice>

@@ -29,7 +29,7 @@ module LLVM-PREPROCESSING
           => functionDecl(formSet(Ex) formSet(Vi) formSet(Cl)
                          formSet(Re) formSet(Un) formSet(Fu) formSet(Se)
                          formSet(Co) formSet(Al) formSet(Gc) formSet(Pf) formSet(Pl)
-                         ,addNameToString(Ty),addNameToString(Gl),arguments(formElemList(Ars)))
+                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars))
     rule preFunctionDecl(Dll:OptDllStorageClass Vi:OptVisibilityStyle
                          Cl:OptCallingConv Re:RetAttrs Ty:Type Gl:GlobalName
                          ( Ars:ArgList ) Un:OptUnnamedAddr Fu:FuncAttrs Se:OptSection
@@ -37,7 +37,7 @@ module LLVM-PREPROCESSING
           => functionDecl(formSet(Dll) formSet(Vi) formSet(Cl)
                           formSet(Re) formSet(Un) formSet(Fu) formSet(Se)
                           formSet(Co) formSet(Al) formSet(Gc) formSet(Pf) formSet(Pl)
-                         ,addNameToString(Ty),addNameToString(Gl),arguments(formElemList(Ars)))
+                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars))
 
     syntax KItem ::= preFunctionDef(Function) [function]
 
@@ -49,7 +49,7 @@ module LLVM-PREPROCESSING
          => functionDef(formSet(Li) formSet(Vi) formSet(Dll) formSet(Cl) formSet(Re)
                          formSet(Un) formSet(Fu)
                         formSet(Se) formSet(Co) formSet(Al) formSet(Gc) formSet(Pf) formSet(Pr)
-                         ,addNameToString(Ty),addNameToString(Gl),arguments(formElemList(Ars)),Bl)
+                         ,addNameToString(Ty),addNameToString(Gl),formElemList(Ars),Bl)
 
     syntax ElemList ::= dealWithSectionComdatAndAlign(K, K, K, K, K, K, K, K, K) [function]
     rule dealWithSectionComdatAndAlign(A:K, B:K, C:K, D:K, E:K, F:K, G:K,
@@ -128,16 +128,20 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K ~> typedef(N,opaque)
                , GlobalVars:K, Aliases:K, Functions:K)
+
     rule preModule(N:GlobalVar = Ex:ExternalLinkage Vi:OptVisibilityStyle
                           Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
                           Un:OptUnnamedAddr Exi:OptExternallyInitialized Gl:GlobalType
                           Ty:Type Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar,
+              substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
-                          formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,undef), Aliases:K, Functions:K)
+                          formSet(Dll) formSet(Th) formSet(Un) formSet(Exi)
+                 formSet(Gl) deleteAlign(formSet(Sca)) ,Ty,
+                  emptyHOLE, dealWithAddrSpace(Ad),
+                     getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
 
     rule <k> preModule(N:GlobalValID = Ex:ExternalLinkage Vi:OptVisibilityStyle
                           Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
@@ -147,8 +151,10 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
-                          formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,undef), Aliases:K, Functions:K)
+                          formSet(Dll) formSet(Th) formSet(Un) formSet(Exi)
+            formSet(Gl) deleteAlign(formSet(Sca)),Ty,
+              emptyHOLE, dealWithAddrSpace(Ad),
+                   getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          when String2Int(substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))) ==Int Count
@@ -170,8 +176,10 @@ module LLVM-PREPROCESSING
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, Int2String(Count))
-             ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,undef), Aliases:K, Functions:K)
+             ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Un)
+            formSet(Exi) formSet(Gl) deleteAlign(formSet(Sca)),Ty,
+                emptyHOLE, dealWithAddrSpace(Ad),
+                   getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
 
     rule preModule(N:GlobalVar = Ex:NonExternalLinkage Vi:OptVisibilityStyle
@@ -183,8 +191,10 @@ module LLVM-PREPROCESSING
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
-               formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,Vl), Aliases:K, Functions:K)
+               formSet(Dll) formSet(Th) formSet(Un) formSet(Exi)
+         formSet(Gl) deleteAlign(formSet(Sca)),Ty,
+             addNameToString(Vl), dealWithAddrSpace(Ad),
+                  getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
 
     rule <k> preModule(N:GlobalValID = Ex:NonExternalLinkage Vi:OptVisibilityStyle
                  Dll:OptDllStorageClass Th:OptThreadLocal Ad:OptAddrSpace
@@ -192,10 +202,12 @@ module LLVM-PREPROCESSING
                  Ty:Type Vl:ValueRef Sca:OptSectionComdatAndAlign DL:Module, ModuleAsms:K, TargetLayout:K,
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
-               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, substrString(#tokenToString(N),1
+               Typedefs:K, GlobalVars ~> globalVariable(name(globalVar,
+              substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
-               formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,Vl), Aliases:K, Functions:K)
+               formSet(Dll) formSet(Th) formSet(Un) formSet(Exi)
+            formSet(Gl) deleteAlign(formSet(Sca)),Ty,addNameToString(Vl),dealWithAddrSpace(Ad),
+                      getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          when String2Int(substrString(#tokenToString(N),1
                ,lengthString(#tokenToString(N)))) ==Int Count
@@ -217,8 +229,9 @@ module LLVM-PREPROCESSING
             TargetTriple:K, MetaVars:K, Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
          => preModule(DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K, MetaVars:K,
                Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, Int2String(Count))
-             ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Ad) formSet(Un) formSet(Exi) formSet(Gl) formSet(Sca)
-              ,Ty,Vl), Aliases:K, Functions:K)
+             ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Un)
+                formSet(Exi) formSet(Gl) deleteAlign(formSet(Sca)),Ty,addNameToString(Vl),
+              dealWithAddrSpace(Ad), getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
 
     rule preModule(deplibs = [ Ss:Strings ] DL:Module, ModuleAsms:K, TargetLayout:K, TargetTriple:K

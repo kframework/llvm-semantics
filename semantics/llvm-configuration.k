@@ -12,9 +12,7 @@ module LLVM-CONFIGURATION
 
     configuration
         <T>//top level
-            <nextBase color="gray"> 0 </nextBase>
-            //this is a cell to calculate the next memory start location.
-            <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            <brk> loc(startMemoryLoc, 0) </brk>
             //this is a cell holding brk pointer
             <cdb> .Map </cdb> //common data bus
             <exBuffer> .List </exBuffer>
@@ -25,6 +23,7 @@ module LLVM-CONFIGURATION
             //a counter cell to generate free vars for use checks, should be deleted
             <instructionCounter> 0 </instructionCounter>
             //a counter cell to genearte free vars for instruction location num
+            <tempGlobalVars> .List </tempGlobalVars> //use for store unnamed addr global vars
             <tempUses> .Set </tempUses> //set from use vars
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
             <thread multiplicity="*"> //thread cell
@@ -36,15 +35,27 @@ module LLVM-CONFIGURATION
                     <toExecute> .K </toExecute>
                     <instQueue> instList(.List) </instQueue> //instruction queue
                     <cpu> .K </cpu> //central execution unit
-                    <toCommit> memList(.List) </toCommit>
-                    <memChange> false </memChange>
+                    <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
                     <currChoice> .Map </currChoice>
                     <specChoice> allowChoice(.Map) </specChoice>
                     <reverseChoice> .Map </reverseChoice>
                     <restChoice> .Map </restChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </tomasulo>//simulating tomosulo execution model.
-                <callStack color="Goldenrod"> .List </callStack>
+                <stack>
+                   <stackObject multiplicity="*" color="LightSkyBlue">
+                     <stackChunckRange> .K </stackChunckRange>
+                     <stackChunck> .List </stackChunck>
+                     <stackSize> -1 </stackSize>
+                     <stackAlign> 0 </stackAlign>
+                     <stackRange> .K </stackRange>
+                   </stackObject>
+                   <stackOpList> .List </stackOpList>
+                   <nextStack> 0 </nextStack>
+                    <stackList> .List </stackList>
+                   <callStack color="Goldenrod"> .List </callStack>
+                   <stackMap> .Map </stackMap>
+                </stack>
                 //stack for function calls
                 <control color="LightGoldenrod">
                     <prevBlock color="Orchid"> .K </prevBlock>
@@ -66,7 +77,6 @@ module LLVM-CONFIGURATION
                     <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
                     //the metadatas for the current function
                     <localMemory> .Set </localMemory>
-                    <stackSize> 0 </stackSize>
                     //local memory (stack) 
                 </control> //control panel for function and basic blocks
             </thread>
@@ -82,6 +92,8 @@ module LLVM-CONFIGURATION
                   <race> .Set </race> //use to store the inst nums when a non-atomic load/store
                     //is accessing this field. 
                 </object>
+                <nextBase color="gray"> 0 </nextBase>
+                //this is a cell to calculate the next memory start location.
                 <memOpList> .List </memOpList>
                 <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
                 <memoryList> .List </memoryList>
@@ -118,6 +130,7 @@ module LLVM-CONFIGURATION
                         //the module the function is belong to.
                        <functionName color="orange"> name(globalVar, "") </functionName>
                        //name of the function
+                       <funSize> 0 </funSize>
                        <funModifiers> .Set </funModifiers> //function attributes
                        <varTypes color="teal"> .Map </varTypes> //variable types in a function
                        <returnType> .K </returnType> //return type of the function

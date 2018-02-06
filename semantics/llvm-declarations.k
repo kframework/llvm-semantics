@@ -31,10 +31,10 @@ module LLVM-DECLARATIONS
         <k> theModule(Label:SymbolicValueRef, TargetLayout:K, TargetTriple:K, MetaVars:K
             , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
             => MetaVars
-            ~> Typedefs
-            ~> GlobalVars
-            ~> Aliases
-            ~> Functions
+            ~> (Typedefs
+            ~> (GlobalVars
+            ~> (Aliases
+            ~> Functions)))
         ...</k>
         <currModule> _ => Label </currModule>
         <modules>...
@@ -62,7 +62,7 @@ module LLVM-DECLARATIONS
     //rule funptr(A:SymbolicValueRef) => A
 
     rule
-        <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
+        <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult, F:K)
             => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
          <currentProgPoint> ProgCount:Int => 0 </currentProgPoint>
@@ -74,13 +74,13 @@ module LLVM-DECLARATIONS
                 <funModuleName> ModName </funModuleName>
                 <funModifiers> Attributes </funModifiers>
                 <returnType> RetType </returnType>
-                <formalParameters> Arguments:K </formalParameters>
+                <formalParameters> arguments(Arguments) </formalParameters>
                 <functionName> Label </functionName>
-            ...</function>
-        )
+                <funSize> sizeOfFunArg(Arguments) +Int numBytesFunHeader </funSize>
+            ...</function> )
 
     rule
-        <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K)
+        <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult)
             => .K ...</k>
         <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
@@ -89,8 +89,9 @@ module LLVM-DECLARATIONS
                 <funModuleName> ModName </funModuleName>
                 <funModifiers> Attributes </funModifiers>
                 <returnType> RetType </returnType>
-                <formalParameters> Arguments:K </formalParameters>
+                <formalParameters> arguments(Arguments) </formalParameters>
                 <functionName> Label </functionName>
+                <funSize> sizeOfFunArg(Arguments) +Int numBytesFunHeader </funSize>
             ...</function>
         )
 

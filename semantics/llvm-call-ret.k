@@ -21,7 +21,7 @@ module LLVM-CALL-RET
 
     rule arguments(L:ElemList) => L
 
-    rule arg(A:K, T:K, V:K) => V
+    rule typedArg(A:K, T:K, V:K) => V
 
     // TODO: rename tail
     // grabbing argument names
@@ -74,7 +74,20 @@ module LLVM-CALL-RET
            => putInMemoryOrder(TID:Int, A, B, constExprVal(X))
          requires isLocalVariable(X)
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int, constExprVal(X:K)) => .K ...</k>
-         <toCommit> memList(ML:List (.List => ListItem(singleMem(TID, A, B, X)))) </toCommit>
+         <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
+                ML:List (.List => ListItem(
+                             singleMem(TID, A, B, either, X)))) </toCommit>
+         requires isLocalVariable(X)
+    rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
+                  constExprVal(loc(Ba:Int, Of:Int))) => .K ...</k>
+         <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
+                         ML:List (.List => ListItem(singleMem(TID, A, B,
+                     heap, loc(Ba:Int, Of:Int))))) </toCommit>
+    rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
+                    constExprVal(stackLoc(Ba:Int, Of:Int))) => .K ...</k>
+         <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
+             ML:List (.List => ListItem(singleMem(TID, A, B,
+                    stack, stackLoc(Ba:Int, Of:Int))))) </toCommit>
 
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
@@ -200,8 +213,13 @@ module LLVM-CALL-RET
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
                L, M[varInstance(BN, X) <- V], M', Rev)) </instQueue>
-         <toCommit> memList(ML:List => updateVarInList(Cur, BN, ML,
-                         M[varInstance(BN, X) <- V], M', Rev)) </toCommit>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
+                     Avb':List, ML:List), Ava Ava' Avb Avb',
+                      updateVarInList(Cur, BN, ML,
+                         M[varInstance(BN, X) <- V], M', Rev), Cur, SL, S) </toCommit>
+         <memoryList> S:List </memoryList>
+           <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>
          requires BN >Int Cur
 
@@ -212,6 +230,13 @@ module LLVM-CALL-RET
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
                L, M, M'[X <- V], Rev)) </instQueue>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
+                     Avb':List, ML:List), Ava Ava' Avb Avb',
+                      updateVarInList(Cur, BN,
+               L, M, M'[X <- V], Rev), Cur, SL, S) </toCommit>
+         <memoryList> S:List </memoryList>
+           <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>
          requires BN <=Int Cur
 
@@ -243,7 +268,7 @@ module LLVM-CALL-RET
 
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
-        <k> bind((valValue(Arg:K), Args:ElemList), (val(arg(_, _, Formal:K)), Formals:ElemList))
+        <k> bind((valValue(Arg:K), Args:ElemList), (valValue(typedArg(_, _, Formal:K)), Formals:ElemList))
             => assign(Formal, Arg)
             ~> bind(Args, Formals)
         ...</k>
@@ -266,8 +291,9 @@ module LLVM-CALL-RET
     rule
         <k> ret(T:KResult, V:KResult) ~> _
             => clearLocalMemory(.K, Locals)
-            ~> initializer(T, V) ~> clearVoid
-            ~> Tail
+            ~> (initializer(T, V)
+            ~> (clearVoid
+            ~> Tail))
         </k>
         <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag)) => .List ...</callStack>
         <control> <localMemory> Locals:Set </localMemory> _ => C </control>

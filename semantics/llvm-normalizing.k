@@ -31,12 +31,12 @@ module LLVM-NORMALIZING
 
     rule assignUsesInCall(Name:K, X:K, .ElemList) => .K
     rule <k> assignUsesInCall(Name:K, Count:Int,
-              val(arg(S:Set, T:KResult, V1:K)),E:ElemList)
+              valValue(typedArg(S:Set, T:KResult, V1:K)),E:ElemList)
            => assignUsesInCall(Name:K, Count:Int, E:ElemList) ...</k>
          <tempUses> Uses:Set (.Set => SetItem(varOp(Name, Count, T, V1))) </tempUses>
          requires isLocalVariable(V1)
     rule assignUsesInCall(Name:K, Count:Int,
-               val(arg(S:Set, T:KResult, V1:K)),E:ElemList)
+               valValue(typedArg(S:Set, T:KResult, V1:K)),E:ElemList)
            => assignUsesInCall(Name:K, Count:Int, E:ElemList)
          requires notBool isLocalVariable(V1)
 
@@ -57,11 +57,11 @@ module LLVM-NORMALIZING
                    | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckPointerArgs(K, K, ElemList)
                    | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
-                   | typeCheckExpr(K, K)//t, v
                    | typeCheckPointerExpr(K, K)
                    | typeCheckConstExpr(K, K)   [strict(1)]//type var
                    | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
                    | typeMatch(K, K)            [strict] //type, type
+                   | typeCheckExpr(K, K)//t, v
                    | typeCheckIntExpr(K, K) //type, var
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | typeCheckVectorArg(K, Int, K) //t, integer, terms
@@ -69,7 +69,8 @@ module LLVM-NORMALIZING
                                                 //t, integer, type, value, terms
                    | typeCheckVectorAux(K, K) //t, terms
                    | typeCheckInGepList(K, K, ElemList) //reference type, current type, index list
-                   | typeCheckInGepListStruct(K, K, ElemList, K)//reference type, current type, index_list, structural_list
+                   | typeCheckInGepListStruct(K, K, ElemList, K)
+                             //reference type, current type, index_list, structural_list
                    | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
                    | typeCheckGepOp(K, K, K, K, K, ElemList, Set, InstructionMetadatas)
                              [strict(3,4,6)]//block, var, t, t*, v, (t,v)lists, mods, instmeta
@@ -98,8 +99,10 @@ module LLVM-NORMALIZING
                    | typeCheckIndirectBr(K, K, K, ElemList, ElemList, InstructionMetadatas)
                                           [strict(2)]//block, type, argv, argl, instmeta
                    | typeCheckSelect(K, K, K, K, K, K, K, K, InstructionMetadatas)
-                              [strict(3,5,7)]//block,name type, value, firstT, firstV, secondT, secondV, instmeta
-                   | typeCheckResume(K, K, K, InstructionMetadatas)    [strict(2)] //block, type, value, instmeta
+                              [strict(3,5,7)]
+                        //block,name type, value, firstT, firstV, secondT, secondV, instmeta
+                   | typeCheckResume(K, K, K, InstructionMetadatas)    [strict(2)]
+                             //block, type, value, instmeta
 
 
     //type check distribution function
@@ -143,43 +146,43 @@ module LLVM-NORMALIZING
                          alloca Oil:OptInalloca Ty:Type
                            Oad:OptAddrSpace Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty, dealWithAddrSpace(Oad),
-                                    integerType(32), 1, 0, formSet(Oil), Ins)
+                                    integerType(32), 1, 1, formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                             alloca Oil:OptInalloca Ty:Type,
                align A:UnsignedInt Oad:OptAddrSpace Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef,
                                X,Ty, dealWithAddrSpace(Oad), integerType(32), 1,
-                                     String2Int(#tokenToString(A)), formSet(Oil), Ins)
+                      adjustAlign(String2Int(#tokenToString(A))), formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                         alloca Oil:OptInalloca Ty:Type,
                            It:IntType V:ValueRef Oad:OptAddrSpace Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef, X,Ty,
                dealWithAddrSpace(Oad),It,
-                          addNameToString(V), 0, formSet(Oil), Ins)
+                          addNameToString(V), 1, formSet(Oil), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                alloca Oil:OptInalloca Ty:Type, It:IntType V:ValueRef,
                                    align A:UnsignedInt Oad:OptAddrSpace Ins:InstructionMetadatas)
            => typeCheckAllocaOp(Name:SymbolicValueRef, X, Ty,dealWithAddrSpace(Oad), It,
-                addNameToString(V), String2Int(#tokenToString(A)), formSet(Oil), Ins)
+            addNameToString(V), adjustAlign(String2Int(#tokenToString(A))), formSet(Oil), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
                 addNameToString(V1), Ty2:Type, addNameToString(V2),
-                    String2Int(#tokenToString(I)), formSet(Ovl), Inm)
+                    adjustAlign(String2Int(#tokenToString(I))), formSet(Ovl), Inm)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Ovl:OptVolatile
                   Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
-                      addNameToString(V1), Ty2:Type, addNameToString(V2), 0, formSet(Ovl), Inm)
+                      addNameToString(V1), Ty2:Type, addNameToString(V2), 1, formSet(Ovl), Inm)
     rule typeCheckOp(Name:SymbolicValueRef, K:K, store Oac:Atomic
                                                     Ovl:OptVolatile Ty1:Type V1:ValueRef,
                  Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering,
                                           align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckStore(Name:SymbolicValueRef, Ty1:Type,
                    addNameToString(V1), Ty2:Type, addNameToString(V2),
-              String2Int(#tokenToString(I)), formSet(Oac)
+              adjustAlign(String2Int(#tokenToString(I))), formSet(Oac)
                           formSet(Ovl) formSet(Ost) formSet(Ord), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef,
@@ -187,8 +190,8 @@ module LLVM-NORMALIZING
                   Ty1:Type, Ty2:Type V2:ValueRef, align I:UnsignedInt
                     Inm:InstructionMetadatas)
            => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
-                                Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), .K,
-                           formSet(Ovl) formSet(align I) ,Inm)
+                                Ty2:Type, addNameToString(V2),
+                  adjustAlign(String2Int(#tokenToString(I))), .K, formSet(Ovl), Inm)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, load Ovl:OptVolatile
                   Ty1:Type, Ty2:Type V2:ValueRef
                     Inm:InstructionMetadatas)
@@ -197,11 +200,12 @@ module LLVM-NORMALIZING
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                          load Oac:Atomic Ovl:OptVolatile Ty1:Type,
                  Ty2:Type V2:ValueRef Ost:OptSingleThread Ord:Ordering,
-                                               align I:UnsignedInt Ins:InstructionMetadatas)
+                                       align I:UnsignedInt Ins:InstructionMetadatas)
            => typeCheckLoad(Name:SymbolicValueRef, X, Ty1:Type,
-                                       Ty2:Type, addNameToString(V2), String2Int(#tokenToString(I)), Oac,
-                           formSet(Oac) formSet(Ovl)
-                           formSet(Ost:OptSingleThread) formSet(Ord:Ordering) formSet(align I), Ins)
+                        Ty2:Type, addNameToString(V2),
+                     adjustAlign(String2Int(#tokenToString(I))), Oac,
+                       formSet(Oac) formSet(Ovl)
+                           formSet(Ost:OptSingleThread) formSet(Ord:Ordering), Ins)
 /*
     rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas)
@@ -278,11 +282,11 @@ module LLVM-NORMALIZING
                     integerType(1), V1:K, T1:KResult, V2:K,
                     T1:KResult, V3:K, Meta:InstructionMetadatas)
             => exprType(typeCheckIntArgs(N, integerType(1), val(V1:K),.ElemList))
-               ~> typeCheckSingleArg(N, T1, V2)
-               ~> typeCheckSingleArg(N, T1, V3)
-               ~> assignUses(N, TheCount, integerType(1), val(V1),.ElemList)
-               ~> assignUses(N, TheCount, T1, val(V2),val(V3),.ElemList)
-               ~> assignType(N, TheCount, X, T1) ...</k>
+               ~> (typeCheckSingleArg(N, T1, V2)
+               ~> (typeCheckSingleArg(N, T1, V3)
+               ~> (assignUses(N, TheCount, integerType(1), val(V1),.ElemList)
+               ~> (assignUses(N, TheCount, T1, val(V2),val(V3),.ElemList)
+               ~> assignType(N, TheCount, X, T1))))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, assign(X, instruction(select(integerType(1)
@@ -296,14 +300,14 @@ module LLVM-NORMALIZING
                  vectorTypeValue(T1:KResult, N:Int), V3:K, Meta:InstructionMetadatas)
             => exprType(typeCheckVectorArgs(Name, vectorTypeValue(
                                integerType(1), N:Int), (val(V1:K),.ElemList)))
-               ~> exprType(typeCheckVectorArgs(Name, vectorTypeValue(
+               ~> (exprType(typeCheckVectorArgs(Name, vectorTypeValue(
                                 T1:KResult, N:Int), (val(V2),val(V3),.ElemList)))
-               ~> assignUses(Name, TheCount, vectorTypeValue(
+               ~> (assignUses(Name, TheCount, vectorTypeValue(
                               integerType(1), N:Int), val(V1),.ElemList)
-               ~> assignUses(Name, TheCount, vectorTypeValue(
+               ~> (assignUses(Name, TheCount, vectorTypeValue(
                            T1:KResult, N:Int), val(V2),val(V3),.ElemList)
                ~> assignType(Name, TheCount, X, vectorTypeValue(
-                           T1:KResult, N:Int)) ...</k>
+                           T1:KResult, N:Int))))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount,
@@ -360,7 +364,7 @@ module LLVM-NORMALIZING
          <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, assign(X, instruction(
-                  alloca(T,preAlloca(integerType(I:Int), V), Align),
+                  alloca(T,preAlloca(integerType(I:Int), V), Align, false),
                        Mods, insMetas(formElemList(Meta)))), allocaInst)) </tempBlockMap>
          requires isValidAlign(Align)
 
@@ -376,21 +380,115 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isValidAlign(Align)
 
+    //deal with type of load
+/*
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                     pointerTypeValue(T:KResult, A:K), V2:K,
+                            Align:Int, At:K, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name, pointerTypeValue(T:KResult, A:K), V2)
+                 ~> assignType(Name, X, T) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(
+                       assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta)))),
+                    X, .K, .K, usedLoc(V2),
+                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
+         requires isValidAlign(Align) andBool At =/=K atomic
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int),
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K,
+                           Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name,pointerTypeValue(integerType(N:Int), A:K), V2)
+                 ~> assignType(Name, X, integerType(N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(
+              assign(X, instruction(load(pointerTypeValue(integerType(N:Int), A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta)))),
+                    X, .K, .K, usedLoc(V2),
+                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
+         requires isValidAlign(Align) andBool N >=Int 8
+                  andBool notBool release in Mods
+                  andBool notBool acq_rel in Mods
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                     pointerTypeValue(T:KResult, A:K), V2:K,
+                           Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
+              => typeCheckIntArg(Name,pointerTypeValue(T:KResult, A:K), V2)
+                 ~> assignType(Name, X, T:KResult) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
+         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
+         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
+         <instNumInfo> InfoMap:Map => InfoMap[TheCount
+                  <- instNumInfo(
+                  assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
+                   V2) ,Mods ,insMetas(formElemList(Meta)))),
+                    X, .K, .K, usedLoc(V2),
+                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
+         requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
+                  andBool notBool release in Mods
+                  andBool notBool acq_rel in Mods
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
+                     pointerTypeValue(T:KResult, A:K), V2:K,
+                     Align:Int, atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic load must have simple type that greater than 8 bits.") </output>
+         requires notBool isIntegerType(T) andBool notBool isFloatType(T)
+                  andBool notBool isPointerType(T)
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K,
+                      Align:Int, atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic load must have integer type that greater than 8 bits.") </output>
+         requires N <Int 8
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
+                     pointerTypeValue(integerType(N:Int), A:K), V2:K,
+                      Align:Int, atomic, Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic load cannot use Release ordering.") </output>
+         requires release in Mods orBool acq_rel in Mods
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
+                     pointerTypeValue(T':KResult, A:K), V2:K,
+                     Align:Int, At:K, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: stored value and pointer type do not match") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
+                     T':KResult, V2:K, Align:Int,
+                     At:K, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: store operand must be a pointer") </output>
+         requires getKLabel(T') =/=KLabel 'pointerTypeValue
+
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult, T':KResult,
+                             V:K, Align:Int, At:K, _:Set, _:InstructionMetadatas)
+             ~> K:K => .K </k>
+         <output>... .List => ListItem("error: alignment is not a power of two") </output>
+         requires notBool isValidAlign(Align)
+*/
     //deal with type of store
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
                      Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name:SymbolicValueRef, T, V1)
-                 ~> typeCheckSingleArg(Name:SymbolicValueRef,
+                 ~> (typeCheckSingleArg(Name:SymbolicValueRef,
                              pointerTypeValue(T:KResult, A:K), V2)
-                 ~> assignUses(Name, TheCount, T, (val(V1),.ElemList))
+                 ~> (assignUses(Name, TheCount, T, (val(V1),.ElemList))
                  ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
-                           (val(V2),.ElemList))
+                           (val(V2),.ElemList))))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount,
-                  instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2)),
+                  instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2), Align),
                        Mods, insMetas(formElemList(Meta))),storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool notBool (atomic in Mods)
 
@@ -398,16 +496,16 @@ module LLVM-NORMALIZING
                      pointerTypeValue(T:KResult, A:K), V2:K,
                           Align:Int, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name:SymbolicValueRef, T, V1)
-                 ~> typeCheckSingleArg(Name:SymbolicValueRef,
+                 ~> (typeCheckSingleArg(Name:SymbolicValueRef,
                              pointerTypeValue(T:KResult, A:K), V2)
-                 ~> assignUses(Name, TheCount, T, (val(V1),.ElemList))
+                 ~> (assignUses(Name, TheCount, T, (val(V1),.ElemList))
                  ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
-                           (val(V2),.ElemList))
+                           (val(V2),.ElemList))))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, instruction(store(T:KResult, V1,
-                      operand(pointerTypeValue(T:KResult, A:K), V2)),
+                      operand(pointerTypeValue(T:KResult, A:K), V2), Align),
                        Mods, insMetas(formElemList(Meta))),
                  storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
@@ -419,16 +517,16 @@ module LLVM-NORMALIZING
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                           Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name:SymbolicValueRef, integerType(N:Int), V1)
-                 ~> typeCheckSingleArg(Name:SymbolicValueRef,
+                 ~> (typeCheckSingleArg(Name:SymbolicValueRef,
                              pointerTypeValue(integerType(N:Int), A:K), V2)
-                 ~> assignUses(Name, TheCount, integerType(N:Int), (val(V1),.ElemList))
+                 ~> (assignUses(Name, TheCount, integerType(N:Int), (val(V1),.ElemList))
                  ~> assignUses(Name, TheCount, pointerTypeValue(integerType(N:Int), A:K),
-                           (val(V2),.ElemList))
+                           (val(V2),.ElemList))))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, instruction(store(integerType(N:Int), V1,
-                      operand(pointerTypeValue(integerType(N:Int), A:K), V2)),
+                      operand(pointerTypeValue(integerType(N:Int), A:K), V2), Align),
                        Mods, insMetas(formElemList(Meta))),
                  storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool N >=Int 8
@@ -570,12 +668,12 @@ module LLVM-NORMALIZING
              integerType(1), A:K, L1:SymbolicValueRef,
                      L2:SymbolicValueRef, Meta:InstructionMetadatas)
                  => exprType(typeCheckIntArgs(Name, integerType(1), val(A),.ElemList))
-                   ~> checkUseVarInside(Name, label, L1)
-                    ~> checkUseVarInside(Name, label, L2)
-                    ~> assignUses(Name, TheCount,
+                   ~> (checkUseVarInside(Name, label, L1)
+                    ~> (checkUseVarInside(Name, label, L2)
+                    ~> (assignUses(Name, TheCount,
                        integerType(1), (val(A),.ElemList))
                     ~> assignUses(Name, TheCount,
-                       label, (val(L1),val(L2),.ElemList)) ...</k>
+                       label, (val(L1),val(L2),.ElemList))))) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -1369,8 +1467,9 @@ module LLVM-NORMALIZING
          => typeCheckOp(N, .K, br It:IntType Va:ValueRef ,
                                        label La1:ValueRef , label La2:ValueRef
                                   Meta:InstructionMetadatas)
-             ~> setOutEdge(N, getOutEdges(La1)) ~> setOutEdge(N, getOutEdges(La2))
-             ~> checkSingleAssignmentInBlock(N, .K, false)
+             ~> (setOutEdge(N, getOutEdges(La1))
+               ~> (setOutEdge(N, getOutEdges(La2))
+             ~> checkSingleAssignmentInBlock(N, .K, false)))
 
     rule checkSingleAssignmentInBlock(N:SymbolicValueRef, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas, _:Bool)
@@ -1393,9 +1492,9 @@ module LLVM-NORMALIZING
          => typeCheckOp(N, .K, switch It:IntType Va:ValueRef ,
                                        label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas)
-             ~> setOutEdge(N, val(addNameToString(La)))
-                 ~> setOutEdge(N, getOutEdges(Ju))
-             ~> checkSingleAssignmentInBlock(N, .K, false)
+             ~> (setOutEdge(N, val(addNameToString(La)))
+                 ~> (setOutEdge(N, getOutEdges(Ju))
+             ~> checkSingleAssignmentInBlock(N, .K, false)))
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, unreachable
                                   Meta:InstructionMetadatas, _:Bool)
@@ -1991,16 +2090,16 @@ create an abstract for fence and do the same for fence operation.
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M))
-                  ~> setLoopFlag
-                  ~> setLabelVars
+                  ~> (setLoopFlag
+                  ~> (setLabelVars
                   ~> calDefUse(.K, SetItem(InitName), .Set)
                   //~> setBlockPaths(.K, keys(M))
                   //~> setBlockInDefs(.K, keys(M))
                   //~> setBlockInUses(.K, keys(M))
                   //~> setBlockDependencies(.K, keys(M))
-                  ~> checkingPhisInEdges
-                  ~> checkUseVarInPhi
-                    ~> checkUseVars ...</k>
+                  ~> (checkingPhisInEdges
+                  ~> (checkUseVarInPhi
+                    ~> checkUseVars)))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <initialBasicBlock> InitName:SymbolicValueRef </initialBasicBlock>

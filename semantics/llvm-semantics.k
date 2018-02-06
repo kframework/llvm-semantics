@@ -523,226 +523,292 @@ module LLVM-MEMORY
     rule preAlloca(integerType(I:Int), N:Int)
               => normalizingInt(integerType(I:Int), N) [structural]
 
-
-    //use to alloc the memory for gloable variables.
-/*
-    rule
-        <k> globalAlloca(Type:KResult, N:Int, Al:K)
-                          => nextSym(Base, sizeof(Type) *Int N, Al) ...</k>
+    rule <k> globalAlloca(Type:KResult, N:Int, Al:Int, Con:Bool)
+                          => nextMemSym(Base, Al) ...</k>
         (.Bag =>
             <object>...
-                <basePtr> base(nextSym(Base, sizeof(Type) *Int N, Al)) </basePtr>
-                <type> void </type>
-                <packing> newPacking(Base, sizeof(Type) *Int N, Al) </packing>
-                <range> globalVar </range>
-                <size> sizeof(Type) *Int N </size>
-            ...</object>
-        )
-        <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
-        <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
-                               sizeof(Type) *Int N, Al)) </memoryRange>
-        requires N >Int 0
-
-    rule
-        <k> globalAlloca(Type:KResult, N:Int, Al:K) ~> K:K
-                          => .K </k>
-         <output>... .List => ListItem("error: undefined behavior due to alloca a zero byte.") </output>
-        requires N ==Int 0
-
-    rule
-        <k> alloca(Type:KResult, N:Int, Al:K) ~> K:K
-                          => .K </k>
-         <output>... .List => ListItem("error: undefined behavior due to alloca a zero byte.") </output>
-        requires N ==Int 0
-*/
-    rule
-        <k> alloca(Type:KResult, N:Int, Al:K) ~> K:K
-                          => .K </k>
-        <stackSize> X:Int </stackSize>
-        <nextBase> Base:Int </nextBase>
-         <output>... .List => ListItem("error: undefined behavior due to stack overflow.") </output>
-        requires N >Int 0 andBool (X +Int nextBase(Base,
-                sizeof(Type) *Int N, Al) -Int
-                 base(nextSym(Base, sizeof(Type) *Int N, Al))) >=Int maxStackSize
-
-    rule
-        <k> alloca(Type:KResult, N:Int, Al:K)
-                          => nextSym(Base, sizeof(Type) *Int N, Al) ...</k>
-        (.Bag =>
-            <object>... <chunck> getTopMemList(base(nextSym(Base, sizeof(Type) *Int N, Al)),
-                       0, N, sizeof(Type), Type, stack) </chunck>
-             <chunckRange> value(base(nextSym(Base, sizeof(Type) *Int N, Al)),
+           <chunck> getTopMemList(base(nextMemSym(Base, Al)),
+                       0, N, sizeof(Type), Type,
+                        getRangeFromFlagInHeap(Con)) </chunck>
+             <chunckRange> value(base(nextMemSym(Base, Al)),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </chunckRange>
              <size> N </size> 
-             <range> stack </range> 
-             <align> newPacking(Base, sizeof(Type) *Int N, Al) </align> ...</object> )
-        <currentModifiers> Mods:Set </currentModifiers>
-        <memoryList> MRL:List (.List => ListItem(value(base(nextSym(Base, sizeof(Type)
-             *Int N, Al)), nextBase(Base, sizeof(Type) *Int N, Al)))) </memoryList>
-        <localMemory>... .Set => SetItem(base(nextSym(Base,
-                         sizeof(Type) *Int N, Al))) </localMemory>
-        <stackSize> X:Int => X +Int nextBase(Base,
-                   sizeof(Type) *Int N, Al) -Int base(nextSym(Base,
-                                 sizeof(Type) *Int N, Al)) </stackSize>
+             <range> getRangeFromFlagInHeap(Con) </range> 
+             <align> newPacking(Base, Al) </align>
+                       ...</object> )
+        <memoryList> MRL:List (.List => ListItem(value(base(nextMemSym(Base, Al)),
+                     nextBase(Base, sizeof(Type) *Int N, Al)))) </memoryList>
         <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
         <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
                             sizeof(Type) *Int N, Al)) </memoryRange>
-        requires N >Int 0 andBool (X +Int nextBase(Base,
-                   sizeof(Type) *Int N, Al) -Int base(nextSym(Base,
-                                 sizeof(Type) *Int N, Al))) <Int maxStackSize
+        requires (sizeof(Type) *Int N) >Int 0
+
+    rule <k> globalAlloca(Type:KResult, N:Int, Al:Int, Con:Bool) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("error: undefined behavior due to malloc zero bype.") </output>
+        requires (sizeof(Type) *Int N) <=Int 0
+
+    rule <k> alloca(Type:KResult, N:Int, Al:Int, Con:Bool) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("error: undefined behavior due to alloca zero bype.") </output>
+        requires (sizeof(Type) *Int N) <=Int 0
+
+    rule <k> alloca(Type:KResult, N:Int, Al:Int, B:Bool) ~> K:K => .K </k>
+        <nextStack> Base:Int </nextStack>
+        <output>... .List => ListItem("error: undefined behavior due to stack overflow.") </output>
+        requires (sizeof(Type) *Int N) >Int 0 andBool (nextBase(Base,
+                sizeof(Type) *Int N, Al)) >=Int maxStackSize
+
+    rule <k> alloca(Type:KResult, N:Int, Al:Int, Con:Bool)
+                          => nextStackSym(Base, Al) ...</k>
+        (.Bag =>
+            <stackObject>...
+           <stackChunck> getTopMemList(base(nextStackSym(Base, Al)),
+                       0, N, sizeof(Type), Type, getRangeFromFlagInStack(Con)) </stackChunck>
+             <stackChunckRange> value(base(nextStackSym(Base, Al)),
+                    nextBase(Base, sizeof(Type) *Int N, Al)) </stackChunckRange>
+             <stackSize> N </stackSize> 
+             <stackRange> getRangeFromFlagInStack(Con) </stackRange> 
+             <stackAlign> newPacking(Base, Al) </stackAlign>
+                       ...</stackObject> )
+        <currentModifiers> Mods:Set </currentModifiers>
+        <stackList> MRL:List (.List => ListItem(value(base(nextStackSym(Base, Al)),
+                     nextBase(Base, sizeof(Type) *Int N, Al)))) </stackList>
+        <localMemory>... .Set => SetItem(base(nextStackSym(Base, Al))) </localMemory>
+        <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
+        requires (sizeof(Type) *Int N) >Int 0 andBool (nextBase(Base,
+                   sizeof(Type) *Int N, Al)) <Int maxStackSize
                    andBool notBool ('inallocaOfAlloca(.KList) in Mods)
 
     rule
-        <k> alloca(Type:KResult, N:Int, Al:K)
-                          => nextSym(Base, sizeof(Type) *Int N, Al) ...</k>
+        <k> alloca(Type:KResult, N:Int, Al:K, Con:Bool)
+                          => nextStackSym(Base, Al) ...</k>
         (.Bag =>
-            <object>... <chunck> getTopMemList(base(nextSym(Base, sizeof(Type) *Int N, Al)),
-                       0, N, sizeof(Type), Type, stack) </chunck>
-             <chunckRange> value(base(nextSym(Base, sizeof(Type) *Int N, Al)),
-                    nextBase(Base, sizeof(Type) *Int N, Al)) </chunckRange>
-             <size> N </size> 
-             <range> stack </range> 
-             <align> newPacking(Base, sizeof(Type) *Int N, Al) </align> ...</object> )
+            <stackObject>...
+          <stackChunck> getTopMemList(base(nextStackSym(Base, Al)),
+                       0, N, sizeof(Type), Type,
+                            getRangeFromFlagInStack(Con)) </stackChunck>
+             <stackChunckRange> value(base(nextStackSym(Base, Al)),
+                    nextBase(Base, sizeof(Type) *Int N, Al)) </stackChunckRange>
+             <stackSize> N </stackSize> 
+             <stackRange> getRangeFromFlagInStack(Con) </stackRange> 
+             <stackAlign> newPacking(Base, Al) </stackAlign>
+                ...</stackObject> )
         <currentModifiers> Mods:Set </currentModifiers>
-        <memoryList> MRL:List (.List => ListItem(value(base(nextSym(Base, sizeof(Type)
-             *Int N, Al)), nextBase(Base, sizeof(Type) *Int N, Al)))) </memoryList>
-        <localMemory>... .Set => SetItem(inAlloca(base(nextSym(Base,
-                                sizeof(Type) *Int N, Al)))) </localMemory>
-        <stackSize> X:Int => X +Int nextBase(Base,
-                   sizeof(Type) *Int N, Al) -Int base(nextSym(Base,
-                                 sizeof(Type) *Int N, Al)) </stackSize>
+        <stackList> MRL:List (.List => ListItem(value(base(nextStackSym(Base, Al)),
+                     nextBase(Base, sizeof(Type) *Int N, Al)))) </stackList>
+        <localMemory>... .Set => SetItem(inAlloca(
+                           base(nextStackSym(Base, Al)))) </localMemory>
         <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
-        <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
-                            sizeof(Type) *Int N, Al)) </memoryRange>
-        requires N >Int 0 andBool (X +Int nextBase(Base,
-                   sizeof(Type) *Int N, Al) -Int base(nextSym(Base,
-                                 sizeof(Type) *Int N, Al))) <Int maxStackSize
+        requires N >Int 0 andBool (nextBase(Base,
+                   sizeof(Type) *Int N, Al)) <Int maxStackSize
               andBool ('inallocaOfAlloca(.KList) in Mods)
 
     //DONE: TODO: store must save to a pointer type
-    rule
-        <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int, Limit:Int, Align:K))
-            => dynNoResult(undef)
-        ...</k>
-        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
-        <memChange> false => true </memChange>
-        <toCommit> memList(ML:List => subPrototypeWithActual(ML, TID, B, In,
-                      genWriteBytes(TID, B, In, Type, splitBytes(V, Type),
-                         storeOperand(TID, Type, V),
-                            Base, Offset, 0, sizeof(Type)))) </toCommit>
-        <currentModifiers> Mods:Set </currentModifiers>
-        <threadId> TID:Int </threadId>
-        <memoryRange> value(I:Int, F:Int) </memoryRange>
-        requires Base <=Int F andBool Base >=Int I
-                 andBool Base +Int Limit <=Int F andBool Base +Int Limit >=Int I
-                 andBool Offset +Int sizeof(Type) <Int Limit andBool Offset >=Int 0
-                 andBool notBool atomic in Mods
-
-    rule
-        <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int, Limit:Int, Align:K))
-            => dynNoResult(undef)
-        ...</k>
-        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
-        <memChange> false => true </memChange>
-        <toCommit> memList(ML:List => subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In,
-                       atomicWrite(Type, splitBytes(V, Type), storeOperand(TID, Type, V), Base,
-               Offset, sizeof(Type), getOrdering(.K, Mods)))))) </toCommit>
-        <currentModifiers> Mods:Set </currentModifiers>
-        <threadId> TID:Int </threadId>
-        <memoryRange> value(I:Int, F:Int) </memoryRange>
-        requires Base <=Int F andBool Base >=Int I
-                 andBool Base +Int Limit <=Int F andBool Base +Int Limit >=Int I
-                 andBool Offset +Int sizeof(Type) <Int Limit andBool Offset >=Int 0
-                 andBool atomic in Mods
-
     rule <k> store(Type:KResult, V:KResult, loc(Base:Int,
-                      Offset:K, Limit:Int, Align:K)) ~> K:K
+                        Offset:Int), RA:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+                 Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      genWriteBytes(TID, B, In, heap, Type, splitBytes(V, Type),
+                         storeOperand(TID, Type, V),
+                            Base, Offset, 0, sizeof(Type))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInMemRange(MOL, Base +Int Offset, sizeof(Type))
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool notBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> store(Type:KResult, V:KResult, stackLoc(Base:Int,
+                        Offset:Int), RA:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      genWriteBytes(TID, B, In, stack, Type, splitBytes(V, Type),
+                         storeOperand(TID, Type, V),
+                            Base, Offset, 0, sizeof(Type))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInStackRange(SL, Base +Int Offset, sizeof(Type), LocalStack)
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool notBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int), RA:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In, heap, atomicWrite(Type,
+                     splitBytes(V, Type), storeOperand(TID, Type, V), Base,
+               Offset, sizeof(Type), getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInMemRange(MOL, Base +Int Offset, sizeof(Type))
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int), RA:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In,stack, atomicWrite(Type,
+                     splitBytes(V, Type), storeOperand(TID, Type, V), Base,
+               Offset, sizeof(Type), getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInStackRange(SL, Base +Int Offset, sizeof(Type), LocalStack)
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:K), RA:Int) ~> K:K
             => .K </k>
-        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of memory") </output>
-        requires Offset +Int sizeof(Type) >=Int Limit orBool Offset <Int 0
+        <output>... .List => ListItem("error: undefied behavior because store align set up overestimated") </output>
+         requires notBool (RA dividesInt (Base +Int Offset))
+
+    rule <k> store(Type:KResult, V:KResult, stackLoc(Base:Int, Offset:K), RA:Int) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefied behavior because store align set up overestimated") </output>
+         requires notBool (RA dividesInt (Base +Int Offset))
+
+    rule <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:K), RA:Int) ~> K:K
+            => .K </k>
+        <memoryList> MOL:List </memoryList>
+        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of memory.") </output>
+        requires (notBool isInMemRange(MOL, Base +Int Offset, sizeof(Type))
+                orBool Offset >=Int sizeof(Type) orBool Offset <Int 0)
+
+    rule <k> store(Type:KResult, V:KResult, stackLoc(Base:Int, Offset:K), RA:Int) ~> K:K
+            => .K </k>
+        <stackList> MOL:List </stackList>
+        <localMemory> LocalStack:Set </localMemory>
+        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of stack.") </output>
+        requires (notBool isInStackRange(MOL, Base +Int Offset, sizeof(Type),LocalStack)
+                orBool Offset >=Int sizeof(Type) orBool Offset <Int 0)
 
     rule
-        <k> store(Type:KResult, V:KResult, A:KResult) ~> K:K
+        <k> store(Type:KResult, V:KResult, A:KResult, RA:Int) ~> K:K
             => .K </k>
         <output>... .List => ListItem("error: undefined behavior because store to a non-location.") </output>
-        requires getKLabel(A) =/=KLabel 'loc
-
-    rule
-        <k> store(Type:KResult, V:KResult, loc(Base:Int, Offset:Int, Limit:K, Align:K))
-            ~> K:K  => .K </k>
-        <memoryRange> value(I:Int, F:Int) </memoryRange>
-        <output>... .List => ListItem("error: undefined behavior memory location out of range") </output>
-        requires Base >Int F orBool Base <Int I
-                 orBool Base +Int Offset >Int F orBool Base +Int Offset <Int I
+        requires notBool isALoc(A)
 
     //commit cell to memory cell
-    rule <toCommit> memList(instList(ListItem(A:K) L:List))
-                      => splitMemList(.List, ListItem(A), L) </toCommit>
-         <memChange> true => false </memChange>
-    rule <toCommit> splitMemList(.List, L:List, .List)
-                    => memList(L) </toCommit>
-
-    rule <toCommit> splitMemList(AV:List ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, writeAByte(T:K, V:K, V1:K,
-                 Base:Int, Offset:Int, 0, Size:Int))), Pre:List, L:List)
-                    => splitMemList(AV, removeInst(Bn,In,Pre), L) </toCommit>
-         <memOpList> L:List (.List => ListItem(singleMem(TID, Bn:Int,
-                        In:Int, writeAByte(T:K, V:K, V1:K,
-                 Base:Int, Offset:Int, 0, Size:Int)))) </memOpList>
-         <cdb> M:Map => M[Base +Int Offset <- V1] </cdb>
+    rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, stack, Op:K)) S:List, Not:List)
+             => memList(Ava:List, Ava':List, Avb:List
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int,stack, Op:K)), S:List, Not:List) </toCommit>
+         <specRegisters> M:Map => M[varInstance(Bn, getTheLoc(stack, Op))
+                                        <- getValueInWrite(Op)] </specRegisters>
+         requires isAWrite(Op)
          [transition]
 
-    rule <toCommit> splitMemList(AV:List ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, writeAByte(T:K, V:K, V1:K,
-                 Base:Int, Offset:Int, Other:Int, Size:Int))), Pre:List, L:List)
-                    => splitMemList(AV, removeInst(Bn,In,Pre), L) </toCommit>
-         <memOpList> L:List (.List => ListItem(singleMem(TID, Bn:Int,
-                        In:Int, writeAByte(T:K, V:K, V1:K,
-                 Base:Int, Offset:Int, Other, Size:Int)))) </memOpList>
-         requires Other =/=K 0
+    rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, Ran:K, Op:K)) S:List, Not:List)
+             => memList(Ava:List, Ava':List, Avb:List
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int,Ran, Op:K)), S:List, Not:List) </toCommit>
+         requires notBool isAWrite(Op)
          [transition]
 
-    rule <toCommit> splitMemList(AV:List ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, atomicWrite(T:K, V:K, V1:K, Base:Int,
-                      Off:Int, Size:Int, Order:K))), Pre:List, L:List)
-                    => splitMemList(AV, removeInst(Bn,In,Pre), L) </toCommit>
-         <memOpList> L:List (.List => ListItem(singleMem(TID, Bn:Int,
-                        In:Int, atomicWrite(T:K, V:K, V1:K, Base:Int,
-                      Off:Int, Size:Int, Order:K)))) </memOpList>
-         <cdb> M:Map => M[Base +Int Off <- V1] </cdb>
+    rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K)) S:List, Not:List)
+             => memList(Ava:List, Ava':List, Avb:List
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int,heap, Op:K)), S:List, Not:List) </toCommit>
+         <cdb> M:Map => M[singleMem(TID:Int, Bn:Int, In:Int,heap, getTheLoc(heap, Op))
+                                        <- getTypeValueInWrite(Op)] </cdb>
+         requires isAWrite(Op)
          [transition]
 
-    rule <toCommit> splitMemList(AV:List ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, W:K)), Pre:List, L:List)
-                    => splitMemList(AV, removeInst(Bn,In,Pre), L) </toCommit>
-         <memOpList> L:List (.List => ListItem(singleMem(TID, Bn:Int,
-                        In:Int, W:K))) </memOpList>
-         requires notBool isAWrite(W)
+    rule <toCommit> memList(Ava:List ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, stack, Op:K)),
+                 Ava':List, Avb:List, S:List, Not:List)
+             => memList(Ava, Ava', Avb:List, S:List, Not:List) </toCommit>
+         <stackOpList> Ops:List (.List => ListItem(Op)) </stackOpList>
          [transition]
 
-    rule <toCommit> splitMemList(AV:List, Pre:List, ListItem(singleMem(Tid:Int,
-                  Bn:Int, In:Int, W:K)) L:List)
-                 => splitMemList(AV ListItem(singleMem(Tid:Int,
-                  Bn:Int, In:Int, W:K)), Pre ListItem(singleMem(Tid:Int,
-                  Bn:Int, In:Int, W:K)), L) </toCommit>
-         <memoryList> S:List </memoryList>
-         requires isMemAvailable(Pre, singleMem(Tid:Int,
-                                     Bn:Int, In:Int, W:K), S)
+    rule <toCommit> memList(Ava:List ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K)),
+                 Ava':List, Avb:List, S:List, Not:List)
+             => memList(Ava, Ava', Avb:List, S:List, Not:List) </toCommit>
+         <memOpList> Ops:List (.List => ListItem(Op)) </memOpList>
          [transition]
 
-    rule <toCommit> splitMemList(AV:List, Pre:List, ListItem(singleMem(Tid:Int,
-                  Bn:Int, In:Int, W:K)) L:List)
-                 => splitMemList(AV, Pre ListItem(singleMem(Tid:Int,
-                  Bn:Int, In:Int, W:K)), L) </toCommit>
-         <memoryList> S:List </memoryList>
-         requires notBool isMemAvailable(Pre, singleMem(Tid:Int,
-                  Bn:Int, In:Int, W:K), S)
+    rule <toCommit> memList(Ava:List, ListItem(X:K) Ava':List,
+                     Avb:List, S:List, Not:List)
+             => memList(Ava:List ListItem(X:K), Ava':List,
+                     Avb:List, S:List, Not:List) </toCommit>
          [transition]
 
-    //actually write the value into the memory
-    //first deal with writing non atomic store
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <toCommit> memList(Ava:List ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, stack, Op:K)), .List,
+                                         Avb:List, S:List, Not:List)
+             => memList(Ava, .List, Avb:List, S:List, Not:List) </toCommit>
+         <stackOpList> Ops:List (.List => ListItem(Op)) </stackOpList>
+         [structural]
+
+    rule <toCommit> memList(Ava:List ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K)), .List,
+                                         Avb:List, S:List, Not:List)
+             => memList(Ava, .List, Avb:List, S:List, Not:List) </toCommit>
+         <memOpList> Ops:List (.List => ListItem(Op)) </memOpList>
+         [structural]
+
+    //non-atomic write stack
+    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
+                  Other:Int, Size:Int))) => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck>
+            ...</stackObject>
+         <stackMap> BM:Map => BM[Base +Int Off +Int Other <- V] </stackMap>
+         requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
+                 andBool rightHitType(CL, Base +Int Off, T)
+
+    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
+                  Other:Int, Size:Int))) => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List => getTopMemList(Base +Int Off,
+                       0, Size, sizeof(T), T, Rg) </stackChunck>
+         <stackRange> Rg:K </stackRange>
+            ...</stackObject>
+         <stackMap> BM:Map => BM[Base +Int Off +Int Other <- V] </stackMap>
+         requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
+                 andBool notBool rightHitType(CL, Base +Int Off, T)
+
+    //non-atomic write in heap
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, 1))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -755,13 +821,13 @@ module LLVM-MEMORY
                  andBool notBool isOverlap(Base +Int Off, 1, .K, Races)
                  andBool notBool hasInstance(Tid, Bn, In, .K, Races)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, Size:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <chunck> CL:List </chunck>
          <race> Races:Set (.Set => SetItem(
-                             singleMem(Tid, Bn, In, value(Base +Int Off,
+                   singleMem(Tid, Bn, In, heap, value(Base +Int Off,
                  Base +Int Off +Int Size)))) </race>
          <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
             ...</object>
@@ -772,7 +838,7 @@ module LLVM-MEMORY
                  andBool notBool hasInstance(Tid, Bn, In, .K, Races)
                  andBool Size =/=Int 1
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, Size:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -788,14 +854,14 @@ module LLVM-MEMORY
                  andBool Count +Int 1 <Int Size
                  andBool Size =/=Int 1
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, Size:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <chunck> CL:List </chunck>
          <complete> CM:Map ((memId(Tid, Bn, In)
                           |-> Count:K) => .Map) </complete>
-         <race> Races:Set </race>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
             ...</object>
          <byteMap> BM:Map => BM[Base +Int Off +Int Other <- V] </byteMap>
          requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
@@ -804,8 +870,7 @@ module LLVM-MEMORY
                  andBool Count +Int 1 >=Int Size
                  andBool Size =/=Int 1
 
-    //if the input is not at a right type of the type list
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, 1))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -818,7 +883,7 @@ module LLVM-MEMORY
                  andBool notBool rightHitType(CL, Base +Int Off, T)
                  andBool notBool isOverlap(Base +Int Off, 1, .K, Races)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, Size:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -826,7 +891,7 @@ module LLVM-MEMORY
                        0, Size, sizeof(T), T, Rg) </chunck>
          <range> Rg:K </range>
          <race> Races:Set (.Set => SetItem(
-                             singleMem(Tid, Bn, In, value(Base +Int Off,
+                 singleMem(Tid, Bn, In,heap, value(Base +Int Off,
                  Base +Int Off +Int Size)))) </race>
          <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
             ...</object>
@@ -834,10 +899,24 @@ module LLVM-MEMORY
          requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
                  andBool notBool rightHitType(CL, Base +Int Off, T)
                  andBool notBool isOverlap(Base +Int Off, Size, .K, Races)
+                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
                  andBool Size =/=Int 1
 
     rule <k> A:K => .K </k>
-         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
+                  Other:Int, Size:Int))) L:List => .List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <race> Races:Set </race>
+            ...</object>
+        <output>... .List => ListItem("error: undefied behavior because two mem ops messing around the types in the location") </output>
+         requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
+                 andBool notBool rightHitType(CL, Base +Int Off, T)
+                 andBool hasInstance(Tid, Bn, In, .K, Races)
+
+    rule <k> A:K => .K </k>
+         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Other:Int, Size:Int))) L:List => .List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -849,8 +928,31 @@ module LLVM-MEMORY
                  andBool isOverlap(Base +Int Off, Size, .K, Races)
                  andBool notBool hasInstance(Tid, Bn, In, .K, Races)
 
-    //atomic write with unordered
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    //atomic write in stack
+    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicWrite(T:K, V:K, V1:K, Base:Int, Off:Int,
+                  Size:Int, Order:K))) => .List) L:List </stackOpList>
+         <stackObject>...
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map => updateMemWithAtomic(BM, Base +Int Off, V) </stackMap>
+         requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
+                 andBool rightHitType(CL, Base +Int Off, T)
+
+    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicWrite(T:K, V:K, V1:K, Base:Int, Off:Int,
+                  Size:Int, Order:K))) => .List) L:List </stackOpList>
+         <stackObject>...
+             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List => getTopMemList(Base +Int Off,
+                       0, Size, sizeof(T), T, Rg) </stackChunck>
+          <stackRange> Rg:K </stackRange> ...</stackObject>
+         <stackMap> BM:Map => updateMemWithAtomic(BM, Base +Int Off, V) </stackMap>
+         requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
+                 andBool notBool rightHitType(CL, Base +Int Off, T)
+
+    //atomic write with unordered/monotonic in heap
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Size:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -862,7 +964,7 @@ module LLVM-MEMORY
                  andBool notBool isOverlap(Base +Int Off, Size, .K, Races)
                  andBool (Order ==K monotonic orBool Order ==K unordered)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Size:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -876,52 +978,16 @@ module LLVM-MEMORY
                  andBool (Order ==K monotonic orBool Order ==K unordered)
 
     rule <k> A:K => .K </k>
-         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,
+         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K, V:K, V1:K, Base:Int, Off:Int,
                   Size:Int, Order:K))) L:List => .List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <chunck> CL:List </chunck>
          <race> Races:Set </race>
             ...</object>
-        <output>... .List => ListItem("error: undefied behavior because two mem op races on the same location") </output>
+        <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op.") </output>
          requires Base +Int Off +Int Size <Int Right andBool Base +Int Off >=Int Left
                  andBool isOverlap(Base +Int Off, Size, .K, Races)
-
-
-/*
-    rule <toCommit> splitMemList(AV:List, ListItem(dynInstInfo(BN:Int,
-                        IN:Int, Inst:K, T:K)) Pre:List, L:List)
-               => memList(Pre L) </toCommit>
-          <memOpList> L:List (.List => ListItem(dynInstInfo(BN:Int,
-                        IN:Int, Inst:K, T:K))) </memOpList>
-          requires (T ==K terminators) orBool (T ==K returnInst)
-                   orBool (T ==K callInst)
-         [structural]
-
-    rule <instQueue> splitQueue(Av:List ListItem(dynInstInfo(BN:Int,
-                  IN:Int, Inst:K, T:K)), L:List, .List)
-                   => memList(removeInst(BN,IN,L)) </instQueue>
-         <memOpList> .K => dynInstInfo(BN, IN, Inst, T) </memOpList>
-         [transition]
-
-    rule <instQueue> splitQueue(AV:List, Pre:List,
-                ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)) L:List)
-          => splitQueue(AV ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)),
-              Pre ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)), L) </instQueue>
-          requires (T =/=K terminators) andBool (T =/=K returnInst)
-                  andBool (T =/=K callInst) andBool (isAvailable(Inst))
-         [transition]
-
-    rule <instQueue> splitQueue(AV:List, Pre:List,
-                ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)) L:List)
-          => splitQueue(AV, Pre ListItem(dynInstInfo(BN:Int,
-                                IN:Int, Inst:K, T:K)), L) </instQueue>
-          requires (T ==K terminators) orBool (T ==K returnInst)
-                  orBool (T ==K callInst) orBool (notBool isAvailable(Inst))
-         [structural]
-*/
-    syntax KItem ::= writeBytes(K, K) [strict(1)] // list of bytes, location
-                   | atomicWrite(List, K, Set) //list of bytes, location, modifiers
 /*
     rule write(Type:KResult, V:KResult, Loc:Loc)
             => writeBytes(splitBytes(V, Type), Loc)
@@ -1353,7 +1419,7 @@ module LLVM-STANDARD-LIBRARY
     // memcpy
     rule
         <k> memcpy(Dest:Loc, Src:Loc, Len:Int, K1:K, K2:K)
-            => store(byteType, load('pointerType(byteType,, 0), Src), Dest)
+            => store(byteType, load('pointerType(byteType,, 0), Src), Dest, 1)
             ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
         ...</k>
         when Len >Int 0
@@ -1363,7 +1429,7 @@ module LLVM-STANDARD-LIBRARY
     // memset
     rule
         <k> memset(Dest:Loc, N:Int, Len:Int, K1:K, K2:K)
-            => store(byteType, N, Dest)
+            => store(byteType, N, Dest, 1)
             ~> memset(Dest + 1, N, Len -Int 1, K1, K2)
         ...</k>
         when Len >Int 0
@@ -1517,7 +1583,6 @@ module LLVM-SEMANTICS
 
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CLEAN-TREE
-    imports LLVM-GLOBALS
     imports LLVM-REGISTERS
     imports LLVM-BRANCHING
     imports LLVM-PHI
@@ -1526,6 +1591,7 @@ module LLVM-SEMANTICS
     imports LLVM-DECLARATIONS
     imports LLVM-PREPROCESSING
     imports LLVM-NORMALIZING
+    imports LLVM-GLOBALS
     imports LLVM-CALL-RET
     imports LLVM-VARIADICS
     imports LLVM-ARITHMETIC

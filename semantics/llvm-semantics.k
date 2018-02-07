@@ -604,6 +604,114 @@ module LLVM-MEMORY
                    sizeof(Type) *Int N, Al)) <Int maxStackSize
               andBool ('inallocaOfAlloca(.KList) in Mods)
 
+    //load op to load a value from a loc
+    rule <k> load(Type:KResult, loc(Base:Int, Offset:Int), RA:Int)
+               => loadHold(.List) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+                 Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      genReadBytes(TID, B, In, heap, Type,
+                            Base, Offset, 0, sizeof(Type))), BN, SL, MOL) </toCommit>
+        <memoryList> MOL:List </memoryList>
+        <stackList> SL:List </stackList>
+        requires isInMemRange(MOL, Base +Int Offset, sizeof(Type))
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool notBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> load(Type:KResult, stackLoc(Base:Int, Offset:Int), RA:Int)
+               => loadHold(.List) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      genReadBytes(TID, B, In, stack, Type,
+                            Base, Offset, 0, sizeof(Type))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInStackRange(SL, Base +Int Offset, sizeof(Type), LocalStack)
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool notBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> load(Type:KResult, loc(Base:Int, Offset:Int), RA:Int)
+               => loadHold(.List) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In, heap,
+            atomicRead(Type, Base, Offset, sizeof(Type),
+                       getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInMemRange(MOL, Base +Int Offset, sizeof(Type))
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> load(Type:KResult, stackLoc(Base:Int, Offset:Int), RA:Int)
+               => loadHold(.List) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List),
+               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In,stack,
+                  atomicRead(Type, Base, Offset, sizeof(Type),
+                      getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires isInStackRange(SL, Base +Int Offset, sizeof(Type), LocalStack)
+                 andBool Offset <Int sizeof(Type) andBool Offset >=Int 0
+                 andBool atomic in Mods
+                 andBool RA dividesInt (Base +Int Offset)
+
+    rule <k> load(Type:KResult, loc(Base:Int, Offset:Int), RA:Int) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefied behavior because load align set up overestimated") </output>
+         requires notBool (RA dividesInt (Base +Int Offset))
+
+    rule <k> load(Type:KResult, stackLoc(Base:Int, Offset:Int), RA:Int) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefied behavior because load align set up overestimated") </output>
+         requires notBool (RA dividesInt (Base +Int Offset))
+
+    rule <k> load(Type:KResult, loc(Base:Int, Offset:Int), RA:Int) ~> K:K
+            => .K </k>
+        <memoryList> MOL:List </memoryList>
+        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of memory.") </output>
+        requires (notBool isInMemRange(MOL, Base +Int Offset, sizeof(Type))
+                orBool Offset >=Int sizeof(Type) orBool Offset <Int 0)
+
+    rule <k> load(Type:KResult, stackLoc(Base:Int, Offset:Int), RA:Int) ~> K:K
+            => .K </k>
+        <stackList> MOL:List </stackList>
+        <localMemory> LocalStack:Set </localMemory>
+        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of stack.") </output>
+        requires (notBool isInStackRange(MOL, Base +Int Offset, sizeof(Type),LocalStack)
+                orBool Offset >=Int sizeof(Type) orBool Offset <Int 0)
+
+    rule
+        <k> load(Type:KResult, A:KResult, RA:Int) ~> K:K
+            => .K </k>
+        <output>... .List => ListItem("error: undefined behavior because store to a non-location.") </output>
+        requires notBool isALoc(A)
+
     //DONE: TODO: store must save to a pointer type
     rule <k> store(Type:KResult, V:KResult, loc(Base:Int,
                         Offset:Int), RA:Int)
@@ -725,6 +833,8 @@ module LLVM-MEMORY
                      Bn:Int, In:Int,stack, Op:K)), S:List, Not:List) </toCommit>
          <specRegisters> M:Map => M[varInstance(Bn, getTheLoc(stack, Op))
                                         <- getValueInWrite(Op)] </specRegisters>
+         <cdb> M:Map => M[singleMem(TID:Int, Bn:Int, In:Int,heap, getTheLoc(heap, Op))
+                                        <- getTypeValueInWrite(Op)] </cdb>
          requires isAWrite(Op)
          [transition]
 
@@ -734,18 +844,73 @@ module LLVM-MEMORY
              => memList(Ava:List, Ava':List, Avb:List
                  ListItem(singleMem(TID:Int,
                      Bn:Int, In:Int,Ran, Op:K)), S:List, Not:List) </toCommit>
-         requires notBool isAWrite(Op)
+         requires notBool isARead(Op) andBool notBool isAWrite(Op)
          [transition]
 
-    rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
+    rule <k> loadHold(.List) => getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     stackLoc(Base, Off),.K, .K, M), Rev)) ...</k>
+         <reverseChoice> Rev:Map </reverseChoice>
+         <specRegisters> M:Map </specRegisters>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, Op:K)) S:List, Not:List)
-             => memList(Ava:List, Ava':List, Avb:List
+                     Bn:Int, In:Int, stack, readAByte(Ty:K,
+                Base:Int, Off:Int, Other:Int, Size:Int))) S:List, Not:List)
+             => memList(Ava:List, Ava':List, removeInst(Bn, In, Avb:List),
+                      removeInst(Bn, In, S:List), removeInst(Bn, In, Not:List)) </toCommit>
+         requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     stackLoc(Base, Off),.K, .K, M), Rev)
+                  andBool BN <Int Bn
+         [transition]
+
+    rule <k> loadHold(.List) => getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     loc(Base, Off),.K, .K, M), Rev)) ...</k>
+         <reverseChoice> Rev:Map </reverseChoice>
+         <specRegisters> M:Map </specRegisters>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int,heap, Op:K)), S:List, Not:List) </toCommit>
-         <cdb> M:Map => M[singleMem(TID:Int, Bn:Int, In:Int,heap, getTheLoc(heap, Op))
-                                        <- getTypeValueInWrite(Op)] </cdb>
-         requires isAWrite(Op)
+                     Bn:Int, In:Int, heap, readAByte(Ty:K,
+                Base:Int, Off:Int, Other:Int, Size:Int))) S:List, Not:List)
+             => memList(Ava:List, Ava':List, removeInst(Bn, In, Avb:List),
+                      removeInst(Bn, In, S:List), removeInst(Bn, In, Not:List)) </toCommit>
+         requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     stackLoc(Base, Off),.K, .K, M), Rev)
+                  andBool BN <Int Bn
+         [transition]
+
+    rule <k> loadHold(.List) => getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     stackLoc(Base, Off),.K, .K, M), Rev)) ...</k>
+         <reverseChoice> Rev:Map </reverseChoice>
+         <specRegisters> M:Map </specRegisters>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List,
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, stack, atomicRead(Ty:K,
+                Base:Int, Off:Int, Size:Int, Or:K))) S:List, Not:List)
+             => memList(Ava:List, Ava':List, Avb, S, Not) </toCommit>
+         requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     stackLoc(Base, Off),.K, .K, M), Rev)
+                  andBool BN <Int Bn
+         [transition]
+
+    rule <k> loadHold(.List) => getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     loc(Base, Off),.K, .K, M), Rev)) ...</k>
+         <reverseChoice> Rev:Map </reverseChoice>
+         <specRegisters> M:Map </specRegisters>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List,
+                 ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, atomicRead(Ty:K,
+                Base:Int, Off:Int, Size:Int, Or:K))) S:List, Not:List)
+             => memList(Ava:List, Ava':List, Avb, S, Not) </toCommit>
+         requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     stackLoc(Base, Off),.K, .K, M), Rev)
+                  andBool BN <Int Bn
          [transition]
 
     rule <toCommit> memList(Ava:List ListItem(singleMem(TID:Int,
@@ -1419,7 +1584,7 @@ module LLVM-STANDARD-LIBRARY
     // memcpy
     rule
         <k> memcpy(Dest:Loc, Src:Loc, Len:Int, K1:K, K2:K)
-            => store(byteType, load('pointerType(byteType,, 0), Src), Dest, 1)
+            => store(byteType, load('pointerType(byteType,, 0), Src, 1), Dest, 1)
             ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
         ...</k>
         when Len >Int 0

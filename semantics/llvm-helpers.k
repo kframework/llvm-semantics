@@ -1764,6 +1764,14 @@ module LLVM-HELPERS
                callee(V:K, arguments(Es:ElemList))), M:Map, RM:Map, Rev:Map)
           => call(T:K, callee(V:K,
                    arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))))
+   rule updateVarInTerm(Cur:Int, C:Int, load(Ty:K, V:K, Al:Int), M:Map, RM:Map, Rev:Map)
+        => load(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev), Al)
+   rule updateVarInTerm(Cur:Int, C:Int, store(Ty:K,
+                   V:K,V1:K, Al:Int), M:Map, RM:Map, Rev:Map)
+        => store(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev),
+                       updateVarInTerm(Cur, C, V, M, RM, Rev), Al)
+   rule updateVarInTerm(Cur:Int, C:Int, operand(Ty:K, V:K), M:Map, RM:Map, Rev:Map)
+        => operand(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, ret(Ty:K, V:K), M:Map, RM:Map, Rev:Map)
         => ret(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, A:K, M, RM, Rev)
@@ -2166,7 +2174,8 @@ module LLVM-HELPERS
 
     syntax List ::= genWriteBytes(Int, Int, Int, K, K, K, K,
                                         Int, Int, Int, Int)  [function]
-          //block, inst, type, Value, ori, Base, offset, offset count, limit
+          //thread, block, inst, heap/stack, type, Value, ori,
+          // Base, offset, offset count, limit
     rule genWriteBytes(TID:Int, BN:Int, IN:Int, Ran:K,
                   Ty:K, region(.List, A:Int), V1:K, B:Int, C:Int, I:Int, S:Int)
             => genWriteBytes(TID, BN, IN, Ran, Ty:K, region(.List, A), V1, B, C, I +Int 1, S:Int)
@@ -2181,6 +2190,20 @@ module LLVM-HELPERS
     rule genWriteBytes(TID, BN:Int, IN:Int, Ran:K, Ty:K, region(L:List, A:Int), V1:K,
                    B:Int, C:Int, I:Int, S:Int) => .List
          requires I >=Int A
+
+    syntax List ::= genReadBytes(Int, Int, Int, K, K,
+                                        Int, Int, Int, Int)  [function]
+          //thread, block, inst, heap/stack, type,
+          // Base, offset, offset count, size
+    rule genReadBytes(TID:Int, BN:Int, IN:Int, Ran:K,
+                  Ty:K, B:Int, C:Int, I:Int, S:Int)
+            => genReadBytes(TID, BN, IN, Ran, Ty:K, B, C, I +Int 1, S:Int)
+                ListItem(singleMem(TID, BN, IN, Ran:K,
+                      readAByte(Ty:K, B, C, I, S)))
+         requires I <Int S
+    rule genReadBytes(TID, BN:Int, IN:Int, Ran:K, Ty:K,
+                   B:Int, C:Int, I:Int, S:Int) => .List
+         requires I >=Int S
 
     syntax KItem ::= getOrdering(K, Set) [function]
     rule getOrdering(.K, .Set) => .K
@@ -2197,7 +2220,7 @@ module LLVM-HELPERS
     rule getMemVar(instruction(X:K, Y:Set, Z:K))
              => getMemVar(X)
     rule getMemVar(store(X:K, Y:K, Z:K, A:Int)) => Z
-    rule getMemVar(load(X:K, Y:K)) => Y
+    rule getMemVar(load(X:K, Y:K, A:Int)) => Y
     rule getMemVar(A:K) => .K [owise]
 
     syntax Set ::= getSubTypeBase(Int, K)  [function]
@@ -2263,6 +2286,8 @@ module LLVM-HELPERS
                    | getValueInWrite(K) [function]
                    | getTypeValueInWrite(K) [function]
                    | getBaseAndSize(K) [function]
+                   | getValueInTuple(K) [function]
+
     rule getBaseAndOffset(writeAByte(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
             => pairResult(Ba, Of)
     rule getBaseAndOffset(atomicWrite(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, A:K))
@@ -2286,6 +2311,8 @@ module LLVM-HELPERS
             => V1
     rule getValueInWrite(atomicWrite(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, A:K))
             => V1
+
+    rule getValueInTuple(value(T:K, V:K)) => V
 
     rule getTypeValueInWrite(writeAByte(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
             => value(T,V1)
@@ -2378,6 +2405,11 @@ module LLVM-HELPERS
                   andBool notBool isLocalVariable(W)
 
     //check if an op is a write
+    syntax Bool ::= isARead(K) [function]
+    rule isARead(readAByte(T:K, C:Int, D:Int, E:Int, F:Int)) => true 
+    rule isARead(atomicRead(T:K, C:Int, D:Int, E:Int, F:K)) => true
+    rule isARead(A:K) => false [owise]
+
     syntax Bool ::= isAWrite(K) [function]
     rule isAWrite(writeAByte(T:K, A:K, B:K, C:Int, D:Int, E:Int, F:Int)) => true 
     rule isAWrite(atomicWrite(T:K, A:K, B:K, C:Int, D:Int, E:Int, F:K)) => true
@@ -2529,5 +2561,52 @@ module LLVM-HELPERS
            B':Int, C':Int, Ran:K, RW:K)) removeRaceInSet(S,.K, A, B, C)
         requires A =/=K A' orBool B =/=K B' orBool C =/=K C'
 
+    syntax Bool ::= hasSameType(K, K)  [function] //type, value
+    rule hasSameType(Ty:K, value(Ty:K, V:K)) => true
+    rule hasSameType(Ty:K, value(Ty':K, V:K)) => false
+         requires Ty =/=K Ty'
+
+    //test if A is a father of B in the reverse Map
+    syntax Bool ::= isFather(K, K, Map)  [function]
+    rule isFather(A:K, A:K, M:Map) => true
+    rule isFather(A:K, B:K, M:Map) => false
+         requires notBool B in keys(M) andBool A =/=K B
+    rule isFather(A:K, B:K, (B |-> C:K) M:Map)
+           => isFather(A, C, M)
+         requires A =/=K B
+
+    //delete the entries having no var as the first element
+    syntax Map ::= deleteNonTargetMap(K, K, K, Map) [function]
+    rule deleteNonTargetMap(X:K, .K, .K, .Map) => .Map
+    rule deleteNonTargetMap(X:K, .K, .K, (A:K |-> B:K) M:Map)
+           => deleteNonTargetMap(X, A, B, M)
+    rule deleteNonTargetMap(X:K, varInstance(Bn:Int, X:K), B:K, M:Map)
+             => (varInstance(Bn:Int, X:K) |-> B:K)
+                   deleteNonTargetMap(X, .K, .K, M)
+    rule deleteNonTargetMap(X:K, varInstance(Bn:Int, X':K), B:K, M:Map)
+             => deleteNonTargetMap(X, .K, .K, M)
+         requires X =/=K X'
+
+    syntax Bool ::= hasValidSpecRead(K, K, K, Map, Map) [function]
+    rule hasValidSpecRead(X:K, .K, .K, .Map, Rev:Map) => false
+    rule hasValidSpecRead(X:K, .K, .K, (A:K |-> B:K) M:Map, Rev:Map)
+          => hasValidSpecRead(X, A, B, M, Rev)
+    rule hasValidSpecRead(X:K, varInstance(Bn:Int, N:K),
+           B:K, M:Map, Rev:Map) => true
+         requires isFather(Bn, X, Rev)
+    rule hasValidSpecRead(X:K, varInstance(Bn:Int, N:K),
+           B:K, M:Map, Rev:Map) => hasValidSpecRead(X, .K, .K, M, Rev)
+         requires notBool isFather(Bn, X, Rev)
+
+    syntax KItem ::= getValidSpecRead(K, K, K, Map, Map) [function]
+    rule getValidSpecRead(X:K, .K, .K, .Map, Rev:Map) => badValue
+    rule getValidSpecRead(X:K, .K, .K, (A:K |-> B:K) M:Map, Rev:Map)
+          => getValidSpecRead(X, A, B, M, Rev)
+    rule getValidSpecRead(X:K, varInstance(Bn:Int, N:K),
+           B:K, M:Map, Rev:Map) => N
+         requires isFather(Bn, X, Rev)
+    rule getValidSpecRead(X:K, varInstance(Bn:Int, N:K),
+           B:K, M:Map, Rev:Map) => getValidSpecRead(X, .K, .K, M, Rev)
+         requires notBool isFather(Bn, X, Rev)
 
 endmodule

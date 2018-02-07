@@ -231,7 +231,8 @@ module LLVM-ABSTRACTSYNTAX
                     // Type, NumElements, align, isConstant?
     syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
-    syntax KItem ::= load(K, K) [strict]//type value
+    syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
+    syntax KItem ::= loadHold(List)
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
     syntax KItem ::= assignUsesInCall(K, K, ElemList)//blockname, inst num, args
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
@@ -265,8 +266,14 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
     syntax KItem ::= writeAByte(K, K, K, Int, Int, Int, Int)
                    //type value, original value, base, input offset, offset, size
+    syntax KItem ::= readAByte(K, Int, Int, Int, Int)
+                   //type, base, input offset, offset, size
+    syntax KItem ::= readPiece(Int, K)
+           //store the byte when load an item
     syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
                       //type, value, original base, offset limit, ordering
+    syntax KItem ::= atomicRead(K, Int, Int, Int, K)
+                      //type,base, offset limit, ordering
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)
     syntax KResult ::= dynNoResult(K)
@@ -283,7 +290,7 @@ module LLVM-ABSTRACTSYNTAX
               //== base of first + size of first + align of second.
     //instructions
     syntax KItem ::= "guessExternal"
-    syntax KItem ::= store(K, K, K, Int) [strict]  // Type, Value, Destination, align
+    syntax KItem ::= store(K, K, K, Int) [strict(1,2,3)]  // Type, Value, Destination, align
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction

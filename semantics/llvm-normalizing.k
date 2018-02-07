@@ -381,66 +381,60 @@ module LLVM-NORMALIZING
          requires notBool isValidAlign(Align)
 
     //deal with type of load
-/*
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                             Align:Int, At:K, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name, pointerTypeValue(T:KResult, A:K), V2)
-                 ~> assignType(Name, X, T) ...</k>
+              => typeCheckSingleArg(Name, pointerTypeValue(T:KResult, A:K), V2)
+                 ~> (assignUses(Name, TheCount,
+                      pointerTypeValue(T:KResult, A:K), (val(V2),.ElemList))
+                 ~> assignType(Name,TheCount, X, T)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(
-                       assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta)))),
-                    X, .K, .K, usedLoc(V2),
-                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,assign(X,
+                   instruction(load(pointerTypeValue(T:KResult, A:K),
+           V2, Align), Mods, insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool At =/=K atomic
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                            Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name,pointerTypeValue(integerType(N:Int), A:K), V2)
-                 ~> assignType(Name, X, integerType(N:Int)) ...</k>
+              => typeCheckSingleArg(Name,
+                         pointerTypeValue(integerType(N:Int), A:K), V2)
+                 ~> (assignUses(Name, TheCount,
+                      pointerTypeValue(integerType(N:Int), A:K), (val(V2),.ElemList))
+                 ~> assignType(Name,TheCount, X, integerType(N:Int))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(
-              assign(X, instruction(load(pointerTypeValue(integerType(N:Int), A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta)))),
-                    X, .K, .K, usedLoc(V2),
-                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,assign(X, instruction(
+                 load(pointerTypeValue(integerType(N:Int), A:K),
+                   V2, Align) ,Mods ,insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool N >=Int 8
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
+                  andBool Align >=Int sizeof(integerType(N:Int))
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                            Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name,pointerTypeValue(T:KResult, A:K), V2)
-                 ~> assignType(Name, X, T:KResult) ...</k>
+              => typeCheckSingleArg(Name,
+                         pointerTypeValue(T:KResult, A:K), V2)
+                 ~> (assignUses(Name, TheCount,
+                      pointerTypeValue(T:KResult, A:K), (val(V2),.ElemList))
+                 ~> assignType(Name,TheCount, X, T)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(
-                  assign(X, instruction(load(pointerTypeValue(T:KResult, A:K),
-                   V2) ,Mods ,insMetas(formElemList(Meta)))),
-                    X, .K, .K, usedLoc(V2),
-                 getAllLocalVar(V2) SetItem(usedLoc(V2)), loadInst)]  </instNumInfo>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,assign(X,
+                  instruction(load(pointerTypeValue(T:KResult, A:K),
+               V2, Align) ,Mods ,insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
+                  andBool Align >=Int sizeof(T)
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                      Align:Int, atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: atomic load must have simple type that greater than 8 bits.") </output>
+         <output>... .List => ListItem("error: atomic load must have simple type either int, float or pointer.") </output>
          requires notBool isIntegerType(T) andBool notBool isFloatType(T)
                   andBool notBool isPointerType(T)
 
@@ -456,6 +450,12 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: atomic load cannot use Release ordering.") </output>
          requires release in Mods orBool acq_rel in Mods
 
+    rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T,
+                     pointerTypeValue(T:K, A:K), V2:K,
+                      Align:Int, atomic, Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: atomic load must have aligment greater than the byte size of the pointee type.") </output>
+         requires Align <Int sizeof(T)
+
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult,
                      pointerTypeValue(T':KResult, A:K), V2:K,
                      Align:Int, At:K, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
@@ -466,14 +466,14 @@ module LLVM-NORMALIZING
                      T':KResult, V2:K, Align:Int,
                      At:K, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: store operand must be a pointer") </output>
-         requires getKLabel(T') =/=KLabel 'pointerTypeValue
+         requires isPointerType(T')
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, T:KResult, T':KResult,
                              V:K, Align:Int, At:K, _:Set, _:InstructionMetadatas)
              ~> K:K => .K </k>
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isValidAlign(Align)
-*/
+
     //deal with type of store
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
@@ -487,9 +487,9 @@ module LLVM-NORMALIZING
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount,
+              instNumInfo(TheCount, noAssign(
                   instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2), Align),
-                       Mods, insMetas(formElemList(Meta))),storeInst)) </tempBlockMap>
+                       Mods, insMetas(formElemList(Meta)))),storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool notBool (atomic in Mods)
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
@@ -504,9 +504,9 @@ module LLVM-NORMALIZING
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, instruction(store(T:KResult, V1,
+              instNumInfo(TheCount, noAssign(instruction(store(T:KResult, V1,
                       operand(pointerTypeValue(T:KResult, A:K), V2), Align),
-                       Mods, insMetas(formElemList(Meta))),
+                       Mods, insMetas(formElemList(Meta)))),
                  storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool acquire in Mods
@@ -525,9 +525,9 @@ module LLVM-NORMALIZING
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, instruction(store(integerType(N:Int), V1,
+              instNumInfo(TheCount, noAssign(instruction(store(integerType(N:Int), V1,
                       operand(pointerTypeValue(integerType(N:Int), A:K), V2), Align),
-                       Mods, insMetas(formElemList(Meta))),
+                       Mods, insMetas(formElemList(Meta)))),
                  storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool N >=Int 8
                   andBool notBool acquire in Mods
@@ -1142,6 +1142,9 @@ module LLVM-NORMALIZING
                   integerType(N:Int), V:K)
          => exprType(typeCheckIntExpr(integerType(N:Int), V))
              ~> checkUseVarInside(Name, integerType(N:Int), V)
+    rule <k> typeCheckSingleArg(Name:SymbolicValueRef,
+             O:OpaqueType ,V:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: the arg type cannot be opaque structural type.") </output>
 
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,

@@ -69,14 +69,16 @@ module LLVM-GLOBALS
     rule <k> preInit(L:Set, Ty:KResult, X:SymbolicValueRef,
                       Loc:Loc, Init:K, Ad:Int, Al:Int) => .K ...</k>
         <savedGlobals>... .K => (exprType(typeCheckExpr(Ty, Init))
-                   ~> store(Ty, Init, Loc, Al)) </savedGlobals>
+                   ~> store(Ty, Init,
+                       pointerTypeValue(Ty, Ad), Loc, Al)) </savedGlobals>
          <globalRegisters> M:Map => M[X <- globalValue(
                   L, pointerTypeValue(Ty, Ad), Loc, Init)] </globalRegisters>
          requires notBool isExternal(L)
 
     rule <k> preInit(L:Set, Ty:KResult, X:SymbolicValueRef,
                       Loc:Loc, Init:K, Ad:Int, Al:Int) => .K ...</k>
-        <savedGlobals>... .K => store(Ty, guessExternal, Loc, Al) </savedGlobals>
+        <savedGlobals>... .K => store(Ty, guessExternal,
+                             pointerTypeValue(Ty, Ad), Loc, Al) </savedGlobals>
         <globalRegisters> M:Map => M[X <- globalValue(
                   L, pointerTypeValue(Ty, Ad), Loc, guessExternal)] </globalRegisters>
          requires isExternal(L)

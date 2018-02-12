@@ -21,7 +21,7 @@ module LLVM-CALL-RET
 
     rule arguments(L:ElemList) => L
 
-    rule typedArg(A:K, T:K, V:K) => V
+    //rule typedArg(A:K, T:K, V:K) => V
 
     // TODO: rename tail
     // grabbing argument names
@@ -180,6 +180,14 @@ module LLVM-CALL-RET
                    orBool (T ==K callInst)
          [structural]
 
+    rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
+                        IN:Int, Inst:K, T:K)) Pre:List, L:List)
+               => instList(Pre L) </instQueue>
+         <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
+          requires (T =/=K terminators) andBool (T =/=K returnInst)
+                   andBool (T =/=K callInst)
+         [transition]
+
     rule <instQueue> splitQueue(Av:List ListItem(dynInstInfo(BN:Int,
                   IN:Int, Inst:K, T:K)), Pre:List, L:List)
                    => instList(removeInst(BN,IN,Pre L)) </instQueue>
@@ -303,11 +311,19 @@ module LLVM-CALL-RET
     rule clearLocalMemory(.K, SetItem(A:K) S:Set) => clearLocalMemory(A, S)
     rule
         <k> clearLocalMemory((Base:Int => .K), _) ...</k>
-        (<object>... <chunckRange> value(Base:Int, X:K) </chunckRange> ...</object> => .Bag)
+        <threadId> Tid </threadId>
+        <stackThreadId> Tid:Int </stackThreadId> 
+        (<stackObject>...
+            <stackChunckRange> value(Base:Int, X:K) </stackChunckRange>
+           ...</stackObject> => .Bag)
 
     rule
         <k> clearLocalMemory((inAlloca(Base:Int) => .K), _) ...</k>
-        (<object>... <chunckRange> value(Base:Int, X:K) </chunckRange> ...</object> => .Bag)
+        <threadId> Tid </threadId>
+        <stackThreadId> Tid:Int </stackThreadId> 
+        (<stackObject>...
+           <stackChunckRange> value(Base:Int, X:K) </stackChunckRange>
+          ...</stackObject> => .Bag)
 
     rule initializer(void, V:K) ~> clearVoid => .K
     rule initializer(T:K, V:KResult) ~> clearVoid => V

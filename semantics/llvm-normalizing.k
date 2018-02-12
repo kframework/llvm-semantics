@@ -488,7 +488,7 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(
-                  instruction(store(T, V1 ,operand(pointerTypeValue(T:KResult, A:K), V2), Align),
+                  instruction(store(T, V1 ,pointerTypeValue(T:KResult, A:K), V2, Align),
                        Mods, insMetas(formElemList(Meta)))),storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool notBool (atomic in Mods)
 
@@ -505,7 +505,7 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(instruction(store(T:KResult, V1,
-                      operand(pointerTypeValue(T:KResult, A:K), V2), Align),
+                      pointerTypeValue(T:KResult, A:K), V2, Align),
                        Mods, insMetas(formElemList(Meta)))),
                  storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
@@ -526,7 +526,7 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(instruction(store(integerType(N:Int), V1,
-                      operand(pointerTypeValue(integerType(N:Int), A:K), V2), Align),
+                    pointerTypeValue(integerType(N:Int), A:K), V2, Align),
                        Mods, insMetas(formElemList(Meta)))),
                  storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool N >=Int 8

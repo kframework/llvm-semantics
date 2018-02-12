@@ -232,7 +232,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
-    syntax KItem ::= loadHold(List)
+    syntax KItem ::= loadHold(K, List)//type, List
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
     syntax KItem ::= assignUsesInCall(K, K, ElemList)//blockname, inst num, args
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
@@ -290,7 +290,8 @@ module LLVM-ABSTRACTSYNTAX
               //== base of first + size of first + align of second.
     //instructions
     syntax KItem ::= "guessExternal"
-    syntax KItem ::= store(K, K, K, Int) [strict(1,2,3)]  // Type, Value, Destination, align
+    syntax KItem ::= store(K, K, K, K, Int) [strict(1,2,3,4)]
+                        // Type, Value, deType, Destination, align
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction

@@ -408,7 +408,7 @@ module LLVM-NORMALIZING
               instNumInfo(TheCount,assign(X, instruction(
                  load(pointerTypeValue(integerType(N:Int), A:K),
                    V2, Align) ,Mods ,insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
-         requires isValidAlign(Align) andBool N >=Int 8
+         requires isValidAlign(Align) andBool isPowOfTwo(N, 8)
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
                   andBool Align >=Int sizeof(integerType(N:Int))
@@ -441,8 +441,8 @@ module LLVM-NORMALIZING
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                       Align:Int, atomic, _:Set, _:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: atomic load must have integer type that greater than 8 bits.") </output>
-         requires N <Int 8
+         <output>... .List => ListItem("error: atomic load must have integer type that greater than 8 bits and is power of two.") </output>
+         requires notBool isPowOfTwo(N, 8)
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:K, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
@@ -515,7 +515,7 @@ module LLVM-NORMALIZING
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
-                          Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
+                          Align:Int, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name:SymbolicValueRef, integerType(N:Int), V1)
                  ~> (typeCheckSingleArg(Name:SymbolicValueRef,
                              pointerTypeValue(integerType(N:Int), A:K), V2)
@@ -529,7 +529,7 @@ module LLVM-NORMALIZING
                     pointerTypeValue(integerType(N:Int), A:K), V2, Align),
                        Mods, insMetas(formElemList(Meta)))),
                  storeInst)) </tempBlockMap>
-         requires isValidAlign(Align) andBool N >=Int 8
+         requires isValidAlign(Align) andBool isPowOfTwo(N, 8)
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods andBool (atomic in Mods)
                   andBool Align >=Int sizeof(integerType(N:Int))
@@ -544,8 +544,8 @@ module LLVM-NORMALIZING
     rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K, Align:Int,
                      Mods:Set, _:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: atomic store must have integer type that greater than 8 bits.") </output>
-         requires N <Int 8 andBool atomic in Mods
+         <output>... .List => ListItem("error: integer atomic store must have integer type that greater than 8 bits and power of two.") </output>
+         requires notBool isPowOfTwo(N, 8) andBool atomic in Mods
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,

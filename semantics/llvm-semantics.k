@@ -788,7 +788,7 @@ module LLVM-MEMORY
                  andBool atomic in Mods
                  andBool RA dividesInt (Base +Int Offset)
 
-    rule <k> store(Type:KResult, V:KResult, T2:K, loc(Base:Int, Offset:Int), RA:Int)
+    rule <k> store(Type:KResult, V:KResult, T2:K, stackLoc(Base:Int, Offset:Int), RA:Int)
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>

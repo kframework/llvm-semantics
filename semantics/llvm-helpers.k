@@ -247,6 +247,8 @@ module LLVM-HELPERS
     rule getRidOfReadPiece(.List) => .List
     rule getRidOfReadPiece(ListItem(readPiece(A:Int, B:K)) L:List)
           => ListItem(B) getRidOfReadPiece(L)
+    rule getRidOfReadPiece(ListItem(A:K) L:List)
+          => ListItem(A) getRidOfReadPiece(L) [owise]
 
     syntax KItem ::= joinBytes(K, List) [function]
                    | joinIntBytes(K, Int, Int, Int, Int, List) [function]

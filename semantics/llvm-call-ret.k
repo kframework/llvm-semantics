@@ -223,7 +223,7 @@ module LLVM-CALL-RET
                L, M[varInstance(BN, X) <- V], M', Rev)) </instQueue>
          <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
                => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, ML:List), Ava Ava' Avb Avb',
+                     Avb':List, .List), Ava Ava' Avb Avb',
                       updateVarInList(Cur, BN, ML,
                          M[varInstance(BN, X) <- V], M', Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
@@ -240,7 +240,7 @@ module LLVM-CALL-RET
                L, M, M'[X <- V], Rev)) </instQueue>
          <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
                => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, ML:List), Ava Ava' Avb Avb',
+                     Avb':List, .List), Ava Ava' Avb Avb',
                       updateVarInList(Cur, BN,
                L, M, M'[X <- V], Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
@@ -313,6 +313,7 @@ module LLVM-CALL-RET
         <k> clearLocalMemory((Base:Int => .K), _) ...</k>
         <threadId> Tid </threadId>
         <stackThreadId> Tid:Int </stackThreadId> 
+        <stackList> SL:List => removeLocalStack(Base, SL) </stackList>
         (<stackObject>...
             <stackChunckRange> value(Base:Int, X:K) </stackChunckRange>
            ...</stackObject> => .Bag)
@@ -321,6 +322,7 @@ module LLVM-CALL-RET
         <k> clearLocalMemory((inAlloca(Base:Int) => .K), _) ...</k>
         <threadId> Tid </threadId>
         <stackThreadId> Tid:Int </stackThreadId> 
+        <stackList> SL:List => removeLocalStack(Base, SL) </stackList>
         (<stackObject>...
            <stackChunckRange> value(Base:Int, X:K) </stackChunckRange>
           ...</stackObject> => .Bag)

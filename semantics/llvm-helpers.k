@@ -242,6 +242,12 @@ module LLVM-HELPERS
     rule isAllPoison(ListItem(A:K) L:List) => false
          requires A =/=K poisonVal
 
+
+    syntax List ::= getRidOfReadPiece(List) [function]
+    rule getRidOfReadPiece(.List) => .List
+    rule getRidOfReadPiece(ListItem(readPiece(A:Int, B:K)) L:List)
+          => ListItem(B) getRidOfReadPiece(L)
+
     syntax KItem ::= joinBytes(K, List) [function]
                    | joinIntBytes(K, Int, Int, Int, Int, List) [function]
                      //type, result, current, remain bits, bound, bits
@@ -253,13 +259,15 @@ module LLVM-HELPERS
                    | joinVectorByteAux(K, List, Int, Int, K) [function]
 
     rule joinBytes(integerType(N:Int), L:List)
-             => joinIntBytes(integerType(N), 0, 0, N, sizeof(integerType(N)), L:List)
+             => joinIntBytes(integerType(N), 0, 0, N, numBitsPerByte
+                *Int sizeof(integerType(N)), getRidOfReadPiece(L:List))
     rule joinBytes(pointerTypeValue(A:K, B:K), L:List)
-             => joinPointerByte(L, 0, sizeof(pointerTypeValue(A:K, B:K)))
+             => joinPointerByte(getRidOfReadPiece(L:List),
+                           0, sizeof(pointerTypeValue(A:K, B:K)))
     rule joinBytes(arrayTypeValue(A:K, B:Int), L:List)
-             => joinArrayByte(L, .List, 0, B, A)
+             => joinArrayByte(getRidOfReadPiece(L:List), .List, 0, B, A)
     rule joinBytes(vectorTypeValue(A:K, B:Int), L:List)
-             => joinVectorByte(L, .List, 0, B, A)
+             => joinVectorByte(getRidOfReadPiece(L:List), .List, 0, B, A)
 
     rule joinArrayByte(L:List, Re:List, N:Int, Size:Int, InTy:K)
            => joinArrayByteAux(countByte(L, .List, sizeof(InTy)),
@@ -322,22 +330,28 @@ module LLVM-HELPERS
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(intByte(BL:List)))
               => joinIntBits(BL, 0, 0, Rem)
-         requires N <Int Size andBool
-          (joinIntBits(BL, 0, 0, Rem) ==K undef
+         requires N <Int Size andBool Rem <Int numBitsPerByte
+          andBool (joinIntBits(BL, 0, 0, Rem) ==K undef
              orBool joinIntBits(BL, 0, 0, Rem) ==K poisonVal)
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(intByte(BL:List)))
-               => joinIntBytes(T, (2 ^Int N)
-                      *Int joinIntBits(BL, 0, 0, Rem) +Int R,
-                   N +Int 1, Rem -Int numBitsPerByte, Size, L)
+              => joinIntBits(BL, 0, 0, numBitsPerByte)
          requires N <Int Size andBool Rem >=Int numBitsPerByte
-             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
-             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+          andBool (joinIntBits(BL, 0, 0, numBitsPerByte) ==K undef
+             orBool joinIntBits(BL, 0, 0, numBitsPerByte) ==K poisonVal)
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(intByte(BL:List)))
                => joinIntBytes(T, (2 ^Int N)
-                      *Int joinIntBits(BL, 0, 0, Rem) +Int R,
-                   N +Int 1, 0, Size, L)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte,
+                       Rem -Int numBitsPerByte, Size, L)
+         requires N <Int Size andBool Rem >=Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(intByte(BL:List)))
+               => normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R)
          requires N <Int Size andBool Rem >Int 0
                   andBool Rem <Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
@@ -382,8 +396,9 @@ module LLVM-HELPERS
           => ListItem(intByte(L))
          requires A:Int ==Int 0
     rule splitIntByteAux(countByteResult(Re:List, L:List), A:Int)
-          => splitIntByteAux(countByte(Re, .List, numBitsPerByte),
-               A -Int numBitsPerByte) ListItem(intByte(L))
+          => ListItem(intByte(L))
+             splitIntByteAux(countByte(Re, .List, numBitsPerByte),
+               A -Int numBitsPerByte)
          requires A:Int >Int 0
     rule splitIntByte(A:K, N:Int, B:Int)
           => splitIntByteAux(countByte(splitIntBits(A, N, B), .List,
@@ -398,7 +413,7 @@ module LLVM-HELPERS
     rule splitPointerByte(A:K, I:Int, N:Int) => .List
          requires I >=Int N
     rule splitPointerByte(X:Loc, I:Int, N:Int)
-             => splitPointerByte(X, I +Int 1, N) ListItem(ptrByte(X, I))
+             =>  ListItem(ptrByte(X, I)) splitPointerByte(X, I +Int 1, N)
          requires I <Int N
     rule splitPointerByte(X:Loc, I:Int, N:Int) => .List
          requires I >=Int N
@@ -2233,8 +2248,8 @@ module LLVM-HELPERS
     rule decToBin(I:Int, 0) => .List 
     rule decToBin(I:Int, N:Int) => decToBin(I, N -Int 1) ListItem(0)
          requires I <=Int 0 andBool N >Int 0
-    rule decToBin(I:Int, N:Int) => decToBin(I /Int 2, N -Int 1)
-                               ListItem(I %Int 2)
+    rule decToBin(I:Int, N:Int)
+                 => decToBin(I /Int 2, N -Int 1) ListItem(I %Int 2)
          requires I >Int 0 andBool N >Int 0
 
     syntax List ::= copyOfK(K, Int) [function]
@@ -2261,7 +2276,7 @@ module LLVM-HELPERS
          requires N >=Int 0 andBool (B -Int N ==Int 0)
 
     syntax KItem ::= countByte(List, List, Int) [function]
-    rule countByte(.List, L:List, I:Int) => countByteResult(.List, L)
+    rule countByte(L':List, L:List, I:Int) => countByteResult(L', L)
          requires I <=Int 0
     rule countByte(.List, L:List, I:Int)
                  => countByte(.List, ListItem(undef) L, I -Int 1)
@@ -2269,9 +2284,6 @@ module LLVM-HELPERS
     rule countByte(L:List ListItem(A:K), L1:List, I:Int)
                  => countByte(L, ListItem(A:K) L1, I -Int 1)
           requires I >Int 0
-    rule countByte(L:List ListItem(A:K), L1:List, I:Int)
-                 => countByteResult(L:List ListItem(A:K), L1)
-         requires I <=Int 0
 
     //a function to divide the memList to avaiable to commit, available to wire
     //and not available
@@ -2409,17 +2421,12 @@ module LLVM-HELPERS
          requires I >=Int N
 
     //check if two bases + offsets are in the same memory range 
-    syntax Bool ::= inSameMemRangeAux(Int, Int, Int, Int, K)
+    syntax Bool ::= inSameMemRangeAux(Int, Int, Int, Int, K)  [function]
                     //first base, first offset, second base, second offset, range
-                  | inSameMemRange(Int, Int, Int, Int, List)
+                  | inSameMemRange(Int, Int, Int, Int, List)  [function]
     rule inSameMemRangeAux(B:Int, O:Int, B':Int, O':Int, value(X:Int, Y:Int))
-           => (B >=Int X andBool B <Int Y andBool B' >=Int X andBool B' <Int Y)
-            orBool (B +Int O >=Int X andBool B +Int O <Int Y
-                             andBool B' >=Int X andBool B' <Int Y)
-            orBool (B >=Int X andBool B <Int Y
-                        andBool B' +Int O' >=Int X andBool B' +Int O' <Int Y)
-            orBool (B +Int O >=Int X andBool B +Int O <Int Y
-                    andBool B' +Int O' >=Int X andBool B' +Int O' <Int Y)
+           => (B +Int O) >=Int X andBool (B +Int O) <Int Y
+               andBool (B' +Int O') >=Int X andBool (B' +Int O') <Int Y
     rule inSameMemRange(B:Int, O:Int, B':Int, O':Int, .List) => false
     rule inSameMemRange(B:Int, O:Int, B':Int, O':Int, ListItem(A:K) L:List)
            => inSameMemRange(B, O, B', O', L)
@@ -2440,11 +2447,20 @@ module LLVM-HELPERS
             => pairResult(Ba, Of)
     rule getBaseAndOffset(atomicWrite(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, A:K))
             => pairResult(Ba, Of)
+    rule getBaseAndOffset(readAByte(T:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
+            => pairResult(Ba, Of)
+    rule getBaseAndOffset(atomicRead(T:K, Ba:Int, Of:Int, Ex:Int, A:K))
+            => pairResult(Ba, Of)
 
     rule getBaseAndSize(writeAByte(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
             => pairResult(Ba +Int Of, Size)
     rule getBaseAndSize(atomicWrite(T:K, V:K,V1:K, Ba:Int, Of:Int, Size:Int, A:K))
             => pairResult(Ba +Int Of, Size)
+    rule getBaseAndSize(readAByte(T:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
+            => pairResult(Ba +Int Of, Size)
+    rule getBaseAndSize(atomicRead(T:K, Ba:Int, Of:Int, Size:Int, A:K))
+            => pairResult(Ba +Int Of, Size)
+
 
     rule getTheLoc(heap, writeAByte(T:K, V:K,V1:K, Ba:Int, Of:Int, Ex:Int, Size:Int))
             => loc(Ba, Of)
@@ -2515,28 +2531,50 @@ module LLVM-HELPERS
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, heap, loc(Base:Int, Offset:Int))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List)
-           => isMemAvailable(L, W, SL, S)
+           => isMemAvailable(L, singleMem(TID':Int,
+                           Bn':Int,In':Int,heap,W:K), SL, S)
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
                   andBool isMemAvailableA(Base, Offset, getBaseAndOffset(W), S)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, stack, stackLoc(Base:Int, Offset:Int))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List)
-           => isMemAvailable(L, W, SL, S)
+           => isMemAvailable(L, singleMem(TID':Int,
+                             Bn':Int,In':Int,stack,W:K), SL, S)
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
                   andBool isMemAvailableA(Base, Offset, getBaseAndOffset(W), SL)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, Ran:K, X:K)) L:List,
-                singleMem(TID':Int, Bn':Int,In':Int,Ran,W:K),SL:List, S:List)
-           => isMemAvailable(L, W, SL, S)
+                    In:Int, stack, X:K)) L:List,
+                singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List)
+           => isMemAvailable(L, singleMem(TID':Int,
+                           Bn':Int,In':Int,stack,W:K), SL, S)
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
             andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
            andBool isMemAvailableAAux(getBaseAndOffset(X), getBaseAndOffset(W), SL)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, heap, X:K)) L:List,
+                singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List)
+           => isMemAvailable(L, singleMem(TID':Int,
+                         Bn':Int,In':Int,heap,W:K), SL, S)
+         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+           andBool isMemAvailableAAux(getBaseAndOffset(X), getBaseAndOffset(W), S)
+                  andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, Ran:K, X:K)) L:List, singleMem(TID':Int,
-                Bn':Int,In':Int, Ran':K,W:K), SL:List, S:List) => false
+                Bn':Int,In':Int, Ran':K,W:K), SL:List, S:List)
+               => isMemAvailable(L, singleMem(TID':Int,
+                Bn':Int,In':Int, Ran':K,W:K), SL, S)
+         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+           andBool Ran =/=K Ran'
+           andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, stack, X:K)) L:List, singleMem(TID':Int,
+                Bn':Int,In':Int, stack,W:K), SL:List, S:List) => false
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
             andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
            andBool notBool isMemAvailableAAux(
@@ -2544,9 +2582,19 @@ module LLVM-HELPERS
                 andBool notBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
                  andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, Ran:K, X:K)) L:List, singleMem(TID':Int,
-                Bn':Int,In':Int, Ran:K,W:K), SL:List, S:List)
-               => isMemAvailable(L, W, SL, S)
+                    In:Int, heap, X:K)) L:List, singleMem(TID':Int,
+                Bn':Int,In':Int, heap,W:K), SL:List, S:List) => false
+         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+           andBool notBool isMemAvailableAAux(
+                          getBaseAndOffset(X), getBaseAndOffset(W), S)
+                andBool notBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
+                 andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, stack, X:K)) L:List, singleMem(TID':Int,
+                Bn':Int,In':Int, stack,W:K), SL:List, S:List)
+               => isMemAvailable(L, singleMem(TID':Int,
+                Bn':Int,In':Int, stack,W:K), SL, S)
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
             andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
            andBool notBool isMemAvailableAAux(
@@ -2554,11 +2602,23 @@ module LLVM-HELPERS
                 andBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
                  andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
+                    In:Int, heap, X:K)) L:List, singleMem(TID':Int,
+                Bn':Int,In':Int, heap,W:K), SL:List, S:List)
+               => isMemAvailable(L, singleMem(TID':Int,
+                Bn':Int,In':Int, heap,W:K), SL, S)
+         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+           andBool notBool isMemAvailableAAux(
+                          getBaseAndOffset(X), getBaseAndOffset(W), S)
+                andBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
+                 andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+    rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, Ran:K, X:K)) L:List, singleMem(TID:Int,
               Bn:Int,In:Int, Ran:K,W:K), SL:List, S:List)
-            => isMemAvailable(L, W, SL, S)
-          requires notBool isLocalVariable(X)
-                  andBool notBool isLocalVariable(W)
+            => isMemAvailable(L, singleMem(TID:Int,
+              Bn:Int,In:Int, Ran:K,W:K), SL, S)
+          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
 
     //check if an op is a write
     syntax Bool ::= isARead(K) [function]
@@ -2725,6 +2785,15 @@ module LLVM-HELPERS
              => SetItem(singleMem(A':Int,
            B':Int, C':Int, Ran:K, RW:K)) removeRaceInSet(S,.K, A, B, C)
         requires A =/=K A' orBool B =/=K B' orBool C =/=K C'
+
+    syntax List ::= removeLocalStack(Int, List) [function]
+    rule removeLocalStack(Base:Int, .List) => .List
+    rule removeLocalStack(Base:Int, ListItem(value(Base,
+               End:Int)) L:List) => L
+    rule removeLocalStack(Base:Int, ListItem(value(Base':Int,
+               End:Int)) L:List) => ListItem(value(Base,
+               End:Int)) removeLocalStack(Base, L)
+         requires Base =/=K Base'
 
     syntax Bool ::= hasSameType(K, K)  [function] //type, value
     rule hasSameType(Ty:K, value(Ty:K, V:K)) => true

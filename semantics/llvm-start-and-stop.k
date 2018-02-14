@@ -44,11 +44,7 @@ module LLVM-START-AND-STOP
                 arguments((
                     val(funptr(name(globalVar, "main"))), // address of main
                     val(0), // argc
-                    val(
-                        initEnvStructures(alloca(i(8),
-                         (sizeof(pointerTypeValue(i(8),0))
-                          *Int 3) +Int (sizeof(i(64)) *Int 38), 0, false))
-                    ),
+                    val(alloca(i(8), 8, 0, false)),
                     val('nullOfConstValueRef(.KList)), // init
                     val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList)) // ldso_fini
@@ -61,14 +57,14 @@ module LLVM-START-AND-STOP
         <formalParameters> arguments(L:ElemList) </formalParameters>
         when lengthOfList(L) ==Int 2
 
-
+/*
     syntax KItem ::= initEnvStructures(K) [strict]
     syntax KItem ::= "initEnvStructures'" "(" K ")"
 
     rule // argv & envp
         <k> initEnvStructures(Loc:Loc)
-            => write(arrayTypeValue(pointerTypeValue(
-                         i(8), 'alignEmpty(.KList)), 3), zeroinitializer, Loc)
+            => store(arrayTypeValue(pointerTypeValue(
+                         i(8), 0), 3), zeroinitializer, Loc, 1)
             ~> initEnvStructures'(Loc + sizeof(
                      arrayTypeValue(pointerTypeValue(i(8), 'alignEmpty(.KList)), 3)))
             ~> Loc
@@ -78,7 +74,7 @@ module LLVM-START-AND-STOP
         <k> initEnvStructures'(Loc:Loc)
             => memset(Loc, 0, 37, .K, .K) // auxv
         ...</k>
-
+*/
     rule [terminate-exit]:
         <T>...
             <k> I:KResult => call(void, callee(name(globalVar, "exit"), arguments(val(I)))) </k>

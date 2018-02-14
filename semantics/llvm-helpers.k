@@ -1448,6 +1448,8 @@ module LLVM-HELPERS
     rule getArgsInFunction(.ElemList) => .ElemList
     rule getArgsInFunction(val(arg(S:Set, T:K, V:K)), E:ElemList)
             => val(typeOperand(T, V)),getArgsInFunction(E)
+    rule getArgsInFunction(valValue(typedArg(S:Set, T:K, V:K)), E:ElemList)
+            => valValue(typeOperandResult(T, V)),getArgsInFunction(E)
 
     syntax Set ::= formArgSet(ElemList)      [function]
     rule formArgSet(.ElemList) => .Set

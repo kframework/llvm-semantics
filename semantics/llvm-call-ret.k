@@ -277,7 +277,7 @@ module LLVM-CALL-RET
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
         <k> bind((valValue(Arg:K), Args:ElemList), (valValue(typedArg(_, _, Formal:K)), Formals:ElemList))
-            => assign(Formal, Arg)
+            => stacticAssign(Formal, Arg)
             ~> bind(Args, Formals)
         ...</k>
     rule

@@ -19,13 +19,10 @@ module LLVM-REGISTERS
     rule assign(X:SymbolicValueRef, V:KResult) => dynResult(X, V)
     rule noAssign(V:KResult) => dynNoResult(V)
 
-/*
-    rule [assign-register]:
-        <k> assign(X:SymbolicValueRef, V:KResult)
-                    => dynResult(X, V) ...</k>
-        <currBlock> basicBlockNum(N:Int, B:K) </currBlock>
-        <registers> M:Map => M[varInstance(N, X) <- V] </registers>
-*/
+    rule [argument-bind-register]:
+        <k> stacticAssign(X:SymbolicValueRef, V:KResult) => .K ...</k>
+        <registers> M:Map => M[X <- V] </registers>
+
 
     // TODO using constructors in the AST instead of matching on a string
     rule [lookup-register]:

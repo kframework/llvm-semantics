@@ -295,6 +295,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= fence(K) [strict]
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
+    syntax KItem ::= stacticAssign(K, K) // Name, Instruction
     syntax KItem ::= noAssign(K) [strict] // Name, Instruction
     syntax KItem ::= instruction(K, Set, K) 
     syntax KItem ::= instMap(Map)

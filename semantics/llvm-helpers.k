@@ -697,6 +697,12 @@ module LLVM-HELPERS
 
 
     syntax ElemList ::= formTypeCheckList(K)   [function]
+    rule formTypeCheckList('.ReturnedValGep(.KList)) => .ElemList
+    rule formTypeCheckList('inRangeEmpty(.KList)
+                         It:Type V:ValueRef , Ins:ReturnedValGep)
+            => val(typeOperandGep(.K, It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList(inrange It:Type V:ValueRef , Ins:ReturnedValGep)
+         => val(typeOperandGep(inrange, It,addNameToString(V))),formTypeCheckList(Ins)
     rule formTypeCheckList('.ReturnedVal(.KList)) => .ElemList
     rule formTypeCheckList(It:Type V:ValueRef , Ins:ReturnedVal)
             => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
@@ -1498,8 +1504,10 @@ module LLVM-HELPERS
     rule getKLabelFromOp(une) => 'uNE
     rule getKLabelFromOp(uno) => 'uNO
     rule getKLabelFromOp(ueq) => 'uEQ
+    rule getKLabelFromOp(tail call) => 'call
     rule getKLabelFromOp(call) => 'call
-    rule getKLabelFromOp(tail call) => 'tailCall
+    rule getKLabelFromOp(notail call) => 'call
+    rule getKLabelFromOp(musttail call) => 'tailcall
 
     syntax Bool ::= hasVectorInList(ElemList)    [function]
     rule hasVectorInList(.ElemList) => false

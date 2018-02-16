@@ -242,7 +242,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= storeOperand(Int, K, K)//tid, type, value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
+    syntax KItem ::= typeOperandGep(K, K, K)  [strict(2)] //inrange, type, value
+    syntax KResult ::= typeOperandGepVal(K, K, K) //inrange type, value
     syntax KResult ::= typeOperandResult(K, K)
+    rule typeOperandGep(A:K, T:KResult, K:K) => typeOperandGepVal(A, T, K) [structural]
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
     syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block name, typeoperand
 

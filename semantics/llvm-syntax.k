@@ -568,6 +568,7 @@ module LLVM-SYNTAX
     */
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
 
+    syntax OptInRange ::= "inrange" | "" [klabel('inRangeEmpty),onlyLabel]
 
     /*@
       "sideeffect", "alignstack" and "inteldialect" are attributes that are used in
@@ -826,10 +827,12 @@ module LLVM-SYNTAX
       combination and another construct for the "IntegerType Value" combination.
     */
     syntax ResolvedVal ::= Type ValueRef
+    syntax ResolvedValGep ::= OptInRange ResolvedVal
     syntax IntResolveVal ::= IntType ValueRef [klabel('intResolveVal)]
     syntax IntResolveVals ::= "" [klabel('.IntResolveVals),onlyLabel]
                             | "," IntResolveVal IntResolveVals
     syntax ReturnedVal ::= List{ResolvedVal,","}
+    syntax ReturnedValGep ::= List{ResolvedValGep, ","}
     syntax Index ::= ResolvedVal | "null"  [klabel('nullOfIndex)]
     syntax IndexList ::= List{Index,","}
 
@@ -927,7 +930,7 @@ module LLVM-SYNTAX
 
 
    //definition the constructs for tail call and call
-   syntax OptTailCall ::= "tail" "call" | "call"
+   syntax OptTailCall ::= "tail" "call" | "call" | "notail" "call" | "musttail" "call"
 
     /*@
       This attribute is used in the landingpad instruction.
@@ -1078,7 +1081,7 @@ module LLVM-SYNTAX
                      | CastOps ResolvedVal "to" Type InstructionMetadatas
                      | Select ResolvedVal "," ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "va_arg" ResolvedVal "," Type InstructionMetadatas
-                     | "getelementptr" OptInBounds Type "," ReturnedVal InstructionMetadatas
+                     | "getelementptr" OptInBounds Type "," ReturnedValGep InstructionMetadatas
                      | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "insertelement" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas

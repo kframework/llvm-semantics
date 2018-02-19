@@ -307,7 +307,7 @@ module LLVM-HELPERS-SPLIT-BYTES
         when isVectorType(Type)
 
 */
-
+/*
     rule splitBytes(V:KResult, T:KResult)
             => splitStructBytes(V, .K, T, .List)
          requires isStructType(T)
@@ -332,7 +332,7 @@ module LLVM-HELPERS-SPLIT-BYTES
 
     rule splitStructBytes(_, .K, structTypeValue(.TypeList), L:List)
             => region(L, size(L))
-
+*/
 endmodule
 
 module LLVM-HELPERS-JOIN-BYTES

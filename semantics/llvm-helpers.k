@@ -14,9 +14,27 @@ module LLVM-HELPERS
                    | getAllTypes(K)   [function]
                    | getValueOfSwitch(JumpTable) [function]
     syntax KItem ::= getVar(K)    [function]
-                   | getGepType(K, ElemList)         [function]
-                   | getGepInType(K, ElemList, K)         [function]
-                   | getGepTypeInStruct(K, K)           [function]
+                   | getGepTypeInStruct(K, Int)           [function]
+
+    syntax Set ::= getInrange(K) [function]
+    rule getInrange(.ElemList) => .Set
+    rule getInrange(valValue(typeOperandGepVal(inrange, T:K, V:K)), Es:ElemList)
+              => SetItem(inrange)
+    rule getInrange(valValue(typeOperandGepVal(.K, T:K, V:K)), Es:ElemList)
+              => getInrange(Es)
+
+    //a function to calculate a constant integer value by input constant expr
+    syntax KItem ::= getConstIntValue(K, Int) [function]
+    rule getConstIntValue(A:Int, N:Int) => deNormalizingInt(
+                   integerType(N), normalizingInt(integerType(N), A))
+    rule getConstIntValue(A:K, N:Int) => badValue [owise]
+
+    syntax Bool ::= isAggregateType(K) [function]
+    rule isAggregateType(structTypeValue(A:K)) => true
+    rule isAggregateType(packedStructTypeValue(A:K)) => true
+    rule isAggregateType(arrayTypeValue(A:K, B:K)) => true
+    rule isAggregateType(vectorTypeValue(A:K, B:K)) => true
+    rule isAggregateType(A:K) => false [owise]
 
     rule getValueOfSwitch(.JumpTable) => .ElemList
     rule getValueOfSwitch(T:IntType V:ConstValueRef, La:LabelValue Ju:JumpTable)
@@ -38,35 +56,6 @@ module LLVM-HELPERS
 
     rule getVar(assign(A:K, B:K)) => A
     rule getVar(K:K) => .K [owise]
-
-    rule getGepType(T:KResult, .ElemList) => T
-    rule getGepType(gepTypeBag(T:KResult), .ElemList) => T
-    rule getGepType(gepTypeBag(T:KResult), val(A:K),Es:ElemList) => getGepType(T, Es)
-    rule getGepType(arrayTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
-               => getGepType(T1, Es)
-    rule getGepType(vectorTypeValue(T1:K, T2:K), val(A:K),Es:ElemList)
-               => getGepType(T1, Es)
-    rule getGepType(structTypeValue(T1:K), val(typeOperand(A:K, B:K)),Es:ElemList)
-               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
-
-    rule getGepType(gepTypeBag(T:KResult), valValue(A:K),Es:ElemList) => getGepType(T, Es)
-    rule getGepType(arrayTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
-               => getGepType(T1, Es)
-    rule getGepType(vectorTypeValue(T1:K, T2:K), valValue(A:K),Es:ElemList)
-               => getGepType(T1, Es)
-    rule getGepType(structTypeValue(T1:K),
-                valValue(typeOperandResult(A:K, B:K)),Es:ElemList)
-               => getGepInType(structTypeValue(T1:K), Es, evalToInt(B))
-
-    rule getGepType(K:K, Es:ElemList) => badType [owise]
-
-
-    rule getGepInType(structTypeValue(T1:K), Es:ElemList, I:Int)
-               => getGepType(getGepTypeInStruct(T1, I), Es)
-    rule getGepInType(structTypeValue(T1:K), Es:ElemList,
-               vector(valValue(I:Int), Es':ElemList))
-               => getGepType(getGepTypeInStruct(T1, I), Es)
-    rule getGepInType(structTypeValue(T1:K), Es:ElemList, A:K) => badType
 
     rule getGepTypeInStruct(T1:KResult, T2:TypeList, 0) => T1
     rule getGepTypeInStruct(T1:KResult, T2:TypeList, I:Int)
@@ -541,13 +530,15 @@ module LLVM-HELPERS
     syntax Bool ::= isStructType(K)
     rule isStructType('structType(_)) => true
     rule isStructType(structTypeValue(_)) => true
+    rule isStructType('packedStructType(_)) => true
+    rule isStructType(packedStructTypeValue(_)) => true
     rule isStructType(_) => false [owise]
-
+/*
     syntax Bool ::= isPackedStructType(K)
     rule isPackedStructType('packedStructType(_)) => true
     rule isPackedStructType(packedStructTypeValue(_)) => true
     rule isPackedStructType(_) => false [owise]
-
+*/
     // fixme size should depend on architecture
     rule sizeofInBits('pointerType(_,, _)) => numBytesPerPointer *Int numBitsPerByte
     rule sizeofInBits(pointerTypeValue(_, _)) => numBytesPerPointer *Int numBitsPerByte
@@ -1468,6 +1459,11 @@ module LLVM-HELPERS
                        Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
                           => val(arg(formSet(Pa), T, Va)),formArgList(Es, Pl)
 
+    syntax ElemList ::= toArgList(ElemList)   [function]
+    rule toArgList(.ElemList) => .ElemList
+    rule toArgList(valValue(typeOperandGepVal(A:K, T:K, C:K)), Es:ElemList)
+                 => valValue(typedArg(.Set, T, C)),toArgList(Es)
+
     syntax ElemList ::= formOperandList(ElemList)    [function]
     rule formOperandList(.ElemList) => .ElemList
     rule formOperandList(valValue(typeOperandResult(T:K, V:K)),Es:ElemList)
@@ -1548,27 +1544,72 @@ module LLVM-HELPERS
                   Es:ReturnedVal) => hasVectorInReturnedVal(Es)
          requires getKLabel(T) =/=KLabel 'vectorType
 
+    //function to fill a getelementptr index
+    // list with full vector representation.
     syntax KItem ::= getVectorNum(ElemList)        [function]
-    rule getVectorNum(.ElemList) => badType
-    rule getVectorNum(valValue(typeOperandResult(
+    rule getVectorNum(.ElemList) => badValue
+    rule getVectorNum(valValue(typeOperandGepVal(A:K,
         vectorTypeValue(_:K, I:K), _:K)), Es:ElemList) => I
-    rule getVectorNum(valValue(typeOperandResult(A:K, _:K)),
+    rule getVectorNum(valValue(typeOperandGepVal(A:K, T:K, _:K)),
                   Es:ElemList) => getVectorNum(Es)
-         requires getKLabel(A) =/=KLabel 'vectorTypeValue
-    rule getVectorNum(val(operand(
-        vectorType(_:K, I:K), _:K)), Es:ElemList) => I
-    rule getVectorNum(val(operand(A:K, _:K)),
-                  Es:ElemList) => getVectorNum(Es)
-         requires getKLabel(A) =/=KLabel 'vectorType
+         requires notBool isVectorType(T)
 
-    syntax KItem ::= fulfillVector(ElemList, K)       [function]
+    syntax Bool ::= isSameVectorNum(ElemList, Int) [function]
+    rule isSameVectorNum(.ElemList, X:Int) => true
+    rule isSameVectorNum(valValue(typeOperandGepVal(A:K,
+        vectorTypeValue(_:K, I), _:K)), Es:ElemList, I:Int)
+             => isSameVectorNum(Es, I)
+    rule isSameVectorNum(valValue(typeOperandGepVal(A:K,
+        vectorTypeValue(_:K, I'), _:K)), Es:ElemList, I:Int) => false
+        requires I =/=Int I'
+
+    syntax Bool ::= isAllSameType(List) [function]
+                  | isAllSameTypeAux(List, K) [function]
+    rule isAllSameType(.List) => true
+    rule isAllSameType(ListItem(T:K) L:List)
+           => isAllSameTypeAux(L, T)
+    rule isAllSameTypeAux(.List, T:K) => true
+    rule isAllSameTypeAux(ListItem(T:K) L:List, T:K)
+               => isAllSameTypeAux(L, T)
+    rule isAllSameTypeAux(ListItem(T':K) L:List, T:K) => false
+         requires T' =/=K T
+
+    syntax ElemList ::= copyOfElemList(K, K, Int) [function]
+                  //type, value, number
+    rule copyOfElemList(T:K, A:K, 0) => .ElemList
+    rule copyOfElemList(T:K, A:K, N:Int) =>
+              val(operand(T,A)),copyOfElemList(T, A, N -Int 1)
+         requires N >Int 0
+
+    syntax ElemList ::= fulfillVector(ElemList, Int)       [function]
     rule fulfillVector(.ElemList, I:Int) => .ElemList
-    rule fulfillVector(val(operand(
-        vectorType(A:K, B:K), C:K)), Es:ElemList, I:Int)
-              => val(operand(vectorType(A:K, B:K), C:K)), fulfillVector(Es, I)
-    rule fulfillVector(val(operand(A:K, B:K)), Es:ElemList, I:Int)
-              => val(operand(vectorType(A:K, I), B:K)), fulfillVector(Es, I)
-         requires getKLabel(A) =/=KLabel 'vectorType
+    rule fulfillVector(valValue(typeOperandGepVal(A:K, 
+        vectorTypeValue(B:K, C:K), D:K)), Es:ElemList, I:Int)
+              => valValue(typeOperandGepVal(A:K,
+         vectorTypeValue(B:K, C:K), D:K)), fulfillVector(Es, I)
+    rule fulfillVector(valValue(typeOperandGepVal(A:K, 
+               B:K, D:K)), Es:ElemList, I:Int)
+              => valValue(typeOperandGepVal(A:K,
+             vectorTypeValue(B:K, I),
+                vector(copyOfElemList(B, D:K, I)))), fulfillVector(Es, I)
+         requires notBool isVectorType(B)
+
+    syntax List ::= divideElemList(ElemList, List)    [function]
+                  | divideElemAux(K, ElemList, List)  [function]
+                  | addElemAux(List, List)            [function]
+    rule divideElemAux(A:K, .ElemList, L:List) => L
+    rule divideElemAux(A:K, val(operand(T:K, Y:K)),Es:ElemList, L:List)
+         => divideElemAux(A, Es, L ListItem(typeOperandGepVal(A, T, Y)))
+    rule addElemAux(.List, L:List) => .List
+    rule addElemAux(ListItem(Es:ElemList) L:List, ListItem(
+           typeOperandGepVal(A:K, B:K, C:K)) BL:List)
+             => ListItem(addElemToEnd(valValue(
+              typeOperandGepVal(A:K, B:K, C:K)), Es)) addElemAux(L, BL)
+    rule divideElemList(.ElemList, L:List) => L
+    rule divideElemList(valValue(typeOperandGepVal(
+             A:K, vectorTypeValue(B:K, I:Int),
+                vector(Es:ElemList))), Res:ElemList, L:List)
+           => divideElemList(Res, addElemAux(L, divideElemAux(A, Es, .List)))
 
     syntax KItem ::= evalToInt(K) [function]
     syntax ElemList ::= evalToIntInList(ElemList)  [function]
@@ -1847,6 +1888,7 @@ module LLVM-HELPERS
 
    syntax List ::= updateVarInList(Int, Int, List, Map, Map, Map) [function]
    syntax KItem ::= updateVarInTerm(Int, Int, K, Map, Map, Map) [function]
+                  | updateVarInGepTerm(Int, Int, K, Map, Map, Map) [function]
                   | updateVarInTermList(Int, Int, ElemList, Map, Map, Map) [function]
                   | updateVarInVar(Int, Int, K, Map, Map, Map) [function]
 
@@ -1941,6 +1983,10 @@ module LLVM-HELPERS
                    arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))))
    rule updateVarInTerm(Cur:Int, C:Int, load(Ty:K, V:K, Al:Int), M:Map, RM:Map, Rev:Map)
         => load(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev), Al)
+   rule updateVarInTerm(Cur:Int, C:Int,
+             getElementPtr(Ty:K, V:K, Es:ElemList), M:Map, RM:Map, Rev:Map)
+        => getElementPtr(Ty, updateVarInGepTerm(Cur, C, V, M, RM, Rev),
+              updateVarInTermList(Cur, C, Es, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, store(Ty:K,
                    V:K, T1:K, V1:K, Al:Int), M:Map, RM:Map, Rev:Map)
         => store(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev),
@@ -1951,12 +1997,25 @@ module LLVM-HELPERS
         => ret(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, A:K, M, RM, Rev)
          => A [owise]
-
+   rule updateVarInGepTerm(Cur:Int, C:Int,
+               vector(Es:ElemList), M:Map, RM:Map, Rev:Map)
+         => vector(updateVarInTermList(Cur, C, Es, M, RM, Rev))
+   rule updateVarInGepTerm(Cur:Int, C:Int,
+               X:K, M:Map, RM:Map, Rev:Map)
+         => updateVarInTerm(Cur, C, X:K, M, RM, Rev) [owise]
    rule updateVarInTermList(Cur:Int, C:Int, .ElemList,
                                M:Map, RM:Map, Rev:Map) => .ElemList
    rule updateVarInTermList(Cur:Int, C:Int,
           val(arg(S:Set, T:K, X:K)),Es:ElemList, M:Map, RM:Map, Rev:Map)
         => val(arg(S:Set, T:K, updateVarInTerm(Cur, C:Int, X, M, RM, Rev))),
+               (updateVarInTermList(Cur, C, Es, M:Map, RM, Rev))
+   rule updateVarInTermList(Cur:Int, C:Int,
+          val(operand(T:K, X:K)),Es:ElemList, M:Map, RM:Map, Rev:Map)
+        => val(operand(T:K, updateVarInTerm(Cur, C:Int, X, M, RM, Rev))),
+               (updateVarInTermList(Cur, C, Es, M:Map, RM, Rev))
+   rule updateVarInTermList(Cur:Int, C:Int,
+          valValue(typeOperandGepVal(A:K, T:K, X:K)),Es:ElemList, M:Map, RM:Map, Rev:Map)
+        => valValue(typeOperandGepVal(A:K, T:K, updateVarInTerm(Cur, C:Int, X, M, RM, Rev))),
                (updateVarInTermList(Cur, C, Es, M:Map, RM, Rev))
 
    syntax Map ::= cutOffRegs(Int, K, K, Map) [function]

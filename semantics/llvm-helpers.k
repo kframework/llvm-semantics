@@ -1554,6 +1554,68 @@ module LLVM-HELPERS
                   Es:ElemList) => getVectorNum(Es)
          requires notBool isVectorType(T)
 
+    syntax Bool ::= allSameStructVectorNum(K, ElemList)  [function]
+                  | allSameStructVectorNumAux(K, K, ElemList) [function]
+
+    syntax KItem ::= getFirstInVector(K) [function]
+    rule getFirstInVector(valValue(A:K),Es:ElemList) => A
+    rule getFirstInVector(A:K) => badValue [owise]
+   
+    syntax KItem ::= getAllVectorVals(K, List)  [function]
+    rule getAllVectorVals(vector(.ElemList), L:List)
+                => vector(listToElemList(L))
+    rule getAllVectorVals(vector(val(operand(T:K, A:K)),Es:ElemList), L:List)
+              => getAllVectorVals(vector(Es), L ListItem(getConstIntValue(A,32)))
+    rule getAllVectorVals(A:K, L:List) => badValue [owise]
+
+    syntax Bool ::= isAllSameInt(ElemList) [function]
+                  | isAllSameIntAux(Int, ElemList) [function]
+    rule isAllSameInt(.ElemList) => true
+    rule isAllSameInt(valValue(A:Int),Es:ElemList)
+          => isAllSameIntAux(A, Es)
+    rule isAllSameIntAux(I:Int, .ElemList) => true
+    rule isAllSameIntAux(I:Int, valValue(I:Int),Es:ElemList)
+                => isAllSameIntAux(I, Es)
+    rule isAllSameIntAux(I:Int, valValue(I':Int),Es:ElemList) => false
+         requires I =/=Int I'
+
+    rule allSameStructVectorNum(T:K, .ElemList) => true
+    rule allSameStructVectorNum(gepTypeBag(T:K), valValue(X:K),Es:ElemList)
+          => allSameStructVectorNum(T, Es)
+    rule allSameStructVectorNum(arrayTypeValue(T:K, B:Int),
+          valValue(X:K),Es:ElemList) => allSameStructVectorNum(T, Es)
+    rule allSameStructVectorNum(vectorTypeValue(T:K, B:Int),
+          valValue(X:K),Es:ElemList) => allSameStructVectorNum(T, Es)
+    rule allSameStructVectorNum(T:K,
+          valValue(typeOperandGepVal(A:K, B:K, C:K)),Es:ElemList)
+               => allSameStructVectorNumAux(T, getAllVectorVals(C, .List), Es)
+         requires isStructType(T)
+    rule allSameStructVectorNum(T:K, valValue(X:K),Es:ElemList) => true
+         requires notBool isVectorType(T) andBool
+                   notBool isArrayType(T) andBool notBool isStructType(T)
+
+    rule allSameStructVectorNumAux(T:K, badValue, Es:ElemList) => false
+    rule allSameStructVectorNumAux(structTypeValue(Ts:TypeList),
+                vector(Is:ElemList), Es:ElemList)
+           => allSameStructVectorNum(
+                getGepTypeInStruct(Ts, getFirstInVector(Is)), Es)
+         requires getFirstInVector(Is) =/=K badValue
+            andBool getGepTypeInStruct(Ts, getFirstInVector(Is)) =/=K badType
+    rule allSameStructVectorNumAux(structTypeValue(Ts:TypeList),
+                vector(Is:ElemList), Es:ElemList) => false
+         requires getFirstInVector(Is) ==K badValue
+            orBool getGepTypeInStruct(Ts, getFirstInVector(Is)) ==K badType
+    rule allSameStructVectorNumAux(packedStructTypeValue(Ts:TypeList),
+                vector(Is:ElemList), Es:ElemList)
+           => allSameStructVectorNum(
+                getGepTypeInStruct(Ts, getFirstInVector(Is)), Es)
+         requires getFirstInVector(Is) =/=K badValue
+            andBool getGepTypeInStruct(Ts, getFirstInVector(Is)) =/=K badType
+    rule allSameStructVectorNumAux(packedStructTypeValue(Ts:TypeList),
+                vector(Is:ElemList), Es:ElemList) => false
+         requires getFirstInVector(Is) ==K badValue
+            orBool getGepTypeInStruct(Ts, getFirstInVector(Is)) ==K badType
+
     syntax Bool ::= isSameVectorNum(ElemList, Int) [function]
     rule isSameVectorNum(.ElemList, X:Int) => true
     rule isSameVectorNum(valValue(typeOperandGepVal(A:K,
@@ -1593,6 +1655,11 @@ module LLVM-HELPERS
              vectorTypeValue(B:K, I),
                 vector(copyOfElemList(B, D:K, I)))), fulfillVector(Es, I)
          requires notBool isVectorType(B)
+
+    syntax ElemList ::= toGepOperand(ElemList) [function]
+    rule toGepOperand(.ElemList) => .ElemList
+    rule toGepOperand(valValue(typeOperandGepVal(A:K, T:K, C:K)),Es:ElemList)
+           => val(gepOperand(A, T, C)),toGepOperand(Es)          
 
     syntax List ::= divideElemList(ElemList, List)    [function]
                   | divideElemAux(K, ElemList, List)  [function]

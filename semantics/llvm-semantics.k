@@ -95,7 +95,7 @@ module LLVM-GEP
     imports LLVM-SYSCALLS-SYNTAX
 
     syntax KItem ::= gep(K, K, K)
-
+/*
     syntax ElemList ::= formSingletonGepList(Int, Int, K, K, ElemList)            [function]
     syntax ElemList ::= formSingletonGepVector(Int, K, ElemList, ElemList)        [function]
                       | formSingletonGepElemList(Int, ElemList)                   [function]
@@ -122,12 +122,12 @@ module LLVM-GEP
     rule formSingletonGepElem(I:Int, I, valValue(A:K),Es:ElemList) => A
     rule formSingletonGepElem(I:Int, N:Int, valValue(A:K),Es:ElemList)
             => formSingletonGepElem(I, N +Int 1, Es)
-
+*/
     // TODO gep indices are supposed to be treated as signed (and can definitely use -1)
-    rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:KResult)
+/*    rule getElementPtr(pointerTypeValue(T:K, Ad:Int),
+                 loc(Base:Int, Offset:Int), Indices:KResult)
             => gep(gepTypeBag(Type), PtrVal, Indices)
         requires getKLabel(Type) ==KLabel 'pointerTypeValue
-                 andBool notBool hasVectorInValueList(Indices)
 
     rule getElementPtr(Type:KResult, PtrVal:Loc, Indices:KResult)
             => vector(formSingletonGepList(
@@ -140,7 +140,7 @@ module LLVM-GEP
     rule getElementPtr(vectorTypeValue(T:KResult, N:Int),
                         vectorValue(Vl:ElemList), Indices:KResult)
             => vector(formSingletonGepVector(0, gepTypeBag(T), Vl, Indices))
-
+*/
     rule gep(gepTypeBag(pointerTypeValue(Type:KResult, _:K)),
              PtrVal:Loc, valValue(I:Int), Es:ElemList)
                   => gep(Type, PtrVal + (sizeof(Type) *Int I), Es)

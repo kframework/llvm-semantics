@@ -440,7 +440,7 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, assign(X, instruction(getElementPtr(
-                       pointerTypeValue(T, A:K), V, L), Mods getInrange(L)
+                       pointerTypeValue(T, A:K), V, toGepOperand(L)), Mods getInrange(L)
                           , insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires notBool hasVectorInList(L)
 
@@ -457,10 +457,12 @@ module LLVM-NORMALIZING
               instNumInfo(TheCount, assign(X, instruction(getElementPtr(
              vectorTypeValue(pointerTypeValue(T, A:K), getVectorNum(L)),
                 vector(copyOfElemList(pointerTypeValue(T, A:K),V,getVectorNum(L))),
-            fulfillVector(L, getVectorNum(L))),
+            toGepOperand(fulfillVector(L, getVectorNum(L)))),
         Mods getInrange(L), insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires hasVectorInList(L) andBool getVectorNum(L) =/=K badType
                   andBool isSameVectorNum(L, getVectorNum(L))
+               andBool allSameStructVectorNum(gepTypeBag(T),
+                                 fulfillVector(L, getVectorNum(L)))
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                 T:KResult, pointerTypeValue(T, A:K),
@@ -468,6 +470,15 @@ module LLVM-NORMALIZING
          <output>... .List =>
             ListItem("error: vector type in getelementptr has no unique vector number.") </output>
          requires hasVectorInList(L) andBool notBool isSameVectorNum(L, getVectorNum(L))
+
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                                T:KResult, pointerTypeValue(T, A:K),
+            V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas) ~> K:K </k>
+         <output>... .List =>
+            ListItem("error: there is a vector position in getelementptr that is struct type position but has no same numbers in all positions.") </output>
+         requires hasVectorInList(L) andBool notBool notBool isSameVectorNum(L, getVectorNum(L))
+               andBool notBool allSameStructVectorNum(gepTypeBag(T),
+                                 fulfillVector(L, getVectorNum(L)))
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                  vectorTypeValue(pointerTypeValue(T, A:K), N:Int),
@@ -481,9 +492,27 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, assign(X, instruction(getElementPtr(
-             vectorTypeValue(pointerTypeValue(T, A:K), N), V, fulfillVector(L, N)),
+      vectorTypeValue(pointerTypeValue(T, A:K), N), V, toGepOperand(fulfillVector(L, N))),
         Mods getInrange(L), insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
         requires isSameVectorNum(L, N)
+               andBool allSameStructVectorNum(gepTypeBag(T), fulfillVector(L, N))
+
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                 vectorTypeValue(pointerTypeValue(T, A:K), N:Int),
+                 V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas) ~> K:K
+               => .K </k>
+         <output>... .List =>
+            ListItem("error: vector type in getelementptr has no unique vector number.") </output>
+        requires notBool isSameVectorNum(L, N)
+
+    rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                 vectorTypeValue(pointerTypeValue(T, A:K), N:Int),
+                 V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas) ~> K:K
+               => .K </k>
+         <output>... .List =>
+            ListItem("error: there is a vector position in getelementptr that is struct type position but has no same numbers in all positions.") </output>
+        requires isSameVectorNum(L, N)
+               andBool notBool allSameStructVectorNum(gepTypeBag(T), fulfillVector(L, N))
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef,
                     X:SymbolicValueRef, T:KResult, pointerTypeValue(T':KResult, A:K),

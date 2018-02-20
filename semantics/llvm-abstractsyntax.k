@@ -241,6 +241,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= memId(Int, Int, Int)//tid, block id, inst id
     syntax KItem ::= storeOperand(Int, K, K)//tid, type, value
     syntax KItem ::= operand(K, K) [strict] // Type, Value
+    syntax KItem ::= gepOperand(K, K, K) [strict(3)]
+                          //inrange?, Type, Value
     syntax KItem ::= singleGepTypeCheck(K ,K, Int, Int, K) [strict(5)]
               //block, assign,count, add space, type
     syntax KItem ::= vectorGepTypeCheck(K ,K, Int, Int, K, List, List)
@@ -366,7 +368,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= calleeValue(K, K)
     rule callee(K:KResult, K':KResult) => calleeValue(K, K') [structural]
 
-    syntax KItem ::= getElementPtr(K, K, ElemList) [strict]// operand, operand, indecies
+    syntax KItem ::= getElementPtr(K, K, ElemList) [strict(2,3)]// type, loc, indecies
                    | gepTypeBag(K)          [strict]
     syntax KItem ::= extractElement(K, K) [strict]
     syntax KItem ::= insertElement(K, K, K) [strict]

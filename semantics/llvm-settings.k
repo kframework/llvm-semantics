@@ -21,6 +21,9 @@ module LLVM-SETTINGS
     syntax Int ::= "numBytesPerPointer" [function]
     rule numBytesPerPointer => 8
 
+    syntax Int ::= "structAlign" [function]
+    rule structAlign => 8
+
     syntax Int ::= "startMemoryLoc" [function]
     rule startMemoryLoc => 0
 

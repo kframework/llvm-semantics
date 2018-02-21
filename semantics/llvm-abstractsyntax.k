@@ -155,8 +155,10 @@ module LLVM-ABSTRACTSYNTAX
                orBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
-    syntax Loc ::= loc(K, K)    // TODO [semantic] base, offset, offset limit, alignment
-    syntax Loc ::= stackLoc(K, K)    // base, offset
+    syntax Loc ::= loc(K, K)    // TODO [semantic] base, type
+    syntax Loc ::= stackLoc(K, K)    // base, type
+    syntax Loc ::= inRangeLoc(K, K, K) //base, type, heap/stack
+    syntax Loc ::= badRangeLoc(K, K, K) //base, type, heap/stack
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
     syntax KItem ::= dealWithUnnamed(List)
@@ -243,6 +245,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= operand(K, K) [strict] // Type, Value
     syntax KItem ::= gepOperand(K, K, K) [strict(3)]
                           //inrange?, Type, Value
+    syntax KResult ::= gepOperandResult(K, K) //inrange, value
     syntax KItem ::= singleGepTypeCheck(K ,K, Int, Int, K) [strict(5)]
               //block, assign,count, add space, type
     syntax KItem ::= vectorGepTypeCheck(K ,K, Int, Int, K, List, List)
@@ -274,15 +277,15 @@ module LLVM-ABSTRACTSYNTAX
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
-    syntax KItem ::= writeAByte(K, K, K, Int, Int, Int, Int)
-                   //type value, original value, base, input offset, offset, size
-    syntax KItem ::= readAByte(K, Int, Int, Int, Int)
+    syntax KItem ::= writeAByte(K, K, K, Int, Int, Int)
+                   //type value, original value, base, offset, size
+    syntax KItem ::= readAByte(K, Int, Int, Int)
                    //type, base, input offset, offset, size
     syntax KItem ::= readPiece(Int, K)
            //store the byte when load an item
-    syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
+    syntax KItem ::= atomicWrite(K, K, K, Int, Int, K)
                       //type, value, original base, offset limit, ordering
-    syntax KItem ::= atomicRead(K, Int, Int, Int, K)
+    syntax KItem ::= atomicRead(K, Int, Int, K)
                       //type,base, offset limit, ordering
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)

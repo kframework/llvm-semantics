@@ -79,15 +79,15 @@ module LLVM-CALL-RET
                              singleMem(TID, A, B, either, X)))) </toCommit>
          requires isLocalVariable(X)
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                  constExprVal(loc(Ba:Int, Of:Int))) => .K ...</k>
+                  constExprVal(loc(Ba:Int, OfT:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
                          ML:List (.List => ListItem(singleMem(TID, A, B,
-                     heap, loc(Ba:Int, Of:Int))))) </toCommit>
+                     heap, loc(Ba:Int, OfT:K))))) </toCommit>
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                    constExprVal(stackLoc(Ba:Int, Of:Int))) => .K ...</k>
+                    constExprVal(stackLoc(Ba:Int, OfT:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
              ML:List (.List => ListItem(singleMem(TID, A, B,
-                    stack, stackLoc(Ba:Int, Of:Int))))) </toCommit>
+                    stack, stackLoc(Ba:Int, OfT:K))))) </toCommit>
 
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
@@ -267,8 +267,7 @@ module LLVM-CALL-RET
          =>
          <tomasulo>...
            <instQueue> instList(.List) </instQueue>
-         ...</tomasulo>
-         )
+         ...</tomasulo>)
         <callStack> .List => ListItem(frame(Tail, C, D)) ...</callStack>
 
 

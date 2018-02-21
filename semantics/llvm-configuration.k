@@ -12,7 +12,7 @@ module LLVM-CONFIGURATION
 
     configuration
         <T>//top level
-            <brk> loc(startMemoryLoc, 0) </brk>
+            <brk> loc(startMemoryLoc, void) </brk>
             //this is a cell holding brk pointer
             <cdb> .Map </cdb> //common data bus
             <exBuffer> .List </exBuffer>

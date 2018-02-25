@@ -291,8 +291,8 @@ module LLVM-NORMALIZING
                         addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
 
     //type check the gep int list coordinated with the type
-    rule singleGepTypeCheck(Name:K, X:K, Count, Ad:Int, T:KResult)
-          => assignType(Name, X, Count, pointerTypeValue(T, Ad))
+    rule singleGepTypeCheck(Name:K, Count:Int, X:K, Ad:Int, T:KResult)
+          => assignType(Name, Count, X, pointerTypeValue(T, Ad))
 
     rule typeCheckInGepList(Name:K, T:KResult, .ElemList) => T
     rule <k> typeCheckInGepList(Name:K, gepTypeBag(T:KResult), .ElemList)
@@ -407,22 +407,22 @@ module LLVM-NORMALIZING
               ListItem("error: getelementptr structure type index out of range.") </output>
          requires getGepTypeInStruct(Ts, V) ==K badType
 
-    rule vectorGepTypeCheck(Name:K, X:K, Count:Int,
+    rule vectorGepTypeCheck(Name:K, Count:Int, X:K,
                               As:Int, T:K, Res:List, ListItem(Es:ElemList) L:List)
             => typeCheckInGepList(Name, gepTypeBag(T), Es)
-                  ~> vectorGepTypeCheck(Name, X, Count, As, T, Res, L)
+                  ~> vectorGepTypeCheck(Name, Count, X, As, T, Res, L)
     rule T:KResult ~> vectorGepTypeCheck(Name:K,
-                         X:K, Count:Int, As:Int, T':K, Res:List, L:List)
-            => vectorGepTypeCheck(Name, X, Count, As, T', Res ListItem(T), L)
+                      Count:Int, X, As:Int, T':K, Res:List, L:List)
+            => vectorGepTypeCheck(Name, Count, X, As, T', Res ListItem(T), L)
 
     rule vectorGepTypeCheck(Name:K,
-                         X:K, Count:Int, Ad:Int, T:K, Res:List, .List)
-           => assignType(Name, X, Count, vectorTypeValue(
+                Count:Int, X:K,  Ad:Int, T:K, Res:List, .List)
+           => assignType(Name, Count, X, vectorTypeValue(
                      pointerTypeValue(T, Ad), size(Res)))
          requires isAllSameType(Res)
 
     rule <k> vectorGepTypeCheck(Name:K,
-          X:K, Count:Int, Ad:Int, T:K, Res:List, .List) ~> K:K => .K </k>
+          Count:Int, X:K,  Ad:Int, T:K, Res:List, .List) ~> K:K => .K </k>
          <output>... .List =>
             ListItem("error: vector type sub indices do not match with each other.") </output>
          requires notBool isAllSameType(Res)
@@ -432,9 +432,9 @@ module LLVM-NORMALIZING
                                 T:KResult, pointerTypeValue(T, A:K), V:K,
                                   L:KResult, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name, pointerTypeValue(T, A), V)
-                  ~> (singleGepTypeCheck(Name, X, TheCount,A,
+                  ~> (singleGepTypeCheck(Name, TheCount, X, A,
                            typeCheckInGepList(Name, gepTypeBag(T), L))
-                 ~> assignUsesInCall(Name, X, valValue((typedArg(.Set,
+                 ~> assignUsesInCall(Name, TheCount, valValue((typedArg(.Set,
                                pointerTypeValue(T, A:K), V:K))),toArgList(L)))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
@@ -448,9 +448,9 @@ module LLVM-NORMALIZING
                                 T:KResult, pointerTypeValue(T, A:K),
                         V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name, pointerTypeValue(T, A), V)
-             ~> (vectorGepTypeCheck(Name, X, TheCount,A, T, .List,
+             ~> (vectorGepTypeCheck(Name, TheCount,X,A, T, .List,
                  divideElemList(fulfillVector(L, getVectorNum(L)), .List))
-                 ~> assignUsesInCall(Name, X, valValue((typedArg(.Set,
+                 ~> assignUsesInCall(Name, TheCount, valValue((typedArg(.Set,
             pointerTypeValue(T, A:K), V:K))),toArgList(L))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
@@ -485,9 +485,9 @@ module LLVM-NORMALIZING
                  V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name,
                        vectorTypeValue(pointerTypeValue(T, A:K), N), V)
-              ~> (vectorGepTypeCheck(Name, X, TheCount,A, T, .List,
+              ~> (vectorGepTypeCheck(Name, TheCount, X, A, T, .List,
                  divideElemList(fulfillVector(L, N), .List))
-                 ~> assignUsesInCall(Name, X, valValue((typedArg(.Set,
+                 ~> assignUsesInCall(Name, TheCount, valValue((typedArg(.Set,
             vectorTypeValue(pointerTypeValue(T, A:K), N), V:K))),toArgList(L))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->

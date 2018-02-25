@@ -79,15 +79,15 @@ module LLVM-CALL-RET
                              singleMem(TID, A, B, either, X)))) </toCommit>
          requires isLocalVariable(X)
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                  constExprVal(loc(Ba:Int, OfT:K))) => .K ...</k>
+                  constExprVal(loc(Ba:Int, OfT:K, LSize:Int, InR:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
                          ML:List (.List => ListItem(singleMem(TID, A, B,
-                     heap, loc(Ba:Int, OfT:K))))) </toCommit>
+                     heap, loc(Ba:Int, OfT:K, LSize:Int, InR:K))))) </toCommit>
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                    constExprVal(stackLoc(Ba:Int, OfT:K))) => .K ...</k>
+                    constExprVal(stackLoc(Ba:Int, OfT:K, LSize:Int, InR:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
              ML:List (.List => ListItem(singleMem(TID, A, B,
-                    stack, stackLoc(Ba:Int, OfT:K))))) </toCommit>
+                    stack, stackLoc(Ba:Int, OfT:K, LSize:Int, InR:K))))) </toCommit>
 
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
@@ -216,16 +216,16 @@ module LLVM-CALL-RET
 
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
-         <specRegisters> M:Map => M[varInstance(BN, X) <- V] </specRegisters>
+         <specRegisters> M:Map => updateEnv(M,varInstance(BN, X), V) </specRegisters>
          <registers> M':Map </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
-               L, M[varInstance(BN, X) <- V], M', Rev)) </instQueue>
+               L, updateEnv(M,varInstance(BN, X), V), M', Rev)) </instQueue>
          <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
                => splitMemList(memList(Ava:List, Ava':List, Avb:List,
                      Avb':List, .List), Ava Ava' Avb Avb',
                       updateVarInList(Cur, BN, ML,
-                         M[varInstance(BN, X) <- V], M', Rev), Cur, SL, S) </toCommit>
+                         updateEnv(M,varInstance(BN, X), V), M', Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>
@@ -234,15 +234,15 @@ module LLVM-CALL-RET
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
          <specRegisters> M:Map </specRegisters>
-         <registers> M':Map => M'[X <- V] </registers>
+         <registers> M':Map => updateEnv(M', X, V) </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
-               L, M, M'[X <- V], Rev)) </instQueue>
+               L, M, updateEnv(M', X, V), Rev)) </instQueue>
          <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
                => splitMemList(memList(Ava:List, Ava':List, Avb:List,
                      Avb':List, .List), Ava Ava' Avb Avb',
                       updateVarInList(Cur, BN,
-               L, M, M'[X <- V], Rev), Cur, SL, S) </toCommit>
+               L, M, updateEnv(M', X, V), Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>

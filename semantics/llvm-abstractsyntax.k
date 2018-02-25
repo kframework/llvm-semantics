@@ -25,9 +25,12 @@ module LLVM-ABSTRACTSYNTAX
                                   | vectorTypeValue(K, K)//inner type, length
     syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
 
+    //syntax TypeResult ::= memTypeNum(K, Int) //mem_type, number
+    //syntax TypeResult ::= memTypeValue(K, K) //inrange? type
     syntax Type ::= TypeResult
     syntax Type ::= "badType"
     syntax KResult ::= "badValue"
+    syntax KItem ::= "none"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
     syntax Element ::= val(K) [strict]
@@ -155,10 +158,13 @@ module LLVM-ABSTRACTSYNTAX
                orBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
-    syntax Loc ::= loc(K, K)    // TODO [semantic] base, type
-    syntax Loc ::= stackLoc(K, K)    // base, type
-    syntax Loc ::= inRangeLoc(K, K, K) //base, type, heap/stack
-    syntax Loc ::= badRangeLoc(K, K, K) //base, type, heap/stack
+    syntax Loc ::= loc(K, K, Int, K)
+             // TODO [semantic] base, type, size of top, inrange?
+    syntax Loc ::= stackLoc(K, K, Int, K) 
+             // TODO [semantic] base, type, size of top, inrange?
+    syntax Loc ::= aLoc(K, K, K) //base, type, rangeType
+    //syntax Loc ::= inRangeLoc(K, K, K) //base, type, heap/stack
+    //syntax Loc ::= badRangeLoc(K, K, K) //base, type, heap/stack
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
     syntax KItem ::= dealWithUnnamed(List)
@@ -246,10 +252,10 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= gepOperand(K, K, K) [strict(3)]
                           //inrange?, Type, Value
     syntax KResult ::= gepOperandResult(K, K) //inrange, value
-    syntax KItem ::= singleGepTypeCheck(K ,K, Int, Int, K) [strict(5)]
+    syntax KItem ::= singleGepTypeCheck(K, Int, K, Int, K) [strict(5)]
               //block, assign,count, add space, type
-    syntax KItem ::= vectorGepTypeCheck(K ,K, Int, Int, K, List, List)
-              //block, assign,count,add space, type
+    syntax KItem ::= vectorGepTypeCheck(K ,Int, K, Int, K, List, List)
+              //block, count, assign, add space, type
 
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KItem ::= typeOperandGep(K, K, K)  [strict(2)] //inrange, type, value
@@ -373,6 +379,14 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= getElementPtr(K, K, ElemList) [strict(2,3)]// type, loc, indecies
                    | gepTypeBag(K)          [strict]
+                   | getElementPtrAux(K, Int, Int, Int, K, K, ElemList)
+                      //type, original, size, base, inrange?, stack/heap, indices
+                   | getElementPtrBound(K, Int, Int, K, K, K, ElemList)
+                      //type, original, size, base, inrange?, stack/heap, indices
+                   | getElementPtrCal(K, Int, Int, Int, K, K, Int, ElemList)
+                      //type, original, size, base, inrange?, stack/heap, Index, indices
+                   | "badRange"
+
     syntax KItem ::= extractElement(K, K) [strict]
     syntax KItem ::= insertElement(K, K, K) [strict]
     syntax KItem ::= shuffleVector(K, K, K) [strict]

@@ -30,6 +30,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax Type ::= TypeResult
     syntax Type ::= "badType"
     syntax KResult ::= "badValue"
+    syntax KItem ::= notALoc(K)
     syntax KItem ::= "none"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
@@ -163,8 +164,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax Loc ::= stackLoc(K, K, Int, K) 
              // TODO [semantic] base, type, size of top, inrange?
     syntax Loc ::= aLoc(K, K, K) //base, type, rangeType
-    //syntax Loc ::= inRangeLoc(K, K, K) //base, type, heap/stack
-    //syntax Loc ::= badRangeLoc(K, K, K) //base, type, heap/stack
+    syntax Loc ::= intLoc(K, K, K, K) //base(int), type, top size, range
     syntax Loc ::= funptr(K)
     syntax ValueRef ::= Loc
     syntax KItem ::= dealWithUnnamed(List)
@@ -348,15 +348,17 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theSExt(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theZExt(K, K, K) [strict(2)] // oldtype, op, totype
     syntax KItem ::= theBitCast(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theIntToPtr(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= thePtrToInt(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theIntToPtr(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theIntToPtrAux(K, K) // op, totype
+    syntax KItem ::= thePtrToInt(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= thePtrToIntAux(K, K) //op totype
     syntax KItem ::= theFpToSI(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theFpToUI(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theFPTrunc(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theFPExt(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theSIToFP(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theUIToFP(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theAddrspacecast(K, K, K) [strict]//type, op, totype
+    syntax KItem ::= theAddrSpaceCast(K, K, K) [strict(2)]//type, op, totype
 
     syntax KItem ::= constantStruct(ElemList) [strict] //arguments
     syntax KItem ::= packedStruct(ElemList) [strict] //arguments

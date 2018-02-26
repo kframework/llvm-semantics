@@ -8,6 +8,28 @@ module LLVM-HELPERS
     imports LLVM-ABSTRACTSYNTAX
     imports LLVM-SETTINGS
 
+    //deal with zeroinitializer
+    syntax KItem ::= dealWithZeroInitializer(K) [function]//t, v
+                   | zeroVectorAux(K, K, K)  [function]
+                   | zeroArrayAux(K, K, K)   [function]
+    rule dealWithZeroInitializer(vectorTypeValue(T:K, N:Int))
+            => vectorValue(zeroVectorAux(T:K, N:Int, .ElemList))
+    rule dealWithZeroInitializer(integerType(N:Int)) => 0
+    rule dealWithZeroInitializer(pointerTypeValue(X:K, Y:K))
+               => loc(startMemoryLoc -Int 1, void, 0, none)
+    rule dealWithZeroInitializer(arrayTypeValue(T:K, N:Int))
+           => arrayValue(zeroArrayAux(T, N, .ElemList))
+    rule zeroVectorAux(T, N:Int, Es:ElemList) => Es
+         requires N ==Int 0
+    rule zeroVectorAux(T, N:Int, Es:ElemList)
+               => zeroVectorAux(T, N -Int 1, valValue(dealWithZeroInitializer(T)),Es)
+         requires N >Int 0
+    rule zeroArrayAux(T, N:Int, Es:ElemList) => Es
+         requires N ==Int 0
+    rule zeroArrayAux(T, N:Int, Es:ElemList)
+               => zeroArrayAux(T, N -Int 1, valValue(dealWithZeroInitializer(T)),Es)
+         requires N >Int 0
+
     //helper functions for type checking phi functions, switches and gep
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
@@ -496,8 +518,8 @@ module LLVM-HELPERS
 
     syntax Int ::= sizeofInBits(K) [function]
 
-    syntax Loc ::= intToPtrOfLoc(K, K)
-    syntax Int ::= ptrToIntOfLoc(K, K)
+    //syntax Loc ::= intToPtrOfLoc(K, K)
+    //syntax Int ::= ptrToIntOfLoc(K, K)
     syntax KItem ::= read(K, K) [strict(1)]
     syntax KItem ::= write(K, K, K) [strict] // type, value, location
 
@@ -570,6 +592,10 @@ module LLVM-HELPERS
     syntax Bool ::= isFloatType(K) [function]
     rule isFloatType(F:FPType) => true
     rule isFloatType(_) => false [owise]
+
+    syntax Bool ::= isFunType(K) [function]
+    rule isFunType(functionTypeValue(A:K, B:K)) => true
+    rule isFunType(_) => false [owise]
 
     syntax Bool ::= isPointerType(K) [function]
     rule isPointerType('pointerType(_,, _)) => true
@@ -1279,14 +1305,11 @@ module LLVM-HELPERS
                     V1:Int, undef, S:Set, Es:ElemList)
          => applyInt(Op, integerType(N:Int), V1, undef, S:Set)
     rule applyInts(Op:K, T:K, zeroinitializer,
-                    zeroinitializer, S:Set, Es:ElemList)
-         => applyInt(Op, T:K, 0, 0, S:Set)
-    rule applyInts(Op:K, integerType(N:Int),
-                  zeroinitializer, V2:Int, S:Set, Es:ElemList)
-         => applyInt(Op, integerType(N:Int), zeroinitializer, V2, S:Set)
-    rule applyInts(Op:K, integerType(N:Int),
-                     V1:Int, zeroinitializer, S:Set, Es:ElemList)
-         => applyInt(Op, integerType(N:Int), V1, zeroinitializer, S:Set)
+                    X:K, S:Set, Es:ElemList)
+         => applyInts(Op, T:K, dealWithZeroInitializer(T), X, S:Set, Es)
+    rule applyInts(Op:K, T:K, X:K,
+                   zeroinitializer, S:Set, Es:ElemList)
+         => applyInts(Op, T:K, X,dealWithZeroInitializer(T), S:Set, Es)
     rule applyInts(Op:K, T:K, vectorValue(.ElemList),
                         vectorValue(.ElemList), S:Set, Es:ElemList)
          => vectorValue(Es)
@@ -1295,23 +1318,13 @@ module LLVM-HELPERS
          => applyInts(Op:K, vectorTypeValue(T:K, N:Int),
                vectorValue(makeResultList(N, undef)),
                         V2, S:Set, Es:ElemList)
+         requires V2 =/=K undef
     rule applyInts(Op:K, vectorTypeValue(T:K, N:Int),
           V1:K, undef, S:Set, Es:ElemList)
          => applyInts(Op:K, vectorTypeValue(T:K, N:Int), V1,
                vectorValue(makeResultList(N, undef)),
                             S:Set, Es:ElemList)
-
-    rule applyInts(Op:K, vectorTypeValue(T:K, N:Int), zeroinitializer,
-                        V2:K, S:Set, Es:ElemList)
-         => applyInts(Op:K, vectorTypeValue(T:K, N:Int),
-               vectorValue(makeResultList(N, zeroinitializer)),
-                        V2, S:Set, Es:ElemList)
-    rule applyInts(Op:K, vectorTypeValue(T:K, N:Int),
-          V1:K, zeroinitializer, S:Set, Es:ElemList)
-         => applyInts(Op:K, vectorTypeValue(T:K, N:Int), V1,
-               vectorValue(makeResultList(N, zeroinitializer)),
-                            S:Set, Es:ElemList)
-
+         requires V1 =/=K undef
     rule applyInts(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
            vectorValue(valValue(V2:K),E2:ElemList), S:Set, Es:ElemList)
          => applyInts(Op, T, vectorValue(E1), vectorValue(E2), S,
@@ -1332,20 +1345,10 @@ module LLVM-HELPERS
          requires V2 =/=K badValue andBool V2 =/=K poisonVal
     rule applyIcmp(OP:K, T:K, V1:K, undef) => undef
          requires V1 =/=K badValue andBool V1 =/=K poisonVal
-    rule applyIcmp(OP:K,
-              integerType(N:Int), zeroinitializer, V2:K)
-            => applyIcmp(OP, integerType(N:Int), 0, V2)
-    rule applyIcmp(OP:K,
-               integerType(N:Int), V1:K, zeroinitializer)
-            => applyIcmp(OP, integerType(N:Int), V1, 0)
-    rule applyIcmp(OP:K, pointerTypeValue(T:K, Ad:K),
-                zeroinitializer, V2:K)
-            => applyIcmp(OP, pointerTypeValue(T:K, Ad:K),
-                loc(startMemoryLoc -Int 1, void, 0, none), V2)
-    rule applyIcmp(OP:K, pointerTypeValue(T:K, Ad:K),
-                V1:K, zeroinitializer)
-            => applyIcmp(OP, pointerTypeValue(T:K, Ad:K),
-                    V1, loc(startMemoryLoc -Int 1, void, 0, none))
+    rule applyIcmp(OP:K, T:K , zeroinitializer, V2:K)
+            => applyIcmp(OP, T, dealWithZeroInitializer(T), V2)
+    rule applyIcmp(OP:K, T:K, V1:K, zeroinitializer)
+            => applyIcmp(OP, T, V1, dealWithZeroInitializer(T))
     rule applyIcmp(Op:K, integerType(N:Int), V1:Int, V2:Int)
       => applyOp(Op, normalizingInt(integerType(N:Int), V1),
                  normalizingInt(integerType(N:Int), V2))
@@ -1386,28 +1389,10 @@ module LLVM-HELPERS
     rule applyIcmps(Op:K, T:K, V1:K, undef, Es:ElemList)
          => undef
          requires V1 =/=K badValue andBool V1 =/=K poisonVal
-    rule applyIcmps(Op:K, T:K, V1:K, zeroinitializer, Es:ElemList)
-         => applyIcmp(Op, T, V1, zeroinitializer)
-         requires getKLabel(T) ==KLabel 'integerType
-                  orBool getKLabel(T) ==KLabel 'pointerTypeValue
     rule applyIcmps(Op:K, T:K, zeroinitializer, V2:K, Es:ElemList)
-         => applyIcmp(Op, T, zeroinitializer, V2)
-         requires getKLabel(T) ==KLabel 'integerType
-                  orBool getKLabel(T) ==KLabel 'pointerTypeValue
-    rule applyIcmps(Op:K, T:K, vectorValue(.ElemList),
-                        vectorValue(.ElemList), Es:ElemList)
-         => vectorValue(Es)
-
-    rule applyIcmps(Op:K, vectorTypeValue(T:K, N:Int),
-         zeroinitializer, V2:K, Es:ElemList)
-         => applyIcmps(Op:K, vectorTypeValue(T:K, N:Int),
-               vectorValue(makeResultList(N, zeroinitializer)),
-                        V2, Es:ElemList)
-    rule applyIcmps(Op:K, vectorTypeValue(T:K, N:Int), V1:K,
-         zeroinitializer, Es:ElemList)
-         => applyIcmps(Op:K, vectorTypeValue(T:K, N:Int),
-           V1, vectorValue(makeResultList(N, zeroinitializer)),
-              Es:ElemList)
+         => applyIcmps(Op:K, T:K, dealWithZeroInitializer(T), V2, Es:ElemList)
+    rule applyIcmps(Op:K, T:K, V1:K, zeroinitializer, Es:ElemList)
+         => applyIcmps(Op:K, T:K, V1, dealWithZeroInitializer(T), Es:ElemList)
 
     rule applyIcmps(Op:K, T:K, vectorValue(valValue(V1:K),E1:ElemList),
            vectorValue(valValue(V2:K),E2:ElemList), Es:ElemList)
@@ -1436,17 +1421,23 @@ module LLVM-HELPERS
     rule applyCast(sext, integerType(N:Int),
                 V1:Int, integerType(N':Int)) => V1 +Int seqAdds(N, N')
          requires V1 >=Int (2 ^Int (N -Int 1))
+    rule applyCast(Op:K, T:K, notALoc(A:K), T':K)
+              => notALoc(applyCast(Op, T, A, T'))
+    rule applyCast(Op:K, T:K, intLoc(A:K, B:K, C:K, D:K), T':K)
+              => intLoc(applyCast(Op, T, A, T'), B, C, D)
     rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
     rule applyCast(Op:K, T:K, undef, T':K) => undef
+    rule applyCast(Op:K, T:K, zeroinitializer, T':K) => applyCast(Op:K, T:K, 0, T')
 
-    rule applyCasts(Op:K, integerType(N:Int), .ElemList, T:K) => .ElemList
-    rule applyCasts(Op:K, integerType(N:Int), vectorValue(Es:ElemList), T:K)
-               => vectorValue(applyCasts(Op, integerType(N:Int), Es, T:K))
-    rule applyCasts(Op:K, integerType(N:Int), (valValue(K:K),Es:ElemList), T:K)
-               => valValue(applyCast(Op, integerType(N:Int), K, T)),
-                                       applyCasts(Op, integerType(N:Int), Es, T)
-    rule applyCasts(Op:K, A:K, I1:K, I2:K) => applyCast(Op, A, I1, I2)        [owise]
-
+    rule applyCasts(Op:K, T:K, .ElemList, T':K) => .ElemList
+    rule applyCasts(Op:K, T:K, vectorValue(Es:ElemList), T':K)
+               => vectorValue(applyCasts(Op, T, Es, T':K))
+    rule applyCasts(Op:K, vectorTypeValue(T:K, N:Int), (valValue(A:K),Es:ElemList), T':K)
+               => valValue(applyCast(Op, T, A, T')),
+                 applyCasts(Op, vectorTypeValue(T:K, N:Int), Es, T')
+    rule applyCasts(Op:K, T:K, zeroinitializer, T2:K)
+          => applyCasts(Op, T, dealWithZeroInitializer(T), T2)
+    rule applyCasts(Op:K, T:K, I1:K, I2:K) => applyCast(Op, getIntType(T), I1, I2)    [owise]
 
     rule applySelect(0, A:K, B:K) => A
     rule applySelect(I:Int, A:K, B:K) => B
@@ -2104,6 +2095,15 @@ module LLVM-HELPERS
    rule updateVarInTerm(Cur:Int, C:Int, theZExt(T:K,
                             V:K, T':K), M:Map, RM:Map, Rev:Map)
         => theZExt(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theIntToPtr(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theIntToPtr(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, thePtrToInt(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => thePtrToInt(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theAddrSpaceCast(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theAddrSpaceCast(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
 
    rule updateVarInTerm(Cur:Int, C:Int, conditional(operand(T:K, V:K),
                             V1:K, V2:K), M:Map, RM:Map, Rev:Map)
@@ -3142,5 +3142,85 @@ module LLVM-HELPERS
     rule isIntCastOp(zext) => true
     rule isIntCastOp(sext) => true
     rule isIntCastOp(Op:K) => false [owise]
+
+    syntax KItem ::= normalPointer(K)  [function]
+    rule normalPointer(zeroinitializer)
+                 => loc(startMemoryLoc -Int 1, void, 0, none)
+    rule normalPointer(A:K) => A [owise]
+
+    syntax KItem ::= normalPointers(K)  [function]
+    rule normalPointers(vectorValue(Es:ElemList))
+           => vectorValue(normalPointers(Es))
+    rule normalPointers(.ElemList) => .ElemList
+    rule normalPointers(valValue(A:K),Es:ElemList)
+            => valValue(normalPointer(A)), normalPointers(Es)
+    rule normalPointers(A:K) => A [owise]
+
+    //use in ptrtoint op
+    syntax Bool ::= hasInRanges(K) [function]
+                  | hasInRange(K) [function]
+    rule hasInRange(loc(_, _, _, inrange)) => true
+    rule hasInRange(stackLoc(_, _, _, inrange)) => true
+    rule hasInRange(loc(_, _, _, badRange)) => true
+    rule hasInRange(stackLoc(_, _, _, badRange)) => true
+    rule hasInRange(A:K) => false [owise]
+    rule hasInRanges(A:Loc) => hasInRange(A)
+    rule hasInRanges(vectorValue(Es:ElemList)) => hasInRanges(Es)
+    rule hasInRanges(.ElemList) => false
+    rule hasInRanges(valValue(A:K), Es:ElemList)
+               => hasInRange(A) orBool hasInRanges(Es)
+    rule hasInRanges(A:K) => false [owise]
+
+    syntax KItem ::= toIntLocs(K) [function]
+                   | toIntLoc(K)  [function]
+
+    rule toIntLoc(loc(A:Int, B:K, C:K, D:K))
+         => intLoc(mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer)), B, C, heap)
+    rule toIntLoc(stackLoc(A:Int, B:K, C:K, D:K))
+          => intLoc(mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer)), B, C, stack)
+    rule toIntLoc(loc(notALoc(A:Int), B:K, C:K, D:K))
+         => mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer))
+    rule toIntLoc(stackLoc(notALoc(A:Int), B:K, C:K, D:K))
+          => mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer))
+    rule toIntLoc(funptr(A:K)) => intLoc(fixedFunPtrPosition, funptr(A), 0, none)
+    rule toIntLoc(zeroinitializer) => 0
+    rule toIntLoc(A:K) => A [owise]
+    rule toIntLocs(vectorValue(Es:ElemList))
+               => vectorValue(toIntLocs(Es))
+    rule toIntLocs(.ElemList) => .ElemList
+    rule toIntLocs(valValue(A:K), Es:ElemList)
+               => valValue(toIntLoc(A)), toIntLocs(Es)
+    rule toIntLocs(A:K) => toIntLoc(A) [owise]
+
+    syntax KItem ::= reverseLocs(K, K) [function]
+                   | reverseLoc(K, K)  [function]
+    rule reverseLoc(intLoc(X:K, funptr(A:K), C:K, D:K),
+           pointerTypeValue(functionTypeValue(X:K, Y:K), Ad:Int)) => funptr(A)
+         requires fixedFunPtrPosition ==K X
+    rule reverseLoc(intLoc(X:K, funptr(A:K), C:K, D:K), pointerTypeValue(T:K, Ad:Int))
+              => loc(notALoc(X), T, C, none)
+         requires fixedFunPtrPosition =/=K X
+    rule reverseLoc(intLoc(X:K, funptr(A:K), C:K, D:K), pointerTypeValue(T:K, Ad:Int))
+              => loc(notALoc(X), T, C, none)
+         requires notBool isFunType(T)
+    rule reverseLoc(intLoc(A:Int, T:K, C:K, heap), pointerTypeValue(T:K, Ad:Int))
+          => loc(A, T, C, none)
+    rule reverseLoc(intLoc(A:Int, B:K, C:K, heap), pointerTypeValue(T:K, Ad:Int))
+          => loc(A, T, 1, none)
+         requires B =/=K T
+    rule reverseLoc(intLoc(A:Int, T:K, C:K, stack), pointerTypeValue(T:K, Ad:Int))
+          => stackLoc(A, T, C, none)
+    rule reverseLoc(intLoc(A:Int, B:K, C:K, stack), pointerTypeValue(T:K, Ad:Int))
+          => stackLoc(A, T, 1, none)
+         requires B =/=K T
+    rule reverseLoc(A:Int, pointerTypeValue(T:K, Ad:Int))
+                => loc(notALoc(A), T, 1, none)
+    rule reverseLoc(A:K, T:K) => normalPointer(A) [owise]
+    rule reverseLocs(vectorValue(Es:ElemList), T:K)
+               => vectorValue(reverseLocs(Es, T))
+    rule reverseLocs(.ElemList, T:K) => .ElemList
+    rule reverseLocs(valValue(A:K), Es:ElemList, T:K)
+               => valValue(reverseLoc(A, T)), reverseLocs(Es, T)
+    rule reverseLocs(A:K, T:K) => reverseLoc(A, T) [owise]
 
 endmodule

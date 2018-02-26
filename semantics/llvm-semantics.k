@@ -1545,17 +1545,79 @@ module LLVM-CONVERSIONS
 
     rule [trunc]:
         theTrunc(Type:KResult, I:KResult, Type2:KResult)
-                  => applyCasts(trunc, getIntType(Type),
+                  => applyCasts(trunc, Type,
                              normalizingInt(getIntType(Type), I), getIntType(Type2))
     rule [zext]:
         theZExt(Type:KResult, I:KResult, Type2:KResult)
-                  => applyCasts(zext, getIntType(Type),
+                  => applyCasts(zext, Type,
                              normalizingInt(getIntType(Type), I), getIntType(Type2))
 
     rule [sext]:
         theSExt(Type:KResult, I:KResult, Type2:KResult)
-                  => applyCasts(sext, getIntType(Type),
+                  => applyCasts(sext, Type,
                              normalizingInt(getIntType(Type), I), getIntType(Type2))
+
+    rule [addrspacecast]:
+        theAddrSpaceCast(Type:KResult, I:KResult, Type2:KResult) => normalPointers(I)
+
+    rule [ptrtoint]:
+        thePtrToInt(Type:KResult, I:KResult, Type2:KResult)
+             => thePtrToIntAux(toIntLocs(I), Type2)
+        requires notBool hasInRanges(I) andBool I =/=K zeroinitializer
+    rule thePtrToInt(Type:KResult, zeroinitializer, Type2:KResult)
+             => thePtrToIntAux(toIntLocs(dealWithZeroInitializer(Type)), Type2)
+
+    rule thePtrToIntAux(I:KResult, integerType(N:Int))
+          => applyCasts(trunc, integerType(numBitsPerByte *Int numBytesPerPointer)
+                    , I, integerType(N:Int))
+         requires N <Int numBitsPerByte *Int numBytesPerPointer
+    rule thePtrToIntAux(I:KResult, integerType(N:Int))
+          => applyCasts(zext, integerType(numBitsPerByte *Int numBytesPerPointer)
+                    , I, integerType(N:Int))
+         requires N >Int numBitsPerByte *Int numBytesPerPointer
+    rule thePtrToIntAux(I:KResult, integerType(N:Int)) => I
+         requires N ==Int numBitsPerByte *Int numBytesPerPointer
+
+    rule thePtrToIntAux(I:KResult, vectorTypeValue(integerType(N:Int), X:Int))
+          => applyCasts(trunc, vectorTypeValue(integerType(
+                         numBitsPerByte *Int numBytesPerPointer), X)
+                    , I, integerType(N:Int))
+         requires N <Int numBitsPerByte *Int numBytesPerPointer
+    rule thePtrToIntAux(I:KResult, vectorTypeValue(integerType(N:Int), X:Int))
+          => applyCasts(zext, vectorTypeValue(integerType(
+                         numBitsPerByte *Int numBytesPerPointer), X)
+                    , I, integerType(N:Int))
+         requires N >Int numBitsPerByte *Int numBytesPerPointer
+    rule thePtrToIntAux(I:KResult, vectorTypeValue(integerType(N:Int), X:Int)) => I
+         requires N ==Int numBitsPerByte *Int numBytesPerPointer
+
+
+    rule [ptrtoint-fail]:
+        <k> thePtrToInt(Type:KResult, I:KResult, Type2:KResult) ~> K:K
+            => .K </k>
+         <output>... .List
+                => ListItem("error: undefined behavior due to inrange flag getelementptr result used in ptrtoint ops.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        requires hasInRanges(I)
+
+    rule [inttoptr]:
+        theIntToPtr(integerType(N:Int), I:KResult, Type2:KResult)
+             => theIntToPtrAux(applyCasts(zext, integerType(N:Int),
+             I, integerType(numBitsPerByte *Int numBytesPerPointer)), Type2)
+         requires N <Int numBitsPerByte *Int numBytesPerPointer
+    rule theIntToPtr(integerType(N:Int), I:KResult, Type2:KResult)
+             => theIntToPtrAux(applyCasts(trunc, integerType(N:Int),
+             I, integerType(numBitsPerByte *Int numBytesPerPointer)), Type2)
+         requires N >Int numBitsPerByte *Int numBytesPerPointer
+    rule theIntToPtr(integerType(N:Int), I:KResult, Type2:KResult)
+             => theIntToPtrAux(I, Type2)
+         requires N ==Int numBitsPerByte *Int numBytesPerPointer
+
+    rule theIntToPtrAux(I:KResult, T:K) => reverseLocs(I, T)
 
     // TODO need to normalize here
     rule
@@ -1566,47 +1628,6 @@ module LLVM-CONVERSIONS
     //rule
         //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
 
-    // TODO need to normalize here
-    rule
-        <k> theIntToPtr(Type:KResult, K:K, Type2:KResult) => intToPtrOfLoc(Type, K:K) ...</k>
-    rule
-        <k> thePtrToInt(Type:KResult, K:K, Type2:KResult) => ptrToIntOfLoc(Type, K:K) ...</k>
-
-    // TODO needs side conditions
-    rule intToPtrOfLoc(Type:KResult, intToPtrOfLoc(Type':KResult, K:K)) => K:K [anywhere]
-    rule ptrToIntOfLoc(Type:KResult, ptrToIntOfLoc(Type':KResult, K:K)) => K:K [anywhere]
-
-    rule unsigned(Type:KResult, Loc:Loc)
-        => ptrToIntOfLoc(Type, Loc:Loc)
-        [anywhere]
-    rule signed(Type:KResult, Loc:Loc)
-        => ptrToIntOfLoc(Type, Loc:Loc)
-        [anywhere]
-    rule unsigned(_, ptrToIntOfLoc(Type:KResult, K:K))
-        => ptrToIntOfLoc(Type, K:K)
-    rule signed(_, ptrToIntOfLoc(Type:KResult, K:K))
-        => ptrToIntOfLoc(Type, K:K)
-
-    // definitely misses problems with null
-    // TODO assumes types are same and are big enough
-/*
-    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) >Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
-        => Offset >Int Offset'
-        [anywhere]
-    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) >=Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
-        => Offset >=Int Offset'
-        [anywhere]
-    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) <Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
-        => Offset <Int Offset'
-        [anywhere]
-    rule ptrToIntOfLoc(_, loc(I:Int, Offset:Int)) <=Int ptrToIntOfLoc(_, loc(I:Int, Offset':Int))
-        => Offset <=Int Offset'
-        [anywhere]
-    rule ptrToIntOfLoc(Type:KResult, loc(I:Int, Offset:Int))
-                  -Int ptrToIntOfLoc(Type:KResult, loc(I:Int, Offset':Int))
-        => signed(Type, Offset -Int Offset')
-        [anywhere]
-*/
     rule
         <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
             => signed(Type, Float2Int(F))
@@ -1827,11 +1848,11 @@ module LLVM-SYSCALLS
     rule <k> 'sys-gettid(_) => 0 ...</k>
 
     //there might be a problem here. about the sort of brk cell.
-    rule
+    /*rule
         <k> 'sys-brk(ptrToIntOfLoc(_,Loc:Loc),, _) => Brk ...</k>
         <brk> Brk:Loc </brk>
         when Loc ==K 'nullOfConstValueRef(.KList)
-
+        */
 
     // TODO krun should provide this value
     rule <k> 'sys-getpid(_) => 10000 ...</k>
@@ -1840,12 +1861,13 @@ module LLVM-SYSCALLS
     syntax KItem ::= readString(K, K)
     syntax KItem ::= "readString'" "(" K "," K "," K ")"
 
+   /*
     rule
         <k> 'sys-write(FileDesc:Int,, ptrToIntOfLoc(_, Loc:Loc),, Len:Int,, _)
             => printString(readString(Loc, Len))
         ...</k>
         when Len >=Int 0
-
+     */
     rule
         <k> readString(Loc:Loc, Len:Int)
             => readString'(Loc, Len, "")

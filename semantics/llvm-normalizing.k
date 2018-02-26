@@ -1073,7 +1073,7 @@ module LLVM-NORMALIZING
           andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
-                  vectorTypeValue(Ty:K, I:Int),
+                  vectorTypeValue(Ty:K, I':Int),
                   V:K, vectorTypeValue(Ty':K, I:Int),
                  Meta:InstructionMetadatas)
                ~> K:K => .K </k>
@@ -1108,6 +1108,209 @@ module LLVM-NORMALIZING
          <output>... .List
                        => ListItem("Int cast op error: casting target type is either larger in trunc or smaller in sext/zext") </output>
          requires notBool compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
+
+    //type check addrspacecast
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, addrspacecast, pointerTypeValue(T:K, Ad:Int),
+                  V:K, pointerTypeValue(T':K, Ad':Int), Meta:InstructionMetadatas)
+              => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
+                     pointerTypeValue(T:K, Ad:Int), val(V),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       pointerTypeValue(T:K, Ad:Int), (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X, pointerTypeValue(T':K, Ad':Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theAddrSpaceCast(
+                pointerTypeValue(T:K, Ad:Int), V, pointerTypeValue(T':K, Ad':Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires Ad =/=Int Ad'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, addrspacecast,
+                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                  V:K, vectorTypeValue(pointerTypeValue(T':K, Ad':Int), I:Int),
+                 Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+              vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                             val(V),.ElemList))
+                ~> assignUses(Name, TheCount,
+                 vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                  (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X,
+           vectorTypeValue(pointerTypeValue(T':K, Ad':Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theAddrSpaceCast(
+         vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+            V, vectorTypeValue(pointerTypeValue(T':K, Ad':Int), I:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires Ad =/=Int Ad'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, addrspacecast, Ty:KResult,
+                  V:K, Ty':KResult, Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("addspacecast ops must have source/target types being either pionter types or vector of pionter types") </output>
+         requires notBool (isPointerType(Ty) andBool isPointerType(Ty'))
+          andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, addrspacecast,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("addspacecast vector ops must have target/source vector types vector of pointer types.") </output>
+         requires  notBool isPointerType(Ty) orBool notBool isPointerType(Ty')
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, addrspacecast,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("addspacecast vector ops must have target/source vector types having the same argument number.") </output>
+         requires  isPointerType(Ty)
+                    andBool isPointerType(Ty') andBool I =/=Int I'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, addrspacecast, pointerTypeValue(T:K, Ad:Int),
+                  V:K, pointerTypeValue(T':K, Ad:Int), Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("addspacecast ops must have target/source vector types having different address spaces.") </output>
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, addrspacecast,
+                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                  V:K, vectorTypeValue(pointerTypeValue(T':K, Ad:Int), I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("addspacecast vector ops must have target/source vector types having different address spaces.") </output>
+
+    //type check pointer to int
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, ptrtoint, pointerTypeValue(T:K, Ad:Int),
+                  V:K, integerType(N:Int), Meta:InstructionMetadatas)
+              => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
+                     pointerTypeValue(T:K, Ad:Int), val(V),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       pointerTypeValue(T:K, Ad:Int), (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X, integerType(N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(
+                pointerTypeValue(T:K, Ad:Int), V, integerType(N:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, ptrtoint,
+                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                  V:K, vectorTypeValue(integerType(N:Int), I:Int),
+                 Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+              vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                             val(V),.ElemList))
+                ~> assignUses(Name, TheCount,
+                 vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                  (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X,
+                     vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(
+         vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+            V, vectorTypeValue(integerType(N:Int), I:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, ptrtoint, Ty:KResult,
+                  V:K, Ty':KResult, Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("ptrtoint ops must have source/target types being either pointer type/int types or vector of pointer type/int types.") </output>
+         requires notBool (isPointerType(Ty) andBool isIntegerType(Ty'))
+          andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, ptrtoint,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("ptrtoint vector ops must have source/target types being vector of pointer type/int types.") </output>
+         requires  notBool isPointerType(Ty) orBool notBool isIntegerType(Ty')
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, ptrtoint,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("ptrtoint vector ops must must have target/source vector types having the same argument number.") </output>
+         requires  isPointerType(Ty)
+                    andBool isIntegerType(Ty') andBool I =/=Int I'
+
+    //type check int to pointer
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, inttoptr, integerType(N:Int),
+                  V:K, pointerTypeValue(T:K, Ad:Int), Meta:InstructionMetadatas)
+              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N:Int), val(V),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       integerType(N:Int), (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X, pointerTypeValue(T:K, Ad:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theIntToPtr(
+                integerType(N:Int), V, pointerTypeValue(T:K, Ad:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, inttoptr,
+                  vectorTypeValue(integerType(N:Int), I:Int),
+                  V:K, vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                 Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                   vectorTypeValue(integerType(N:Int), I:Int),
+                             val(V),.ElemList))
+                ~> assignUses(Name, TheCount,
+                      vectorTypeValue(integerType(N:Int), I:Int),
+                  (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X,
+                 vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(
+             vectorTypeValue(integerType(N:Int), I:Int),
+            V, vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, inttoptr, Ty:KResult,
+                  V:K, Ty':KResult, Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("inttoptr ops must have source/target types being either int type/pointer types or vector of int type/pointer types.") </output>
+         requires notBool (isIntegerType(Ty) andBool isPointerType(Ty'))
+          andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, inttoptr,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("inttoptr vector ops must have source/target types being vector of int type/pointer types.") </output>
+         requires  notBool isIntegerType(Ty) orBool notBool isPointerType(Ty')
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, inttoptr,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("inttoptr vector ops must must have target/source vector types having the same argument number.") </output>
+         requires  isIntegerType(Ty)
+                    andBool isPointerType(Ty') andBool I =/=Int I'
 
     //type checking icmp ops
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,

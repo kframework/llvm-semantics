@@ -33,4 +33,7 @@ module LLVM-SETTINGS
     syntax Int ::= "numBytesFunHeader" [function]
     rule numBytesFunHeader => 20
 
+    syntax Int ::= "fixedFunPtrPosition" [function]
+    rule fixedFunPtrPosition => -2
+
 endmodule

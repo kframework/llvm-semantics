@@ -344,9 +344,9 @@ module LLVM-ABSTRACTSYNTAX
     rule arg(S:Set, T:KResult, A:K) => typedArg(S, T, A)
 
     //@ Conversion Operations
-    syntax KItem ::= theTrunc(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theSExt(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theZExt(K, K, K) [strict] // oldtype, op, totype
+    syntax KItem ::= theTrunc(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theSExt(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theZExt(K, K, K) [strict(2)] // oldtype, op, totype
     syntax KItem ::= theBitCast(K, K, K) [strict] // type, op, totype
     syntax KItem ::= theIntToPtr(K, K, K) [strict] // type, op, totype
     syntax KItem ::= thePtrToInt(K, K, K) [strict] // type, op, totype

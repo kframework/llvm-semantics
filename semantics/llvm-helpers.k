@@ -1421,16 +1421,20 @@ module LLVM-HELPERS
 
 
     syntax Int ::= seqAdds(Int, Int) [function]
-    rule seqAdds(N:Int, N':Int) => 2 ^Int N
+    rule seqAdds(N:Int, N':Int) => 0
          requires N >=Int N'
     rule seqAdds(N:Int, N':Int) => (2 ^Int N) +Int seqAdds(N +Int 1, N')
          requires N <Int N'
 
-    rule applyCast(trunc, integerType(N:Int), V1:Int, integerType(N':Int)) => mod(V1, 2 ^Int N')
-    rule applyCast(zext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1
-    rule applyCast(sext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1
+    rule applyCast(trunc, integerType(N:Int),
+                V1:Int, integerType(N':Int)) => mod(V1, 2 ^Int N')
+    rule applyCast(zext, integerType(N:Int),
+                     V1:Int, integerType(N':Int)) => V1
+    rule applyCast(sext, integerType(N:Int),
+                         V1:Int, integerType(N':Int)) => V1
          requires V1 <Int (2 ^Int (N -Int 1))
-    rule applyCast(sext, integerType(N:Int), V1:Int, integerType(N':Int)) => V1 +Int seqAdds(N, N')
+    rule applyCast(sext, integerType(N:Int),
+                V1:Int, integerType(N':Int)) => V1 +Int seqAdds(N, N')
          requires V1 >=Int (2 ^Int (N -Int 1))
     rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
     rule applyCast(Op:K, T:K, undef, T':K) => undef
@@ -2091,6 +2095,16 @@ module LLVM-HELPERS
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
                updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, theTrunc(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theTrunc(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theSExt(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theSExt(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theZExt(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theZExt(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+
    rule updateVarInTerm(Cur:Int, C:Int, conditional(operand(T:K, V:K),
                             V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => conditional(operand(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev)),
@@ -2133,6 +2147,7 @@ module LLVM-HELPERS
         => ret(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, A:K, M, RM, Rev)
          => A [owise]
+
    rule updateVarInGepTerm(Cur:Int, C:Int,
                vector(Es:ElemList), M:Map, RM:Map, Rev:Map)
          => vector(updateVarInTermList(Cur, C, Es, M, RM, Rev))
@@ -3115,5 +3130,17 @@ module LLVM-HELPERS
                                readPiece(A':Int, C:K)) L:List)
           => ListItem(readPiece(A', C)) insertToOrderList(A, B, L)
          requires A <Int A' 
+
+    //use for comparing casting ops
+    syntax Bool ::= compareCastIntNums(K, Int, Int) [function]
+    rule compareCastIntNums(trunc, N:Int, N':Int) => N >Int N'
+    rule compareCastIntNums(zext, N:Int, N':Int) => N <Int N'
+    rule compareCastIntNums(sext, N:Int, N':Int) => N <Int N'
+
+    syntax Bool ::= isIntCastOp(K) [function]
+    rule isIntCastOp(trunc) => true
+    rule isIntCastOp(zext) => true
+    rule isIntCastOp(sext) => true
+    rule isIntCastOp(Op:K) => false [owise]
 
 endmodule

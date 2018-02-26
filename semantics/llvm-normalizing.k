@@ -1028,175 +1028,86 @@ module LLVM-NORMALIZING
 */
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
-                     X:SymbolicValueRef, trunc, integerType(N:Int),
+                     X:SymbolicValueRef, Op:K, integerType(N:Int),
                   V:K, integerType(N':Int), Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name, integerType(N), V)
+              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V),.ElemList))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V),.ElemList))
-                   ~> assignType(Name, TheCount, X, integerType(N')) ...</k>
+                 ~> assignType(Name, TheCount, X, integerType(N')) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(trunc)(
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
                  integerType(N:Int),, V,, integerType(N':Int)), .Set,
                      insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
-         requires N >Int N'
-
-/*
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
-               vectorTypeValue(integerType(N:Int), I:Int), V:K,
-               vectorTypeValue(integerType(N':Int), I:Int), Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
-                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
-         ...</k>
-        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(trunc)(
-                 vectorTypeValue(integerType(N:Int), I:Int),,
-                 V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta)))), X,
-                    .K, .K, .K, getAllLocalVar(V),
-                 normalInst)]  </instNumInfo>
-         requires N >Int N'
-
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
-                     X:SymbolicValueRef, trunc, integerType(N:Int),
-                  V:K, integerType(N':Int), Meta:K) ~> K:K
-              => .K </k>
-         <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
-                             +String Int2String(N) +String "' to 'i"
-                             +String Int2String(N') +String "'") </output>
-         requires N <=Int N'
-
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
-               vectorTypeValue(integerType(N:Int), I:Int), V:K,
-               vectorTypeValue(integerType(N':Int), I':Int),
-               _:K) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: invalid cast opcode for cast from '<"
-                             +String Int2String(I) +String " x "
-                             +String Int2String(N) +String ">' to '<"
-                             +String Int2String(I') +String " x "
-                             +String Int2String(N') +String ">'") </output>
-         requires N <=Int N' orBool I =/=Int I'
-
-
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
-                 X:SymbolicValueRef, Op:K, integerType(N:Int),
-                    V:K, integerType(N':Int), Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name, integerType(N), V)
-                 ~> assignType(Name, X, integerType(N'))
-         ...</k>
-        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(Op)(
-                 integerType(N:Int),, V,, integerType(N':Int)), .Set,
-                     insMetas(formElemList(Meta)))), X,
-                    .K, .K, .K, getAllLocalVar(V),
-                 normalInst)]  </instNumInfo>
-         requires N <Int N' andBool Op =/=K trunc
-
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-             Op:K, integerType(N:Int), V:K,
-             integerType(N':Int), _:InstructionMetadatas)
-             ~> K => .K </k>
-         <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
-                             +String Int2String(N) +String "' to 'i"
-                             +String Int2String(N') +String "'") </output>
-         requires N >=Int N' andBool Op =/=K trunc
-
-    rule <k>typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
-               vectorTypeValue(integerType(N:Int), I:Int), V:K,
-               vectorTypeValue(integerType(N':Int), I:Int), Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
-                 ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
-         ...</k>
-        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(Op)(
-                 vectorTypeValue(integerType(N:Int), I:Int),,
-                 V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta)))), X,
-                    .K, .K, .K, getAllLocalVar(V),
-                 normalInst)]  </instNumInfo>
-         requires N <Int N' andBool Op =/=K trunc
+         requires compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
-               vectorTypeValue(integerType(N:Int), I:Int), V:K,
-               vectorTypeValue(integerType(N':Int), I':Int),
-                _:InstructionMetadatas) ~> K:K
-              => .K </k>
-         <output>... .List => ListItem("error: invalid cast opcode for cast from '<"
-                             +String Int2String(I) +String " x "
-                             +String Int2String(N) +String ">' to '<"
-                             +String Int2String(I') +String " x "
-                             +String Int2String(N') +String ">'") </output>
-         requires (N >=Int N' orBool I =/=Int I') andBool Op =/=K trunc
-
+                  vectorTypeValue(integerType(N:Int), I:Int),
+                  V:K, vectorTypeValue(integerType(N':Int), I:Int),
+                 Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(integerType(N:Int), I:Int),
+                             val(V),.ElemList))
+                ~> assignUses(Name, TheCount,
+                       vectorTypeValue(integerType(N:Int), I:Int),
+                  (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X,
+                      vectorTypeValue(integerType(N':Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+         vectorTypeValue(integerType(N:Int), I:Int),,
+            V,, vectorTypeValue(integerType(N':Int), I:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
-                     X:SymbolicValueRef, trunc, integerType(N:Int),
-                   V:K, integerType(N':Int), _:InstructionMetadatas)
-             ~> K => .K </k>
-         <output>... .List => ListItem("error: invalid cast opcode for cast from 'i"
-                             +String Int2String(N) +String "' to 'i"
-                             +String Int2String(N') +String "'") </output>
-         requires N <=Int N'
+                     X:SymbolicValueRef, Op:K, Ty:KResult,
+                  V:K, Ty':KResult, Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int cast ops must have source/target types being either int types or vector of int types") </output>
+         requires isIntCastOp(Op) andBool
+           notBool (isIntegerType(Ty) andBool isIntegerType(Ty'))
+          andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
 
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
-               vectorTypeValue(integerType(N:Int), I:Int), V:K,
-               vectorTypeValue(integerType(N':Int), I:Int), Meta:InstructionMetadatas)
-              => typeCheckIntArg(Name, vectorTypeValue(integerType(N:Int), I:Int), V)
-                  ~> assignType(Name, X, vectorTypeValue(integerType(N'), I:Int))
-         ...</k>
-        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-         <tempBlockInst> Now:List => Now ListItem(TheCount) </tempBlockInst>
-         <instNumToBlock> InstMap:Map => InstMap[TheCount <- Name]  </instNumToBlock>
-         <defToInstNum> DefMap:Map => DefMap[X <- TheCount] </defToInstNum>
-         <instNumInfo> InfoMap:Map => InfoMap[TheCount
-                  <- instNumInfo(assign(X,instruction(getKLabelFromOp(trunc)(
-                 vectorTypeValue(integerType(N:Int), I:Int),,
-                 V,, vectorTypeValue(integerType(N':Int), I:Int)),
-                 .Set, insMetas(formElemList(Meta)))), X,
-                    .K, .K, .K, getAllLocalVar(V),
-                 normalInst)]  </instNumInfo>
-         requires N >Int N'
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(Ty:K, I:Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int cast vector ops must have inner types being int types.") </output>
+         requires isIntCastOp(Op) andBool 
+           notBool (isIntegerType(Ty) andBool isIntegerType(Ty'))
 
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, trunc,
-               vectorTypeValue(integerType(N:Int), I:Int), V:K,
-               vectorTypeValue(integerType(N':Int), I':Int),
-               _:InstructionMetadatas) ~> K:K
-              => .K </k>
-         <output>... .List => ListItem("error: invalid cast opcode for cast from '<"
-                             +String Int2String(I) +String " x "
-                             +String Int2String(N) +String ">' to '<"
-                             +String Int2String(I') +String " x "
-                             +String Int2String(N') +String ">'") </output>
-         requires N <=Int N' orBool I =/=Int I'
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int cast vector ops must have target/source vector types having the same argument number.") </output>
+         requires isIntCastOp(Op) andBool isIntegerType(Ty)
+                    andBool isIntegerType(Ty') andBool I =/=Int I'
 
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-            Op:K, vectorTypeValue(Ty:KResult, I:Int), V:K,
-            vectorTypeValue(Ty':KResult, I':Int), _:InstructionMetadatas) ~> K
-              => .K </k>
-         <output>... .List => ListItem("error: invalid operand type for instruction") </output>
-         requires getKLabel(Ty) =/=KLabel 'integerType orBool getKLabel(Ty') =/=KLabel 'integerType
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, Op:K, integerType(N:Int),
+                  V:K, integerType(N':Int), Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int cast op error: casting target type is either larger in trunc or smaller in sext/zext") </output>
+         requires notBool compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
-    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef,
-             Op:K, T:K, V:K, T':K, _:InstructionMetadatas) ~> K
-              => .K </k>
-         <output>... .List => ListItem("error: instruction requires integer or integer vector operands") </output>
-         requires (getKLabel(T) =/=KLabel 'integerType
-                    andBool getKLabel(T) =/=KLabel 'vectorTypeValue)
-                    orBool (getKLabel(T') =/=KLabel 'integerType
-                    andBool getKLabel(T') =/=KLabel 'vectorTypeValue)
-*/
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(integerType(N:Int), I:Int),
+                  V:K, vectorTypeValue(integerType(N':Int), I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int cast op error: casting target type is either larger in trunc or smaller in sext/zext") </output>
+         requires notBool compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
     //type checking icmp ops
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,

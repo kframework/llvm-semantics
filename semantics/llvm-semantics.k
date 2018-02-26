@@ -1549,7 +1549,7 @@ module LLVM-CONVERSIONS
                              normalizingInt(getIntType(Type), I), getIntType(Type2))
     rule [zext]:
         theZExt(Type:KResult, I:KResult, Type2:KResult)
-                  => applyCasts(sext, getIntType(Type),
+                  => applyCasts(zext, getIntType(Type),
                              normalizingInt(getIntType(Type), I), getIntType(Type2))
 
     rule [sext]:

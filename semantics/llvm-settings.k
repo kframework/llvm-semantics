@@ -25,7 +25,10 @@ module LLVM-SETTINGS
     rule structAlign => 8
 
     syntax Int ::= "startMemoryLoc" [function]
-    rule startMemoryLoc => 0
+    rule startMemoryLoc => 1
+
+    syntax Int ::= "nullMemoryLoc" [function]
+    rule nullMemoryLoc => 0
 
     syntax Int ::= "maxStackSize"  [function]
     rule maxStackSize => 2 *Int (10 ^Int 7)

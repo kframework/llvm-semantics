@@ -16,7 +16,7 @@ module LLVM-HELPERS
             => vectorValue(zeroVectorAux(T:K, N:Int, .ElemList))
     rule dealWithZeroInitializer(integerType(N:Int)) => 0
     rule dealWithZeroInitializer(pointerTypeValue(X:K, Y:K))
-               => loc(startMemoryLoc -Int 1, void, 0, none)
+               => loc(nullMemoryLoc, void, 0, none)
     rule dealWithZeroInitializer(arrayTypeValue(T:K, N:Int))
            => arrayValue(zeroArrayAux(T, N, .ElemList))
     rule zeroVectorAux(T, N:Int, Es:ElemList) => Es
@@ -473,7 +473,7 @@ module LLVM-HELPERS
 
     syntax List ::= splitPointerByte(K, Int, Int) [function]
     rule splitPointerByte(zeroinitializer, I:Int, N:Int)
-           => splitPointerByte(loc(startMemoryLoc -Int 1, void, 0, none), I, N)
+           => splitPointerByte(loc(nullMemoryLoc, void, 0, none), I, N)
     rule splitPointerByte(A:K, I:Int, N:Int)
              => ListItem(A) splitPointerByte(A:K, I +Int 1, N)
          requires I <Int N andBool (A ==K undef orBool A ==K poisonVal)
@@ -3149,7 +3149,7 @@ module LLVM-HELPERS
 
     syntax KItem ::= normalPointer(K)  [function]
     rule normalPointer(zeroinitializer)
-                 => loc(startMemoryLoc -Int 1, void, 0, none)
+                 => loc(nullMemoryLoc, void, 0, none)
     rule normalPointer(A:K) => A [owise]
 
     syntax KItem ::= normalPointers(K)  [function]

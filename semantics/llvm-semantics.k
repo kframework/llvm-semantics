@@ -1605,17 +1605,17 @@ module LLVM-CONVERSIONS
         requires hasInRanges(I)
 
     rule [inttoptr]:
-        theIntToPtr(integerType(N:Int), I:KResult, Type2:KResult)
-             => theIntToPtrAux(applyCasts(zext, integerType(N:Int),
+        theIntToPtr(T:KResult, I:KResult, Type2:KResult)
+             => theIntToPtrAux(applyCasts(zext, T,
              I, integerType(numBitsPerByte *Int numBytesPerPointer)), Type2)
-         requires N <Int numBitsPerByte *Int numBytesPerPointer
-    rule theIntToPtr(integerType(N:Int), I:KResult, Type2:KResult)
-             => theIntToPtrAux(applyCasts(trunc, integerType(N:Int),
+         requires getIntInIntType(T) <Int numBitsPerByte *Int numBytesPerPointer
+    rule theIntToPtr(T:KResult, I:KResult, Type2:KResult)
+             => theIntToPtrAux(applyCasts(trunc, T,
              I, integerType(numBitsPerByte *Int numBytesPerPointer)), Type2)
-         requires N >Int numBitsPerByte *Int numBytesPerPointer
-    rule theIntToPtr(integerType(N:Int), I:KResult, Type2:KResult)
+         requires getIntInIntType(T) >Int numBitsPerByte *Int numBytesPerPointer
+    rule theIntToPtr(T:KResult, I:KResult, Type2:KResult)
              => theIntToPtrAux(I, Type2)
-         requires N ==Int numBitsPerByte *Int numBytesPerPointer
+         requires getIntInIntType(T) ==Int numBitsPerByte *Int numBytesPerPointer
 
     rule theIntToPtrAux(I:KResult, T:K) => reverseLocs(I, T)
 

@@ -970,13 +970,17 @@ module LLVM-HELPERS
     rule isTheLocalName(I:LocalName) => true
     rule isTheLocalName(K:K) => false [owise]
 
+    syntax KItem ::= getInnerType(K) [function]
+    rule getInnerType(vectorTypeValue(T:K, N:Int)) => T
+    rule getInnerType(arrayTypeValue(T:K, N:Int)) => T
+
     syntax KItem ::= getIntType(K)    [function]
                    | getIntInIntType(K) [function]
     rule getIntType(integerType(N:Int)) => integerType(N:Int)
     rule getIntType(vectorTypeValue(T:K, N:Int)) => T
     rule getIntType(K:K) => K [owise]
     rule getIntInIntType(integerType(N:Int)) => N
-    rule getIntInIntType(vectorTypeValue(T:K, N:Int)) => T
+    rule getIntInIntType(vectorTypeValue(T:K, N:Int)) => getIntInIntType(T)
     rule getIntInIntType(K:K) => K [owise]
 
     syntax KItem ::= normalizingInt(K, K) [function]// type, int
@@ -3204,14 +3208,18 @@ module LLVM-HELPERS
               => loc(notALoc(X), T, C, none)
          requires notBool isFunType(T)
     rule reverseLoc(intLoc(A:Int, T:K, C:K, heap), pointerTypeValue(T:K, Ad:Int))
-          => loc(A, T, C, none)
+          => loc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A), T, C, none)
     rule reverseLoc(intLoc(A:Int, B:K, C:K, heap), pointerTypeValue(T:K, Ad:Int))
-          => loc(A, T, 1, none)
+          => loc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A), T, 1, none)
          requires B =/=K T
     rule reverseLoc(intLoc(A:Int, T:K, C:K, stack), pointerTypeValue(T:K, Ad:Int))
-          => stackLoc(A, T, C, none)
+          => stackLoc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A), T, C, none)
     rule reverseLoc(intLoc(A:Int, B:K, C:K, stack), pointerTypeValue(T:K, Ad:Int))
-          => stackLoc(A, T, 1, none)
+          => stackLoc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A), T, 1, none)
          requires B =/=K T
     rule reverseLoc(A:Int, pointerTypeValue(T:K, Ad:Int))
                 => loc(notALoc(A), T, 1, none)
@@ -3219,8 +3227,9 @@ module LLVM-HELPERS
     rule reverseLocs(vectorValue(Es:ElemList), T:K)
                => vectorValue(reverseLocs(Es, T))
     rule reverseLocs(.ElemList, T:K) => .ElemList
-    rule reverseLocs(valValue(A:K), Es:ElemList, T:K)
-               => valValue(reverseLoc(A, T)), reverseLocs(Es, T)
-    rule reverseLocs(A:K, T:K) => reverseLoc(A, T) [owise]
+    rule reverseLocs(valValue(A:K), Es:ElemList, vectorTypeValue(T:K, N:Int))
+               => valValue(reverseLoc(A, T)),
+                                  reverseLocs(Es, vectorTypeValue(T:K, N:Int))
+    rule reverseLocs(A:K, T:K) => reverseLoc(A, getInnerType(T)) [owise]
 
 endmodule

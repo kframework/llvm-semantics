@@ -1279,7 +1279,7 @@ module LLVM-NORMALIZING
                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(
+             instNumInfo(TheCount, assign(X,instruction(theIntToPtr(
              vectorTypeValue(integerType(N:Int), I:Int),
             V, vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int)), .Set,
                      insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>

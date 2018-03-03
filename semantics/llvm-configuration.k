@@ -12,9 +12,10 @@ module LLVM-CONFIGURATION
 
     configuration
         <T>//top level
-            <brk> loc(startMemoryLoc, void, 0, none) </brk>
+            <brk> loc(startMemoryLoc, void,
+              value(nullMemoryLoc,nullMemoryLoc), none) </brk>
             //this is a cell holding brk pointer
-            <cdb> .Map </cdb> //common data bus
+            <cbd> .Map </cbd> //common data bus
             <exBuffer> .List </exBuffer>
             //a cell to hold all to commit memory ops, simulating computer north bridge
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
@@ -36,6 +37,7 @@ module LLVM-CONFIGURATION
                     <instQueue> instList(.List) </instQueue> //instruction queue
                     <cpu> .K </cpu> //central execution unit
                     <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
+                    <readBack> readMap(.Map) </readBack>
                     <currChoice> .Map </currChoice>
                     <specChoice> allowChoice(.Map) </specChoice>
                     <reverseChoice> .Map </reverseChoice>
@@ -134,6 +136,7 @@ module LLVM-CONFIGURATION
                        <functionName color="orange"> name(globalVar, "") </functionName>
                        //name of the function
                        <funSize> 0 </funSize>
+                       <funPosition> 0 </funPosition>
                        <funModifiers> .Set </funModifiers> //function attributes
                        <varTypes color="teal"> .Map </varTypes> //variable types in a function
                        <returnType> .K </returnType> //return type of the function

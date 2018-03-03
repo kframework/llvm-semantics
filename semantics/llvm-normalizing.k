@@ -1537,9 +1537,15 @@ module LLVM-NORMALIZING
     //type check single vector argument
     rule preTypeCheckVectorArg(T:K, I:Int, X:SymbolicValueRef) => T
          requires isLocalVariable(X) andBool I >Int 0
+             andBool notBool hasInValidMMXType(vectorTypeValue(T, I))
     rule preTypeCheckVectorArg(T:K, I:Int, X:K)
            => typeCheckVectorArg(T, I, X)
          requires notBool isLocalVariable(X) andBool I >Int 0
+             andBool notBool hasInValidMMXType(vectorTypeValue(T, I))
+
+    rule <k> preTypeCheckVectorArg(T:K, I:K, X:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: vector of x86 mmx type is invalid") </output>
+         requires I >Int 0 andBool hasInValidMMXType(vectorTypeValue(T, I))
 
     rule <k> preTypeCheckVectorArg(T:K, 0, X:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: invalid vector number for instruction") </output>

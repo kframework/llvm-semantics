@@ -40,8 +40,51 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
     //need to modify the context switching to implement inalloca easily.
 
+    rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
+                        value(P:Int,P:Int),D:K), Args:ElemList))
+         => call(A, calleeValue(V, Args)) ...</k>
+            <cbd>... P |-> value(T, V:K) ...</cbd>
+
+    rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
+                        value(P1:Int,P2:Int),C:K), Args:ElemList)) ~> K:K 
+              => .K </k>
+         <output>... .List
+                => ListItem("error: function pointer pointing to bad place.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         requires P <Int P1 orBool P >Int P2
+
+    rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
+                        value(P:Int,P:Int),C:K), Args:ElemList)) ~> K:K 
+              => .K </k>
+          <cbd>... P |-> value(T', V:K) ...</cbd>
+         <output>... .List
+                => ListItem("error: function pointer and pointee function does not match types.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         requires T =/=K T'
+
+    rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
+                        value(P:Int,P:Int),C:K), Args:ElemList)) ~> K:K 
+              => .K </k>
+          <cbd> M:Map </cbd>
+         <output>... .List
+                => ListItem("error: no such function for the place.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         requires notBool P in keys(M)
+
     rule
-        <k> call(_, calleeValue(funptr(FunName:SymbolicValueRef), Args:ElemList)) ~> Tail:K
+        <k> call(_, calleeValue(funptr(T:K), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
             ~> startInitBlock(IBBName)
@@ -79,15 +122,15 @@ module LLVM-CALL-RET
                              singleMem(TID, A, B, either, X)))) </toCommit>
          requires isLocalVariable(X)
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                  constExprVal(loc(Ba:Int, OfT:K, LSize:Int, InR:K))) => .K ...</k>
+                  constExprVal(loc(Ba:Int, OfT:K, Rang:K, InR:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
                          ML:List (.List => ListItem(singleMem(TID, A, B,
-                     heap, loc(Ba:Int, OfT:K, LSize:Int, InR:K))))) </toCommit>
+                     heap, loc(Ba:Int, OfT:K, Rang:K, InR:K))))) </toCommit>
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                    constExprVal(stackLoc(Ba:Int, OfT:K, LSize:Int, InR:K))) => .K ...</k>
+                    constExprVal(stackLoc(Ba:Int, OfT:K, Rang:K, InR:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
              ML:List (.List => ListItem(singleMem(TID, A, B,
-                    stack, stackLoc(Ba:Int, OfT:K, LSize:Int, InR:K))))) </toCommit>
+                    stack, stackLoc(Ba:Int, OfT:K, Rang:K, InR:K))))) </toCommit>
 
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
@@ -213,6 +256,7 @@ module LLVM-CALL-RET
     rule <cpu> dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)
                  => dynInstHold(BN, IN, T) </cpu>
          <k> (.K => runDynInst(Inst)) ~> K:K </k>
+        [transition]
 
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
@@ -230,6 +274,7 @@ module LLVM-CALL-RET
            <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>
          requires BN >Int Cur
+         [transition]
 
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
@@ -247,9 +292,11 @@ module LLVM-CALL-RET
            <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>
          requires BN <=Int Cur
+         [transition]
 
     rule <k> runDynInst(dynNoResult(V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
+        [transition]
 
     syntax KItem ::= contextSwitch(K, K)
 

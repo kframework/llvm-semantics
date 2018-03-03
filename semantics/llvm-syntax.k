@@ -688,8 +688,9 @@ module LLVM-SYNTAX
     syntax LabelType ::= "label"
     syntax PrimType ::= FPType | IntType | LabelType
     syntax VoidType ::= "void"
+    syntax X86Type ::= "x86_mmx"
     syntax NonVoidType ::= "metadata"
-                         | "x86_mmx"
+                         | X86Type
                          | PrimType
                          | Type OptAddrSpace "*"              [klabel('pointerType), strict(1)]
                          | Type "(" ArgList ")"               [klabel('functionType)]

@@ -17,6 +17,8 @@ module LLVM-REGISTERS
     imports LLVM-CONFIGURATION
 
     rule assign(X:SymbolicValueRef, V:KResult) => dynResult(X, V)
+        // requires V =/=K skipValue
+    //rule assign(X:SymbolicValueRef, skipValue) => dynNoResult(skipValue)
     rule noAssign(V:KResult) => dynNoResult(V)
 
     rule [argument-bind-register]:

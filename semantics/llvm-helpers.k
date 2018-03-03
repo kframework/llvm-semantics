@@ -16,7 +16,8 @@ module LLVM-HELPERS
             => vectorValue(zeroVectorAux(T:K, N:Int, .ElemList))
     rule dealWithZeroInitializer(integerType(N:Int)) => 0
     rule dealWithZeroInitializer(pointerTypeValue(X:K, Y:K))
-               => loc(nullMemoryLoc, void, 0, none)
+               => loc(nullMemoryLoc, void,
+                          value(nullMemoryLoc,nullMemoryLoc), none)
     rule dealWithZeroInitializer(arrayTypeValue(T:K, N:Int))
            => arrayValue(zeroArrayAux(T, N, .ElemList))
     rule zeroVectorAux(T, N:Int, Es:ElemList) => Es
@@ -44,6 +45,19 @@ module LLVM-HELPERS
               => SetItem(inrange)
     rule getInrange(valValue(typeOperandGepVal(.K, T:K, V:K)), Es:ElemList)
               => getInrange(Es)
+
+    //use for undef in getelementptr
+    syntax KItem ::= toInrangeFlag(Set) [function]
+    rule toInrangeFlag(.Set) => none
+    rule toInrangeFlag(SetItem(inrange)) => badRange
+
+    syntax KItem ::= mergeInrangeFlags(K,K) [function]
+    rule mergeInrangeFlags(A:K, B:K) => badRange
+         requires A ==K badRange orBool B ==K badRange
+    rule mergeInrangeFlags(A:K, B:K) => inrange
+         requires A =/=K badRange andBool B =/=K badRange
+            andBool (A ==K inrange orBool B ==K inrange)
+    rule mergeInrangeFlags(none, none) => none
 
     //gepOperand to gepOperandResult
     rule gepOperand(A:K, T:KResult, V:Int)
@@ -257,10 +271,12 @@ module LLVM-HELPERS
     //rule isInRangeLoc(badRangeLoc(A:Int, _, _)) => badRange
     rule getInRange(A:K) => none [owise]
 
+/*
     syntax KItem ::= getLocSize(Loc)  [function]
-    rule getLocSize(loc(_, _, A:Int, _)) => A
-    rule getLocSize(stackLoc(_, _, A:Int, _)) => A
+    rule getLocSize(loc(_, _, _, A:Int, _)) => A
+    rule getLocSize(stackLoc(_, _, _, A:Int, _)) => A
     rule getLocSize(A:K) => badValue [owise]
+*/
 
     syntax KItem ::= getStackHeapFlag(Loc)  [function]
     rule getStackHeapFlag(loc(Base:Int, _, _, _)) => heap
@@ -273,6 +289,15 @@ module LLVM-HELPERS
     rule getRidOfGepBag(gepTypeBag(T:K)) => T
     rule getRidOfGepBag(T:K) => T [owise]
 
+    syntax Int ::= getSizeOfGepBag(K) [function]
+    rule getSizeOfGepBag(vectorTypeValue(T:K, S:Int)) => S
+    rule getSizeOfGepBag(arrayTypeValue(T:K, S:Int)) => S
+    rule getSizeOfGepBag(structTypeValue(Ts:TypeList)) => 1
+    rule getSizeOfGepBag(T:K) => 1 [owise]
+
+    syntax Bool ::= hasAGepBag(K) [function]
+    rule hasAGepBag(gepTypeBag(T:K)) => true
+    rule hasAGepBag(A:K) => false [owise]
 
 /*
     syntax Int ::= offset(Loc)
@@ -282,10 +307,10 @@ module LLVM-HELPERS
     syntax Loc ::= Loc "+" Int [function]
     // TODO not checking for null
     
-    rule loc(Base:Int, T:K, S:Int, In:K) + Off:Int
-            => loc(Base:Int +Int Off, T, S:Int, In:K)
-    rule stackLoc(Base:Int, T:K, S:Int, In:K) + Off:Int
-            => stackLoc(Base:Int +Int Off, T, S:Int, In:K)
+    rule loc(Base:Int, T:K, R:K, In:K) + Off:Int
+            => loc(Base:Int +Int Off, T, R:K, In:K)
+    rule stackLoc(Base:Int, T:K,R:K, In:K) + Off:Int
+            => stackLoc(Base:Int +Int Off, T,R:K, In:K)
 
     //functions to join a lists of bytes into a whole data
     syntax ElemList ::= listToElemList(List) [function]
@@ -473,7 +498,8 @@ module LLVM-HELPERS
 
     syntax List ::= splitPointerByte(K, Int, Int) [function]
     rule splitPointerByte(zeroinitializer, I:Int, N:Int)
-           => splitPointerByte(loc(nullMemoryLoc, void, 0, none), I, N)
+           => splitPointerByte(loc(nullMemoryLoc, void,
+                   value(nullMemoryLoc,nullMemoryLoc), none), I, N)
     rule splitPointerByte(A:K, I:Int, N:Int)
              => ListItem(A) splitPointerByte(A:K, I +Int 1, N)
          requires I <Int N andBool (A ==K undef orBool A ==K poisonVal)
@@ -1070,32 +1096,32 @@ module LLVM-HELPERS
     rule applyOp(urem, V1:Int, V2:Int) => V1 modInt V2
     rule applyOp(srem, V1:Int, V2:Int) => V1 %Int V2
     rule applyOp(eq, V1:Int, V2:Int) => boolToInt(V1 ==Int V2)
-    rule applyOp(eq, loc(X:Int, Y:K, S:Int, In:K),
-                       loc(X':Int, Y':K, S':Int, In':K))
+    rule applyOp(eq, loc(X:Int, Y:K, R:K, In:K),
+                       loc(X':Int, Y':K,R':K, In':K))
                   => boolToInt(X ==Int X')
     rule applyOp(ne, V1:Int, V2:Int) => boolToInt(V1 =/=Int V2)
-    rule applyOp(ne, loc(X:Int, Y:K, S:Int, In:K),
-                          loc(X':Int, Y':K, S':Int, In':K))
+    rule applyOp(ne, loc(X:Int, Y:K,R:K, In:K),
+                          loc(X':Int, Y':K,R':K, In':K))
                   => boolToInt(X =/=Int X')
     rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 >Int V2)
          requires Op ==K 'ugtOfIcmp(.KList) orBool Op ==K sgt
-    rule applyOp(Op:K, loc(X:Int, Y:K, S:Int, In:K),
-                         loc(X':Int, Y':K, S':Int, In':K))
+    rule applyOp(Op:K, loc(X:Int, Y:K,R:K, In:K),
+                         loc(X':Int, Y':K,R':K, In':K))
                 => boolToInt(X  >Int X')
     rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 >=Int V2)
          requires Op ==K 'ugeOfIcmp(.KList) orBool Op ==K sge
-    rule applyOp(Op:K, loc(X:Int, Y:K, S:Int, In:K),
-                            loc(X':Int, Y':K, S':Int, In':K))
+    rule applyOp(Op:K, loc(X:Int, Y:K,R:K, In:K),
+                            loc(X':Int, Y':K,R':K, In':K))
             => boolToInt(X >=Int X')
     rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 <Int V2)
          requires Op ==K 'ultOfIcmp(.KList) orBool Op ==K slt
-    rule applyOp(Op:K, loc(X:Int, Y:K, S:Int, In:K),
-                           loc(X':Int, Y':K, S':Int, In':K))
+    rule applyOp(Op:K, loc(X:Int, Y:K,R:K, In:K),
+                           loc(X':Int, Y':K,R':K, In':K))
               => boolToInt(X <Int X')
     rule applyOp(Op:K, V1:Int, V2:Int) => boolToInt(V1 <=Int V2)
          requires Op ==K 'uleOfIcmp(.KList) orBool Op ==K sle
-    rule applyOp(Op:K, loc(X:Int, Y:K, S:Int, In:K),
-                          loc(X':Int, Y':K, S':Int, In':K))
+    rule applyOp(Op:K, loc(X:Int, Y:K,R:K, In:K),
+                          loc(X':Int, Y':K,R':K, In':K))
          => boolToInt(X <=Int X')
 
     rule checkInt(integerType(N:Int), V1:Int, V2:Int, S:Set)
@@ -1425,10 +1451,8 @@ module LLVM-HELPERS
     rule applyCast(sext, integerType(N:Int),
                 V1:Int, integerType(N':Int)) => V1 +Int seqAdds(N, N')
          requires V1 >=Int (2 ^Int (N -Int 1))
-    rule applyCast(Op:K, T:K, notALoc(A:K), T':K)
-              => notALoc(applyCast(Op, T, A, T'))
-    rule applyCast(Op:K, T:K, intLoc(A:K, B:K, C:K, D:K), T':K)
-              => intLoc(applyCast(Op, T, A, T'), B, C, D)
+    rule applyCast(Op:K, T:K, intLoc(A:K, B:K, R:K, D:K), T':K)
+              => intLoc(applyCast(Op, T, A, T'), B, R, D)
     rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
     rule applyCast(Op:K, T:K, undef, T':K) => undef
     rule applyCast(Op:K, T:K, zeroinitializer, T':K) => applyCast(Op:K, T:K, 0, T')
@@ -2175,22 +2199,22 @@ module LLVM-HELPERS
 
    //a new method to update map and update key with loc
    syntax Map ::= updateEnv(Map, K, K) [function]
-   rule updateEnv(M:Map, loc(A:K, B:K, C:Int, D:K), X:K)
+   rule updateEnv(M:Map, loc(A:K, B:K,R:K, D:K), X:K)
             => M[aLoc(A, B, heap) <- X]
-   rule updateEnv(M:Map, stackLoc(A:K, B:K, C:Int, D:K), X:K)
+   rule updateEnv(M:Map, stackLoc(A:K, B:K,R:K, D:K), X:K)
             => M[aLoc(A, B, stack) <- X]
    rule updateEnv(M:Map, varInstance(BN:Int,
-          loc(A:K, B:K, C:Int, D:K)), X:K)
+          loc(A:K, B:K,R:K, D:K)), X:K)
             => M[varInstance(BN, aLoc(A, B, heap)) <- X]
    rule updateEnv(M:Map, varInstance(BN:Int,
-          stackLoc(A:K, B:K, C:Int, D:K)), X:K)
+          stackLoc(A:K, B:K,R:K, D:K)), X:K)
             => M[varInstance(BN, aLoc(A, B, stack)) <- X]
    rule updateEnv(M:Map, singleMem(TID:Int,Bn:Int,
-       In:Int,R:K, loc(A:K, B:K, C:Int, D:K)), X:K)
+       In:Int,R:K, loc(A:K, B:K,R:K, D:K)), X:K)
             => M[singleMem(TID:Int,Bn:Int,
        In:Int,R:K, aLoc(A:K, B:K, heap)) <- X]
    rule updateEnv(M:Map, singleMem(TID:Int,Bn:Int,
-       In:Int,R:K, stackLoc(A:K, B:K, C:Int, D:K)), X:K)
+       In:Int,R:K, stackLoc(A:K, B:K,R:K, D:K)), X:K)
             => M[singleMem(TID:Int,Bn:Int,
        In:Int,R:K, aLoc(A:K, B:K, stack)) <- X]
    rule updateEnv(M:Map, Y:K, X:K) => M[Y <- X] [owise]
@@ -2471,26 +2495,34 @@ module LLVM-HELPERS
     rule formMemTypeInList(T:Type,Ts:TypeList)
                => formMemTypeAux(T),formMemTypeInList(Ts)
 */
-    syntax KItem ::= nextMemSym(Int, Int, K, Int) [function]
-                 //suppose base, Align, size
-    rule nextMemSym(N:Int, Al:Int, T:K, S:Int) => loc(N, T, S, none)
+    syntax KItem ::= nextMemSym(Int, Int,K, K) [function]
+                 //suppose base, Align, type, range
+    rule nextMemSym(N:Int, Al:Int, T:K,R:K) => loc(N, T,R, none)
          requires Al ==K 0
-    rule nextMemSym(N:Int, Al:Int, T:K, S:Int) => loc(N, T, S, none)
+    rule nextMemSym(N:Int, Al:Int,T:K,R:K) => loc(N, T,R, none)
          requires Al =/=K 0 andBool Al dividesInt N
-    rule nextMemSym(N:Int, Al:Int, T:K, S:Int)
-           => loc((N /Int Al) *Int Al +Int Al, T, S, none)
+    rule nextMemSym(N:Int, Al:Int, T:K,R:K)
+           => loc((N /Int Al) *Int Al +Int Al, T,R, none)
          requires Al =/=K 0 andBool notBool (Al dividesInt N)
 
-    syntax KItem ::= nextStackSym(Int, Int, K, Int) [function]
-                 //suppose base, Align, size
-    rule nextStackSym(N:Int, Al:Int, T:K, S:Int) => stackLoc(N, T, S, none)
+    syntax KItem ::= nextStackSym(Int, Int,K, K) [function]
+                 //suppose base, Align, range
+    rule nextStackSym(N:Int, Al:Int, T:K, R:K) => stackLoc(N, T,R, none)
          requires Al ==K 0
-    rule nextStackSym(N:Int, Al:Int, T:K, S:Int) => stackLoc(N, T, S, none)
+    rule nextStackSym(N:Int, Al:Int, T:K,R:K) => stackLoc(N, T,R, none)
          requires Al =/=K 0 andBool Al dividesInt N
-    rule nextStackSym(N:Int, Al:Int, T:K, S:Int)
-           => stackLoc((N /Int Al) *Int Al +Int Al, T, S, none)
+    rule nextStackSym(N:Int, Al:Int, T:K,R:K)
+           => stackLoc((N /Int Al) *Int Al +Int Al, T,R, none)
          requires Al =/=K 0 andBool notBool (Al dividesInt N)
 
+    syntax Int ::= curBase(Int, Int) [function]
+                //base, align
+    rule curBase(N:Int, Al:Int) => N
+         requires Al ==K 0
+    rule curBase(N:Int, Al:Int) => N
+         requires Al =/=K 0 andBool Al dividesInt N
+    rule curBase(N:Int, Al:Int) => (N /Int Al) *Int Al +Int Al
+         requires Al =/=K 0 andBool notBool (Al dividesInt N)
 
     syntax Int ::= nextBase(Int, Int, Int)  [function]
                  //suppose base, Limit, Align
@@ -2731,21 +2763,21 @@ module LLVM-HELPERS
 
 
     rule getTheLoc(heap, writeAByte(T:K, V:K,V1:K, Ba:Int, Ex:Int, Size:Int))
-            => loc(Ba, T, 1, none)
+            => aLoc(Ba, T, heap)
     rule getTheLoc(stack, writeAByte(T:K, V:K,V1:K, Ba:Int, Ex:Int, Size:Int))
-            => stackLoc(Ba, T, 1, none)
+            => aLoc(Ba, T, stack)
     rule getTheLoc(heap, atomicWrite(T:K, V:K,V1:K, Ba:Int, Ex:Int, A:K))
-            => loc(Ba, T, 1, none)
+            => aLoc(Ba, T, heap)
     rule getTheLoc(stack, atomicWrite(T:K, V:K,V1:K, Ba:Int, Ex:Int, A:K))
-            => stackLoc(Ba, T, 1, none)
+            => aLoc(Ba, T, stack)
     rule getTheLoc(heap, readAByte(T:K, Ba:Int, Ex:Int, A:Int))
-            => loc(Ba, T, 1, none)
+            => aLoc(Ba, T, heap)
     rule getTheLoc(stack, readAByte(T:K, Ba:Int, Ex:Int, A:Int))
-            => stackLoc(Ba, T, 1, none)
+            =>  aLoc(Ba, T, stack)
     rule getTheLoc(heap, atomicRead(T:K, Ba:Int, Ex:Int, A:K))
-            => loc(Ba, T, 1, none)
+            => aLoc(Ba, T, heap)
     rule getTheLoc(stack, atomicRead(T:K, Ba:Int, Ex:Int, A:K))
-            => stackLoc(Ba, T, 1, none)
+            =>  aLoc(Ba, T, stack)
 
     rule getValueInWrite(writeAByte(T:K, V:K,V1:K, Ba:Int, Ex:Int, Size:Int))
             => V1
@@ -2767,12 +2799,10 @@ module LLVM-HELPERS
                   | isALoc(K) [function]
 
     rule isALoc(loc(A:K, B:K, _, _)) => true
-    rule isALoc(stackLoc(A:K, B:K, _, _)) => true
+    rule isALoc(stackLoc(A:K, B:K,_, _)) => true
     rule isALoc(aLoc(A:K, B:K, C:K)) => true
-    rule isALoc(funptr(A:K)) => true
-    //rule isALoc(inRangeLoc(A:K, T:K, B:K)) => true
-    //rule isALoc(badRangeLoc(A:K, T:K, B:K)) => true
     rule isALoc(A:K) => false [owise]
+/*
     rule isMemAvailableAAux(pairResult(Ba:Int, Of:Int), A:K, L:List)
         => isMemAvailableA(Ba, Of, A, L)
     rule isMemAvailableA(B:Int, O:Int, pairResult(Ba:Int, Of:Int), L:List)
@@ -2892,12 +2922,17 @@ module LLVM-HELPERS
               Bn:Int,In:Int, Ran:K,W:K), SL, S)
           requires notBool isLocalVariable(W) andBool notBool isALoc(W)
             andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
-
+*/
     //check if an op is a write
     syntax Bool ::= isARead(K) [function]
     rule isARead(readAByte(T:K, C:Int, E:Int, F:Int)) => true 
     rule isARead(atomicRead(T:K, C:Int, E:Int, F:K)) => true
     rule isARead(A:K) => false [owise]
+
+    syntax KItem ::= getTypeInRead(K) [function]
+    rule getTypeInRead(readAByte(T:K, C:Int, E:Int, F:Int)) => T
+    rule getTypeInRead(atomicRead(T:K, C:Int, E:Int, F:K)) => T
+    rule getTypeInRead(A:K) => badType [owise]
 
     syntax Bool ::= isAWrite(K) [function]
     rule isAWrite(writeAByte(T:K, A:K, B:K, C:Int, E:Int, F:Int)) => true 
@@ -3081,26 +3116,25 @@ module LLVM-HELPERS
     rule isFather(A:K, B:K, (B |-> C:K) M:Map)
            => isFather(A, C, M)
          requires A =/=K B
-
+/*
     syntax Bool ::= isTwoLocSame(K, K)  [function]
-    rule isTwoLocSame(loc(A:Int, B:K, X:K, Y:K),
+    rule isTwoLocSame(loc(A:Int, B:K,R:K, X:K, Y:K),
                aLoc(A, B, heap)) => true
-     rule isTwoLocSame(stackLoc(A:Int, B:K, X:K, Y:K),
+     rule isTwoLocSame(stackLoc(A:Int, B:K,R:K, X:K, Y:K),
                aLoc(A, B, stack)) => true
       rule isTwoLocSame(A:K, B:K) => false  [owise]
-
+*/
     //delete the entries having no var as the first element
     syntax Map ::= deleteNonTargetMap(K, K, K, Map) [function]
     rule deleteNonTargetMap(X:K, .K, .K, .Map) => .Map
     rule deleteNonTargetMap(X:K, .K, .K, (A:K |-> B:K) M:Map)
            => deleteNonTargetMap(X, A, B, M)
-    rule deleteNonTargetMap(X:K, varInstance(Bn:Int, X':K), B:K, M:Map)
-             => (varInstance(Bn:Int, X':K) |-> B:K)
+    rule deleteNonTargetMap(X:K, varInstance(Bn:Int, X:K), B:K, M:Map)
+             => (varInstance(Bn:Int, X:K) |-> B:K)
                    deleteNonTargetMap(X, .K, .K, M)
-         requires isTwoLocSame(X, X')
     rule deleteNonTargetMap(X:K, varInstance(Bn:Int, X':K), B:K, M:Map)
              => deleteNonTargetMap(X, .K, .K, M)
-         requires notBool isTwoLocSame(X, X')
+         requires X =/=K X'
 
     syntax Bool ::= hasValidSpecRead(K, K, K, Map, Map) [function]
     rule hasValidSpecRead(X:K, .K, .K, .Map, Rev:Map) => false
@@ -3149,7 +3183,8 @@ module LLVM-HELPERS
 
     syntax KItem ::= normalPointer(K)  [function]
     rule normalPointer(zeroinitializer)
-                 => loc(nullMemoryLoc, void, 0, none)
+           => loc(nullMemoryLoc, void,
+                 value(nullMemoryLoc,nullMemoryLoc), none)
     rule normalPointer(A:K) => A [owise]
 
     syntax KItem ::= normalPointers(K)  [function]
@@ -3178,15 +3213,20 @@ module LLVM-HELPERS
     syntax KItem ::= toIntLocs(K) [function]
                    | toIntLoc(K)  [function]
 
-    rule toIntLoc(loc(A:Int, B:K, C:K, D:K))
-         => intLoc(mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer)), B, C, heap)
-    rule toIntLoc(stackLoc(A:Int, B:K, C:K, D:K))
-          => intLoc(mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer)), B, C, stack)
-    rule toIntLoc(loc(notALoc(A:Int), B:K, C:K, D:K))
-         => mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer))
-    rule toIntLoc(stackLoc(notALoc(A:Int), B:K, C:K, D:K))
-          => mod(A, 2 ^Int (numBitsPerByte *Int numBytesPerPointer))
-    rule toIntLoc(funptr(A:K)) => intLoc(fixedFunPtrPosition, funptr(A), 0, none)
+    rule toIntLoc(loc(A:Int, B:K,value(Left:Int, Right:Int), D:K))
+         => intLoc(normalizingInt(integerType(numBitsPerByte
+         *Int numBytesPerPointer), A), B,value(Left:Int, Right:Int), heap)
+         requires Right -Int Left >Int 0
+    rule toIntLoc(stackLoc(A:Int, B:K,value(Left:Int, Right:Int), D:K))
+          => intLoc(normalizingInt(integerType(numBitsPerByte
+         *Int numBytesPerPointer), A), B,value(Left:Int, Right:Int), stack)
+         requires Right -Int Left >Int 0
+    rule toIntLoc(loc(A:Int, B:K,value(Left:Int, Right:Int), D:K))
+         => normalizingInt(integerType(numBitsPerByte *Int numBytesPerPointer), A)
+         requires Right -Int Left <=Int 0
+    rule toIntLoc(stackLoc(A:Int, B:K,value(Left:Int, Right:Int), D:K))
+         => normalizingInt(integerType(numBitsPerByte *Int numBytesPerPointer), A)
+         requires Right -Int Left <=Int 0
     rule toIntLoc(zeroinitializer) => 0
     rule toIntLoc(A:K) => A [owise]
     rule toIntLocs(vectorValue(Es:ElemList))
@@ -3198,31 +3238,24 @@ module LLVM-HELPERS
 
     syntax KItem ::= reverseLocs(K, K) [function]
                    | reverseLoc(K, K)  [function]
-    rule reverseLoc(intLoc(X:K, funptr(A:K), C:K, D:K),
-           pointerTypeValue(functionTypeValue(X:K, Y:K), Ad:Int)) => funptr(A)
-         requires fixedFunPtrPosition ==K X
-    rule reverseLoc(intLoc(X:K, funptr(A:K), C:K, D:K), pointerTypeValue(T:K, Ad:Int))
-              => loc(notALoc(X), T, C, none)
-         requires fixedFunPtrPosition =/=K X
-    rule reverseLoc(intLoc(X:K, funptr(A:K), C:K, D:K), pointerTypeValue(T:K, Ad:Int))
-              => loc(notALoc(X), T, C, none)
-         requires notBool isFunType(T)
-    rule reverseLoc(intLoc(A:Int, T:K, C:K, heap), pointerTypeValue(T:K, Ad:Int))
-          => loc(deNormalizingInt(integerType(
-                     numBitsPerByte *Int numBytesPerPointer), A), T, C, none)
-    rule reverseLoc(intLoc(A:Int, B:K, C:K, heap), pointerTypeValue(T:K, Ad:Int))
-          => loc(deNormalizingInt(integerType(
-                     numBitsPerByte *Int numBytesPerPointer), A), T, 1, none)
-         requires B =/=K T
-    rule reverseLoc(intLoc(A:Int, T:K, C:K, stack), pointerTypeValue(T:K, Ad:Int))
-          => stackLoc(deNormalizingInt(integerType(
-                     numBitsPerByte *Int numBytesPerPointer), A), T, C, none)
-    rule reverseLoc(intLoc(A:Int, B:K, C:K, stack), pointerTypeValue(T:K, Ad:Int))
-          => stackLoc(deNormalizingInt(integerType(
-                     numBitsPerByte *Int numBytesPerPointer), A), T, 1, none)
-         requires B =/=K T
-    rule reverseLoc(A:Int, pointerTypeValue(T:K, Ad:Int))
-                => loc(notALoc(A), T, 1, none)
+
+    rule reverseLoc(intLoc(A:Int, T,
+                         value(Left:Int, Right:Int), heap),
+           pointerTypeValue(T':K, Ad:Int))
+               => loc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A),
+                  T', value(Left, Right), none)
+    rule reverseLoc(intLoc(A:Int, T,
+                         value(Left:Int, Right:Int), stack),
+           pointerTypeValue(T':K, Ad:Int))
+               => stackLoc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A),
+                  T', value(Left, Right), none)
+    rule reverseLoc(A:K,
+           pointerTypeValue(T':K, Ad:Int))
+               => loc(deNormalizingInt(integerType(
+                     numBitsPerByte *Int numBytesPerPointer), A),
+                  T', value(nullMemoryLoc, nullMemoryLoc), none)
     rule reverseLoc(A:K, T:K) => normalPointer(A) [owise]
     rule reverseLocs(vectorValue(Es:ElemList), T:K)
                => vectorValue(reverseLocs(Es, T))
@@ -3231,5 +3264,39 @@ module LLVM-HELPERS
                => valValue(reverseLoc(A, T)),
                                   reverseLocs(Es, vectorTypeValue(T:K, N:Int))
     rule reverseLocs(A:K, T:K) => reverseLoc(A, getInnerType(T)) [owise]
+
+    syntax ElemList ::= getArgTypes(ElemList) [function]
+    rule getArgTypes(.ElemList) => .ElemList
+    rule getArgTypes(valValue(typedArg(S:Set, T:K, A:K)),Es:ElemList)
+            => valValue(T),getArgTypes(Es)
+
+    syntax Bool ::= hasMMXType(K)  [function]
+                  | hasInValidMMXTypeAux(TypeList) [function]
+                  | hasInValidMMXTypeInList(ElemList) [function]
+                  | hasInValidMMXType(K) [function]
+    rule hasMMXType(x86_mmx) => true
+    rule hasMMXType(structTypeValue(Ts:TypeList)) => hasInValidMMXType(Ts)
+    rule hasMMXType(packedStructTypeValue(Ts:TypeList)) => hasInValidMMXType(Ts)
+    rule hasMMXType(pointerTypeValue(A:K, B:K)) => hasInValidMMXType(A)
+    rule hasMMXType(arrayTypeValue(A:K, B:K)) => hasInValidMMXType(A)
+    rule hasMMXType(vectorTypeValue(A:K, B:K)) => hasInValidMMXType(A)
+    rule hasMMXType(functionTypeValue(A:K, B:K))
+               => hasInValidMMXType(A) orBool hasInValidMMXTypeInList(B) 
+    rule hasMMXType(A:K) => false [owise]
+
+    rule hasInValidMMXTypeInList(.ElemList) => false
+    rule hasInValidMMXTypeInList(valValue(T:K),Es:ElemList)
+            => hasInValidMMXType(T:K) orBool hasInValidMMXTypeInList(Es)
+    rule hasInValidMMXTypeAux(.TypeList) => false
+    rule hasInValidMMXTypeAux(T:K, Ts:TypeList) =>
+               hasInValidMMXType(T) orBool hasInValidMMXTypeAux(Ts)
+    rule hasInValidMMXType(structTypeValue(Ts:TypeList)) => hasInValidMMXTypeAux(Ts)
+    rule hasInValidMMXType(packedStructTypeValue(Ts:TypeList)) => hasInValidMMXTypeAux(Ts)
+    rule hasInValidMMXType(pointerTypeValue(A:K, B:K)) => hasInValidMMXType(A)
+    rule hasInValidMMXType(arrayTypeValue(A:K, B:K)) => hasMMXType(A)
+    rule hasInValidMMXType(vectorTypeValue(A:K, B:K)) => hasMMXType(A)
+    rule hasInValidMMXType(functionTypeValue(A:K, B:K)) =>
+                hasInValidMMXType(A) orBool hasInValidMMXTypeInList(B)
+    rule hasInValidMMXType(A:K) => false [owise]
 
 endmodule

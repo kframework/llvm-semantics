@@ -9,6 +9,7 @@ module LLVM-ABSTRACTSYNTAX
                       //| listK(List)    [latex({#1})]//bytes
                       | region(List, Int)  //nextlevel, number of nextlevel
                       | VoidType
+                      | X86Type
                       | vectorValue(ElemList)
                       | arrayValue(ElemList)
                       | addrSpaceResult(Int)
@@ -30,7 +31,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax Type ::= TypeResult
     syntax Type ::= "badType"
     syntax KResult ::= "badValue"
-    syntax KItem ::= notALoc(K)
+    syntax KResult ::= "skipValue"
     syntax KItem ::= "none"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
@@ -159,13 +160,14 @@ module LLVM-ABSTRACTSYNTAX
                orBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
-    syntax Loc ::= loc(K, K, Int, K)
-             // TODO [semantic] base, type, size of top, inrange?
-    syntax Loc ::= stackLoc(K, K, Int, K) 
-             // TODO [semantic] base, type, size of top, inrange?
+    syntax Loc ::= loc(K, K, K, K)
+             // TODO [semantic] base, type, range, inrange?
+    syntax Loc ::= stackLoc(K, K, K, K) 
+             // TODO [semantic] base, type, range, inrange?
     syntax Loc ::= aLoc(K, K, K) //base, type, rangeType
-    syntax Loc ::= intLoc(K, K, K, K) //base(int), type, top size, range
-    syntax Loc ::= funptr(K)
+    syntax Loc ::= intLoc(K, K, K, K) //base(int), type, range, range
+    syntax KItem ::= funptr(K)//name
+    //syntax KItem ::= funCountLabel(Int, K)//position, ptr
     syntax ValueRef ::= Loc
     syntax KItem ::= dealWithUnnamed(List)
     syntax KItem ::= resultGlobalMap(Map)
@@ -189,8 +191,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "debug" // TODO [semantic]
     syntax KItem ::= "callMain" // TODO [semantic]
     syntax KItem ::= "initGlobals" // TODO [semantic]
+    syntax KItem ::= initGlobalTypes(ElemList) [strict] // TODO [semantic]
     syntax KItem ::= "initDef"
-    syntax KItem ::= initBuiltins(ElemList)
+    syntax KItem ::= initBuiltins(ElemList) [strict]
     syntax ElemList ::= "vararg"
 
     //LLVM builtin values
@@ -237,7 +240,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= inAlloca(K)
     syntax KItem ::= alloca(K, K, Int, Bool) [strict(1,2)]
                     // Type, NumElements, align, isConstant?
-    syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align
+    syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align, isConstant?
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
     syntax KItem ::= loadHold(K, List)//type, List
@@ -274,6 +277,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= nextSpecs(Set) //used for map element of specChoice
     syntax KItem ::= splitQueue(List, List, List) //used for instQueue cell
                                      //availables, Pre, remains
+    syntax KItem ::= readMap(Map)
+    syntax KItem ::= readMapAux(K, K, Map) //(block, inst), (var, V), map 
     syntax KItem ::= instList(List) //used for instQueue cell
     syntax KItem ::= memList(List, List, List, List, List)
             //used for toCommit cell: available to commit, available to commit
@@ -347,7 +352,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theTrunc(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theSExt(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theZExt(K, K, K) [strict(2)] // oldtype, op, totype
-    syntax KItem ::= theBitCast(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theBitCast(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theIntToPtr(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theIntToPtrAux(K, K) // op, totype
     syntax KItem ::= thePtrToInt(K, K, K) [strict(2)] // type, op, totype
@@ -381,12 +386,12 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= getElementPtr(K, K, ElemList) [strict(2,3)]// type, loc, indecies
                    | gepTypeBag(K)          [strict]
-                   | getElementPtrAux(K, Int, Int, Int, K, K, ElemList)
-                      //type, original, size, base, inrange?, stack/heap, indices
-                   | getElementPtrBound(K, Int, Int, K, K, K, ElemList)
-                      //type, original, size, base, inrange?, stack/heap, indices
-                   | getElementPtrCal(K, Int, Int, Int, K, K, Int, ElemList)
-                      //type, original, size, base, inrange?, stack/heap, Index, indices
+                   | getElementPtrAux(K, K, Int, K, K, ElemList)
+                      //type, Range, base, inrange?, stack/heap, indices
+                   | getElementPtrBound(K, K, Int, K, K, ElemList)
+                      //type, Range, base, inrange?, stack/heap, indices
+                   | getElementPtrCal(K, K, Int, K, K, Int, ElemList)
+                      //type, Range, base, inrange?, stack/heap, Index, indices
                    | "badRange"
 
     syntax KItem ::= extractElement(K, K) [strict]
@@ -470,7 +475,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= assignType(K, Int, K, K) //block, inst num, var, t
 
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
-    syntax KItem ::= varInstance(Int, K)
+    syntax KItem ::= varInstance(K, K)//block, inst / var, loadhold
     syntax KItem ::= "globalVar" | "localVar"
     syntax KItem ::= "either" | "heap" | "stack" | GlobalType
 

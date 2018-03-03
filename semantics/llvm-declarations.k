@@ -66,8 +66,14 @@ module LLVM-DECLARATIONS
             => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
          <currentProgPoint> ProgCount:Int => 0 </currentProgPoint>
-        <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
+        <cbd> CM:Map => CM[FunCount <- typeOperandResult(
+                   functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
+        <globalRegisters> M:Map => M[Label <-
+                loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
+                         value(FunCount, FunCount), none)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
+        <nextBase> FunCount:Int => FunCount +Int
+                         sizeOfFunArg(Arguments) +Int numBytesFunHeader </nextBase>
         <instructionCounter> InstCount:Int => 0 </instructionCounter>
         (.Bag =>
             <function>...
@@ -76,13 +82,19 @@ module LLVM-DECLARATIONS
                 <returnType> RetType </returnType>
                 <formalParameters> arguments(Arguments) </formalParameters>
                 <functionName> Label </functionName>
+                <funPosition> FunCount </funPosition>
                 <funSize> sizeOfFunArg(Arguments) +Int numBytesFunHeader </funSize>
             ...</function> )
 
     rule
         <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult)
             => .K ...</k>
-        <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
+        <cbd> CM:Map => CM[FunCount <- typeOperandResult(
+                   functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
+        <globalRegisters> M:Map => M[Label <-
+             loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
+                        value(FunCount, FunCount), none)] </globalRegisters>
+        <nextBase> FunCount:Int => FunCount +Int numBytesFunHeader </nextBase>
         <currModule> ModName:SymbolicValueRef </currModule>
         (.Bag =>
             <function>...
@@ -91,6 +103,7 @@ module LLVM-DECLARATIONS
                 <returnType> RetType </returnType>
                 <formalParameters> arguments(Arguments) </formalParameters>
                 <functionName> Label </functionName>
+                <funPosition> FunCount </funPosition>
                 <funSize> sizeOfFunArg(Arguments) +Int numBytesFunHeader </funSize>
             ...</function>
         )

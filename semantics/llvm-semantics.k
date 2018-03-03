@@ -40,18 +40,38 @@ module LLVM-ARITHMETIC
 
     rule [udiv-failed]:
         <k> flagStage(udiv, badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: udiv by zero undefined behavior") </output>
 
     rule [sdiv-failed]:
         <k> flagStage(sdiv, badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: sdiv by zero or overflow undefined behavior") </output>
 
     rule [urem-failed]:
         <k> flagStage(urem, badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: urem by zero undefined behavior") </output>
 
     rule [srem-failed]:
         <k> flagStage(srem, badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: srem by zero or overflow undefined behavior") </output>
 
 endmodule
@@ -94,105 +114,7 @@ module LLVM-GEP
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule getElementPtr(pointerTypeValue(functionTypeValue(X:K, Y:K),
-          Ad:Int), funptr(A:K), .ElemList)  => funptr(A:K)
-    rule getElementPtr(pointerTypeValue(functionTypeValue(X:K, Y:K),
-           Ad:Int), funptr(A:K), valValue(gepOperandResult(In:K, 0)),.ElemList)
-                 => funptr(A:K)
-
-    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int), funptr(A:K), Es:ElemList) ~> K:K => .K </k>
-         (<tomasulo>
-            D:Bag
-         </tomasulo> =>  <tomasulo>...
-                        <instQueue> instList(.List) </instQueue>
-                          ...</tomasulo>)
-          <output>... .List => ListItem("error: getElementPtr of a function pointer does not refer to a function position.") </output>
-
-    rule <k> getElementPtr(pointerTypeValue(functionTypeValue(X:K, Y:K),
-           Ad:Int), funptr(A:K), valValue(gepOperandResult(In:K, V:Int)),.ElemList) ~> K:K => .K </k>
-         (<tomasulo>
-            D:Bag
-         </tomasulo> =>  <tomasulo>...
-                        <instQueue> instList(.List) </instQueue>
-                          ...</tomasulo>)
-          <output>... .List => ListItem("error: getElementPtr of a function pointer must only get the pointer itself.") </output>
-         requires V >Int 0
-
-    rule getElementPtr(pointerTypeValue(T:K, Ad:Int), A:Loc, .ElemList)  => A
-         requires base(A) ==K -1
-    rule getElementPtr(pointerTypeValue(T:K, Ad:Int), A:Loc,
-                   valValue(gepOperandResult(In:K, 0)),.ElemList)  => A
-         requires base(A) ==K -1
-
-    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int), A:Loc, Es:ElemList)
-              => poisonVal ...</k>
-          <currentModifiers> Mods:Set </currentModifiers>
-         requires inbounds in Mods andBool
-                lengthOfList(Es) >Int 1 andBool base(A) ==K -1
-
-    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
-             A:K, valValue(gepOperandResult(In:K, V:Int)),.ElemList) => poisonVal ...</k>
-          <currentModifiers> Mods:Set </currentModifiers>
-         requires inbounds in Mods andBool
-                    V >Int 0 andBool base(A) ==K -1
-
-    rule getElementPtr(pointerTypeValue(T:K, Ad:Int), A:Loc, Indices:KResult)
-          => getElementPtrAux(gepTypeBag(T), base(A), getLocSize(A),
-           base(A), getInRange(A), getStackHeapFlag(A), Indices)
-         requires getStackHeapFlag(A) =/=K badValue
-               andBool base(A) =/=K badValue andBool base(A) >=Int 0
-
-    rule getElementPtrAux(T:K, Base:Int, Size:Int, New:Int, InR:K,
-               R:K, valValue(gepOperandResult(.K, N:Int)),Es:ElemList)
-         =>getElementPtrCal(T, Base, Size, New, InR, R, N, Es)
-
-     rule getElementPtrAux(T:K, Base:Int, Size:Int, New:Int, InR:K,
-               R:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
-         => getElementPtrCal(T, Base, Size, New, InR, R, N, Es)
-         requires notBool isStructType(T) andBool N <=Int Size andBool N >=Int 0
-
-     rule getElementPtrAux(T:K, Base:Int, Size:Int, New:Int, InR:K,
-               R:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
-         => getElementPtrCal(T, Base, Size, New, badRange, R, N, Es)
-         requires notBool isStructType(T)
-               andBool (N >Int Size orBool N <Int 0)
-
-     rule getElementPtrAux(T:K, Base:Int, Size:Int, New:Int, InR:K,
-               R:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
-         => getElementPtrCal(T, Base, Size, New, InR, R, N, Es)
-         requires isStructType(T)
-
-    rule getElementPtrAux(T:K, Base:Int,
-               Size:Int, New:Int, InR:K, stack, .ElemList)
-            => stackLoc(New, getRidOfGepBag(T), Size, InR)
-
-    rule getElementPtrAux(T:K, Base:Int,
-               Size:Int, New:Int, InR:K, heap, .ElemList)
-            => loc(New, getRidOfGepBag(T), Size, InR)
-
-    rule getElementPtrCal(gepTypeBag(T:K), Base:Int, Size:Int, New:Int, InR:K,
-               R:K, N:Int, Es:ElemList)
-            => getElementPtrBound(T, Base, Size,
-                         New +Int (sizeof(T) *Int N), InR, R, Es)
-    rule getElementPtrCal(vectorTypeValue(T:K, S:Int), Base:Int, Size:Int, New:Int, InR:K,
-               R:K, N:Int, Es:ElemList)
-            => getElementPtrBound(T, Base, S,
-                         New +Int (sizeof(T) *Int N), InR, R, Es)
-    rule getElementPtrCal(arrayTypeValue(T:K, S:Int), Base:Int, Size:Int, New:Int, InR:K,
-               R:K, N:Int, Es:ElemList)
-            => getElementPtrBound(T, Base, S,
-                         New +Int (sizeof(T) *Int N), InR, R, Es)
-    rule getElementPtrCal(structTypeValue(Ts:KResult), Base:Int,Size:Int, New:Int, InR:K,
-               R:K, N:Int, Es:ElemList)
-            => getElementPtrBound(getGepTypeInStruct(Ts, N), Base, 1,
-                        calGepInStruct(New, Ts, N), InR, R, Es)
-    rule getElementPtrCal(packedStructTypeValue(Ts:KResult), Base:Int,Size:Int,
-         New:Int, InR:K, R:K, N:Int, Es:ElemList)
-            => getElementPtrBound(getGepTypeInStruct(Ts, N), Base, 1,
-                        calGepInPackedStruct(New, Ts, N), InR, R, Es)
-
-    rule <k> getElementPtrBound(T:K, Base:Int, Size:Int, badValue, InR:K,
-           R:K, Es:ElemList) ~> K:K => .K </k>
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int), A:K, Indices:KResult) ~> K:K => .K </k>
          <output>... .List
                 => ListItem("error: undefined behavior due to getelementptr of struct type index out of range.") </output>
          (<tomasulo>
@@ -200,44 +122,176 @@ module LLVM-GEP
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
+         requires A ==K badValue orBool (isALoc(A) andBool base(A) ==K badValue)
 
-    rule <k> getElementPtrBound(T:K, Base:Int, Size:Int, New:Int, InR:K,
-           R:K, Es:ElemList)
-               => getElementPtrAux(T, Base, Size, New, InR, R, Es) ...</k>
+    rule getElementPtr(pointerTypeValue(T:K, Ad:Int), poisonVal, Indices:KResult)
+           => poisonVal
+    rule getElementPtr(pointerTypeValue(T:K, Ad:Int), A:Loc, Indices:KResult)
+           => poisonVal
+         requires base(A) ==K poisonVal
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+               A:K, Indices:KResult) => poisonVal </k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires (A ==K undef orBool (isALoc(A) andBool base(A) ==K undef))
+                andBool inbounds in Mods
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+               undef, Indices:KResult) => loc(undef, T,
+               value(nullMemoryLoc,nullMemoryLoc),
+                      toInrangeFlag(getInrange(Indices))) </k>
          <currentModifiers> Mods:Set </currentModifiers>
          requires notBool inbounds in Mods
 
-    rule <k> getElementPtrBound(T:K, Base:Int, Size:Int, New:Int, InR:K,
-           stack, Es:ElemList)
-               => getElementPtrAux(T, Base, Size, New, InR, stack, Es) ...</k>
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+               loc(undef, T, R:K, F:K), Indices:KResult)
+              => loc(undef, T, R,
+               mergeInrangeFlags(F, toInrangeFlag(getInrange(Indices)))) </k>
          <currentModifiers> Mods:Set </currentModifiers>
-        <localMemory> LocalStack:Set </localMemory>
-           <stackList> SL:List </stackList>
-        requires isInStackRange(SL, New, sizeof(T), LocalStack)
+         requires notBool inbounds in Mods
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+               stackLoc(undef, T, R:K, F:K), Indices:KResult)
+              => stackLoc(undef, T, R,
+               mergeInrangeFlags(F, toInrangeFlag(getInrange(Indices)))) </k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires notBool inbounds in Mods
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+             loc(A:Int, T, R:K, F:K), Indices:KResult)
+          => getElementPtrAux(gepTypeBag(T), R, A, F, heap, Indices) ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires notBool inbounds in Mods
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+             loc(A:Int, T, value(Left:Int, Right:Int), F:K), Indices:KResult)
+          => getElementPtrAux(gepTypeBag(T),
+                     value(Left:Int, Right:Int), A, F, heap, Indices) ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires inbounds in Mods andBool
+               (A >=Int Left andBool A<=Int Right)
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+             loc(A:Int, T, value(Left:Int, Right:Int), F:K), Indices:KResult)
+          => poisonVal ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires inbounds in Mods andBool
+               (A <Int Left orBool A >Int Right)
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+             stackLoc(A:Int, T, R:K, F:K), Indices:KResult)
+          => getElementPtrAux(gepTypeBag(T), R, A, F, heap, Indices) ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires notBool inbounds in Mods
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+             stackLoc(A:Int, T, value(Left:Int, Right:Int), F:K), Indices:KResult)
+          => getElementPtrAux(gepTypeBag(T),
+                    value(Left:Int, Right:Int), A, F, heap, Indices) ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires inbounds in Mods andBool
+               (A >=Int Left andBool A<=Int Right)
+
+    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int),
+             stackLoc(A:Int, T, value(Left:Int, Right:Int), F:K), Indices:KResult)
+                   => poisonVal ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires inbounds in Mods andBool
+               (A <Int Left orBool A >Int Right)
+
+    rule getElementPtrAux(T:K, R:K, New:Int, InR:K,
+               F:K, valValue(gepOperandResult(.K, N:Int)),Es:ElemList)
+         => getElementPtrCal(T, R, New, InR, F, N, Es)
+
+    rule getElementPtrAux(gepTypeBag(T:K), value(Left:Int, Right:Int),
+                New:Int, InR:K, F:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
+           => getElementPtrCal(gepTypeBag(T:K), value(Left:Int, Right:Int),
+               New, mergeInrangeFlags(inrange, InR), F, N, Es)
+         requires New +Int N *Int sizeof(T) <=Int Right andBool New >=Int Left
+
+    rule getElementPtrAux(gepTypeBag(T:K), value(Left:Int, Right:Int),
+                New:Int, InR:K, F:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
+           => getElementPtrCal(gepTypeBag(T:K), value(Left:Int, Right:Int),
+               New, badRange, F, N, Es)
+         requires New +Int N *Int sizeof(T) >Int Right orBool New <Int Left
+
+     rule getElementPtrAux(T:K, value(Left:Int, Right:Int), New:Int, InR:K,
+               F:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
+         => getElementPtrCal(T, value(Left:Int, Right:Int), New,
+                           mergeInrangeFlags(inrange, InR), F, N, Es)
+         requires notBool hasAGepBag(T) andBool notBool isStructType(T)
+               andBool N <Int getSizeOfGepBag(T) andBool N >=Int 0
+
+     rule getElementPtrAux(T:K, value(Left:Int, Right:Int), New:Int, InR:K,
+               F:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
+         => getElementPtrCal(T, value(Left:Int, Right:Int), New,
+                           badRange, F, N, Es)
+         requires notBool hasAGepBag(T) andBool notBool isStructType(T)
+               andBool (N >=Int getSizeOfGepBag(T) orBool N <Int 0)
+
+     rule getElementPtrAux(T:K, R:K, New:Int, InR:K,
+               F:K, valValue(gepOperandResult(inrange, N:Int)),Es:ElemList)
+         => getElementPtrCal(T, R,
+                   New, mergeInrangeFlags(inrange, InR), F, N, Es)
+         requires notBool hasAGepBag(T) andBool isStructType(T)
+
+    rule getElementPtrAux(T:K, R:K, New:Int, InR:K, stack, .ElemList)
+            => stackLoc(New, getRidOfGepBag(T), R, InR)
+    rule getElementPtrAux(T:K, R:K, New:Int, InR:K, heap, .ElemList)
+            => loc(New, getRidOfGepBag(T), R, InR)
+
+    rule getElementPtrCal(gepTypeBag(T:K), R:K, New:Int, InR:K,
+               F:K, N:Int, Es:ElemList)
+            => getElementPtrBound(T, R,
+                         New +Int (sizeof(T) *Int N), InR, F, Es)
+    rule getElementPtrCal(vectorTypeValue(T:K, S:Int), R:K, New:Int, InR:K,
+               F:K, N:Int, Es:ElemList)
+            => getElementPtrBound(T, R,
+                         New +Int (sizeof(T) *Int N), InR, F, Es)
+    rule getElementPtrCal(arrayTypeValue(T:K, S:Int), R:K, New:Int, InR:K,
+               F:K, N:Int, Es:ElemList)
+            => getElementPtrBound(T, R,
+                         New +Int (sizeof(T) *Int N), InR, F, Es)
+    rule getElementPtrCal(structTypeValue(Ts:KResult), R:K, New:Int, InR:K,
+               F:K, N:Int, Es:ElemList)
+            => getElementPtrBound(getGepTypeInStruct(Ts, N), R,
+                        calGepInStruct(New, Ts, N), InR, F, Es)
+    rule getElementPtrCal(packedStructTypeValue(Ts:KResult), R:K,
+         New:Int, InR:K, F:K, N:Int, Es:ElemList)
+            => getElementPtrBound(getGepTypeInStruct(Ts, N), R,
+                        calGepInPackedStruct(New, Ts, N), InR, F, Es)
+
+    rule <k> getElementPtrBound(T:K,R:K, badValue, InR:K,
+           F:K, Es:ElemList) ~> K:K => .K </k>
+         <output>... (.List
+                => ListItem("error: undefined behavior due to getelementptr of struct type index out of range.")) </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+
+    rule <k> getElementPtrBound(T:K,R:K, New:Int, InR:K,
+           F:K, Es:ElemList)
+               => getElementPtrAux(T, R, New, InR, F, Es) ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+         requires notBool inbounds in Mods
+
+    rule <k> getElementPtrBound(T:K, value(Left, Right),
+             New:Int, InR:K, F:K, Es:ElemList)
+               => getElementPtrAux(T, value(Left, Right),
+                     New, InR, F, Es) ...</k>
+         <currentModifiers> Mods:Set </currentModifiers>
+        requires New >=Int Left andBool New <=Int Right
            andBool inbounds in Mods 
 
-    rule <k> getElementPtrBound(T:K, Base:Int, Size:Int, New:Int, InR:K,
-           heap, Es:ElemList)
-               => getElementPtrAux(T, Base, Size, New, InR, heap, Es) ...</k>
-         <currentModifiers> Mods:Set </currentModifiers>
-        <memoryList> MOL:List </memoryList>
-        requires isInMemRange(MOL, New, sizeof(T))
-         andBool inbounds in Mods 
-
-    rule <k> getElementPtrBound(T:K, Base:Int, Size:Int, New:Int, InR:K,
-           stack, Es:ElemList) => poisonVal ...</k>
+    rule <k> getElementPtrBound(T:K, value(Left, Right),
+             New:Int, InR:K, F:K, Es:ElemList) => poisonVal ...</k>
          <currentModifiers> Mods:Set </currentModifiers>
         <localMemory> LocalStack:Set </localMemory>
            <stackList> SL:List </stackList>
-        requires notBool isInStackRange(SL, New, sizeof(T), LocalStack)
+        requires New <Int Left orBool New >Int Right
             andBool inbounds in Mods
-
-    rule <k> getElementPtrBound(T:K, Base:Int, Size:Int, New:Int, InR:K,
-           heap, Es:ElemList) => poisonVal ...</k>
-         <currentModifiers> Mods:Set </currentModifiers>
-        <memoryList> MOL:List </memoryList>
-        requires notBool isInMemRange(MOL, New, sizeof(T))
-                andBool inbounds in Mods
 
 endmodule
 
@@ -605,19 +659,21 @@ module LLVM-MEMORY
               => normalizingInt(integerType(I:Int), N) [structural]
 
     rule <k> globalAlloca(Type:KResult, N:Int, Al:Int, Con:Bool)
-                          => nextMemSym(Base, Al, Type, N) ...</k>
+                          => nextMemSym(Base, Al, Type,
+                       value(curBase(Base, Al),
+                       nextBase(Base, sizeof(Type) *Int N, Al))) ...</k>
         (.Bag =>
             <object>...
-           <chunck> getTopMemList(base(nextMemSym(Base, Al, Type, N)),
+           <chunck> getTopMemList(curBase(Base, Al),
                        0, N, sizeof(Type), Type,
                         getRangeFromFlagInHeap(Con)) </chunck>
-             <chunckRange> value(base(nextMemSym(Base, Al, Type, N)),
+             <chunckRange> value(curBase(Base, Al),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </chunckRange>
              <size> N </size> 
              <range> getRangeFromFlagInHeap(Con) </range> 
              <align> newPacking(Base, Al) </align>
                        ...</object> )
-        <memoryList> MRL:List (.List => ListItem(value(base(nextMemSym(Base, Al, Type, N)),
+        <memoryList> MRL:List (.List => ListItem(value(curBase(Base, Al),
                      nextBase(Base, sizeof(Type) *Int N, Al)))) </memoryList>
         <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
         <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
@@ -626,38 +682,55 @@ module LLVM-MEMORY
 
     rule <k> globalAlloca(Type:KResult, N:Int, Al:Int, Con:Bool) ~> K:K
               => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <output>... .List => ListItem("error: undefined behavior due to malloc zero bype.") </output>
         requires (sizeof(Type) *Int N) <=Int 0
 
     rule <k> alloca(Type:KResult, N:Int, Al:Int, Con:Bool) ~> K:K
               => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <output>... .List => ListItem("error: undefined behavior due to alloca zero bype.") </output>
         requires (sizeof(Type) *Int N) <=Int 0
 
     rule <k> alloca(Type:KResult, N:Int, Al:Int, B:Bool) ~> K:K => .K </k>
         <nextStack> Base:Int </nextStack>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefined behavior due to stack overflow.") </output>
         requires (sizeof(Type) *Int N) >Int 0 andBool (nextBase(Base,
                 sizeof(Type) *Int N, Al)) >=Int maxStackSize
 
     rule <k> alloca(Type:KResult, N:Int, Al:Int, Con:Bool)
-                          => nextStackSym(Base, Al, Type, N) ...</k>
+                          => nextStackSym(Base, Al,
+                     Type,value(curBase(Base, Al),
+                    nextBase(Base, sizeof(Type) *Int N, Al))) ...</k>
          <threadId> Tid:Int </threadId>
         (.Bag =>
             <stackObject>...
             <stackThreadId> Tid </stackThreadId>
-           <stackChunck> getTopMemList(base(nextStackSym(Base, Al, Type, N)),
+           <stackChunck> getTopMemList(curBase(Base, Al),
                        0, N, sizeof(Type), Type, getRangeFromFlagInStack(Con)) </stackChunck>
-             <stackChunckRange> value(base(nextStackSym(Base, Al, Type, N)),
+             <stackChunckRange> value(curBase(Base, Al),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </stackChunckRange>
              <stackSize> N </stackSize> 
              <stackRange> getRangeFromFlagInStack(Con) </stackRange> 
              <stackAlign> newPacking(Base, Al) </stackAlign>
                        ...</stackObject> )
         <currentModifiers> Mods:Set </currentModifiers>
-        <stackList> MRL:List (.List => ListItem(value(base(nextStackSym(Base, Al, Type, N)),
+        <stackList> MRL:List (.List => ListItem(value(curBase(Base, Al),
                      nextBase(Base, sizeof(Type) *Int N, Al)))) </stackList>
-        <localMemory>... .Set => SetItem(base(nextStackSym(Base, Al, Type, N))) </localMemory>
+        <localMemory>... .Set => SetItem(curBase(Base, Al)) </localMemory>
         <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
         requires (sizeof(Type) *Int N) >Int 0 andBool (nextBase(Base,
                    sizeof(Type) *Int N, Al)) <Int maxStackSize
@@ -665,25 +738,26 @@ module LLVM-MEMORY
 
     rule
         <k> alloca(Type:KResult, N:Int, Al:K, Con:Bool)
-                          => nextStackSym(Base, Al, Type, N) ...</k>
+                          => nextStackSym(Base, Al, Type,
+                       value(curBase(Base, Al),
+                        nextBase(Base, sizeof(Type) *Int N, Al))) ...</k>
          <threadId> Tid:Int </threadId>
         (.Bag =>
             <stackObject>...
             <stackThreadId> Tid </stackThreadId>
-          <stackChunck> getTopMemList(base(nextStackSym(Base, Al, Type, N)),
+          <stackChunck> getTopMemList(curBase(Base, Al),
                        0, N, sizeof(Type), Type,
                             getRangeFromFlagInStack(Con)) </stackChunck>
-             <stackChunckRange> value(base(nextStackSym(Base, Al, Type, N)),
+             <stackChunckRange> value(curBase(Base, Al),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </stackChunckRange>
              <stackSize> N </stackSize> 
              <stackRange> getRangeFromFlagInStack(Con) </stackRange> 
              <stackAlign> newPacking(Base, Al) </stackAlign>
                 ...</stackObject> )
         <currentModifiers> Mods:Set </currentModifiers>
-        <stackList> MRL:List (.List => ListItem(value(base(nextStackSym(Base, Al, Type, N)),
+        <stackList> MRL:List (.List => ListItem(value(curBase(Base, Al),
                      nextBase(Base, sizeof(Type) *Int N, Al)))) </stackList>
-        <localMemory>... .Set => SetItem(inAlloca(
-                           base(nextStackSym(Base, Al, Type, N)))) </localMemory>
+        <localMemory>... .Set => SetItem(inAlloca(curBase(Base, Al))) </localMemory>
         <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
         requires N >Int 0 andBool (nextBase(Base,
                    sizeof(Type) *Int N, Al)) <Int maxStackSize
@@ -691,9 +765,31 @@ module LLVM-MEMORY
 
     //load op to load a value from a loc
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-               loc(Base:Int, Type, Si:Int, InR:K), RA:Int)
-               => loadHold(Type, .List) ...</k>
+               loc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int) ~> K:K
+                => .K </k>
+        <output>... (.List => ListItem("error: undefied behavior loading memory location out of range or does not exist.")) </output>
+         (<tomasulo> D:Bag </tomasulo> =>
+                <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+       requires Base <Int Left orBool Base +Int sizeof(Type) >Int Right
+
+    rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
+               stackLoc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int) ~> K:K
+                => .K </k>
+        <output>... .List => ListItem("error: undefied behavior loading stack location out of range or does not exist.") </output>
+         (<tomasulo> D:Bag </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        requires Base <Int Left orBool Base +Int sizeof(Type) >Int Right
+
+    rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
+               loc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int)
+             ~> assign(X:SymbolicValueRef, Hole:K)
+               => dynNoResult(skipValue) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
+                              <- varInstance(X, loadHold(Type, .List))]) </readBack>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
@@ -704,14 +800,18 @@ module LLVM-MEMORY
                             Base, 0, sizeof(Type))), BN, SL, MOL) </toCommit>
         <memoryList> MOL:List </memoryList>
         <stackList> SL:List </stackList>
-        requires isInMemRange(MOL, Base, sizeof(Type))
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool notBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-                  stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int)
-               => loadHold(Type, .List) ...</k>
+                  stackLoc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int)
+               ~> assign(X:SymbolicValueRef, Hole:K)
+               => dynNoResult(skipValue) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
+                              <- varInstance(X, loadHold(Type, .List))]) </readBack>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
@@ -723,14 +823,18 @@ module LLVM-MEMORY
         <localMemory> LocalStack:Set </localMemory>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInStackRange(SL, Base, sizeof(Type), LocalStack)
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
                  andBool notBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-                  loc(Base:Int, Type, Si:Int, InR:K), RA:Int)
-               => loadHold(Type, .List) ...</k>
+                  loc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int)
+              ~> assign(X:SymbolicValueRef, Hole:K)
+               => dynNoResult(skipValue) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <readBack> readMap(RM:Map => RM[varInstance(B, In)
+                              <- varInstance(X, loadHold(Type, .List))]) </readBack>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
          => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
@@ -742,14 +846,18 @@ module LLVM-MEMORY
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInMemRange(MOL, Base, sizeof(Type))
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-                 stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int)
-               => loadHold(Type, .List) ...</k>
+                 stackLoc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int)
+               ~> assign(X:SymbolicValueRef, Hole:K)
+               => dynNoResult(skipValue) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <readBack> readMap(RM:Map => RM[varInstance(B, In)
+                              <- varInstance(X, loadHold(Type, .List))]) </readBack>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
             => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
@@ -762,34 +870,55 @@ module LLVM-MEMORY
         <localMemory> LocalStack:Set </localMemory>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInStackRange(SL, Base, sizeof(Type), LocalStack)
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
                  andBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-               loc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+               loc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because load align set up overestimated") </output>
          requires notBool (RA dividesInt Base)
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-              stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+              stackLoc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because load align set up overestimated") </output>
          requires notBool (RA dividesInt Base)
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-              loc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+              loc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
         <memoryList> MOL:List </memoryList>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of memory.") </output>
         requires notBool isInMemRange(MOL, Base, sizeof(Type))
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
-               stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+               stackLoc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
         <stackList> MOL:List </stackList>
         <localMemory> LocalStack:Set </localMemory>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of stack.") </output>
         requires notBool isInStackRange(MOL, Base, sizeof(Type),LocalStack)
 
@@ -801,7 +930,26 @@ module LLVM-MEMORY
 
     //DONE: TODO: store must save to a pointer type
     rule <k> store(Type:KResult, V:KResult, T2:K,
-                   loc(Base:Int, Type, Si:Int, InR:K), RA:Int)
+                   loc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int) ~> K:K
+                => .K </k>
+        <output>... (.List => ListItem("error: undefied behavior loading memory location out of range or does not exist.")) </output>
+         (<tomasulo> D:Bag </tomasulo> =>
+                <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+       requires Base <Int Left orBool Base +Int sizeof(Type) >Int Right
+
+    rule <k> store(Type:KResult, V:KResult, T2:K,
+              stackLoc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int) ~> K:K
+                => .K </k>
+        <output>... .List => ListItem("error: undefied behavior loading stack location out of range or does not exist.") </output>
+         (<tomasulo> D:Bag </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        requires Base <Int Left orBool Base +Int sizeof(Type) >Int Right
+
+    rule <k> store(Type:KResult, V:KResult, T2:K,
+                   loc(Base:Int, Type, value(Left:Int, Right:Int), InR:K), RA:Int)
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
@@ -815,12 +963,13 @@ module LLVM-MEMORY
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInMemRange(MOL, Base, sizeof(Type))
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool notBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> store(Type:KResult, V:KResult,T2:K, stackLoc(Base:Int,
-                        Type, Si:Int, InR:K), RA:Int)
+                        Type,value(Left:Int, Right:Int), InR:K), RA:Int)
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
@@ -835,12 +984,13 @@ module LLVM-MEMORY
         <localMemory> LocalStack:Set </localMemory>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInStackRange(SL, Base, sizeof(Type), LocalStack)
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
                  andBool notBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
-                  loc(Base:Int, Type, Si:Int, InR:K), RA:Int)
+                  loc(Base:Int, Type,value(Left:Int, Right:Int), InR:K), RA:Int)
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
@@ -854,12 +1004,13 @@ module LLVM-MEMORY
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInMemRange(MOL, Base, sizeof(Type))
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
-                  stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int)
+                  stackLoc(Base:Int, Type,value(Left:Int, Right:Int), InR:K), RA:Int)
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
@@ -874,32 +1025,53 @@ module LLVM-MEMORY
         <localMemory> LocalStack:Set </localMemory>
         <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
-        requires isInStackRange(SL, Base, sizeof(Type), LocalStack)
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
                  andBool atomic in Mods
                  andBool RA dividesInt Base
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
-               loc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+               loc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because store align set up overestimated") </output>
          requires notBool (RA dividesInt Base)
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
-               stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+               stackLoc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because store align set up overestimated") </output>
          requires notBool (RA dividesInt Base)
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
-               loc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+               loc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <memoryList> MOL:List </memoryList>
         <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of memory.") </output>
         requires notBool isInMemRange(MOL, Base, sizeof(Type))
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
-                 stackLoc(Base:Int, Type, Si:Int, InR:K), RA:Int) ~> K:K
+                 stackLoc(Base:Int, Type, R:K, InR:K), RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <stackList> MOL:List </stackList>
         <localMemory> LocalStack:Set </localMemory>
         <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of stack.") </output>
@@ -908,6 +1080,11 @@ module LLVM-MEMORY
     rule
         <k> store(Type:KResult, V:KResult, T2:K, A:KResult, RA:Int) ~> K:K
             => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefined behavior because store to a non-location.") </output>
         requires notBool isALoc(A)
 
@@ -920,9 +1097,9 @@ module LLVM-MEMORY
                      Bn:Int, In:Int,stack, Op:K)), S:List, Not:List) </toCommit>
          <specRegisters> M:Map => updateEnv(M,varInstance(Bn, getTheLoc(stack, Op))
                                         , getValueInWrite(Op)) </specRegisters>
-         <cdb> M:Map => updateEnv(M,singleMem(TID:Int, Bn:Int,
+         <cbd> M:Map => updateEnv(M,singleMem(TID:Int, Bn:Int,
                          In:Int,heap, getTheLoc(heap, Op))
-                             , getTypeValueInWrite(Op)) </cdb>
+                             , getTypeValueInWrite(Op)) </cbd>
          requires isAWrite(Op)
          [transition]
 
@@ -948,66 +1125,74 @@ module LLVM-MEMORY
                      getTheLoc(Ran, Op),.K, .K, M), Rev)
          [transition]
 
-    rule <k> loadHold(Type:K, LL:List) => getValueInTuple(
-                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     stackLoc(Base, Type, 1, none),.K, .K, M), Rev)) ...</k>
+    rule <readBack> readMap((RM:Map (varInstance(Bn, In)
+                             |-> varInstance(X:K, V:K))) => RM) </readBack>
          <reverseChoice> Rev:Map </reverseChoice>
-         <specRegisters> M:Map </specRegisters>
+         <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
+                  getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     aLoc(Base, Type, stack),.K, .K, M), Rev))) </specRegisters>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, stack, readAByte(Ty:K,
+                     Bn:Int, In:Int, stack, readAByte(Type:K,
                 Base:Int, Other:Int, Size:Int))) S:List, Not:List)
              => memList(Ava:List, Ava':List, removeInst(Bn, In, Avb:List),
                       removeInst(Bn, In, S:List), removeInst(Bn, In, Not:List)) </toCommit>
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     stackLoc(Base, Type, 1, none),.K, .K, M), Rev)
+                     aLoc(Base, Type, stack),.K, .K, M), Rev)
          [transition]
 
-    rule <k> loadHold(Type:K, LL:List) => getValueInTuple(
-                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     loc(Base, Type, 1, none),.K, .K, M), Rev)) ...</k>
+    rule <readBack> readMap((RM:Map (varInstance(Bn, In)
+                             |-> varInstance(X:K, V:K))) => RM) </readBack>
          <reverseChoice> Rev:Map </reverseChoice>
-         <specRegisters> M:Map </specRegisters>
+         <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
+                  getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     aLoc(Base, Type, heap),.K, .K, M), Rev))) </specRegisters>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, readAByte(Ty:K,
+                     Bn:Int, In:Int, heap, readAByte(Type:K,
                 Base:Int, Other:Int, Size:Int))) S:List, Not:List)
              => memList(Ava:List, Ava':List, removeInst(Bn, In, Avb:List),
                       removeInst(Bn, In, S:List), removeInst(Bn, In, Not:List)) </toCommit>
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     loc(Base, Type, 1, none),.K, .K, M), Rev)
+                     aLoc(Base, Type, heap),.K, .K, M), Rev)
          [transition]
 
-    rule <k> loadHold(Type:K, LL:List) => getValueInTuple(
-                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     stackLoc(Base, Type, 1, none),.K, .K, M), Rev)) ...</k>
+    rule <readBack> readMap((RM:Map (varInstance(Bn, In)
+                             |-> varInstance(X:K, V:K))) => RM) </readBack>
          <reverseChoice> Rev:Map </reverseChoice>
-         <specRegisters> M:Map </specRegisters>
+         <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
+                  getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                    aLoc(Base, Type, stack),.K, .K, M), Rev))) </specRegisters>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, stack, atomicRead(Ty:K,
+                     Bn:Int, In:Int, stack, atomicRead(Type:K,
                 Base:Int, Size:Int, Or:K))) S:List, Not:List)
              => memList(Ava:List, Ava':List, Avb, S, Not) </toCommit>
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     stackLoc(Base, Type, 1, none),.K, .K, M), Rev)
+                     aLoc(Base, Type, stack),.K, .K, M), Rev)
          [transition]
 
-    rule <k> loadHold(Type:K, LL:List) => getValueInTuple(
-                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     loc(Base, Type, 1, none),.K, .K, M), Rev)) ...</k>
+    rule <readBack> readMap((RM:Map (varInstance(Bn, In)
+                             |-> varInstance(X:K, V:K))) => RM) </readBack>
          <reverseChoice> Rev:Map </reverseChoice>
-         <specRegisters> M:Map </specRegisters>
+         <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
+                  getValueInTuple(
+                  getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
+                     aLoc(Base, Type, heap),.K, .K, M), Rev))) </specRegisters>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, atomicRead(Ty:K,
+                     Bn:Int, In:Int, heap, atomicRead(Type:K,
                 Base:Int, Size:Int, Or:K))) S:List, Not:List)
              => memList(Ava:List, Ava':List, Avb, S, Not) </toCommit>
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
-                     stackLoc(Base, Type, 1, none),.K, .K, M), Rev)
+                     aLoc(Base, Type, heap),.K, .K, M), Rev)
          [transition]
 
     rule <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
@@ -1070,11 +1255,58 @@ module LLVM-MEMORY
                  andBool notBool rightHitType(CL, Base, T)
 
     //non-atomic read stack
-    rule loadHold(T:K, LL:List) => joinBytes(T, LL)
-         requires sizeof(T) ==K size(LL)
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              varInstance(X:K, loadHold(T:K, LL:List)), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map </specRegisters>
+         <registers> M':Map => updateEnv(M', X, joinBytes(T, LL)) </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M, updateEnv(M', X, joinBytes(T, LL)), Rev)) </instQueue>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
+                     Avb':List, .List), Ava Ava' Avb Avb',
+                      updateVarInList(Cur, Bn,
+               L, M, updateEnv(M', X, joinBytes(T, LL)), Rev), Cur, SL, S) </toCommit>
+         <memoryList> S:List </memoryList>
+           <stackList> SL:List </stackList>
+         <reverseChoice> Rev:Map </reverseChoice>
+         requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
+         [transition]
 
-    rule <k> loadHold(Type:K, LL:List => insertToOrderList(Other, V, LL)) ...</k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              varInstance(X:K, loadHold(T:K, LL:List)), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map => updateEnv(M,
+                      varInstance(Bn, X), joinBytes(T, LL)) </specRegisters>
+         <registers> M':Map </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, updateEnv(M,varInstance(Bn, X),
+                       joinBytes(T, LL)), M', Rev)) </instQueue>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
+                     Avb':List, .List), Ava Ava' Avb Avb',
+                      updateVarInList(Cur, Bn, ML,
+                         updateEnv(M,varInstance(Bn, X),
+                        joinBytes(T, LL)), M', Rev), Cur, SL, S) </toCommit>
+         <memoryList> S:List </memoryList>
+           <stackList> SL:List </stackList>
+         <reverseChoice> Rev:Map </reverseChoice>
+         requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              varInstance(X:K, loadHold(T:K, LL:List)), RM:Map)
+                  => readMap(RM (varInstance(Bn:Int, In:Int)
+                |-> varInstance(X:K, loadHold(T:K, LL:List)))) </readBack>
+         requires sizeof(T) =/=K size(LL)
+         [transition]
+
+    rule <readBack> readMap(M:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL))), M) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int))) => .List) L:List </stackOpList>
@@ -1087,8 +1319,14 @@ module LLVM-MEMORY
          requires Base +Int Size <=Int Right
                      andBool Base >=Int Left
                  andBool rightHitType(CL, Base, T)
+         [transition]
 
     rule <k> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int)))) L:List => .List </stackOpList>
@@ -1212,6 +1450,11 @@ module LLVM-MEMORY
          <chunck> CL:List </chunck>
          <race> Races:Set </race>
             ...</object>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because two mem ops messing around the types in the location") </output>
          requires Base +Int Size <Int Right
                      andBool Base >=Int Left
@@ -1226,6 +1469,11 @@ module LLVM-MEMORY
          <chunck> CL:List </chunck>
          <race> Races:Set </race>
             ...</object>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem("error: undefied behavior because two mem op races on the same location") </output>
          requires Base +Int Size <=Int Right
                      andBool Base >=Int Left
@@ -1233,8 +1481,10 @@ module LLVM-MEMORY
                  andBool notBool hasInstance(Tid, Bn, In, .K, Races)
 
     //non-atomic read in heap
-    rule <k> loadHold(Type:K, (LL:List => insertToOrderList(Other, V, LL))) ...</k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1248,9 +1498,12 @@ module LLVM-MEMORY
                  andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, 1, .K, Races)
                  andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+          [transition]
 
-    rule <k> loadHold(Type:K, (LL:List => insertToOrderList(Other, V, LL))) ...</k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1270,8 +1523,10 @@ module LLVM-MEMORY
                  andBool notBool hasInstance(Tid, Bn, In, .K, Races)
                  andBool Size =/=Int 1
 
-    rule <k> loadHold(Type:K, (LL:List => insertToOrderList(Other, V, LL))) ...</k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
                         readAByte(T:K, Base:Int,
@@ -1290,8 +1545,10 @@ module LLVM-MEMORY
                  andBool Count +Int 1 <Int Size
                  andBool Size =/=Int 1
 
-    rule <k> loadHold(Type:K, (LL:List => insertToOrderList(Other, V, LL))) ...</k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
@@ -1311,7 +1568,11 @@ module LLVM-MEMORY
                  andBool Size =/=Int 1
 
     rule <k> K:K => .K </k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1326,7 +1587,11 @@ module LLVM-MEMORY
                  andBool notBool isOverlap(Base, Size, .K, Races)
 
     rule <k> A:K => .K </k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <threadId> Tid </threadId>
          <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1369,9 +1634,10 @@ module LLVM-MEMORY
                  andBool notBool rightHitType(CL, Base, T)
 
     //atomic read in stack
-    rule <k> loadHold(Type:K, .List)
-            => joinBytes(T, getMemWithAtomic(BM, Base, 0, Size)) ...</k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, .List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size))), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Order:K))) => .List) L:List </stackOpList>
@@ -1385,8 +1651,12 @@ module LLVM-MEMORY
                  andBool rightHitType(CL, Base, T)
 
     rule <k> K:K => .K </k>
-         <cpu> dynInstHold(Bn:Int , In:Int, Label:K) </cpu>
-            <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Order:K)))) L:List => .List </stackOpList>
          <stackObject>...
@@ -1427,6 +1697,11 @@ module LLVM-MEMORY
                  andBool (Order ==K monotonic orBool Order ==K unordered)
 
     rule <k> A:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K,V:K, V1:K, Base:Int,
                   Size:Int, Order:K))) L:List => .List </memOpList>
@@ -1439,7 +1714,11 @@ module LLVM-MEMORY
                  andBool isOverlap(Base, Size, .K, Races)
 
     //atomic read with unordered/monotonic in heap
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> varInstance(X:K, loadHold(T':K, .List))))
+             => readMapAux(varInstance(Bn, In), varInstance(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size))), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
@@ -1453,6 +1732,11 @@ module LLVM-MEMORY
                  andBool (Order ==K monotonic orBool Order ==K unordered)
 
     rule <k> A:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Order:K))) => .List) L:List </memOpList>
@@ -1465,6 +1749,11 @@ module LLVM-MEMORY
                  andBool notBool isOverlap(Base, Size, .K, Races)
 
     rule <k> A:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
          <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Order:K))) L:List => .List </memOpList>
@@ -1620,10 +1909,7 @@ module LLVM-CONVERSIONS
     rule theIntToPtrAux(I:KResult, T:K) => reverseLocs(I, T)
 
     // TODO need to normalize here
-    rule
-        <k> theBitCast(_, I:Int, _) => I:Int ...</k>
-    rule
-        <k> theBitCast(_, Loc:Loc, _) => Loc:Loc ...</k>
+    
 
     //rule
         //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
@@ -1912,6 +2198,11 @@ module LLVM-INTERNAL-TESTING-FUNCTIONS
         <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(I:Int))))
             => .K
         ...</k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
         <output>... .List => ListItem(Int2String(I) +String "\n") </output>
         when substrString(S, 0, 13) ==String "__fsl.print.i"
         andBool (I >=Int 0 orBool I <=Int 0) // real integer

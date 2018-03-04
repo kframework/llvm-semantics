@@ -66,7 +66,7 @@ module LLVM-DECLARATIONS
             => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
          <currentProgPoint> ProgCount:Int => 0 </currentProgPoint>
-        <cbd> CM:Map => CM[FunCount <- typeOperandResult(
+        <cbd> CM:Map => CM[FunCount <- value(
                    functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
         <globalRegisters> M:Map => M[Label <-
                 loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
@@ -89,7 +89,7 @@ module LLVM-DECLARATIONS
     rule
         <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult)
             => .K ...</k>
-        <cbd> CM:Map => CM[FunCount <- typeOperandResult(
+        <cbd> CM:Map => CM[FunCount <- value(
                    functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
         <globalRegisters> M:Map => M[Label <-
              loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),

@@ -1163,8 +1163,8 @@ module LLVM-SYNTAX
     syntax ArgType ::= Type ParamAttrs           [klabel('argTypeTwo)]
                       | Type ParamAttrs LocalVar [klabel('argTypeThree)]
     syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
-                     | ArgType
-                     | ArgType "," ArgList
+                     | ArgType             
+                     | ArgType "," ArgList 
 
     /*@
       LLVM function declarations consist of the “declare” keyword, an optional

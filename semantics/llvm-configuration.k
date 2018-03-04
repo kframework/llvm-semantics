@@ -46,7 +46,7 @@ module LLVM-CONFIGURATION
                 </tomasulo>//simulating tomosulo execution model.
                 <stack>
                    <stackOpList> .List </stackOpList>
-                   <nextStack> 0 </nextStack>
+                   <nextStack> startMemoryLoc </nextStack>
                     <stackList> .List </stackList>
                    <callStack color="Goldenrod"> .List </callStack>
                    <stackMap> .Map </stackMap>
@@ -97,7 +97,7 @@ module LLVM-CONFIGURATION
                   <race> .Set </race> //use to store the inst nums when a non-atomic load/store
                     //is accessing this field. 
                 </object>
-                <nextBase color="gray"> 0 </nextBase>
+                <nextBase color="gray"> startMemoryLoc </nextBase>
                 //this is a cell to calculate the next memory start location.
                 <memOpList> .List </memOpList>
                 <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>

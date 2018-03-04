@@ -731,7 +731,7 @@ module LLVM-MEMORY
         <stackList> MRL:List (.List => ListItem(value(curBase(Base, Al),
                      nextBase(Base, sizeof(Type) *Int N, Al)))) </stackList>
         <localMemory>... .Set => SetItem(curBase(Base, Al)) </localMemory>
-        <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
+        <nextStack> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextStack>
         requires (sizeof(Type) *Int N) >Int 0 andBool (nextBase(Base,
                    sizeof(Type) *Int N, Al)) <Int maxStackSize
                    andBool notBool ('inallocaOfAlloca(.KList) in Mods)
@@ -758,7 +758,7 @@ module LLVM-MEMORY
         <stackList> MRL:List (.List => ListItem(value(curBase(Base, Al),
                      nextBase(Base, sizeof(Type) *Int N, Al)))) </stackList>
         <localMemory>... .Set => SetItem(inAlloca(curBase(Base, Al))) </localMemory>
-        <nextBase> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextBase>
+        <nextStack> Base:Int => nextBase(Base, sizeof(Type) *Int N, Al) </nextStack>
         requires N >Int 0 andBool (nextBase(Base,
                    sizeof(Type) *Int N, Al)) <Int maxStackSize
               andBool ('inallocaOfAlloca(.KList) in Mods)
@@ -1908,12 +1908,20 @@ module LLVM-CONVERSIONS
 
     rule theIntToPtrAux(I:KResult, T:K) => reverseLocs(I, T)
 
+    //semantics of bitcast
+    rule theBitCast(pointerTypeValue(T1:KResult, Ad:Int),
+                A:KResult, pointerTypeValue(T2:KResult, Ad':Int))
+               => insertTypeToLoc(dealWithZero(
+                      pointerTypeValue(T1:KResult, Ad:Int), A), T2)
+    rule theBitCast(vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int),
+                A:KResult, vectorTypeValue(pointerTypeValue(T2:KResult, Ad':Int), I':Int))
+               => insertTypeToLocs(dealWithZero(vectorTypeValue(
+                        pointerTypeValue(T1:KResult, Ad:Int), I:Int), A), T2)
+    rule theBitCast(T1:KResult, A:KResult, T2:KResult)
+               => joinBitsToVal(T2, splitToBits(T1, dealWithZero(T1, A)))
+         requires notBool hasPointerType(T1) andBool notBool hasPointerType(T2)
+
     // TODO need to normalize here
-    
-
-    //rule
-        //<k> BitCast(IntegerType(_), F:#Float) => Float2Int(F) ...</k>
-
     rule
         <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
             => signed(Type, Float2Int(F))

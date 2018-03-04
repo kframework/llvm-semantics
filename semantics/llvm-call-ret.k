@@ -84,7 +84,7 @@ module LLVM-CALL-RET
          requires notBool P in keys(M)
 
     rule
-        <k> call(_, calleeValue(funptr(T:K), Args:ElemList)) ~> Tail:K
+        <k> call(_, calleeValue(funptr(FunName), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
             ~> startInitBlock(IBBName)
@@ -287,7 +287,7 @@ module LLVM-CALL-RET
                => splitMemList(memList(Ava:List, Ava':List, Avb:List,
                      Avb':List, .List), Ava Ava' Avb Avb',
                       updateVarInList(Cur, BN,
-               L, M, updateEnv(M', X, V), Rev), Cur, SL, S) </toCommit>
+               ML, M, updateEnv(M', X, V), Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
          <reverseChoice> Rev:Map </reverseChoice>

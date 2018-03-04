@@ -20,7 +20,7 @@ module LLVM-START-AND-STOP
         <k> callMain
             => call(i(32), callee(name(globalVar, "__libc_start_main_0"),
                 arguments(
-                    val(funptr(name(globalVar, "main"))), // address of main
+                    val(name(globalVar, "main")), // address of main
                     (val(0), // argc
                     (val(alloca(i(8), 8, 0, false)), // argv
                     (val('nullOfConstValueRef(.KList)), // init
@@ -42,7 +42,7 @@ module LLVM-START-AND-STOP
         <k> callMain
             => call(i(32), callee(name(globalVar, "__libc_start_main_2"),
                 arguments((
-                    val(funptr(name(globalVar, "main"))), // address of main
+                    val(name(globalVar, "main")), // address of main
                     val(0), // argc
                     val(alloca(i(8), 8, 0, false)),
                     val('nullOfConstValueRef(.KList)), // init

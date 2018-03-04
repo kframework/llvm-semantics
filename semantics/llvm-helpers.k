@@ -9,6 +9,11 @@ module LLVM-HELPERS
     imports LLVM-SETTINGS
 
     //deal with zeroinitializer
+    syntax KItem ::= dealWithZero(K, K) [function] //t,v
+    rule dealWithZero(T:K, zeroinitializer)
+              => dealWithZeroInitializer(T)
+    rule dealWithZero(T:K, A:K) => A [owise]
+
     syntax KItem ::= dealWithZeroInitializer(K) [function]//t, v
                    | zeroVectorAux(K, K, K)  [function]
                    | zeroArrayAux(K, K, K)   [function]
@@ -2132,7 +2137,9 @@ module LLVM-HELPERS
    rule updateVarInTerm(Cur:Int, C:Int, theAddrSpaceCast(T:K,
                             V:K, T':K), M:Map, RM:Map, Rev:Map)
         => theAddrSpaceCast(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
-
+   rule updateVarInTerm(Cur:Int, C:Int, theBitCast(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theBitCast(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
    rule updateVarInTerm(Cur:Int, C:Int, conditional(operand(T:K, V:K),
                             V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => conditional(operand(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev)),
@@ -2552,6 +2559,30 @@ module LLVM-HELPERS
                  => decToBin(I /Int 2, N -Int 1) ListItem(I %Int 2)
          requires I >Int 0 andBool N >Int 0
 
+    syntax Bool ::= hasBadValue(List) [function]
+    rule hasBadValue(.List) => false
+    rule hasBadValue(ListItem(A:Int) L:List) => hasBadValue(L)
+    rule hasBadValue(ListItem(A:K) L:List) => true [owise]
+
+    syntax KItem ::= getBadValue(List) [function]
+    rule getBadValue(.List) => none
+    rule getBadValue(ListItem(A:Int) L:List) => getBadValue(L)
+    rule getBadValue(ListItem(undef) L:List) => undef
+         requires getBadValue(L) =/=K poisonVal
+    rule getBadValue(ListItem(undef) L:List) => poisonVal
+         requires getBadValue(L) ==K poisonVal
+    rule getBadValue(ListItem(poisonVal) L:List) => poisonVal
+
+    syntax Int ::= binToDec(List, Int)  [function]
+                 | binToDecAux(List, Int) [function]
+    rule binToDec(L:List, I:Int) => binToDecAux(L, I)
+         requires notBool hasBadValue(L)
+    rule binToDec(L:List, I:Int) => getBadValue(L)
+         requires hasBadValue(L)
+    rule binToDecAux(.List, N:Int) => 0
+    rule binToDecAux(L:List ListItem(A:Int), N:Int)
+            => A *Int (2 ^Int N) +Int binToDecAux(L, N +Int 1)
+
     syntax List ::= copyOfK(K, Int) [function]
     rule copyOfK(A:K, N:Int) => .List
          requires N <=Int 0
@@ -2802,7 +2833,7 @@ module LLVM-HELPERS
     rule isALoc(stackLoc(A:K, B:K,_, _)) => true
     rule isALoc(aLoc(A:K, B:K, C:K)) => true
     rule isALoc(A:K) => false [owise]
-/*
+
     rule isMemAvailableAAux(pairResult(Ba:Int, Of:Int), A:K, L:List)
         => isMemAvailableA(Ba, Of, A, L)
     rule isMemAvailableA(B:Int, O:Int, pairResult(Ba:Int, Of:Int), L:List)
@@ -2820,19 +2851,19 @@ module LLVM-HELPERS
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int, In:Int, Ran:K,
                   X:SymbolicValueRef)) L:List, A:K, SL:List, S:List) => false
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, heap, loc(Base:Int, Ty:K, Si:Int, InR:K))) L:List,
+                    In:Int, heap, loc(Base:Int, Ty:K, Rang:K, InR:K))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List) => false
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
                   andBool notBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), S)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, stack, stackLoc(Base:Int, Ty:K, Si:Int, InR:K))) L:List,
+                    In:Int, stack, stackLoc(Base:Int, Ty:K, Rang:K, InR:K))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List) => false
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
                   andBool notBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), SL)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, heap, loc(Base:Int, Ty:K, Si:Int, InR:K))) L:List,
+                    In:Int, heap, loc(Base:Int, Ty:K, Rang:K, InR:K))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List)
            => isMemAvailable(L, singleMem(TID':Int,
                            Bn':Int,In':Int,heap,W:K), SL, S)
@@ -2840,7 +2871,7 @@ module LLVM-HELPERS
                   andBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), S)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, stack, stackLoc(Base:Int, Ty:K, Si:Int, InR:K))) L:List,
+                    In:Int, stack, stackLoc(Base:Int, Ty:K, Rang:K, InR:K))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List)
            => isMemAvailable(L, singleMem(TID':Int,
                              Bn':Int,In':Int,stack,W:K), SL, S)
@@ -2922,7 +2953,7 @@ module LLVM-HELPERS
               Bn:Int,In:Int, Ran:K,W:K), SL, S)
           requires notBool isLocalVariable(W) andBool notBool isALoc(W)
             andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
-*/
+
     //check if an op is a write
     syntax Bool ::= isARead(K) [function]
     rule isARead(readAByte(T:K, C:Int, E:Int, F:Int)) => true 
@@ -3298,5 +3329,95 @@ module LLVM-HELPERS
     rule hasInValidMMXType(functionTypeValue(A:K, B:K)) =>
                 hasInValidMMXType(A) orBool hasInValidMMXTypeInList(B)
     rule hasInValidMMXType(A:K) => false [owise]
+
+    syntax Bool ::= hasPointerType(K) [function]
+                  | hasPointerTypeAux(TypeList) [function]
+    rule hasPointerType(integerType(A:Int)) => false
+    rule hasPointerType(F:K) => false
+         requires isFloatType(F)
+    rule hasPointerType(x86_mmx) => false
+    rule hasPointerType(F:K) => true
+         requires isPointerType(F)
+    rule hasPointerType(vectorTypeValue(A:K, I:Int))
+             => hasPointerType(A)
+    rule hasPointerType(arrayTypeValue(A:K, I:Int))
+             => hasPointerType(A)
+    rule hasPointerType(structTypeValue(Ts:TypeList))
+             => hasPointerTypeAux(Ts)
+    rule hasPointerType(packedStructTypeValue(Ts:TypeList))
+             => hasPointerTypeAux(Ts)
+    rule hasPointerTypeAux(.TypeList) => false
+    rule hasPointerTypeAux(T:K, Ts:TypeList)
+           => hasPointerType(T) orBool hasPointerTypeAux(Ts)
+
+    syntax KItem ::= insertTypeToLoc(K, K) [function]
+    rule insertTypeToLoc(loc(A:K, T:K, C:K, D:K), T2:K)
+             => loc(A:K, T2, C, D)
+    rule insertTypeToLoc(stackLoc(A:K, T:K, C:K, D:K), T2:K)
+             => stackLoc(A:K, T2, C, D)
+    rule insertTypeToLoc(A:K, T2:K) => A [owise]
+
+    syntax K ::= insertTypeToLocs(K, K) [function]
+    rule insertTypeToLocs(vectorValue(Es:ElemList), T:K)
+            => vectorValue(insertTypeToLocs(Es, T))
+    rule insertTypeToLocs(.ElemList, A:K) => .ElemList
+    rule insertTypeToLocs(valValue(A:K),Es:ElemList, T:K)
+            => valValue(insertTypeToLoc(A, T)),insertTypeToLocs(Es,T)
+    rule insertTypeToLocs(A:K, T:K) => insertTypeToLoc(A, T:K) [owise]
+
+    syntax Bool ::= isValidBitCastType(K) [function]
+                  | isValidBitCastTypeAux(K) [function]
+    rule isValidBitCastType(integerType(A:Int)) => true
+    rule isValidBitCastType(F:K) => true
+         requires isFloatType(F)
+    rule isValidBitCastType(x86_mmx) => true
+    rule isValidBitCastType(F:K) => true
+         requires isPointerType(F)
+    rule isValidBitCastType(vectorTypeValue(A:K, I:Int))
+             => isValidBitCastTypeAux(A)
+    rule isValidBitCastType(A:K) => false [owise]
+
+    rule isValidBitCastTypeAux(integerType(A:Int)) => true
+    rule isValidBitCastTypeAux(F:K) => true
+         requires isFloatType(F)
+    rule isValidBitCastTypeAux(F:K) => true
+         requires isPointerType(F)
+    rule isValidBitCastTypeAux(A:K) => false [owise]
+
+    //use for bitcast
+    syntax List ::= splitToBits(K, K) [function]//type, value
+                  | splitToBitsAux(K, List) [function]
+
+    rule splitToBitsAux(T:K, .List) => .List
+    rule splitToBitsAux(integerType(N:Int), ListItem(I:Int) L:List)
+          => decToBin(I, N) splitToBitsAux(integerType(N:Int), L)
+    rule splitToBitsAux(integerType(N:Int), ListItem(zeroinitializer) L:List)
+          => splitToBitsAux(integerType(N:Int), ListItem(0) L:List)
+    rule splitToBitsAux(integerType(N:Int), ListItem(A:K) L:List)
+              => copyOfK(A, N) splitToBitsAux(integerType(N:Int), L)
+         requires A ==K poisonVal orBool A ==K undef
+
+    rule splitToBits(vectorTypeValue(T:K, I:Int),
+                vectorValue(Es:ElemList)) => splitToBitsAux(T, elemListToList(Es))
+    rule splitToBits(integerType(N:Int), I:Int)
+                       => decToBin(normalizingInt(integerType(N:Int),I), N)
+    rule splitToBits(T:K, A:K) => A [owise]
+
+    syntax KItem ::= joinBitsToVal(K, List) [function]//type, bits
+    syntax List ::= joinBitsToValAux(K, K, List) [function]
+                  | joinBitsToValCount(K, K, K) [function]
+
+    rule joinBitsToValAux(integerType(N:Int), 0, L:List) => .List
+    rule joinBitsToValAux(integerType(N:Int), X:Int, L:List)
+          => joinBitsToValCount(integerType(N:Int), X -Int 1, countByte(L, .List, N))
+         requires X >Int 0
+    rule joinBitsToValCount(integerType(N:Int), X:Int,
+                              countByteResult(Rest:List, Now:List))
+            => joinBitsToValAux(integerType(N:Int), X, Rest) ListItem(binToDec(Now, 0))
+
+    rule joinBitsToVal(vectorTypeValue(T:K, I:Int), L:List)
+         => vectorValue(listToElemList(joinBitsToValAux(T, I, L)))
+    rule joinBitsToVal(integerType(N:Int), L:List)
+         => normalizingInt(integerType(N:Int), binToDec(L, 0))
 
 endmodule

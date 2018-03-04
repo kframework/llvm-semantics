@@ -9,7 +9,6 @@ module LLVM-ABSTRACTSYNTAX
                       //| listK(List)    [latex({#1})]//bytes
                       | region(List, Int)  //nextlevel, number of nextlevel
                       | VoidType
-                      | X86Type
                       | vectorValue(ElemList)
                       | arrayValue(ElemList)
                       | addrSpaceResult(Int)
@@ -17,6 +16,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
                               | FPType
+                              | X86Type
                               | LabelType
                               | OpaqueType
     syntax AggregatedTypeResult ::= structTypeValue(K)
@@ -25,6 +25,7 @@ module LLVM-ABSTRACTSYNTAX
                                   | functionTypeValue(K, K)  // return type, argument types
                                   | vectorTypeValue(K, K)//inner type, length
     syntax TypeResult ::= AggregatedTypeResult | SimpleTypeResult
+    syntax NonVoidType ::= TypeResult
 
     //syntax TypeResult ::= memTypeNum(K, Int) //mem_type, number
     //syntax TypeResult ::= memTypeValue(K, K) //inrange? type

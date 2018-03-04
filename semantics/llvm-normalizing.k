@@ -53,6 +53,8 @@ module LLVM-NORMALIZING
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
                    | typeCheckArgList(K, ElemList)        [strict(2)]
+                   | typeCheckArgWithMMX(K, K, K) // block, t, arg
+                   | typeCheckMMXExpr(K, K) // t, arg
                    | typeCheckSingleArg(K, K, K) //block t, arg
                    | typeCheckIntArgs(K, K, ElemList)
                    | typeCheckPointerArgs(K, K, ElemList)
@@ -1312,6 +1314,142 @@ module LLVM-NORMALIZING
          requires  isIntegerType(Ty)
                     andBool isPointerType(Ty') andBool I =/=Int I'
 
+    //type checking bitcast
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  T1:KResult, V:K, T2:KResult, Meta:InstructionMetadatas)
+              => typeCheckArgWithMMX(Name, T1, V)
+                ~> assignUses(Name, TheCount, T1,
+                  (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X, T2) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theBitCast(
+             T1, V, T2), .Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+        requires isValidBitCastType(T1) andBool isValidBitCastType(T2)
+                 andBool notBool hasInValidMMXType(T1)
+                   andBool notBool hasInValidMMXType(T2)
+                 andBool sizeofInBits(T1) ==K sizeofInBits(T2)
+                 andBool notBool hasPointerType(T1)
+                 andBool notBool hasPointerType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  pointerTypeValue(T1:KResult, Ad:Int), V:K,
+       pointerTypeValue(T2:KResult, Ad:Int), Meta:InstructionMetadatas)
+              => typeCheckArgWithMMX(Name, pointerTypeValue(T1:KResult, Ad:Int), V)
+                ~> assignUses(Name, TheCount, pointerTypeValue(T1:KResult, Ad:Int),
+                  (val(V),.ElemList))
+         ~> assignType(Name, TheCount, X, pointerTypeValue(T2:KResult, Ad:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theBitCast(
+             pointerTypeValue(T1:KResult, Ad:Int), V,
+                   pointerTypeValue(T2:KResult, Ad:Int)),
+                .Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+        requires notBool hasInValidMMXType(T1)
+                   andBool notBool hasInValidMMXType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  T1:KResult, V:K, T2:KResult, Meta:InstructionMetadatas) ~> K:K 
+              =>  .K </k>
+         <output>... .List => ListItem("bitcast conversion only allow to convert non-aggregate first class types and no label/metadata/token types.") </output>
+        requires notBool isValidBitCastType(T1) orBool notBool isValidBitCastType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  T1:KResult, V:K, T2:KResult, Meta:InstructionMetadatas) ~> K:K 
+              =>  .K </k>
+         <output>... .List => ListItem("bitcast conversion must have types with same bits.") </output>
+        requires isValidBitCastType(T1) andBool isValidBitCastType(T2)
+                 andBool sizeofInBits(T1) =/=K sizeofInBits(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  pointerTypeValue(T1:KResult, Ad:Int), V:K,
+       pointerTypeValue(T2:KResult, Ad':Int), Meta:InstructionMetadatas) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("bitcast pointer conversion must have same addrspaces.") </output>
+        requires notBool hasInValidMMXType(T1)
+                   andBool notBool hasInValidMMXType(T2)
+                  andBool Ad =/=K Ad'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  pointerTypeValue(T1:KResult, Ad:Int), V:K,
+                 T2:KResult, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List
+            => ListItem("bitcast pointer conversion must be converted to a pointer type.") </output>
+        requires  notBool isPointerType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  T1:KResult, V:K, pointerTypeValue(T2:KResult, Ad:Int),
+            Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List
+            => ListItem("bitcast pointer conversion must be converted to a pointer type.") </output>
+        requires  notBool isPointerType(T1)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  T1:KResult, V:K, T2:KResult, Meta:InstructionMetadatas) ~> K:K
+              => .K </k>
+         <output>... .List => ListItem("error: bitcast pointer conversion having i86 mmx types that are in vectors or arrays.") </output>
+        requires hasInValidMMXType(T1) orBool hasInValidMMXType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
+            vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int),
+                  I:Int), Meta:InstructionMetadatas)
+              => typeCheckArgWithMMX(Name, vectorTypeValue(
+                            pointerTypeValue(T1:KResult, Ad:Int), I:Int), V)
+                ~> assignUses(Name, TheCount, vectorTypeValue(
+                       pointerTypeValue(T1:KResult, Ad:Int), I:Int),
+                  (val(V),.ElemList))
+         ~> assignType(Name, TheCount, X, vectorTypeValue(
+                 pointerTypeValue(T2:KResult, Ad:Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theBitCast(
+             vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V,
+                   vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int), I:Int)),
+                .Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+        requires notBool hasInValidMMXType(T1)
+                   andBool notBool hasInValidMMXType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
+            vectorTypeValue(pointerTypeValue(T2:KResult, Ad':Int),
+                  I:Int), Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("bitcast vector pointer conversion must have same addrspaces.") </output>
+             requires Ad =/=K Ad'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
+            vectorTypeValue(pointerTypeValue(T2:KResult, Ad':Int),
+                  I':Int), Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("bitcast vector pointer conversion must have same number of pointers.") </output>
+             requires I =/=K I'
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
+            vectorTypeValue(T2:K, I':Int), Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("bitcast vector pointer conversion must have target type of vector of pointers.") </output>
+             requires notBool isPointerType(T2)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  pointerTypeValue(T1:KResult, I:Int), V:K,
+            vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int), I:Int), Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("bitcast vector pointer conversion must have source type of vector of pointers.") </output>
+             requires notBool isPointerType(T1)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
+              T2:KResult, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("bitcast vector pointer conversion must have target type of vector of pointers.") </output>
+             requires isValidBitCastType(T2)
+                  andBool (notBool isVectorType(T2) orBool notBool hasPointerType(T2))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
+                  T1:KResult, V:K,
+            vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int), I:Int), Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("bitcast vector pointer conversion must have source type of vector of pointers.") </output>
+             requires isValidBitCastType(T1)
+                  andBool (notBool isVectorType(T1) orBool notBool hasPointerType(T1))
+
     //type checking icmp ops
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
                integerType(N:Int), V1:K, V2:K, Meta:InstructionMetadatas)
@@ -1505,6 +1643,21 @@ module LLVM-NORMALIZING
               ~> K:K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires T =/=K T'
+
+    //type check an arg without speicfying types that is in bitcast,load/store
+    rule typeCheckArgWithMMX(Name:SymbolicValueRef, x86_mmx, V:K)
+            => exprType(typeCheckMMXExpr(x86_mmx, V)) ~> 
+                 checkUseVarInside(Name, x86_mmx, V:K)
+    rule typeCheckArgWithMMX(Name:SymbolicValueRef, T:K, V:K)
+            => typeCheckSingleArg(Name, T, V)
+         requires T =/=K x86_mmx
+
+    rule typeCheckMMXExpr(x86_mmx, X:K) => x86_mmx
+         requires isLocalVariable(X)
+    rule <k> typeCheckMMXExpr(x86_mmx, X:K) ~> K:K 
+            => .K </k>
+         <output>... .List => ListItem("error: wrong var/constants of x86 mmx type.") </output>
+         requires notBool isLocalVariable(X)
 
     //type check an arg without specifying the type
     rule typeCheckSingleArg(Name:SymbolicValueRef,

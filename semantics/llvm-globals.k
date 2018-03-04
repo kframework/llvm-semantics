@@ -147,43 +147,46 @@ module LLVM-GLOBALS
     rule <k> initGlobals => 
                    initBuiltins(val(typeOperand(
                'functionType(i(32),, 'functionType(i(32),, ('argListUnit(.KList)))
-                     ('addrEmpty(.KList)) *, i(32),
-                    i(8) ('addrEmpty(.KList)) * ('addrEmpty(.KList)) *,
-            'functionType(i(32),, i(32), i(8) ('addrEmpty(.KList))*
-                              ('addrEmpty(.KList))*, i(8) ('addrEmpty(.KList))*
-                        ('addrEmpty(.KList))*) ('addrEmpty(.KList)) *,
-           'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList)) *,
-           'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList)) *),
+                     ('addrEmpty(.KList)) * .ParamAttrs, i(32) .ParamAttrs,
+                    i(8) ('addrEmpty(.KList)) * ('addrEmpty(.KList)) * .ParamAttrs,
+            'functionType(i(32),, i(32) .ParamAttrs, i(8) ('addrEmpty(.KList))*
+                              ('addrEmpty(.KList))* .ParamAttrs, i(8) ('addrEmpty(.KList))*
+                        ('addrEmpty(.KList))* .ParamAttrs) ('addrEmpty(.KList)) * .ParamAttrs,
+           'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList)) * .ParamAttrs,
+           'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList)) * .ParamAttrs),
                      name(globalVar, "__libc_start_main_0"))),
         val(typeOperand('functionType(i(32),, 
-         'functionType(i(32),, i(32), i(8) ('addrEmpty(.KList)) *
-           ('addrEmpty(.KList)) *) ('addrEmpty(.KList))*, i(32),
-           i(8) ('addrEmpty(.KList))* ('addrEmpty(.KList))*,
-          'functionType(i(32),, i(32), i(8) ('addrEmpty(.KList))*
-                ('addrEmpty(.KList))*, i(8) ('addrEmpty(.KList))*
-                         ('addrEmpty(.KList))*) ('addrEmpty(.KList))*,
-         'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList))*,
-        'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList))*),
+         'functionType(i(32),, i(32) .ParamAttrs, i(8) ('addrEmpty(.KList)) *
+           ('addrEmpty(.KList)) * .ParamAttrs) ('addrEmpty(.KList))* .ParamAttrs,
+             i(32) .ParamAttrs, i(8) ('addrEmpty(.KList))* ('addrEmpty(.KList))* .ParamAttrs,
+          'functionType(i(32),, i(32) .ParamAttrs, i(8) ('addrEmpty(.KList))*
+                ('addrEmpty(.KList))* .ParamAttrs, i(8) ('addrEmpty(.KList))*
+                         ('addrEmpty(.KList))* .ParamAttrs) ('addrEmpty(.KList))* .ParamAttrs,
+         'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList))* .ParamAttrs,
+        'functionType(void,, 'argListUnit(.KList)) ('addrEmpty(.KList))* .ParamAttrs),
                                   name(globalVar, "__libc_start_main_2"))),
-         val(typeOperand('functionType(void,, i(32)), name(globalVar, "exit"))),
-         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))*,
-           i(8) ('addrEmpty(.KList)) *, i(64), i(32), i(1)), name(globalVar, "llvm.memcpy."))),
-        val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))*,
-             i(8), i(64), i(32), i(1)) ,name(globalVar, "llvm.memset."))),
-      val(typeOperand('functionType(void,, i(64), i(8) ('addrEmpty(.KList))*),
+         val(typeOperand('functionType(void,, 'argTypeTwo(i(32),, .ParamAttrs))
+                       , name(globalVar, "exit"))),
+         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+           i(8) ('addrEmpty(.KList)) * .ParamAttrs, i(64) .ParamAttrs,
+              i(32) .ParamAttrs, i(1) .ParamAttrs), name(globalVar, "llvm.memcpy."))),
+        val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+             i(8) .ParamAttrs, i(64) .ParamAttrs, i(32) .ParamAttrs, i(1) .ParamAttrs)
+                ,name(globalVar, "llvm.memset."))),
+      val(typeOperand('functionType(void,, i(64) .ParamAttrs, i(8) ('addrEmpty(.KList))* .ParamAttrs),
                       name(globalVar, "llvm.lifetime.start"))),
-      val(typeOperand('functionType(void,, i(64), i(8) ('addrEmpty(.KList))*),
+      val(typeOperand('functionType(void,, i(64) .ParamAttrs, i(8) ('addrEmpty(.KList))* .ParamAttrs),
                name(globalVar, "llvm.lifetime.end"))),
-       val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))*),
+       val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs),
                name(globalVar, "llvm.va_start"))),
-       val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))*,
-                 i(8) ('addrEmpty(.KList))*), name(globalVar, "llvm.va_copy"))),
-        val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))*),
+       val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+                 i(8) ('addrEmpty(.KList))* .ParamAttrs), name(globalVar, "llvm.va_copy"))),
+        val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs),
                 name(globalVar, "llvm.va_end"))),
-           val(typeOperand('functionType(i(64),, i(64), ...), name(globalVar, "__syscall"))),
-            val(typeOperand('functionType(i(32),, i(8) ('addrEmpty(.KList))*,
+           val(typeOperand('functionType(i(64),, i(64) .ParamAttrs, ...), name(globalVar, "__syscall"))),
+            val(typeOperand('functionType(i(32),, i(8) ('addrEmpty(.KList))* .ParamAttrs,
               { i(32), i(32), i(8) ('addrEmpty(.KList))*,
-                 i(8) ('addrEmpty(.KList))*, .TypeList } ('addrEmpty(.KList))*),
+                 i(8) ('addrEmpty(.KList))*, .TypeList } ('addrEmpty(.KList))* .ParamAttrs),
                 name(globalVar, "vprintf"))),.ElemList)
                   ~> dealWithUnnamed(TL) ...</k>
         <tempGlobalVars> TL:List => .List </tempGlobalVars>

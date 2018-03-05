@@ -26,6 +26,7 @@ module LLVM-CONFIGURATION
             //a counter cell to genearte free vars for instruction location num
             <tempGlobalVars> .List </tempGlobalVars> //use for store unnamed addr global vars
             <tempUses> .Set </tempUses> //set from use vars
+            <tempLabelUses> .Set </tempLabelUses>
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
             <thread multiplicity="*"> //thread cell
                 <threadId> 0 </threadId> //thread id

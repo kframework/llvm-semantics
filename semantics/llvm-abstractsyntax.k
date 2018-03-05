@@ -335,14 +335,17 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= indirectbr(K, ElemList)   [strict(1)]//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
-    syntax KItem ::= switch(K, K, K, ElemList) [strict(1,2,4)] // type, condition, default dest, list of cases
-    syntax Case ::= case(K, K) [strict(1)] // operand, successor
-    syntax CaseResult ::= caseValue(K, K)
-    syntax KResult ::= CaseResult
-    syntax Case ::= CaseResult
-    syntax Cases ::= List{Case,","} [strict,klabel('caseCon)]
+    syntax KItem ::= switch(K, K, K, List) [strict(2)] // type, condition, default dest, list of cases
+    syntax KItem ::= switchAux(K, K, List) //val, default, list of cases
+    //syntax Case ::= case(K, K) // const, successor
+    syntax KItem ::= typeCase(K, K, K)  [strict(1)]//ty, const, label
+    syntax KResult ::= typedCase(K, K, K)//ty, const, label
+    //syntax CaseResult ::= caseValue(K, K)
+    //syntax KResult ::= CaseResult
+    //syntax Case ::= CaseResult
+    //syntax Cases ::= List{Case,","} [strict,klabel('caseCon)]
     //syntax KItem ::= Cases
-    rule case(K:KResult, K') => caseValue(K, K') [structural]
+    //rule case(K:KResult, K') => caseValue(K, K') [structural]
 
     syntax KItem ::= arguments(ElemList) [strict]
     syntax KItem ::= arg(Set, K, K) [strict(2)]// Modifiers, Type, Value/Name
@@ -430,6 +433,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= phiEdges(K, Set)//block
     syntax KItem ::= "checkingPhisInEdges"
     syntax KItem ::= "checkUseVars"
+    syntax KItem ::= "checkLabelUses"
     syntax KItem ::= checkUseVars(K, Map)
     syntax KItem ::= checkUseVarsAux(K, Set, Set)
     //syntax KItem ::= checkUseVars(ElemList) [strict]

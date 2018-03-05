@@ -40,7 +40,7 @@ module LLVM-HELPERS
     syntax ElemList ::= getValueOfPhi(PHIList) [function]
                    | getLabelOfPhi(PHIList) [function]
                    | getAllTypes(K)   [function]
-                   | getValueOfSwitch(JumpTable) [function]
+                   | formTypeCaseSwitch(JumpTable) [function]
     syntax KItem ::= getVar(K)    [function]
                    | getGepTypeInStruct(K, Int)           [function]
 
@@ -76,6 +76,12 @@ module LLVM-HELPERS
                    integerType(N), normalizingInt(integerType(N), A))
     rule getConstIntValue(A:K, N:Int) => badValue [owise]
 
+    //for type check swtich
+    rule typeCase(integerType(N:Int), A:K, L:K)
+            => typedCase(integerType(N:Int), getConstIntValue(A, N), L)
+    rule typeCase(T:KResult, A:K, L:K) => badValue
+         requires notBool isIntegerType(T)
+
     syntax Bool ::= isAggregateType(K) [function]
     rule isAggregateType(structTypeValue(A:K)) => true
     rule isAggregateType(packedStructTypeValue(A:K)) => true
@@ -83,9 +89,9 @@ module LLVM-HELPERS
     rule isAggregateType(vectorTypeValue(A:K, B:K)) => true
     rule isAggregateType(A:K) => false [owise]
 
-    rule getValueOfSwitch(.JumpTable) => .ElemList
-    rule getValueOfSwitch(T:IntType V:ConstValueRef, La:LabelValue Ju:JumpTable)
-           => val(typeOperand(T, addNameToString(V))),getValueOfSwitch(Ju)
+    rule formTypeCaseSwitch(.JumpTable) => .ElemList
+    rule formTypeCaseSwitch(T:IntType V:ConstValueRef, label La:ValueRef Ju:JumpTable)
+           => val(typeCase(T, addNameToString(V), addNameToString(La))),formTypeCaseSwitch(Ju)
 
     rule getAllTypes(.ParamList) => .ElemList
     rule getAllTypes(T:Type _:ParamAttrs _:ValueRef, Pl:ParamList)
@@ -617,7 +623,8 @@ module LLVM-HELPERS
         when N >Int ufmax(Type)
 
     syntax Bool ::= isIntegerType(K) [function]
-    rule isIntegerType(integerType(_)) => true
+    rule isIntegerType(integerType(N:Int)) => true
+         requires N >Int 0
     rule isIntegerType(_) => false [owise]
 
     syntax Bool ::= isFloatType(K) [function]
@@ -913,6 +920,7 @@ module LLVM-HELPERS
     rule formSet(.ParamAttrs) => .Set
     rule formSet(K:K) => SetItem(K) [owise]
 
+/*
     syntax ElemList ::= formCases(K) [function]
                       | formCasesInList(ElemList, ElemList) [function]
 
@@ -926,6 +934,7 @@ module LLVM-HELPERS
     rule formCasesInList(.ElemList, Es:ElemList) => .ElemList
     rule formCasesInList(valValue(typeOperandResult(T:KResult, A:K)), E1:ElemList,
                    val(La:K), E2:ElemList) => val(case(operand(T,A), La)), formCasesInList(E1,E2)
+*/
 
 /*
     syntax ElemList ::= toCallees(ParamList) [function]
@@ -1839,18 +1848,18 @@ module LLVM-HELPERS
     rule guessNextBlock(unconditional(A:K)) => A
     rule guessNextBlock(conditional(A:K, B:K, C:K)) => B
     rule guessNextBlock(switch(A:K, B:K, C:K,
-                         (val(D:K), Es:ElemList))) => D
+                      ListItem(typedCase(It:K, I:K, D:K)) Es:List)) => D
     rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
     rule guessNextBlock(_:K) => .K [owise]
 
-    syntax Set ::= getAllBrBlocks(K) [function]
+/*    syntax Set ::= getAllBrBlocks(K) [function]
     rule getAllBrBlocks(unconditional(A:K)) => SetItem(A)
     rule getAllBrBlocks(conditional(A:K, B:K, C:K))
                => SetItem(B) SetItem(C)
-    rule getAllBrBlocks(switch(A:K, B:K, C:K, Es:ElemList))
+    rule getAllBrBlocks(switch(A:K, B:K, C:K, Es:List))
                => SetItem(C) elemListToSet(Es)
     rule getAllBrBlocks(indirectbr(A:K, Es:ElemList)) => elemListToSet(Es)
-
+*/
     syntax Set ::= getRestBlocks(K, K, Map) [function]
     rule getRestBlocks(unconditional(A:K), .K, (A |-> B:K) M:Map)
            => getRestBlocks(unconditional(A:K), B, M:Map)
@@ -1878,20 +1887,19 @@ module LLVM-HELPERS
               _:Set, _:Set, _:Set, _:Set), M:Map)
                => .Set
          requires C ==K B
-    rule getRestBlocks(switch(A:K, B:K, C:K, (val(D:K),Es:ElemList)),
+    rule getRestBlocks(switch(A:K, B:K, C:K, ListItem(typedCase(It:K, I:K, D:K)) Es:List),
                .K, (D |-> E:K) M:Map)
-             => getRestBlocks(
-                   switch(A:K, B:K, C:K, Es:ElemList), E, M:Map)
+             => getRestBlocks(switch(A:K, B:K, C:K, Es:List), E, M:Map)
     rule getRestBlocks(switch(A:K, B:K, C:K,
-               (val(D:K), Es:ElemList)), blockContent(
+               ListItem(typedCase(It:K, I:K, D:K)) Es:List), blockContent(
                _:Map, true, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
-             => SetItem(C) SetItem(D) elemListToSet(Es)
+             => SetItem(C) SetItem(D) switchListToSet(Es)
     rule getRestBlocks(switch(A:K, B:K, C:K,
-               (val(D:K), Es:ElemList)), blockContent(
+               ListItem(typedCase(It:K, I:K, D:K)) Es:List), blockContent(
                _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
-             => removeItemFromSet(D, .K, SetItem(C) elemListToSet(Es))
+             => removeItemFromSet(D, .K, SetItem(C) switchListToSet(Es))
     rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList)),
                .K, (B |-> C:K) M:Map)
              => getRestBlocks(indirectbr(A:K,
@@ -1907,13 +1915,14 @@ module LLVM-HELPERS
 
     syntax Set ::= removeItemFromSet(K, K, Set) [function]
     rule removeItemFromSet(A:K, .K, .Set) => .Set
-    rule removeItemFromSet(A:K, .K, SetItem(B:Set) S:Set)
+    rule removeItemFromSet(A:K, .K, SetItem(B:K) S:Set)
            => removeItemFromSet(A, B, S)
     rule removeItemFromSet(A:K, B:K, S:Set)
           => SetItem(B) removeItemFromSet(A, .K, S)
-         requires A =/=K B
+         requires A =/=K B andBool B =/=K .K
     rule removeItemFromSet(A:K, A:K, S:Set)
           => removeItemFromSet(A, .K, S)
+         requires A =/=K .K
 
     syntax Bool ::= hasRestBlocks(K, Map)  [function]
     rule hasRestBlocks(.K, .Map) => false
@@ -1923,6 +1932,11 @@ module LLVM-HELPERS
             => hasRestBlocks(.K, M)
     rule hasRestBlocks(nextSpecs(SetItem(A:K) S:Set), M:Map)
             => true
+
+    syntax Set ::= switchListToSet(List) [function]
+    rule switchListToSet(.List) => .Set
+    rule switchListToSet(ListItem(typedCase(It:K, I:K, A:K)) L:List)
+             => SetItem(A) switchListToSet(L)
 
     syntax Set ::= elemListToSet(ElemList) [function]
     rule elemListToSet(.ElemList) => .Set
@@ -1944,14 +1958,23 @@ module LLVM-HELPERS
     rule getIntKey(A:K) => -1
 
     rule findNextBlock(A:K, EX:Map, RM:Map) => emptyHOLE
+         requires notBool (A in keys(EX)) andBool notBool (A in keys(RM))
+    rule findNextBlock(A:K, EX:Map, (A |-> nextSpecs(SetItem(B:K) S':Set)) RM:Map)
+               => selectSpec(A, B, S')
+    rule findNextBlock(A:K, EX:Map, (A |-> nextSpecs(.Set)) RM:Map) => emptyHOLE
          requires notBool (A in keys(EX))
     rule findNextBlock(A:K, (A |-> B:K) EX:Map, RM:Map)
           => findNextBlockAux(.Set, .K, getSet(B), EX, RM)
+         requires notBool (A in keys(RM))
 
     rule findNextBlockAux(A:Set, .K, .Set, EX:Map, RM:Map)
               => findNextBlockNext(A, .K, EX, RM)
     rule findNextBlockAux(A:Set, .K, SetItem(B:K) S:Set, EX:Map, RM:Map)
               => findNextBlockAux(A, B, S, EX, RM)
+    rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
+                   In:K), S:Set, EX:Map, RM:Map)
+         => findNextBlockAux(A, .K, S, EX, RM)
+         requires notBool Count in keys(RM)
     rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
                    In:K), S:Set, EX:Map, (Count |-> nextSpecs(.Set)) RM:Map)
          => findNextBlockAux(A, .K, S, EX, (Count |-> nextSpecs(.Set)) RM)
@@ -2144,6 +2167,8 @@ module LLVM-HELPERS
                             V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => conditional(operand(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev)),
                V1, V2)
+   rule updateVarInTerm(Cur:Int, C:Int, switch(T:K, V:K, L:K, Rs:List), M:Map, RM:Map, Rev:Map)
+        => switch(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), L, Rs)
    rule updateVarInTerm(Cur:Int, C:Int, select(T:K, I:K
                             operand(T1:K, V1:K), operand(T2:K, V2:K)),
                        M:Map, RM:Map, Rev:Map)
@@ -2551,7 +2576,7 @@ module LLVM-HELPERS
            => (N /Int Al) *Int Al +Int Al -Int N
          requires Al =/=K 0 andBool notBool (Al dividesInt N)
 
-    syntax List ::= decToBin(Int, Int)  [function]
+    syntax List ::= decToBin(K, Int)  [function]
     rule decToBin(I:Int, 0) => .List 
     rule decToBin(I:Int, N:Int) => decToBin(I, N -Int 1) ListItem(0)
          requires I <=Int 0 andBool N >Int 0
@@ -3390,7 +3415,8 @@ module LLVM-HELPERS
 
     rule splitToBitsAux(T:K, .List) => .List
     rule splitToBitsAux(integerType(N:Int), ListItem(I:Int) L:List)
-          => decToBin(I, N) splitToBitsAux(integerType(N:Int), L)
+          => decToBin(normalizingInt(integerType(N:Int),I), N)
+                    splitToBitsAux(integerType(N:Int), L)
     rule splitToBitsAux(integerType(N:Int), ListItem(zeroinitializer) L:List)
           => splitToBitsAux(integerType(N:Int), ListItem(0) L:List)
     rule splitToBitsAux(integerType(N:Int), ListItem(A:K) L:List)

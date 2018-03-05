@@ -88,7 +88,7 @@ module LLVM-NORMALIZING
                              [strict(2,4)]//block, t, v, pt, v, align, mods, instmeta
                    | typeCheckLoad(K, K, K, K, K, K, K, Set, InstructionMetadatas)
                              [strict(3,4)]//block, var, t, pt, v, align, atomic, mods, instmeta
-                   | typeCheckIntArgList(K, ElemList)        [strict(2)]
+                   //| typeCheckIntArgList(K, ElemList)        [strict(2)]
                    | typeCheckGepArgList(K, ElemList)        [strict(2)]
                    | typeCheckGepArgListInNum(K, ElemList) //int number of vector, list of indexes
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
@@ -102,8 +102,9 @@ module LLVM-NORMALIZING
                    | typeCheckRet(K, K, K, InstructionMetadatas)           [strict(2)]//block, t, v, Meta
                    | typeCheckCall(K, K, K, K, K, ElemList, ElemList, ParamList, Set, InstructionMetadatas)
                                [strict(4, 6, 7)]//block, var, op, t, name, argt, argv, args, mods, instmeta
-                   | typeCheckSwitch(K, ElemList, ElemList, ElemList, InstructionMetadatas)
-                                          [strict(2)]//block, argv, argl, stroed argl, instmeta
+                   | typeCheckSwitch(K, K, K, K, ElemList, List, Set, InstructionMetadatas)
+                                          [strict(2, 5)]
+                                   //block, type, v, default, argv, argl, stroed argl, val_set, instmeta
                    | typeCheckIndirectBr(K, K, K, ElemList, ElemList, InstructionMetadatas)
                                           [strict(2)]//block, type, argv, argl, instmeta
                    | typeCheckSelect(K, K, K, K, K, K, K, K, InstructionMetadatas)
@@ -274,9 +275,8 @@ module LLVM-NORMALIZING
                                        switch It:IntType Va:ValueRef ,
                                        label La:ValueRef [ Ju:JumpTable ]
                                   Meta:InstructionMetadatas)
-         => typeCheckSwitch(Name:SymbolicValueRef, (val(typeOperand(It,
-                            addNameToString(Va))),getValueOfSwitch(Ju)),
-                                (val(addNameToString(La)),getOutEdges(Ju)), .ElemList, Meta)
+         => typeCheckSwitch(Name:SymbolicValueRef, It, addNameToString(Va), addNameToString(La),
+                                formTypeCaseSwitch(Ju), .List, .Set, Meta)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                        select Ty1:Type V1:ValueRef,
@@ -867,6 +867,7 @@ module LLVM-NORMALIZING
               T:KResult, E1:ElemList, L, SetItem(name(localVar, S:String))
                        InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
          ...</k>
+        <tempLabelUses> TL:Set (.Set => SetItem(name(localVar, S:String))) </tempLabelUses>
         <instructionCounter> TheCount:Int </instructionCounter>
         requires notBool name(localVar, S:String) in InSet
 
@@ -905,6 +906,67 @@ module LLVM-NORMALIZING
                                +String "' is not a basic block") </output>
          requires getKLabel(K) =/=KLabel 'name
 
+    //type check switch
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
+                .ElemList, Rs:List, So:Set, Meta:InstructionMetadatas)
+                => exprType(typeCheckIntArgs(Name, It, val(V),.ElemList))
+                ~> (checkUseVarInside(Name, label, L)
+                 ~> (assignUses(Name, TheCount, label, (val(L),.ElemList))
+                   ~> assignUses(Name, TheCount, It, (val(V),.ElemList)))) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempLabelUses> TL:Set (.Set => SetItem(L)) </tempLabelUses>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(
+               switch(It, V, L, Rs),.Set
+                   ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
+         requires isLocalVariable(L)
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K, .ElemList, 
+                  Rs:List, So:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: default destination in switch must be a valid label.") </output>
+         requires notBool isLocalVariable(L)
+
+    rule <k> (.K => (checkUseVarInside(Name, label, L1)
+                 ~> assignUses(Name, TheCount, label, (val(L1),.ElemList)))) ~> 
+               (typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
+                valValue(typedCase(integerType(N:Int), I:Int, L1:K)),Es:ElemList, 
+                   Rs:List, So:Set, Meta:InstructionMetadatas)
+               => typeCheckSwitch(Name, It, V, L, Es, Rs ListItem(typedCase(integerType(N:Int),
+                     normalizingInt(integerType(N:Int), I:Int), L1:K)),
+                    So SetItem(normalizingInt(integerType(N:Int), I:Int)), Meta)) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+        <instructionCounter> TheCount:Int </instructionCounter>
+        <tempLabelUses> TL:Set (.Set => SetItem(L1)) </tempLabelUses>
+         requires isLocalVariable(L1) andBool
+                 notBool normalizingInt(integerType(N:Int), I:Int) in So
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
+                valValue(typedCase(integerType(N:Int), I:Int, L1:K)),Es:ElemList, 
+                  (Rs:List), So:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: destination value in jump table must be a valid label.") </output>
+         requires notBool isLocalVariable(L1)
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
+                valValue(typedCase(integerType(N:Int), I:Int, L1:K)),Es:ElemList, 
+                  (Rs:List), So:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: switch branching comparison value must be distinct.") </output>
+         requires normalizingInt(integerType(N:Int), I:Int) in So
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
+                valValue(badValue),Es:ElemList, 
+                  Rs:List, So:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: comparison value in jump table must be a valid integer type.") </output>
+
+
+    rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
+                valValue(typedCase(integerType(N:Int), badValue, L1:K)),Es:ElemList, 
+                  Rs:List,So:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: comparison value in jump table must be a valid int constant.") </output>
+
     //type check braching ops.
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
                    _:K, A:SymbolicValueRef, _:K, Meta:InstructionMetadatas)
@@ -913,6 +975,7 @@ module LLVM-NORMALIZING
                        label, (val(A),.ElemList)) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempLabelUses> TL:Set (.Set => SetItem(A)) </tempLabelUses>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -942,6 +1005,7 @@ module LLVM-NORMALIZING
                     ~> assignUses(Name, TheCount,
                        label, (val(L1),val(L2),.ElemList))))) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
+        <tempLabelUses> TL:Set (.Set => SetItem(L1) SetItem(L2)) </tempLabelUses>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
@@ -2663,6 +2727,26 @@ create an abstract for fence and do the same for fence operation.
                         OutDef:Set, _:Set, _:Set) ...</basicBlocks>
          requires isLocalVariable(V) andBool notBool isInDefs(V, .K, OutDef)
 
+    //check if all labels used in insts are valid basic block
+    rule <k> checkLabelUses => .K ...</k>
+         <tempLabelUses> Ts:Set </tempLabelUses>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires Ts <=Set keys(M)
+
+    rule <k> checkLabelUses ~> K:K </k>
+         <tempLabelUses> Ts:Set </tempLabelUses>
+         <output>... .List => ListItem("A label name used in br, phi, switch or indirectbr ops are not valid basic block names in the function.") </output>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         requires notBool (Ts <=Set keys(M))
+
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
@@ -2676,7 +2760,8 @@ create an abstract for fence and do the same for fence operation.
                   //~> setBlockDependencies(.K, keys(M))
                   ~> (checkingPhisInEdges
                   ~> (checkUseVarInPhi
-                    ~> checkUseVars)))) ...</k>
+                    ~> (checkUseVars
+                     ~> checkLabelUses))))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <initialBasicBlock> InitName:SymbolicValueRef </initialBasicBlock>

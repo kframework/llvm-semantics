@@ -17,8 +17,15 @@ module LLVM-REGISTERS
     imports LLVM-CONFIGURATION
 
     rule assign(X:SymbolicValueRef, V:KResult) => dynResult(X, V)
-        // requires V =/=K skipValue
-    //rule assign(X:SymbolicValueRef, skipValue) => dynNoResult(skipValue)
+         requires notBool isLoadVal(V)
+
+    rule <k> assign(X:SymbolicValueRef, loadVal(Type:K))
+           => dynNoResult(skipValue) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
+                              <- varInstance(X, loadHold(Type, .List))]) </readBack>
+        [structural]
+
     rule noAssign(V:KResult) => dynNoResult(V)
 
     rule [argument-bind-register]:

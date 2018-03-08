@@ -70,7 +70,7 @@ module LLVM-DECLARATIONS
                    functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
         <globalRegisters> M:Map => M[Label <-
                 loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
-                         value(FunCount, FunCount), none)] </globalRegisters>
+                         value(FunCount, FunCount),heap, none, none)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
         <nextBase> FunCount:Int => FunCount +Int
                          sizeOfFunArg(Arguments) +Int numBytesFunHeader </nextBase>
@@ -93,7 +93,7 @@ module LLVM-DECLARATIONS
                    functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
         <globalRegisters> M:Map => M[Label <-
              loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
-                        value(FunCount, FunCount), none)] </globalRegisters>
+                        value(FunCount, FunCount),heap, none,none)] </globalRegisters>
         <nextBase> FunCount:Int => FunCount +Int numBytesFunHeader </nextBase>
         <currModule> ModName:SymbolicValueRef </currModule>
         (.Bag =>

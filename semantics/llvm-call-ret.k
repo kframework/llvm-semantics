@@ -41,12 +41,12 @@ module LLVM-CALL-RET
     //need to modify the context switching to implement inalloca easily.
 
     rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
-                        value(P:Int,P:Int),D:K), Args:ElemList))
+                        value(P:Int,P:Int), RT:K, BA:K, D:K), Args:ElemList))
          => call(A, calleeValue(V, Args)) ...</k>
             <cbd>... P |-> value(T, V:K) ...</cbd>
 
     rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
-                        value(P1:Int,P2:Int),C:K), Args:ElemList)) ~> K:K 
+                        value(P1:Int,P2:Int), RT:K, BA:K, C:K), Args:ElemList)) ~> K:K 
               => .K </k>
          <output>... .List
                 => ListItem("error: function pointer pointing to bad place.") </output>
@@ -58,7 +58,7 @@ module LLVM-CALL-RET
          requires P <Int P1 orBool P >Int P2
 
     rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
-                        value(P:Int,P:Int),C:K), Args:ElemList)) ~> K:K 
+                        value(P:Int,P:Int), RT:K, BA:K,C:K), Args:ElemList)) ~> K:K 
               => .K </k>
           <cbd>... P |-> value(T', V:K) ...</cbd>
          <output>... .List
@@ -71,7 +71,7 @@ module LLVM-CALL-RET
          requires T =/=K T'
 
     rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
-                        value(P:Int,P:Int),C:K), Args:ElemList)) ~> K:K 
+                        value(P:Int,P:Int),RT:K, BA:K,C:K), Args:ElemList)) ~> K:K 
               => .K </k>
           <cbd> M:Map </cbd>
          <output>... .List
@@ -122,15 +122,10 @@ module LLVM-CALL-RET
                              singleMem(TID, A, B, either, X)))) </toCommit>
          requires isLocalVariable(X)
     rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                  constExprVal(loc(Ba:Int, OfT:K, Rang:K, InR:K))) => .K ...</k>
+                  constExprVal(loc(Ba:Int, OfT:K, Rang:K, RT:K, BA:K, InR:K))) => .K ...</k>
          <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
                          ML:List (.List => ListItem(singleMem(TID, A, B,
-                     heap, loc(Ba:Int, OfT:K, Rang:K, InR:K))))) </toCommit>
-    rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                    constExprVal(stackLoc(Ba:Int, OfT:K, Rang:K, InR:K))) => .K ...</k>
-         <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
-             ML:List (.List => ListItem(singleMem(TID, A, B,
-                    stack, stackLoc(Ba:Int, OfT:K, Rang:K, InR:K))))) </toCommit>
+                     RT, loc(Ba:Int, OfT:K, Rang:K, RT:K, BA:K, InR:K))))) </toCommit>
 
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
@@ -219,8 +214,8 @@ module LLVM-CALL-RET
                         IN:Int, Inst:K, T:K)) Pre:List, L:List)
                => instList(Pre L) </instQueue>
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
-          requires (T ==K terminators) orBool (T ==K returnInst)
-                   orBool (T ==K callInst)
+          requires ((T ==K terminators) orBool (T ==K returnInst)
+                   orBool (T ==K callInst))
          [structural]
 
     rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,

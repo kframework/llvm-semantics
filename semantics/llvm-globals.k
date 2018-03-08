@@ -22,6 +22,12 @@ module LLVM-GLOBALS
     imports LLVM-NORMALIZING
     imports LLVM-DECLARATIONS
 
+    //deal with constant expr
+    rule <k> blockAddAST(name(globalVar, X:String), name(localVar, Y:String))
+        => loc(FunCount, blockAddressType, value(FunCount, FunCount),heap,
+           blockAddVal(name(globalVar, X:String),name(localVar, Y:String)), none)  ...</k>
+        <nextBase> FunCount:Int => FunCount +Int numBytesBlockAddress </nextBase>
+
     //for the pointer type of global variable.
 
     rule <k> globalVariable(X:SymbolicValueRef, L:Set,
@@ -31,45 +37,52 @@ module LLVM-GLOBALS
          <tempGlobalVars> TL:List (.List => ListItem(postInit(L,
                                     Ty, X, Init, Ad, Al))) </tempGlobalVars>
          requires isUnnamed(L) andBool notBool X in keys(M)
+                   andBool Init =/=K skipValue
 
     rule <k> globalVariable(X:SymbolicValueRef, L:Set,
                       Ty:KResult, Init:K, Ad:Int, Al:Int) ~> K:K => .K </k>
          <globalRegisters> M:Map </globalRegisters> 
          <output>... .List => ListItem("error: redefinition of the global variable") </output>
-         requires X in keys(M)
+         requires X in keys(M) andBool Init =/=K skipValue
 
     rule <k> globalVariable(X:SymbolicValueRef, L:Set,
                       Ty:KResult, Init:K, Ad:Int, Al:Int) =>
-              preInit(L, Ty, X, alloca(Ty, sizeof(Ty), Al, true), Init, Ad, Al) ...</k>
+              preInit(L, Ty, X, alloca(Ty, 1, Al, true), Init, Ad, Al) ...</k>
          <globalRegisters> M:Map </globalRegisters> 
          requires notBool isUnnamed(L) andBool isThreadLocal(L)
                 andBool constant in L andBool notBool X in keys(M)
+                andBool Init =/=K skipValue
 
     rule <k> globalVariable(X:SymbolicValueRef, L:Set,
                       Ty:KResult, Init:K, Ad:Int, Al:Int) =>
-              preInit(L, Ty, X, alloca(Ty, sizeof(Ty), Al, false), Init, Ad, Al) ...</k>
+              preInit(L, Ty, X, alloca(Ty, 1, Al, false), Init, Ad, Al) ...</k>
          <globalRegisters> M:Map </globalRegisters> 
          requires notBool isUnnamed(L) andBool isThreadLocal(L)
                 andBool notBool (constant in L) andBool notBool X in keys(M)
 
     rule <k> globalVariable(X:SymbolicValueRef, L:Set,
                       Ty:KResult, Init:K, Ad:Int, Al:Int) =>
-              preInit(L, Ty, X, globalAlloca(Ty, sizeof(Ty), Al, true), Init, Ad, Al) ...</k>
+              preInit(L, Ty, X, globalAlloca(Ty, 1, Al, true), Init, Ad, Al) ...</k>
          <globalRegisters> M:Map </globalRegisters> 
          requires notBool isUnnamed(L) andBool notBool isThreadLocal(L)
                 andBool constant in L andBool notBool X in keys(M)
+                andBool Init =/=K skipValue
+
+    rule globalVariable(X:SymbolicValueRef, L:Set,
+                      Ty:KResult, skipValue, Ad:Int, Al:Int) => .K
 
     rule <k> globalVariable(X:SymbolicValueRef, L:Set,
                       Ty:KResult, Init:K, Ad:Int, Al:Int) =>
-              preInit(L, Ty, X, globalAlloca(Ty, sizeof(Ty), Al, false), Init, Ad, Al) ...</k>
+              preInit(L, Ty, X, globalAlloca(Ty, 1, Al, false), Init, Ad, Al) ...</k>
          <globalRegisters> M:Map </globalRegisters> 
          requires notBool isUnnamed(L) andBool notBool isThreadLocal(L)
                 andBool notBool (constant in L) andBool notBool X in keys(M)
+                   andBool Init =/=K skipValue
 
     rule <k> preInit(L:Set, Ty:KResult, X:SymbolicValueRef,
                       Loc:Loc, Init:K, Ad:Int, Al:Int) => .K ...</k>
         <savedGlobals>... .K => (exprType(typeCheckExpr(Ty, Init))
-                   ~> store(Ty, Init,
+                   ~> staticStore(Ty, Init,
                        pointerTypeValue(Ty, Ad), Loc, Al)) </savedGlobals>
          <globalRegisters> M:Map => M[X <- globalValue(
                   L, pointerTypeValue(Ty, Ad), Loc, Init)] </globalRegisters>
@@ -77,7 +90,7 @@ module LLVM-GLOBALS
 
     rule <k> preInit(L:Set, Ty:KResult, X:SymbolicValueRef,
                       Loc:Loc, Init:K, Ad:Int, Al:Int) => .K ...</k>
-        <savedGlobals>... .K => store(Ty, guessExternal,
+        <savedGlobals>... .K => staticStore(Ty, guessExternal,
                              pointerTypeValue(Ty, Ad), Loc, Al) </savedGlobals>
         <globalRegisters> M:Map => M[X <- globalValue(
                   L, pointerTypeValue(Ty, Ad), Loc, guessExternal)] </globalRegisters>
@@ -200,8 +213,8 @@ module LLVM-GLOBALS
          <nextBase> FunCount:Int => FunCount +Int numBytesFunHeader </nextBase>
         <cbd> CM:Map => CM[FunCount <- value(T, funptr(X))] </cbd>
          <globalRegisters> M:Map
-             => M[X <- loc(FunCount,T,
-                             value(FunCount, FunCount), none)] </globalRegisters>
+             => M[X <- loc(FunCount,T,value(FunCount, FunCount),
+                    heap, none, none)] </globalRegisters>
 
 
 endmodule

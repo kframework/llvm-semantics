@@ -12,6 +12,7 @@ module LLVM-ABSTRACTSYNTAX
                       | vectorValue(ElemList)
                       | arrayValue(ElemList)
                       | addrSpaceResult(Int)
+                      | blockAddVal(K, K)
 
     syntax SimpleTypeResult ::= IntTypeCore
                               | pointerTypeValue(K, K) //type, address space
@@ -161,12 +162,12 @@ module LLVM-ABSTRACTSYNTAX
                orBool String2Int(substrString(#tokenToString(I),
                         1, lengthString(#tokenToString(I)))) >=Int (2 ^Int 23)
 
-    syntax Loc ::= loc(K, K, K, K)
-             // TODO [semantic] base, type, range, inrange?
-    syntax Loc ::= stackLoc(K, K, K, K) 
+    syntax Loc ::= loc(K, K, K, K, K, K)
+             //base, type, range, rangetype, blockaddr?, inrange?
+    //syntax Loc ::= stackLoc(K, K, K, K) 
              // TODO [semantic] base, type, range, inrange?
     syntax Loc ::= aLoc(K, K, K) //base, type, rangeType
-    syntax Loc ::= intLoc(K, K, K, K) //base(int), type, range, range
+    syntax Loc ::= intLoc(K, K, K,K, K) //base(int), type, range, rangetype, blockaddr?
     syntax KItem ::= funptr(K)//name
     //syntax KItem ::= funCountLabel(Int, K)//position, ptr
     syntax ValueRef ::= Loc
@@ -216,6 +217,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= setExecutionInst(Int, Set, K, K)
                 //new block, not good specs, NewEx, NewQueue
 
+    //parsing string in LLVM to byte list in K
+    syntax KItem ::= charListResult(List, List)
+
     //don't know how to deal with
     syntax KItem ::= moduleAsm(K) // now let's to be K first, maybe String
     syntax KItem ::= metaConst(K, MetadataValues) //Distinct_or_not, IndexList
@@ -224,11 +228,14 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= float(String)
     syntax KItem ::= constantString(String)
+    syntax KItem ::= array(ElemList) [strict] // element type, arguments
+    rule array(Es:KResult) => arrayValue(Es) [structural]
+
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
     syntax KItem ::= invoke(K, K, K, K)//operand, Params, fromLabel toLabel
     syntax KItem ::= initializer(K, K) // type, value
-    syntax KItem ::= globalVariable(K, Set, K, K, Int, Int) [strict(3)]
+    syntax KItem ::= globalVariable(K, Set, K, K, Int, Int) [strict(3,4)]
               // Value/Name, Modifiers, Type, Initializer, address space, align
     syntax KItem ::= preInit(Set, K, K, K, K, Int, Int) [strict(4)]
                //modifiers, type, var, location, init, address space, align
@@ -244,6 +251,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align, isConstant?
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
+    syntax KResult ::= loadVal(K)//type
     syntax KItem ::= loadHold(K, List)//type, List
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
     syntax KItem ::= assignUsesInCall(K, K, ElemList)//blockname, inst num, args
@@ -315,6 +323,8 @@ module LLVM-ABSTRACTSYNTAX
               //== base of first + size of first + align of second.
     //instructions
     syntax KItem ::= "guessExternal"
+    syntax KItem ::= staticStore(K, K, K, K, Int) [strict(1,2,3,4)]
+                        // Type, Value, deType, Destination, aligns
     syntax KItem ::= store(K, K, K, K, Int) [strict(1,2,3,4)]
                         // Type, Value, deType, Destination, align
     syntax KItem ::= fence(K) [strict]
@@ -390,12 +400,12 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= getElementPtr(K, K, ElemList) [strict(2,3)]// type, loc, indecies
                    | gepTypeBag(K)          [strict]
-                   | getElementPtrAux(K, K, Int, K, K, ElemList)
-                      //type, Range, base, inrange?, stack/heap, indices
-                   | getElementPtrBound(K, K, Int, K, K, ElemList)
-                      //type, Range, base, inrange?, stack/heap, indices
-                   | getElementPtrCal(K, K, Int, K, K, Int, ElemList)
-                      //type, Range, base, inrange?, stack/heap, Index, indices
+                   | getElementPtrAux(K, K, Int, K, K, K, ElemList)
+                      //type, Range, base, blockAddr?, inrange?, stack/heap, indices
+                   | getElementPtrBound(K, K, Int, K, K, K, ElemList)
+                      //type, Range, base, blockAddr?, inrange?, stack/heap, indices
+                   | getElementPtrCal(K, K, Int, K, K, K, Int, ElemList)
+                      //type, Range, base, blockAddr?, inrange?, stack/heap, Index, indices
                    | "badRange"
 
     syntax KItem ::= extractElement(K, K) [strict]
@@ -434,6 +444,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "checkingPhisInEdges"
     syntax KItem ::= "checkUseVars"
     syntax KItem ::= "checkLabelUses"
+    syntax KItem ::= checkBlockAddress(K)
     syntax KItem ::= checkUseVars(K, Map)
     syntax KItem ::= checkUseVarsAux(K, Set, Set)
     //syntax KItem ::= checkUseVars(ElemList) [strict]
@@ -540,7 +551,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theXor(K, K, K) [strict] // Type, Left op, Right op
 
     //const exprs
-    syntax KItem ::= constCastAST(K, K, K, K) [strict(2,3,4)]
+    syntax ConstExpr ::= constCastAST(K, K, K, K) [strict(2,3,4)]
                              //op, type, val, type
                    | constBinAST(K, K, K, K, K) [strict(2,3,4,5)]
                              //op, type, val, type, val

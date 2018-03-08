@@ -67,6 +67,11 @@ module LLVM-NORMALIZING
                    | typeCheckExpr(K, K)//t, v
                    | preTypeCheckIntExpr(K, K)//type, var
                    | typeCheckIntExpr(K, K) //type, var
+                   | typeCheckArrayExpr(K, Int, K) //type, n, var
+                   | typeCheckArrayExpr(K, Int, K, K, K) [strict(3)]
+                                                //t, integer, type, value, terms
+                   | preTypeCheckArrayExpr(K, Int, K) //type, n, var
+                   | typeCheckArrayAux(K, K) //t, terms
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | preTypeCheckVectorArg(K, Int, K) //t, integer, terms
                    | typeCheckVectorArg(K, Int, K) //t, integer, terms
@@ -1656,20 +1661,20 @@ module LLVM-NORMALIZING
          <globalRegisters>... name(globalVar, X:K) |-> value(T':K, V:K) ...</globalRegisters>
          <output>... .List => ListItem("error: const expression type failed.") </output>
          requires T =/=K T'
-    rule typeCheckConstExpr(T:KResult, undef) => .K
-    rule typeCheckConstExpr(T:KResult, zeroinitializer) => .K
+    rule typeCheckConstExpr(T:KResult, undef) => T
+    rule typeCheckConstExpr(T:KResult, zeroinitializer) => T
     rule typeCheckConstExpr(integerType(N:Int), A:KResult)
-               => exprType(typeCheckIntExpr(integerType(N:Int), A))
+               => typeCheckIntExpr(integerType(N:Int), A)
     rule typeCheckConstExpr(pointerTypeValue(T:KResult, Ad:KResult), A:KResult)
-               => exprType(typeCheckPointerExpr(pointerTypeValue(T, Ad), A))
+               => typeCheckPointerExpr(pointerTypeValue(T, Ad), A)
 
     /*rule typeCheckConstExpr(T:K, constCastAST(Op:K, T1:K, V1:K, T2:K))
           => typeMatch(T, T2) ~> typeCheckConstExpr(T1, V1)
        not very correct
     */
     rule typeCheckConstExpr(vectorTypeValue(T:K, I:Int), vector(Es:ElemList))
-          => exprType(typeCheckVectorArg(
-                    vectorTypeValue(T:K, I:Int), I, vector(Es:ElemList)))
+          => typeCheckVectorArg(
+                    vectorTypeValue(T:K, I:Int), I, vector(Es:ElemList))
 
     rule typeCheckConstExpr(integerType(N:Int), constBinAST(Op:BinaryIntOps,
                                 T1:K, V1:K, T2:K, V2:K))
@@ -1698,10 +1703,28 @@ module LLVM-NORMALIZING
           => typeCheckConstExprs(vectorTypeValue(T:FPType, I:Int),
                (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
 
+    rule <k> typeCheckConstExpr(pointerTypeValue(integerType(8), 0),
+              blockAddAST(name(globalVar, X:String), name(localVar, Y:String)))
+          => pointerTypeValue(integerType(8), 0) ...</k>
+        <tempBlockAddrChecks> S:Set (.Set => SetItem(blockAddVal(
+               name(globalVar, X:String),name(localVar, Y:String)))) </tempBlockAddrChecks>
+
+    rule <k> typeCheckConstExpr(T:KResult,
+              blockAddAST(X:K, Y:K))
+          => pointerTypeValue(integerType(8), 0) ...</k>
+         <output>... .List => ListItem("error: block address type must be i8*.") </output>
+          requires T ==K pointerTypeValue(integerType(8), 0)
+
+    rule <k> typeCheckConstExpr(T:KResult,
+              blockAddAST(X:K, Y:K))
+          => pointerTypeValue(integerType(8), 0) ...</k>
+         <output>... .List => ListItem("error: block address must be a funtion name and a block name.") </output>
+          requires notBool isGlobalVariable(X) orBool notBool isLocalVariable(Y)
+
     //type check elements of const exprs
     rule typeCheckConstExprs(T:K, .ElemList) => .K
     rule typeCheckConstExprs(T:KResult, (typeOperandResult(T, A:K), Es:ElemList))
-          => typeCheckConstExpr(T, A)
+          => exprType(typeCheckConstExpr(T, A))
                      ~> typeCheckConstExprs(T, Es)
     rule <k> typeCheckConstExprs(T:K, (typeOperandResult(T':KResult, A:K), Es:ElemList))
               ~> K:K => .K </k>
@@ -1742,6 +1765,75 @@ module LLVM-NORMALIZING
              O:OpaqueType ,V:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: the arg type cannot be opaque structural type.") </output>
 
+
+    //type check single array argument
+    rule preTypeCheckArrayExpr(T:K, I:Int, X:SymbolicValueRef) => T
+         requires isLocalVariable(X) andBool I >=Int 0
+             andBool notBool hasInValidMMXType(arrayTypeValue(T, I))
+    rule preTypeCheckArrayExpr(T:K, I:Int, X:K)
+           => typeCheckArrayExpr(T, I, X)
+         requires notBool isLocalVariable(X) andBool I >=Int 0
+             andBool notBool hasInValidMMXType(arrayTypeValue(T, I))
+
+    rule <k> preTypeCheckArrayExpr(T:K, I:K, X:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: array of x86 mmx type is invalid") </output>
+         requires I >=Int 0 andBool hasInValidMMXType(arrayTypeValue(T, I))
+
+    rule <k> preTypeCheckArrayExpr(T:K, I:K, X:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid array number for instruction") </output>
+         requires I <Int 0
+
+    rule typeCheckArrayExpr(T:KResult, I:Int, undef) => T
+    rule typeCheckArrayExpr(T:KResult, I:Int, zeroinitializer) => T
+    rule typeCheckArrayExpr(T:KResult, I:Int, X:SymbolicValueRef) => T
+         requires notBool isLocalVariable(X)
+    rule <k> typeCheckArrayExpr(T:KResult, I:Int, X:SymbolicValueRef)
+                  ~> K:K => .K </k>
+         <output>... .List => ListItem("error: array type position must either be a local variable or a constant expression without local variables.") </output>
+         requires isLocalVariable(X)
+
+    rule typeCheckArrayExpr(T:KResult, I:Int, A:ConstExpr)
+         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
+           ~> typeCheckArrayExpr(T:KResult, I:Int, emptyHOLE)
+    rule T:KResult ~>
+            typeCheckArrayExpr(T:KResult, I:Int, emptyHOLE) => T
+
+    rule typeCheckArrayExpr(T:KResult, 0, array(.ElemList)) => T
+    rule typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), N:Int,
+                 array(val(operand(T':K, V:ValueRef)), R:ElemList))
+         => typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), N:Int,
+                 T':K, V:ValueRef, array(R:ElemList))
+         requires N >Int 0
+    rule typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int),
+                         N:Int, T:KResult, V:K, Vs:K)
+         => typeCheckArrayAux(T, V) 
+              ~> typeCheckArrayExpr(
+                   arrayTypeValue(T:KResult, I:Int), N -Int 1, Vs)
+
+    rule <k> typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int),
+                          N:Int, T':KResult, V:K, Vs:K) ~> K:K
+                => .K </k>
+         <output>... .List => ListItem("error: array element type mismatch.") </output>
+         requires T =/=K T'
+    rule <k> typeCheckArrayExpr(T:K, 0, array(R:ElemList)) ~> K => .K </k>
+         <output>... .List => ListItem("error: array index and element number mismatch.") </output>
+         requires R =/=K .ElemList
+    rule <k> typeCheckArrayExpr(T:K, I:Int, array(.ElemList)) ~> K => .K </k>
+         <output>... .List => ListItem("error: array index and element number mismatch.") </output>
+         requires I >Int 0
+
+    rule typeCheckArrayAux(integerType(N:Int), V:K)
+             => exprType(typeCheckIntExpr(integerType(N:Int), V:K))
+    rule typeCheckArrayAux(pointerTypeValue(T:KResult, Ad:KResult), V:K)
+             => exprType(typeCheckPointerExpr(
+                          pointerTypeValue(T:KResult, Ad:KResult), V:K))
+    rule typeCheckArrayAux(arrayTypeValue(T:KResult, N:Int), V:K)
+             => exprType(typeCheckArrayExpr(
+                          arrayTypeValue(T:KResult, N), N, V:K))
+    rule typeCheckArrayAux(vectorTypeValue(T:KResult, N:Int), V:K)
+             => exprType(typeCheckVectorArg(
+                          vectorTypeValue(T:KResult, N),N, V:K))
+
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
            vectorTypeValue(T:K, I:Int), .ElemList) => vectorTypeValue(T:K, I:Int)
@@ -1773,7 +1865,7 @@ module LLVM-NORMALIZING
          requires notBool isLocalVariable(X)
     rule <k> typeCheckVectorArg(T:KResult, I:Int, X:SymbolicValueRef)
                   ~> K:K => .K </k>
-         <output>... .List => ListItem("error: pointer type position must either be a local variable or a constant expression without local variables.") </output>
+         <output>... .List => ListItem("error: vector type position must either be a local variable or a constant expression without local variables.") </output>
          requires isLocalVariable(X)
 
     rule typeCheckVectorArg(T:KResult, I:Int, A:ConstExpr)
@@ -1834,6 +1926,8 @@ module LLVM-NORMALIZING
           => preTypeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), I, V:K)
     rule typeCheckExpr(integerType(N:Int), V:K)
           => preTypeCheckIntExpr(integerType(N:Int), V:K)
+    rule typeCheckExpr(arrayTypeValue(A:K, I:Int), V:K)
+          => preTypeCheckArrayExpr(arrayTypeValue(A:K, I:Int), I, V:K)
 
     //type checking each pointer argument
     rule preTypeCheckPointerExpr(T:K, V:SymbolicValueRef) => T
@@ -2747,6 +2841,37 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M:Map </basicBlocks>
          requires notBool (Ts <=Set keys(M))
 
+    //check if a block address is valid
+    rule <k> checkBlockAddress(.K) => .K ...</k>
+         <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
+
+    rule <k> checkBlockAddress(.K) => checkBlockAddress(A) ...</k>
+         <tempBlockAddrChecks> (SetItem(A:K) => .Set) S:Set </tempBlockAddrChecks>
+
+    rule <k> checkBlockAddress(blockAddVal(FunName:K, B:K))
+                 => checkBlockAddress(.K) ...</k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         <initialBasicBlock> B' </initialBasicBlock>
+         requires B in keys(M) andBool B' =/=K B
+
+    rule <k> checkBlockAddress(blockAddVal(FunName:K, B:K)) ~> K:K => .K </k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <functionName> FunName </functionName>
+         <basicBlocks> M:Map </basicBlocks>
+         <output>... .List => ListItem("Block name of a blockaddress is not a valid one.") </output>
+         requires notBool B in keys(M)
+
+    rule <k> checkBlockAddress(blockAddVal(FunName:K, B:K)) ~> K:K => .K </k>
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <functionName> FunName </functionName>
+         <initialBasicBlock> B </initialBasicBlock>
+         <output>... .List => ListItem("Block name of a blockaddress cannot be the entry block.") </output>
+
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
@@ -2761,7 +2886,8 @@ create an abstract for fence and do the same for fence operation.
                   ~> (checkingPhisInEdges
                   ~> (checkUseVarInPhi
                     ~> (checkUseVars
-                     ~> checkLabelUses))))) ...</k>
+                     ~> (checkLabelUses
+                     ~> checkBlockAddress(.K))))))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <initialBasicBlock> InitName:SymbolicValueRef </initialBasicBlock>

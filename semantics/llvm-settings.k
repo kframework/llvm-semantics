@@ -36,4 +36,12 @@ module LLVM-SETTINGS
     syntax Int ::= "numBytesFunHeader" [function]
     rule numBytesFunHeader => 20
 
+    syntax Int ::= "numBytesBlockAddress" [function]
+    rule numBytesBlockAddress => 8
+
+    syntax Int ::= "staticBlockNum" [function]
+    rule staticBlockNum => -1
+    
+    syntax KItem ::= "blockAddressType" [function]
+    rule blockAddressType => pointerTypeValue(integerType(8), 0)
 endmodule

@@ -140,7 +140,7 @@ module LLVM-PREPROCESSING
                ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
                           formSet(Dll) formSet(Th) formSet(Un) formSet(Exi)
                  formSet(Gl) deleteAlign(formSet(Sca)) ,Ty,
-                  emptyHOLE, dealWithAddrSpace(Ad),
+                  skipValue, dealWithAddrSpace(Ad),
                      getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
 
     rule <k> preModule(N:GlobalValID = Ex:ExternalLinkage Vi:OptVisibilityStyle
@@ -153,7 +153,7 @@ module LLVM-PREPROCESSING
                ,lengthString(#tokenToString(N)))),formSet(Ex) formSet(Vi)
                           formSet(Dll) formSet(Th) formSet(Un) formSet(Exi)
             formSet(Gl) deleteAlign(formSet(Sca)),Ty,
-              emptyHOLE, dealWithAddrSpace(Ad),
+              skipValue, dealWithAddrSpace(Ad),
                    getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
          when String2Int(substrString(#tokenToString(N),1
@@ -178,7 +178,7 @@ module LLVM-PREPROCESSING
                Typedefs:K, GlobalVars ~> globalVariable(name(globalVar, Int2String(Count))
              ,formSet(Ex) formSet(Vi) formSet(Dll) formSet(Th) formSet(Un)
             formSet(Exi) formSet(Gl) deleteAlign(formSet(Sca)),Ty,
-                emptyHOLE, dealWithAddrSpace(Ad),
+                skipValue, dealWithAddrSpace(Ad),
                    getAlign(formSet(Sca), .K)), Aliases:K, Functions:K)
          ...</k><globalFunVarCounter> Count:Int => Count +Int 1 </globalFunVarCounter>
 

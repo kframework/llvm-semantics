@@ -13,7 +13,7 @@ module LLVM-CONFIGURATION
     configuration
         <T>//top level
             <brk> loc(startMemoryLoc, void,
-              value(nullMemoryLoc,nullMemoryLoc), none) </brk>
+              value(nullMemoryLoc,nullMemoryLoc),heap, none, none) </brk>
             //this is a cell holding brk pointer
             <cbd> .Map </cbd> //common data bus
             <exBuffer> .List </exBuffer>
@@ -27,6 +27,7 @@ module LLVM-CONFIGURATION
             <tempGlobalVars> .List </tempGlobalVars> //use for store unnamed addr global vars
             <tempUses> .Set </tempUses> //set from use vars
             <tempLabelUses> .Set </tempLabelUses>
+            <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
             <thread multiplicity="*"> //thread cell
                 <threadId> 0 </threadId> //thread id

@@ -147,20 +147,39 @@ module LLVM-BRANCHING
         requires I =/=Int I'
 
     rule [indirect-hit]:
-        indirectbr(blockValue(A:SymbolicValueRef), val(A), Es:ElemList)
-          => unconditional(A)
-    rule [indirect-traverse]:
-        indirectbr(blockValue(A:SymbolicValueRef), val(B), Es:ElemList)
-          => indirectbr(blockValue(A:SymbolicValueRef), Es)
-        requires A =/=K B
+        <k> indirectbr(loc(FunCount:Int, Ty:K, value(FunCount, FunCount), heap,
+           blockAddVal(X:SymbolicValueRef, Y:SymbolicValueRef), none), Es:List)
+          => unconditional(Y) ...</k>
+        <currFunction> X </currFunction>
+        requires Y in Es
+
     rule [indirect-failed-A]:
-        <k> indirectbr(blockValue(A:SymbolicValueRef), .ElemList) ~> K:K
-          => .K </k>
-        <output>... .List => ListItem("error: undefined bahavior due to no such label in the label list of a indirectbr") </output>
+        <k> indirectbr(loc(FunCount':Int, Ty:K, value(FunCount, FunCount), heap,
+           blockAddVal(X:SymbolicValueRef, Y:SymbolicValueRef), none), Es:List) ~> K:K 
+               => .K </k>
+        <output>... .List => ListItem("error: undefined bahavior due to try to load address different from the allowed block address name.") </output>
+        requires FunCount' =/=Int FunCount
+
     rule [indirect-failed-B]:
-        <k> indirectbr(A:K, Es:ElemList) ~> K:K
-          => .K </k>
-        <output>... .List => ListItem("error: indirectbr address must be derived from a blockaddress constant") </output>
-        requires getKLabel(A) =/=KLabel 'blockValue
+        <k> indirectbr(loc(FunCount':Int, Ty:K, value(FunCount, FunCount), heap,
+                  none, none), Es:List) ~> K:K => .K </k>
+        <output>... .List => ListItem("error: undefined bahavior due to indirectbr branching to a address that is not a block address name.") </output>
+        requires FunCount' =/=Int FunCount
+
+    rule [indirect-failed-C]:
+        <k> indirectbr(loc(FunCount':Int, Ty:K, value(FunCount, FunCount), heap,
+                  blockAddVal(X:SymbolicValueRef, Y:SymbolicValueRef), none), Es:List) ~> K:K
+               => .K ...</k>
+        <currFunction> X':SymbolicValueRef </currFunction>
+        <output>... .List => ListItem("error: undefined bahavior due to indirectbr branching to a block address name in different function.") </output>
+        requires X =/=K X'
+
+    rule [indirect-failed-C]:
+        <k> indirectbr(loc(FunCount':Int, Ty:K, value(FunCount, FunCount), heap,
+                  blockAddVal(X:SymbolicValueRef, Y:SymbolicValueRef), none), Es:List) ~> K:K
+          => .K ...</k>
+        <currFunction> X:SymbolicValueRef </currFunction>
+        <output>... .List => ListItem("error: undefined bahavior due to indirectbr branching to a block address name that is not specified in the indirectbr label list.") </output>
+        requires notBool Y in Es
 
 endmodule

@@ -1851,7 +1851,7 @@ module LLVM-HELPERS
     rule guessNextBlock(conditional(A:K, B:K, C:K)) => B
     rule guessNextBlock(switch(A:K, B:K, C:K,
                       ListItem(typedCase(It:K, I:K, D:K)) Es:List)) => D
-    rule guessNextBlock(indirectbr(A:K, val(B:K),Es:ElemList)) => B
+    rule guessNextBlock(indirectbr(A:K, ListItem(B:K) Es:List)) => B
     rule guessNextBlock(_:K) => .K [owise]
 
 /*    syntax Set ::= getAllBrBlocks(K) [function]
@@ -1902,18 +1902,18 @@ module LLVM-HELPERS
                _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
              => removeItemFromSet(D, .K, SetItem(C) switchListToSet(Es))
-    rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList)),
+    rule getRestBlocks(indirectbr(A:K, (ListItem(B:K) Es:List)),
                .K, (B |-> C:K) M:Map)
              => getRestBlocks(indirectbr(A:K,
-                       (val(B:K), Es:ElemList)), C, M:Map)
-    rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList))
+                       (ListItem(B:K) Es:List)), C, M:Map)
+    rule getRestBlocks(indirectbr(A:K, ListItem(B:K) Es:List)
            , blockContent( _:Map, true, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
-                   => SetItem(B) elemListToSet(Es)
-    rule getRestBlocks(indirectbr(A:K, (val(B:K), Es:ElemList))
+                   => SetItem(B) indirectbrListToSet(Es)
+    rule getRestBlocks(indirectbr(A:K, (ListItem(B:K) Es:List))
            , blockContent( _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
-                   => removeItemFromSet(B, .K, elemListToSet(Es))
+                   => removeItemFromSet(B, .K, indirectbrListToSet(Es))
 
     syntax Set ::= removeItemFromSet(K, K, Set) [function]
     rule removeItemFromSet(A:K, .K, .Set) => .Set
@@ -1939,6 +1939,11 @@ module LLVM-HELPERS
     rule switchListToSet(.List) => .Set
     rule switchListToSet(ListItem(typedCase(It:K, I:K, A:K)) L:List)
              => SetItem(A) switchListToSet(L)
+
+    syntax Set ::= indirectbrListToSet(List) [function]
+    rule indirectbrListToSet(.List) => .Set
+    rule indirectbrListToSet(ListItem(A:K) L:List)
+             => SetItem(A) indirectbrListToSet(L)
 
     syntax Set ::= elemListToSet(ElemList) [function]
     rule elemListToSet(.ElemList) => .Set
@@ -2038,9 +2043,9 @@ module LLVM-HELPERS
                       V:SymbolicValueRef), L1:K, L2:K)) => false
     rule isAvailable(switch(T:K, V:KResult, L1:K, L2:K)) => true
     rule isAvailable(switch(T:K, V:SymbolicValueRef, L1:K, L2:K)) => false
-    rule isAvailable(indirectbr(operand(T:K, V:KResult), Es:ElemList)) => true
+    rule isAvailable(indirectbr(operand(T:K, V:KResult), Es:List)) => true
     rule isAvailable(indirectbr(operand(
-                   T:K, V:SymbolicValueRef), Es:ElemList)) => false
+                   T:K, V:SymbolicValueRef), Es:List)) => false
     rule isAvailable(A:K) => false [owise]
 
     syntax Bool ::= isIntOp(K) [function]
@@ -2186,6 +2191,8 @@ module LLVM-HELPERS
                             V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => conditional(operand(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev)),
                V1, V2)
+   rule updateVarInTerm(Cur:Int, C:Int, indirectbr(A:K, Es:List), M:Map, RM:Map, Rev:Map)
+        => indirectbr(updateVarInTerm(Cur, C:Int, A:K, M, RM, Rev), Es)
    rule updateVarInTerm(Cur:Int, C:Int, switch(T:K, V:K, L:K, Rs:List), M:Map, RM:Map, Rev:Map)
         => switch(T:K, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), L, Rs)
    rule updateVarInTerm(Cur:Int, C:Int, select(T:K, I:K

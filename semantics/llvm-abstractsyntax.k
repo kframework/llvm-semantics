@@ -342,7 +342,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= "unreachable"
     syntax KItem ::= resume(K)//operand
-    syntax KItem ::= indirectbr(K, ElemList)   [strict(1)]//operand, list of labels
+    syntax KItem ::= indirectbr(K, List)   [strict(1)]//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
     syntax KItem ::= switch(K, K, K, List) [strict(2)] // type, condition, default dest, list of cases

@@ -110,7 +110,7 @@ module LLVM-NORMALIZING
                    | typeCheckSwitch(K, K, K, K, ElemList, List, Set, InstructionMetadatas)
                                           [strict(2, 5)]
                                    //block, type, v, default, argv, argl, stroed argl, val_set, instmeta
-                   | typeCheckIndirectBr(K, K, K, ElemList, ElemList, InstructionMetadatas)
+                   | typeCheckIndirectBr(K, K, K, ElemList, List, InstructionMetadatas)
                                           [strict(2)]//block, type, argv, argl, instmeta
                    | typeCheckSelect(K, K, K, K, K, K, K, K, InstructionMetadatas)
                               [strict(3,5,7)]
@@ -295,7 +295,7 @@ module LLVM-NORMALIZING
                                        [ Las:LabelValues ]
                                   Meta:InstructionMetadatas)
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
-                        addNameToString(Va), getOutEdges(Las), .ElemList, Meta)
+                        addNameToString(Va), getOutEdges(Las), .List, Meta)
 
     //type check the gep int list coordinated with the type
     rule singleGepTypeCheck(Name:K, Count:Int, X:K, Ad:Int, T:KResult)
@@ -971,6 +971,43 @@ module LLVM-NORMALIZING
                 valValue(typedCase(integerType(N:Int), badValue, L1:K)),Es:ElemList, 
                   Rs:List,So:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: comparison value in jump table must be a valid int constant.") </output>
+
+    //type check indirectbr
+    rule <k> typeCheckIndirectBr(Name:SymbolicValueRef,
+                    pointerTypeValue(T:K, Ad:Int), V:K, .ElemList,
+                                      Es:List, Meta:InstructionMetadatas)
+          => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
+                       pointerTypeValue(T:K, Ad:Int), val(V),.ElemList))
+                 ~> assignUses(Name, TheCount, pointerTypeValue(
+                                         T:K, Ad:Int), (val(V),.ElemList)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(indirectbr(
+                              operand(pointerTypeValue(T:K, Ad:Int), V), Es),.Set
+                                  ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
+
+    rule <k> typeCheckIndirectBr(Name:SymbolicValueRef,
+                    T:KResult, V:K, .ElemList,
+                        Es:List, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("indirectbr must have a pointer type blockaddress.") </output>
+         requires notBool isPointerType(T)
+
+    rule <k>typeCheckIndirectBr(Name:SymbolicValueRef, T:K, V:K,
+                  val(A:SymbolicValueRef), E2:ElemList,
+                  Es:List, Meta:InstructionMetadatas)
+                     => assignUses(Name, TheCount, label, (val(A),.ElemList))
+                         ~> typeCheckIndirectBr(Name:SymbolicValueRef,
+                           T:K, V:K, E2:ElemList, Es ListItem(A), Meta) ...</k>
+        <instructionCounter> TheCount:Int </instructionCounter>
+        <tempLabelUses> TL:Set (.Set => SetItem(A)) </tempLabelUses>
+        requires isLocalVariable(A)
+
+    rule <k> typeCheckIndirectBr(Name:SymbolicValueRef, Ty:K, Va:K,
+                  val(A:SymbolicValueRef), E2:ElemList,
+                           Es:List, Meta:InstructionMetadatas)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("a label in indirectbr is not a valid basic block.") </output>
+         requires notBool isLocalVariable(A)
 
     //type check braching ops.
     rule <k> typeCheckBr(Name:SymbolicValueRef, undef,
@@ -2846,7 +2883,7 @@ create an abstract for fence and do the same for fence operation.
          <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
 
     rule <k> checkBlockAddress(.K) => checkBlockAddress(A) ...</k>
-         <tempBlockAddrChecks> (SetItem(A:K) => .Set) S:Set </tempBlockAddrChecks>
+         <tempBlockAddrChecks> (SetItem(A:K) S:Set) => S -Set SetItem(A:K) </tempBlockAddrChecks>
 
     rule <k> checkBlockAddress(blockAddVal(FunName:K, B:K))
                  => checkBlockAddress(.K) ...</k>

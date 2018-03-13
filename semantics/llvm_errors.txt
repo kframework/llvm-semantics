@@ -1,3 +1,5 @@
 1, cannot use alloca ..., addrspace(x) to alloca a memory with address space x.
 
 2, document says half/float/double only allow 16 bit format but they can actually use use any number in clang.
+
+3, u0x and s0x hex int number is just garbage in LLVM. 

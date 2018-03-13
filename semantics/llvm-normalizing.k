@@ -2025,6 +2025,9 @@ module LLVM-NORMALIZING
     rule typeCheckIntExpr(T:KResult, X:SymbolicValueRef) => T
          requires notBool isLocalVariable(X)
 
+    rule <k> typeCheckIntExpr(T:KResult, A:HexConstant) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: hexadecimal notations are only supported for floating point values.") </output>
+
     rule <k> typeCheckIntExpr(T:KResult, X:SymbolicValueRef) ~> K => .K </k>
          <output>... .List => ListItem("error: int type position must either be a local variable or a constant expression without local variables.") </output>
          requires isLocalVariable(X)

@@ -22,7 +22,7 @@ module LLVM-SYNTAX
       Standard integers (such as ‘4’) are constants of the integer type.
       Negative numbers may be used with integer types.
     */
-    syntax HexConstant ::= Token {[u s]?[0][x][K M L]?[0-9 a-f A-F]*} [onlyLabel]
+    syntax HexConstant ::= Token {[u s]?[0][x][K M L H]?[0-9 a-f A-F]*} [onlyLabel]
     syntax UnsignedInt ::= Token{[0-9][0-9]*} [onlyLabel]
 
 

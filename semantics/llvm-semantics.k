@@ -2366,7 +2366,7 @@ module LLVM-LITERALS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule float(S) => String2Float(S)
+    //rule float(S) => String2Float(S)
     //when String2Float(S) >=Float String2Float(S)
         // TODO when 'isFloat(String2Float(S))
 

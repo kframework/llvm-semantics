@@ -226,7 +226,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
     syntax KItem ::= funBegin(K)// use to initialize the initial block name.
 
-    syntax KItem ::= float(String)
+    //syntax KItem ::= float(String)
     syntax KItem ::= constantString(String)
     syntax KItem ::= array(ElemList) [strict] // element type, arguments
     rule array(Es:KResult) => arrayValue(Es) [structural]

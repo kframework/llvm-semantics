@@ -22,7 +22,7 @@ module LLVM-START-AND-STOP
                 arguments(
                     val(name(globalVar, "main")), // address of main
                     (val(0), // argc
-                    (val(alloca(i(8), 8, 0, false)), // argv
+                    (val(alloca(i(8), 8, 0, 0, false)), // argv
                     (val('nullOfConstValueRef(.KList)), // init
                     (val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList))// ldso_fini
@@ -44,7 +44,7 @@ module LLVM-START-AND-STOP
                 arguments((
                     val(name(globalVar, "main")), // address of main
                     val(0), // argc
-                    val(alloca(i(8), 8, 0, false)),
+                    val(alloca(i(8), 8, 0, 0, false)),
                     val('nullOfConstValueRef(.KList)), // init
                     val('nullOfConstValueRef(.KList)), // fini
                     val('nullOfConstValueRef(.KList)) // ldso_fini

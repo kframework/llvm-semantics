@@ -40,10 +40,10 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
     //need to modify the context switching to implement inalloca easily.
 
-    rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
+    rule <k> call(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
                         value(P:Int,P:Int), RT:K, BA:K, D:K), Args:ElemList))
          => call(A, calleeValue(V, Args)) ...</k>
-            <cbd>... P |-> value(T, V:K) ...</cbd>
+            <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T, V:K) ...</cbd>
 
     rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
                         value(P1:Int,P2:Int), RT:K, BA:K, C:K), Args:ElemList)) ~> K:K 
@@ -57,12 +57,12 @@ module LLVM-CALL-RET
                           ...</tomasulo>)
          requires P <Int P1 orBool P >Int P2
 
-    rule <k> call(A:K, calleeValue(loc(P:Int,T:K,
-                        value(P:Int,P:Int), RT:K, BA:K,C:K), Args:ElemList)) ~> K:K 
+    rule <k> call(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
+                        value(P:Int,P:Int), RT:K, BA:K, C:K), Args:ElemList)) ~> K:K 
               => .K </k>
-          <cbd>... P |-> value(T', V:K) ...</cbd>
+            <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T', V:K) ...</cbd>
          <output>... .List
-                => ListItem("error: function pointer and pointee function does not match types.") </output>
+                => ListItem("error: function pointer pointing to wrong function type.") </output>
          (<tomasulo>
             D:Bag
          </tomasulo> =>  <tomasulo>...
@@ -75,13 +75,13 @@ module LLVM-CALL-RET
               => .K </k>
           <cbd> M:Map </cbd>
          <output>... .List
-                => ListItem("error: no such function for the place.") </output>
+                => ListItem("error: no such function for the place or function has wrong type.") </output>
          (<tomasulo>
             D:Bag
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
-         requires notBool P in keys(M)
+         requires notBool aLoc(P, T, heap) in keys(M)
 
     rule
         <k> call(_, calleeValue(funptr(FunName), Args:ElemList)) ~> Tail:K
@@ -305,10 +305,12 @@ module LLVM-CALL-RET
         ...</control>)
         (<tomasulo>
             D:Bag
+           <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
          </tomasulo>
          =>
          <tomasulo>...
            <instQueue> instList(.List) </instQueue>
+           <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
          ...</tomasulo>)
         <callStack> .List => ListItem(frame(Tail, C, D)) ...</callStack>
 

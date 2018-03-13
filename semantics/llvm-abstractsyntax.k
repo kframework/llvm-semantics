@@ -37,6 +37,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "none"
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
+    syntax KResult ::= flagType(K, K) //flags, type
     syntax Element ::= val(K) [strict]
     syntax ElementResult ::= valValue(K)
     syntax Element ::= ElementResult
@@ -172,8 +173,7 @@ module LLVM-ABSTRACTSYNTAX
     //syntax KItem ::= funCountLabel(Int, K)//position, ptr
     syntax ValueRef ::= Loc
     syntax KItem ::= dealWithUnnamed(List)
-    syntax KItem ::= resultGlobalMap(Map)
-    syntax KItem ::= noUnnamedResult(K)
+    syntax KItem ::= mapEntry(K, K) //key, value
     syntax KItem ::= vector(ElemList)           [strict]
     rule vector(E:KResult) => vectorValue(E)
 
@@ -240,15 +240,18 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= preInit(Set, K, K, K, K, Int, Int) [strict(4)]
                //modifiers, type, var, location, init, address space, align
     syntax KItem ::= postInit(Set, K, K, K, Int, Int) [strict(4)]
-               //modifiers, type, var, init, align  
-    syntax KItem ::= globalValue(Set, K, K, K)
+    syntax KItem ::= postInitAux(Set, List, K, K, K, Int, Int)
+    syntax KItem ::= postInitNext(Set, K, List, K, K, K, Int, Int)
+               //modifiers, list of equal content fileds, type, var, init, align  
+    syntax KItem ::= globalValue(Set, K, K)
                //modifiers, type, location, content value
     syntax KItem ::= modifiers(Set)
     syntax KItem ::= insMetas(ElemList)
     syntax KItem ::= inAlloca(K)
-    syntax KItem ::= alloca(K, K, Int, Bool) [strict(1,2)]
-                    // Type, NumElements, align, isConstant?
-    syntax KItem ::= globalAlloca(K, K, Int, Bool) // Type, NumElements, align, isConstant?
+    syntax KItem ::= alloca(K, K, Int,Int, Bool) [strict(1,2)]
+                    // Type, NumElements,addrspace,align, isConstant?
+    syntax KItem ::= globalAlloca(K, K, Int,Int, Bool)
+                           // Type, NumElements,addrspace,align, isConstant?
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
     syntax KResult ::= loadVal(K)//type
@@ -297,16 +300,16 @@ module LLVM-ABSTRACTSYNTAX
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
-    syntax KItem ::= writeAByte(K, K, K, Int, Int, Int)
-                   //type value, original value, base, offset, size
-    syntax KItem ::= readAByte(K, Int, Int, Int)
-                   //type, base, input offset, offset, size
+    syntax KItem ::= writeAByte(K, K, K, Int, Int, Int, Int)
+                   //type value, original value, base, offset, size, addrspace
+    syntax KItem ::= readAByte(K, Int, Int, Int, Int)
+                   //type, base, input offset, offset, size, addrspace
     syntax KItem ::= readPiece(Int, K)
            //store the byte when load an item
-    syntax KItem ::= atomicWrite(K, K, K, Int, Int, K)
-                      //type, value, original base, offset limit, ordering
-    syntax KItem ::= atomicRead(K, Int, Int, K)
-                      //type,base, offset limit, ordering
+    syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
+                      //type, value, original base, size, addrspace, ordering
+    syntax KItem ::= atomicRead(K, Int, Int, Int, K)
+                      //type,base, size, addspace ordering
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)
     syntax KResult ::= dynNoResult(K)
@@ -323,7 +326,7 @@ module LLVM-ABSTRACTSYNTAX
               //== base of first + size of first + align of second.
     //instructions
     syntax KItem ::= "guessExternal"
-    syntax KItem ::= staticStore(K, K, K, K, Int) [strict(1,2,3,4)]
+    syntax KItem ::= staticStore(K, K, K, K, Int) [strict(2)]
                         // Type, Value, deType, Destination, aligns
     syntax KItem ::= store(K, K, K, K, Int) [strict(1,2,3,4)]
                         // Type, Value, deType, Destination, align
@@ -400,12 +403,12 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= getElementPtr(K, K, ElemList) [strict(2,3)]// type, loc, indecies
                    | gepTypeBag(K)          [strict]
-                   | getElementPtrAux(K, K, Int, K, K, K, ElemList)
-                      //type, Range, base, blockAddr?, inrange?, stack/heap, indices
-                   | getElementPtrBound(K, K, Int, K, K, K, ElemList)
-                      //type, Range, base, blockAddr?, inrange?, stack/heap, indices
-                   | getElementPtrCal(K, K, Int, K, K, K, Int, ElemList)
-                      //type, Range, base, blockAddr?, inrange?, stack/heap, Index, indices
+                   | getElementPtrAux(K, K, Int, Int, K, K, K, ElemList)
+                      //type, Range, base, addrspace, blockAddr?, inrange?, stack/heap, indices
+                   | getElementPtrBound(K, K, Int, Int, K, K, K, ElemList)
+                      //type, Range, base, addrspace, blockAddr?, inrange?, stack/heap, indices
+                   | getElementPtrCal(K, K, Int, Int, K, K, K, Int, ElemList)
+                      //type, Range, base, addrspace, blockAddr?, inrange?, stack/heap, Index, indices
                    | "badRange"
 
     syntax KItem ::= extractElement(K, K) [strict]
@@ -418,7 +421,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insertValue(K, K, ElemList) [strict]
 
     syntax KItem ::= aliases(ElemList)
-    syntax KItem ::= alias(Set, K, K) //modifiers, Name, Aliasee
+    syntax KItem ::= alias(Set, K, K) [strict(3)]//modifiers, Name, Aliasee
     syntax KItem ::= theModule(K, K, K, K, K, K, K, K)
                     //Id, TargetLayout, TargetTriple, MetaVars,Typedefs,GlobalVars,Aliases,Functions 
     syntax KItem ::= basicBlock(K, K) // Name, Instructions

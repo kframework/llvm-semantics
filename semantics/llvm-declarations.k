@@ -22,7 +22,7 @@ module LLVM-DECLARATIONS
 
     // TODO: semantic design pattern: assignment rule
     rule
-        <k> alias(Mod:K, X:SymbolicValueRef, K:K) => . ...</k>
+        <k> alias(Mod:K, X:SymbolicValueRef, K:KResult) => . ...</k>
         <globalRegisters> Map:Map => Map[X <- K] </globalRegisters>
 
     // TODO KListToK module sections
@@ -66,10 +66,12 @@ module LLVM-DECLARATIONS
             => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
          <currentProgPoint> ProgCount:Int => 0 </currentProgPoint>
-        <cbd> CM:Map => CM[FunCount <- value(
+        <cbd> CM:Map => CM[aLoc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                                 getArgTypes(Arguments)), defaultAddrSpace),heap) <- value(
                    functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
         <globalRegisters> M:Map => M[Label <-
-                loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
+                loc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                              getArgTypes(Arguments)), defaultAddrSpace),
                          value(FunCount, FunCount),heap, none, none)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
         <nextBase> FunCount:Int => FunCount +Int
@@ -89,10 +91,12 @@ module LLVM-DECLARATIONS
     rule
         <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult)
             => .K ...</k>
-        <cbd> CM:Map => CM[FunCount <- value(
+        <cbd> CM:Map => CM[aLoc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                                 getArgTypes(Arguments)), defaultAddrSpace),heap) <- value(
                    functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
         <globalRegisters> M:Map => M[Label <-
-             loc(FunCount, functionTypeValue(RetType, getArgTypes(Arguments)),
+             loc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                  getArgTypes(Arguments)), defaultAddrSpace),
                         value(FunCount, FunCount),heap, none,none)] </globalRegisters>
         <nextBase> FunCount:Int => FunCount +Int numBytesFunHeader </nextBase>
         <currModule> ModName:SymbolicValueRef </currModule>

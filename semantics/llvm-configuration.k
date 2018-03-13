@@ -84,6 +84,7 @@ module LLVM-CONFIGURATION
                      <stackChunck> .List </stackChunck>
                      <stackSize> -1 </stackSize>
                      <stackAlign> 0 </stackAlign>
+                     <stackAddrSpace> 0 </stackAddrSpace>
                      <stackRange> .K </stackRange>
                    </stackObject>
             </stackObjects>
@@ -94,6 +95,7 @@ module LLVM-CONFIGURATION
                   <size> -1 </size>
                   <align> 0 </align>
                   <range> .K </range>
+                  <addrSpace> 0 </addrSpace>
                   <complete> .Map </complete>
                     //use for non atomic loads/stores to count bytes they read/write
                   <race> .Set </race> //use to store the inst nums when a non-atomic load/store

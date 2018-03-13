@@ -30,6 +30,9 @@ module LLVM-SETTINGS
     syntax Int ::= "nullMemoryLoc" [function]
     rule nullMemoryLoc => 0
 
+    syntax Int ::= "defaultAddrSpace" [function]
+    rule defaultAddrSpace => 0
+
     syntax Int ::= "maxStackSize"  [function]
     rule maxStackSize => 2 *Int (10 ^Int 7)
 

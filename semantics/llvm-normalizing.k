@@ -636,7 +636,7 @@ module LLVM-NORMALIZING
          <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, assign(X, instruction(
-                  alloca(T,preAlloca(integerType(I:Int), V), Align, false),
+                  alloca(T,preAlloca(integerType(I:Int), V), Ad, Align, false),
                        Mods, insMetas(formElemList(Meta)))), allocaInst)) </tempBlockMap>
          requires isValidAlign(Align)
 
@@ -1053,7 +1053,8 @@ module LLVM-NORMALIZING
          <functionName> FunName </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(conditional(operand(integerType(1),A), L1, L2),.Set,
+             instNumInfo(TheCount, noAssign(instruction(
+                 conditional(operand(integerType(1),A), L1, L2),.Set,
                              insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
          requires (isLocalVariable(L1)) andBool (isLocalVariable(L2))
 
@@ -1693,9 +1694,11 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: invalid use of function-local name.") </output>
 
     rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) => T ...</k>
-         <globalRegisters>... name(globalVar, X:K) |-> value(T:K, V:K) ...</globalRegisters>
+         <globalTypes>... name(globalVar, X:K) |->
+                           flagType(L:Set, T) ...</globalTypes>
     rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) ~> K:K => .K </k>
-         <globalRegisters>... name(globalVar, X:K) |-> value(T':K, V:K) ...</globalRegisters>
+         <globalTypes>... name(globalVar, X:K) |->
+                           flagType(L:Set, T':K) ...</globalTypes>
          <output>... .List => ListItem("error: const expression type failed.") </output>
          requires T =/=K T'
     rule typeCheckConstExpr(T:KResult, undef) => T

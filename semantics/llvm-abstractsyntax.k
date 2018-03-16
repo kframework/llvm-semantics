@@ -199,11 +199,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax ElemList ::= "vararg"
 
     //LLVM builtin values
-    syntax KResult ::= "NaN"
-    syntax KResult ::= "PositiveZero"
-    syntax KResult ::= "NegativeZero"
-    syntax KResult ::= "PositiveInfinity"
-    syntax KResult ::= "NegativeInfinity"
+    syntax KResult ::= "nan"
+    syntax KResult ::= "posZero"
+    syntax KResult ::= "negZero"
+    syntax KResult ::= "posInf"
+    syntax KResult ::= "negInf"
     syntax KResult ::= Zeroinitializer
     syntax KResult ::= blockValue(K)
 

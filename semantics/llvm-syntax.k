@@ -39,7 +39,7 @@ module LLVM-SYNTAX
     syntax Floating ::= Token{"NaN"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
                           [onlyLabel]
                 // [regex("NaN([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
-    syntax Floating ::= "NaN" | "Infinity"
+    //syntax Floating ::= "NaN" | "Infinity"
     syntax FpVal ::= HexConstant | Floating
     syntax StringName ::= Token{[\"] (~[\"])* [\"]} [onlyLabel]
     //syntax StringName ::= String

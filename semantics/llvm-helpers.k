@@ -187,6 +187,12 @@ module LLVM-HELPERS
          requires lengthString(A) ==Int 1
     rule isHexDigit(A:String) => false [owise]
 
+    syntax Bool ::= isDecDigit(String)  [function]
+    rule isDecDigit(A:String) => ((ordChar(A) >=Int ordChar("0"))
+           andBool (ordChar(A) <=Int ordChar("9")))
+         requires lengthString(A) ==Int 1
+    rule isDecDigit(A:String) => false [owise]
+
     syntax Bool ::= isIntString(String) [function]
                   | isAInt(K)           [function]
     rule isIntString(A) => false
@@ -2613,6 +2619,13 @@ module LLVM-HELPERS
                  => decToBin(I /Int 2, N -Int 1) ListItem(I %Int 2)
          requires I >Int 0 andBool N >Int 0
 
+    syntax List ::= decToBinNoLimit(K)  [function]
+    rule decToBinNoLimit(I:Int) => .List 
+         requires I ==Int 0
+    rule decToBinNoLimit(I:Int)
+                 => decToBinNoLimit(I /Int 2) ListItem(I %Int 2)
+         requires I >Int 0
+
     syntax Bool ::= hasBadValue(List) [function]
     rule hasBadValue(.List) => false
     rule hasBadValue(ListItem(A:Int) L:List) => hasBadValue(L)
@@ -2636,6 +2649,13 @@ module LLVM-HELPERS
     rule binToDecAux(.List, N:Int) => 0
     rule binToDecAux(L:List ListItem(A:Int), N:Int)
             => A *Int (2 ^Int N) +Int binToDecAux(L, N +Int 1)
+
+    syntax Int ::= binToDecNoLimit(List)  [function]
+                 | binToDecNoLimitAux(List, Int) [function]
+    rule binToDecNoLimit(L:List) => binToDecNoLimitAux(L, 0)
+    rule binToDecNoLimitAux(.List, I:Int) => 0
+    rule binToDecNoLimitAux(L:List ListItem(A:Int) , N:Int)
+            => A *Int (2 ^Int N) +Int binToDecNoLimitAux(L, N +Int 1)
 
     syntax List ::= copyOfK(K, Int) [function]
     rule copyOfK(A:K, N:Int) => .List
@@ -3555,4 +3575,419 @@ module LLVM-HELPERS
     rule parseStringToList(X:StringName) => 
               parseCharListToOperands(charListFilter(stringToCharList(
               substrString(#tokenToString(X), 1, lengthString(#tokenToString(X)) -Int 1),0)))
+
+    //floating piont functions
+    syntax Int ::= exponentOf(K) [function]
+    rule exponentOf(half) => 5
+    rule exponentOf(float) => 8
+    rule exponentOf(double) => 11
+    rule exponentOf(ppc_fp128) => 11
+    rule exponentOf(fp128) => 15
+    rule exponentOf(x86_fp80) => 15
+
+    syntax Int ::= mantissaOf(K) [function]
+    rule mantissaOf(half) => 10
+    rule mantissaOf(float) => 23
+    rule mantissaOf(double) => 52
+    rule mantissaOf(ppc_fp128) => 106
+    rule mantissaOf(fp128) => 112
+    rule mantissaOf(x86_fp80) => 64
+
+    syntax Int ::= exponentSub(K) [function]
+    rule exponentSub(A:K) => 2 ^Int (exponentOf(A) -Int 1) -Int 1
+
+    syntax Int ::= lowBoundExp(K) [function]
+    rule lowBoundExp(A:K) => 1 -Int exponentSub(A)
+
+    syntax Int ::= upperBoundExp(K) [function]
+    rule upperBoundExp(A:K) => (2 ^Int exponentOf(A))
+                                       -Int 2 -Int exponentSub(A)
+
+    syntax Bool ::= hasOne(List) [function]
+    rule hasOne(.List) => false
+    rule hasOne(ListItem(0) L:List) => hasOne(L)
+    rule hasOne(ListItem(1) L:List) => true [owise]
+
+    syntax Int ::= countLastOne(List, Int) [function]
+    rule countLastOne(.List, N:Int) => N
+    rule countLastOne(L:List ListItem(0), N)
+                        => countLastOne(L, N +Int 1)
+    rule countLastOne(L:List ListItem(1), N) => N
+
+    syntax Int ::= bitsOfSig(K, List) [function] //type, bits
+    rule bitsOfSig(T:K, List) => mantissaOf(T) -Int countLastOne(List, 0)
+
+    syntax List ::= getLeftCountResult(K) [function]
+    rule getLeftCountResult(countByteResult(L:List, A:List)) => L
+
+    //dealing with input like 1.0 or x.yeq
+
+    //put a list of digits to an integer.
+    syntax Int ::= digitsToInt(List, Int) [function]
+    rule digitsToInt(.List, N:Int) => 0
+    rule digitsToInt(L:List ListItem(A:Int), N:Int)
+              => (10 ^Int N) *Int A
+                      +Int digitsToInt(L, N +Int 1)
+
+    syntax KItem ::= floatToMid(Floating) [function]
+                   | floatToMidAux(Int, List, String) [function]
+                   | floatToMidAuxA(Int, List, List, String) [function]
+                   | floatToMidAuxB(Int, List, List, Int, List, String) [function]
+    rule floatToMid(F:Floating) => floatToMidAux(0, .List, substrString(
+                #tokenToString(F), 0, lengthString(#tokenToString(F))))
+        requires lengthString(#tokenToString(F)) >Int 0
+            andBool isDecDigit(substrString(#tokenToString(F), 0, 1))
+    rule floatToMid(F:Floating) => floatToMidAux(0,.List, substrString(
+                #tokenToString(F), 1, lengthString(#tokenToString(F))))
+        requires lengthString(#tokenToString(F)) >Int 0
+            andBool substrString(#tokenToString(F), 0, 1) ==K "+"
+    rule floatToMid(F:Floating) => floatToMidAux(1,.List, substrString(
+                #tokenToString(F), 1, lengthString(#tokenToString(F))))
+        requires lengthString(#tokenToString(F)) >Int 0
+            andBool substrString(#tokenToString(F), 0, 1) ==K "-"
+    rule floatToMid(F:Floating) => badValue [owise]
+
+    rule floatToMidAux(S:Int, L:List, A:String)
+             => floatToMidAux(S, L ListItem(hexCharToInt(ordChar(substrString(A,0,1)))),
+                  substrString(A, 1, lengthString(A)))
+         requires lengthString(A) >Int 0
+              andBool isDecDigit(substrString(A,0,1))
+    rule floatToMidAux(S:Int, L:List, A:String)
+             => floatToMidAuxA(S, L, .List, substrString(A, 1, lengthString(A)))
+         requires lengthString(A) >Int 0 andBool substrString(A,0,1) ==K "."
+    rule floatToMidAux(S:Int, L:List, A:String) => badValue [owise]
+
+    rule floatToMidAuxA(S:Int, L:List, R:List, A:String) => preFloat(S, L, R, 0)
+          requires lengthString(A) ==Int 0 andBool size(R) =/=Int 0
+    rule floatToMidAuxA(S:Int, L:List, .List, A:String)
+             => preFloat(S, L, ListItem(0), 0)
+          requires lengthString(A) ==Int 0
+    rule floatToMidAuxA(S:Int, L:List, R:List, A:String)
+                => floatToMidAuxA(S, L, R ListItem(hexCharToInt(
+               ordChar(substrString(A,0,1)))), substrString(A, 1, lengthString(A)))
+          requires lengthString(A) >Int 0
+               andBool isDecDigit(substrString(A,0,1))
+
+    rule floatToMidAuxA(S:Int, L:List, R:List, A:String)
+                => floatToMidAuxB(S, L, R,  0, .List,
+                             substrString(A, 2, lengthString(A)))
+          requires lengthString(A) >Int 1
+               andBool (substrString(A,0,1) ==K "e" orBool substrString(A,0,1) ==K "E")
+               andBool substrString(A, 1, 2) ==K "+"
+               andBool size(R) =/=Int 0
+    rule floatToMidAuxA(S:Int, L:List, .List, A:String)
+                => floatToMidAuxB(S, L, ListItem(0),  0, .List,
+                             substrString(A, 2, lengthString(A)))
+          requires lengthString(A) >Int 1
+               andBool (substrString(A,0,1) ==K "e" orBool substrString(A,0,1) ==K "E")
+               andBool substrString(A, 1, 2) ==K "+"
+
+    rule floatToMidAuxA(S:Int, L:List, R:List, A:String)
+                => floatToMidAuxB(S, L, R,  0, .List,
+                             substrString(A, 1, lengthString(A)))
+          requires lengthString(A) >Int 1
+               andBool (substrString(A,0,1) ==K "e" orBool substrString(A,0,1) ==K "E")
+               andBool isDecDigit(substrString(A, 1, 2))
+               andBool size(R) =/=Int 0
+    rule floatToMidAuxA(S:Int, L:List, .List, A:String)
+                => floatToMidAuxB(S, L, ListItem(0),  0, .List,
+                             substrString(A, 1, lengthString(A)))
+          requires lengthString(A) >Int 1
+               andBool (substrString(A,0,1) ==K "e" orBool substrString(A,0,1) ==K "E")
+               andBool isDecDigit(substrString(A, 1, 2))
+    rule floatToMidAuxA(S:Int, L:List, R:List, A:String)
+                => floatToMidAuxB(S, L, R,  1, .List,
+                             substrString(A, 2, lengthString(A)))
+          requires lengthString(A) >Int 1
+               andBool (substrString(A,0,1) ==K "e" orBool substrString(A,0,1) ==K "E")
+               andBool substrString(A, 1, 2) ==K "-"
+               andBool size(R) =/=Int 0
+    rule floatToMidAuxA(S:Int, L:List, .List, A:String)
+                => floatToMidAuxB(S, L, ListItem(0), 1, .List,
+                             substrString(A, 2, lengthString(A)))
+          requires lengthString(A) >Int 1
+               andBool (substrString(A,0,1) ==K "e" orBool substrString(A,0,1) ==K "E")
+               andBool substrString(A, 1, 2) ==K "-"
+    rule floatToMidAuxA(S:Int, L:List, L':List, A:String) => badValue [owise]
+
+    rule floatToMidAuxB(S:Int, L:List, R:List, 0, Ex:List, A:String)
+           => preFloat(S, L, R, digitsToInt(Ex, 0))
+         requires lengthString(A) ==Int 0
+    rule floatToMidAuxB(S:Int, L:List, R:List, 1, Ex:List, A:String)
+           => preFloat(S, L, R, 0 -Int digitsToInt(Ex, 0))
+         requires lengthString(A) ==Int 0
+    rule floatToMidAuxB(S:Int, L:List, R:List, X:Int, Ex:List, A:String)
+           => floatToMidAuxB(S, L, R, X, Ex ListItem(
+                  hexCharToInt(ordChar(substrString(A,0,1)))),
+                 substrString(A, 1, lengthString(A)))
+         requires lengthString(A) >Int 0 andBool isDecDigit(substrString(A, 0, 1))
+
+    //move dot around on the float
+    syntax List ::= frontCount(List, List, Int) [function]
+    rule frontCount(L:List, Now:List, 0) => countByteResult(L, Now)
+    rule frontCount(L:List, .List, N:Int)
+            => frontCount(L ListItem(0),.List, N -Int 1)
+         requires N >Int 0
+    rule frontCount(L:List, ListItem(A:Int) Now:List, N:Int)
+            => frontCount(L ListItem(A), Now, N -Int 1)
+         requires N >Int 0
+
+    syntax List ::= backCount(List, List, Int) [function]
+    rule backCount(L:List, Now:List, 0) => countByteResult(L, Now)
+    rule backCount(.List, L:List, N:Int)
+            => backCount(.List, ListItem(0) L, N -Int 1)
+         requires N >Int 0
+    rule backCount(L:List ListItem(A:Int), Now:List, N:Int)
+            => backCount(L, ListItem(A) Now, N -Int 1)
+         requires N >Int 0
+
+    syntax KItem ::= deleteExpInFloat(K) [function]
+                   | deleteExpInFloatAuxA(Int, List, K) [function]
+                   | deleteExpInFloatAuxB(Int, K, List) [function]
+    rule deleteExpInFloat(preFloat(I:Int, L:List, L':List, N:Int))
+          => deleteExpInFloatAuxA(I, L, frontCount(.List, L', N))
+         requires N >=Int 0
+    rule deleteExpInFloat(preFloat(I:Int, L:List, L':List, N:Int))
+          => deleteExpInFloatAuxB(I, backCount(L, .List, 0 -Int N), L')
+         requires N <Int 0
+
+    rule deleteExpInFloatAuxA(I:Int, L:List,
+             countByteResult(Left:List, Right:List)) => secFloat(I, L Left, Right)
+    rule deleteExpInFloatAuxB(I:Int, countByteResult(Left:List, Right:List),
+            L:List) => secFloat(I, Left, Right L)
+
+    syntax List ::= deleteFrontZero(List) [function]
+    rule deleteFrontZero(.List) => ListItem(0)
+    rule deleteFrontZero(ListItem(0) L:List)
+            => deleteFrontZero(L)
+    rule deleteFrontZero(ListItem(A:Int) L:List) => ListItem(A) L
+         requires A =/=Int 0
+
+    syntax List ::= deleteBackZero(List) [function]
+    rule deleteBackZero(.List) => ListItem(0)
+    rule deleteBackZero(L:List ListItem(0))
+            => deleteBackZero(L)
+    rule deleteBackZero(L:List ListItem(A:Int)) => L ListItem(A) 
+         requires A =/=Int 0
+
+    syntax KItem ::= mulTwoToDigits(List, List, Int) [function]
+                    //to list, finish list, reminder
+    rule mulTwoToDigits(.List, L:List, I:Int) => holdDigits(I, L)
+
+    rule mulTwoToDigits(R:List ListItem(A:Int), L:List, I:Int)
+          => mulTwoToDigits(R, ListItem(A *Int 2 +Int I) L, 0)
+         requires A *Int 2 +Int I <Int 10
+    rule mulTwoToDigits(R:List ListItem(A:Int), L:List, I:Int)
+          => mulTwoToDigits(R, ListItem(A *Int 2 +Int I -Int 10) L, 1)
+         requires A *Int 2 +Int I >=Int 10
+
+    syntax Bool ::= isZeroDigit(List) [function]
+    rule isZeroDigit(ListItem(0)) => true
+    rule isZeroDigit(L:List) => false [owise]
+
+    syntax KItem ::= rightToBin(List, Int, Int, List)  [function]
+                      //digits, current bin num, max bin num, bins
+                   | rightToBinAux(K, Int, Int, List)  [function]
+    rule rightToBin(ListItem(0), A:Int, N:Int, L:List)
+             => holdDigits(A, L)
+         requires size(L) =/=Int 0
+    rule rightToBin(ListItem(0), A:Int, N:Int, .List)
+             => holdDigits(0, ListItem(0))
+    rule rightToBin(L:List, A:Int, N:Int, Re:List)
+          => rightToBinAux(mulTwoToDigits(L, .List, 0), A +Int 1, N, Re)
+         requires (notBool isZeroDigit(L)) andBool A <=Int N
+    rule rightToBin(L:List, A:Int, N:Int, Re:List) => badValue
+         requires (notBool isZeroDigit(L)) andBool A >Int N
+    rule rightToBinAux(holdDigits(X:Int, L:List), A:Int, N:Int, Re:List)
+              => rightToBin(deleteBackZero(L), A, N, Re ListItem(X))
+
+    syntax Int ::= sizeOfDigits(List) [function]
+    rule sizeOfDigits(.List) => 0
+    rule sizeOfDigits(ListItem(0)) => 0
+    rule sizeOfDigits(L:List) => size(L) [owise]
+
+    syntax KItem ::= moveFloatLeft(List, Int) [function]
+    rule moveFloatLeft(ListItem(1) R:List, I:Int)
+          => holdDigits(I -Int 1, R)
+    rule moveFloatLeft(ListItem(0) R:List, I:Int)
+          => moveFloatLeft(R, I -Int 1)
+    rule moveFloatLeft(.List, I:Int) => badValue
+
+    syntax List ::= extendZero(List, Int, Int) [function]
+    rule extendZero(L:List, N:Int, N:Int) => L
+    rule extendZero(L:List, I:Int, N:Int)
+        => extendZero(L ListItem(0), I +Int 1, N)
+        requires I <Int N
+
+    syntax KItem ::= toFormalFloat(K, K) [function] //type, v
+                   | toFormalFloatAux(K, K) [function]//type,v
+                   | toFormalFloatAuxA(K, Int, List, K) [function]
+                   | toFormalFloatAuxB(K, Int, K) [function]
+
+    rule toFormalFloat(T:K, secFloat(I:Int, Left:List, R:List))
+          => toFormalFloatAux(T, secFloat(I, decToBinNoLimit(digitsToInt(
+                       deleteFrontZero(Left), 0)), deleteBackZero(R)))
+    rule toFormalFloatAux(T:K, secFloat(I:Int, Left:List, R:List))
+             => toFormalFloatAuxA(T, I, deleteFrontZero(Left),
+               rightToBin(R, 0, mantissaOf(T) -Int sizeOfDigits(Left), .List))
+    rule toFormalFloatAuxA(T:K, I:Int, L:List, badValue) => badValue
+    rule toFormalFloatAuxA(T:K, 0, ListItem(0), holdDigits(0, Re:List)) => posZero
+    rule toFormalFloatAuxA(T:K, 1, ListItem(0), holdDigits(0, Re:List)) => negZero
+    rule toFormalFloatAuxA(T:K, S:Int, ListItem(0), holdDigits(A:Int, Re:List))
+              => toFormalFloatAuxB(T, S, moveFloatLeft(Re, 0))
+         requires A >Int 0
+    rule toFormalFloatAuxA(T:K, S:Int, ListItem(1) L:List, holdDigits(A:Int, Re:List))
+              => float(S, size(L), extendZero(
+                         deleteBackZero(L Re), size(deleteBackZero(L Re)), mantissaOf(T)))
+         requires size(L) <=Int upperBoundExp(T)
+    rule toFormalFloatAuxA(T:K, S:Int, L:List, B:K) => badValue [owise]
+    rule toFormalFloatAuxB(T:K, S:Int, holdDigits(I:Int, R:List))
+                 => float(S, I, extendZero(deleteBackZero(R),
+                              size(deleteBackZero(R)), mantissaOf(T)))
+         requires I >=Int lowBoundExp(T)
+    rule toFormalFloatAuxB(T:K, S:Int, B:K) => badValue [owise]
+
+    //dealing with input of hex
+    syntax List ::= countFromLeft(List, List, Int) [function]
+    rule countFromLeft(L:List, L':List, 0) => countByteResult(L, L')
+    rule countFromLeft(L:List, .List, N:Int) => ListItem(badValue)
+         requires N >Int 0
+    rule countFromLeft(L:List, ListItem(A:K) L':List, N:Int)
+               => countFromLeft(L ListItem(A), L', N -Int 1)
+         requires N >Int 0
+
+    syntax KItem ::= toSmallFloat(K, K, K) [function]//or_ty, v, new_ty
+    rule toSmallFloat(OT:K, float(S:Int, E:Int, L:List), T:K)
+            => binToFloatSpecAux(T, float(S:Int, E:Int, L:List))
+            requires E ==Int lowBoundExp(T) -Int 1
+                       andBool notBool hasOne(L)
+    rule toSmallFloat(OT:K, float(S:Int, E:Int, L:List), T:K)
+              => float(S, E, getLeftCountResult(
+                             countFromLeft(.List, L, mantissaOf(T))))
+         requires E >=Int lowBoundExp(T) andBool E <=Int upperBoundExp(T)
+            andBool bitsOfSig(OT, L) <=Int mantissaOf(T)
+    rule toSmallFloat(OT:K, float(S:Int, E:Int, L:List), T:K)
+              => badValue
+         requires (E <Int lowBoundExp(T) orBool E >Int upperBoundExp(T))
+            orBool bitsOfSig(OT, L) >Int mantissaOf(T)
+    rule toSmallFloat(OT:K, A:K, T:K) => A [owise]
+
+    syntax List ::= digitToBin(Int) [function]
+    rule digitToBin(I:Int) => decToBin(hexCharToInt(I), 4)
+         requires hexCharToInt(I) =/=K badValue
+    rule digitToBin(I:Int) => ListItem(badValue) [owise]
+
+    syntax List ::= digitsToBin(String) [function]
+    rule digitsToBin(S:String) => .List
+         requires lengthString(S) ==Int 0
+    rule digitsToBin(S:String) => digitToBin(ordChar(substrString(S, 0, 1)))
+                        digitsToBin(substrString(S, 1, lengthString(S)))
+         requires lengthString(S) >Int 0
+
+    syntax List ::= hexToBin(K, K) [function] //Type, v
+    rule hexToBin(T:K, A:K) => digitsToBin(substrString(#tokenToString(A),
+                                2, lengthString(#tokenToString(A))))
+         requires lengthString(#tokenToString(A)) ==Int 18
+               andBool substrString(#tokenToString(A), 0, 2) ==K "0x"
+                andBool (T ==K float orBool T ==K double orBool T ==K half)
+    rule hexToBin(x86_fp80, A:K) => digitsToBin(substrString(#tokenToString(A),
+                                3, lengthString(#tokenToString(A))))
+         requires lengthString(#tokenToString(A)) ==Int 23
+               andBool substrString(#tokenToString(A), 0, 3) ==K "0xK"
+    rule hexToBin(ppc_fp128, A:K) => digitsToBin(substrString(#tokenToString(A),
+                                3, lengthString(#tokenToString(A))))
+         requires lengthString(#tokenToString(A)) ==Int 35
+               andBool substrString(#tokenToString(A), 0, 3) ==K "0xM"
+    rule hexToBin(fp128, A:K) => digitsToBin(substrString(#tokenToString(A),
+                                3, lengthString(#tokenToString(A))))
+         requires lengthString(#tokenToString(A)) ==Int 35
+               andBool substrString(#tokenToString(A), 0, 3) ==K "0xL"
+    rule hexToBin(half, A:K) => digitsToBin(substrString(#tokenToString(A),
+                                3, lengthString(#tokenToString(A))))
+         requires lengthString(#tokenToString(A)) ==Int 7
+               andBool substrString(#tokenToString(A), 0, 3) ==K "0xH"
+    rule hexToBin(T:K, A:K) => ListItem(badValue) [owise]
+
+    syntax KItem ::= binToFloatSpecAux(K, K) [function]
+    rule binToFloatSpecAux(T:K, float(S:Int, E:Int, M:List)) => posZero
+         requires lowBoundExp(T) -Int 1 ==Int E andBool notBool hasOne(M)
+                      andBool S ==Int 0
+    rule binToFloatSpecAux(T:K, float(S:Int, E:Int, M:List)) => negZero
+         requires lowBoundExp(T) -Int 1 ==Int E andBool notBool hasOne(M)
+                      andBool S ==Int 1
+    rule binToFloatSpecAux(T:K, float(S:Int, E:Int, M:List)) => nan
+         requires exponentSub(T) +Int 1 ==Int E andBool hasOne(M)
+    rule binToFloatSpecAux(T:K, float(S:Int, E:Int, M:List)) => posInf
+         requires exponentSub(T) +Int 1 ==Int E
+                 andBool S ==Int 0 andBool notBool hasOne(M)
+    rule binToFloatSpecAux(T:K, float(S:Int, E:Int, M:List)) => negInf
+         requires exponentSub(T) +Int 1 ==Int E
+                 andBool S ==Int 1 andBool notBool hasOne(M)
+    rule binToFloatSpecAux(T:K, A:K) => A [owise]
+
+    //if the list has no badValue
+    syntax KItem ::= binToFloat(K, List) [function]
+                   | binToFloatAux(K, Int, K) [function]
+                        //type, sign, exponent/mantissa
+                   | binToFloatCovert(K, Int, K) [function]
+                        //type, sign, exponent/mantissa
+                   | binToFloatPPC(Int, K) [function]
+                   | binToFloatPPCAuxA(Int, Int, K)  [function]
+                   | binToFloatPPCAuxB(Int, Int, List, K) [function]
+    rule binToFloat(half, ListItem(A:Int) L:List)
+           => binToFloatAux(half, A, countFromLeft(.List, L, exponentOf(half)))
+         requires size(ListItem(A:Int) L:List) ==Int 16
+             andBool notBool hasBadValue(L)
+    rule binToFloat(half, ListItem(A:Int) L:List)
+           => binToFloatCovert(half, A, countFromLeft(.List, L, exponentOf(double)))
+         requires size(ListItem(A:Int) L:List) ==Int 64
+                andBool notBool hasBadValue(L)
+    rule binToFloat(float, ListItem(A:Int) L:List)
+           => binToFloatCovert(float, A, countFromLeft(.List, L, exponentOf(double)))
+         requires notBool hasBadValue(L)
+    rule binToFloat(double, ListItem(A:Int) L:List)
+           => binToFloatAux(double, A, countFromLeft(.List, L, exponentOf(double)))
+         requires notBool hasBadValue(L)
+    rule binToFloat(x86_fp80, ListItem(A:Int) L:List)
+           => binToFloatAux(x86_fp80, A, countFromLeft(.List, L, exponentOf(x86_fp80)))
+         requires notBool hasBadValue(L)
+    rule binToFloat(fp128, ListItem(A:Int) L:List)
+           => binToFloatAux(fp128, A, countFromLeft(.List, L, exponentOf(fp128)))
+         requires notBool hasBadValue(L)
+    rule binToFloat(ppc_fp128, ListItem(A:Int) L:List)
+           => binToFloatPPC(A, countFromLeft(.List, L, exponentOf(ppc_fp128)))
+         requires notBool hasBadValue(L)
+    rule binToFloat(A:K, L:List) => badValue [owise]
+    
+    rule binToFloatPPC(A:Int, countByteResult(L:List, L':List))
+            => binToFloatPPCAuxA(A, binToDecNoLimit(L) -Int exponentSub(ppc_fp128),
+                              countFromLeft(.List, L', mantissaOf(ppc_fp128) /Int 2))
+    rule binToFloatPPCAuxA(A:Int, E:Int, countByteResult(L:List, L':List))
+          => binToFloatPPCAuxB(A, E, L, countFromLeft(.List, L, 12))
+    rule binToFloatPPCAuxB(A:Int, E:Int, L:List,
+                       countByteResult(Not:List, L':List))
+          => binToFloatSpecAux(ppc_fp128, float(A, E, L L'))
+    rule binToFloatAux(T:K, A:Int, countByteResult(L:List, L':List))
+             => binToFloatSpecAux(T, float(A, 
+                        binToDecNoLimit(L) -Int exponentSub(T), L'))
+
+    rule binToFloatCovert(T:K, A:Int,
+            countByteResult(L:List, L':List)) => posZero
+         requires lowBoundExp(double) -Int 1 ==Int
+                    binToDecNoLimit(L) -Int exponentSub(double)
+                    andBool notBool hasOne(L')
+                      andBool A ==Int 0
+    rule binToFloatCovert(T:K, A:Int,
+              countByteResult(L:List, L':List)) => negZero
+         requires lowBoundExp(double) -Int 1 ==Int
+                    binToDecNoLimit(L) -Int exponentSub(double)
+                    andBool notBool hasOne(L')
+                      andBool A ==Int 1
+    rule binToFloatCovert(T:K, A:Int, countByteResult(L:List, L':List))
+            => toSmallFloat(double, float(A, binToDecNoLimit(L)
+                   -Int exponentSub(double), L'), T)
+         requires lowBoundExp(double) -Int 1 =/=Int
+                     binToDecNoLimit(L) -Int exponentSub(double)
+                   orBool notBool hasOne(L')
+
 endmodule

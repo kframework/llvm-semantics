@@ -4,7 +4,7 @@ requires "llvm-syntax.k"
 module LLVM-ABSTRACTSYNTAX
     imports LLVM-SYNTAX
 
-    syntax KResult ::= Int | String | Floating
+    syntax KResult ::= Int | String //| Floating
                       | Loc
                       //| listK(List)    [latex({#1})]//bytes
                       | region(List, Int)  //nextlevel, number of nextlevel
@@ -226,7 +226,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
     syntax KItem ::= funBegin(K)// use to initialize the initial block name.
 
-    //syntax KItem ::= float(String)
+    syntax KResult ::= float(Int, Int, List)
+    syntax KItem ::= preFloat(Int, List, List, Int)
+                   | secFloat(Int, List, List)
+    syntax KItem ::= holdDigits(Int, List)
+
     syntax KItem ::= constantString(String)
     syntax KItem ::= array(ElemList) [strict] // element type, arguments
     rule array(Es:KResult) => arrayValue(Es) [structural]

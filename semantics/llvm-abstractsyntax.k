@@ -199,11 +199,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax ElemList ::= "vararg"
 
     //LLVM builtin values
-    syntax KResult ::= "nan"
-    syntax KResult ::= "posZero"
-    syntax KResult ::= "negZero"
-    syntax KResult ::= "posInf"
-    syntax KResult ::= "negInf"
+    syntax FpValResult ::= "nan"
+    syntax FpValResult ::= "posZero"
+    syntax FpValResult ::= "negZero"
+    syntax FpValResult ::= "posInf"
+    syntax FpValResult ::= "negInf"
     syntax KResult ::= Zeroinitializer
     syntax KResult ::= blockValue(K)
 
@@ -226,7 +226,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= metaVar(MetadataVar, MetadataInts) //Name, MetaList
     syntax KItem ::= funBegin(K)// use to initialize the initial block name.
 
-    syntax KResult ::= float(Int, Int, List)
+    syntax FpValResult ::= float(Int, Int, List)
+    syntax FpVal ::= FpValResult
+    syntax KResult ::= FpValResult
     syntax KItem ::= preFloat(Int, List, List, Int)
                    | secFloat(Int, List, List)
     syntax KItem ::= holdDigits(Int, List)
@@ -542,11 +544,11 @@ module LLVM-ABSTRACTSYNTAX
 
     //@ Floating-point Binary Operations
     //strict on all the arguments for theFSub, theFMul, theFDiv, the FRem
-    syntax KItem ::= theFAdd(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theFSub(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theFMul(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theFDiv(K, K, K) [strict] // Type, Left op, Right op
-    syntax KItem ::= theFRem(K, K, K) [strict] // Type, Left op, Right op
+    syntax KItem ::= theFAdd(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFSub(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFMul(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFDiv(K, K, K) [strict(2,3)] // Type, Left op, Right op
+    syntax KItem ::= theFRem(K, K, K) [strict(2,3)] // Type, Left op, Right op
 
     //@ Bitwise Binary Operations
     // strict on all the arguments for theShl, theLShr,theAShr, theOr, theXor

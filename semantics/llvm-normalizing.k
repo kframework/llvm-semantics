@@ -50,6 +50,8 @@ module LLVM-NORMALIZING
     syntax KItem ::= typeCheckOp(K, K, K) //block name, var name, op
                    | typeCheckIntOp(K, K, K, K, K, K, Set, InstructionMetadatas)    
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
+                   | typeCheckFloatOp(K, K, K, K, K, K, Set, InstructionMetadatas)    
+                                 [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
                    | typeCheckArgList(K, ElemList)        [strict(2)]
@@ -57,6 +59,7 @@ module LLVM-NORMALIZING
                    | typeCheckMMXExpr(K, K) // t, arg
                    | typeCheckSingleArg(K, K, K) //block t, arg
                    | typeCheckIntArgs(K, K, ElemList)
+                   | typeCheckFloatArgs(K, K, ElemList)
                    | typeCheckPointerArgs(K, K, ElemList)
                    | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
                    | preTypeCheckPointerExpr(K, K)
@@ -65,6 +68,8 @@ module LLVM-NORMALIZING
                    | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
                    | typeMatch(K, K)            [strict] //type, type
                    | typeCheckExpr(K, K)//t, v
+                   | preTypeCheckFloatExpr(K, K)//type, var
+                   | typeCheckFloatExpr(K, K) //type, var
                    | preTypeCheckIntExpr(K, K)//type, var
                    | typeCheckIntExpr(K, K) //type, var
                    | typeCheckArrayExpr(K, Int, K) //type, n, var
@@ -227,6 +232,12 @@ module LLVM-NORMALIZING
                      adjustAlign(String2Int(#tokenToString(I))), Oac,
                        formSet(Oac) formSet(Ovl)
                            formSet(Ost:OptSingleThread) formSet(Ord:Ordering), Ins)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                      Op:FloatOps F:FastMathFlags
+                 Ty:Type V1:ValueRef, V2:ValueRef Ins:InstructionMetadatas)
+           => typeCheckFloatOp(Name:SymbolicValueRef, X, Op, Ty,
+                           addNameToString(V1), addNameToString(V2), formSet(F), Ins)
 /*
     rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas)
@@ -1623,6 +1634,62 @@ module LLVM-NORMALIZING
          requires I <=Int 0
 
     //type checking and instruction AST from with integer ops and logical ops.
+    rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                 T:FPType, V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
+              => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T, val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       T, (val(formalizeFloat(T,V1)),
+                                 val(formalizeFloat(T,V2)),.ElemList))
+                 ~> assignType(Name, TheCount, X, T) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+                       T,, formalizeFloat(T,V1),, formalizeFloat(T,V2)), S,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+            
+    rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(T:FPType, I:Int),
+                          V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(T, I:Int), val(formalizeFloats(
+                vectorTypeValue(T:FPType, I:Int),V1)),
+                 val(formalizeFloats(vectorTypeValue(T:FPType, I:Int),V2)),.ElemList))
+                ~> assignUses(Name, TheCount, vectorTypeValue(T, I:Int),
+                  (val(formalizeFloats(vectorTypeValue(T:FPType, I:Int),V1)),
+                 val(formalizeFloats(vectorTypeValue(T:FPType, I:Int),V2)),.ElemList))
+                 ~> assignType(Name, TheCount, X, vectorTypeValue(T, I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+           vectorTypeValue(T, I:Int),, formalizeFloats(
+                   vectorTypeValue(T:FPType, I:Int),V1),,
+                   formalizeFloats(vectorTypeValue(T:FPType, I:Int),V2)), S,
+                     insMetas(formElemList(Meta)))),
+                 normalInst)) </tempBlockMap>
+          requires I >Int 0
+
+    rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(Ty:KResult, I:Int),
+               V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid operand float type for instruction") </output>
+         requires notBool isFloatType(Ty)
+
+    rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+               vectorTypeValue(Ty:KResult, I:Int),
+               V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid vector number for float instruction") </output>
+         requires I <=Int 0
+
+    rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                    Ty:KResult, V1:K, V2:K, S:Set, Meta:InstructionMetadatas) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: instruction requires float or float vector operands") </output>
+         requires notBool isVectorType(Ty) andBool notBool isFloatType(Ty)
+
+    //type checking and instruction AST from with integer ops and logical ops.
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                  integerType(N:Int), V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
               => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
@@ -1938,11 +2005,52 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires I >Int 0
 
+    rule typeCheckVectorAux(T:FPType, V:K)
+             => exprType(typeCheckFloatExpr(T, V:K))
     rule typeCheckVectorAux(integerType(N:Int), V:K)
              => exprType(typeCheckIntExpr(integerType(N:Int), V:K))
     rule typeCheckVectorAux(pointerTypeValue(T:KResult, Ad:KResult), V:K)
              => exprType(typeCheckPointerExpr(
                           pointerTypeValue(T:KResult, Ad:KResult), V:K))
+
+    //start type checking float arguments
+    rule typeCheckFloatArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
+    rule typeCheckFloatArgs(Name:SymbolicValueRef, T:TypeResult,
+         val(V:K), Vs:ElemList)
+           => exprType(preTypeCheckFloatExpr(T, V))
+                   ~> checkUseVarInside(Name, T, V)
+                   ~> typeCheckFloatArgs(Name:SymbolicValueRef, T, Vs)
+
+     //type checking each float argument
+    rule preTypeCheckFloatExpr(T:K, V:SymbolicValueRef) => T
+         requires isLocalVariable(V)
+    rule preTypeCheckFloatExpr(T:K, V:K) => typeCheckFloatExpr(T, V)
+         requires notBool isLocalVariable(V)
+
+    rule typeCheckFloatExpr(T:FPType, A:ConstExpr) => typeCheckConstExpr(T, A)
+    rule typeCheckFloatExpr(T:FPType, undef) => T
+    rule typeCheckFloatExpr(T:FPType, zeroinitializer) => T
+    rule typeCheckFloatExpr(T:FPType, float(A:Int, B:Int, L:List)) => T
+    rule typeCheckFloatExpr(T:FPType, nan) => T
+    rule typeCheckFloatExpr(T:FPType, posZero) => T
+    rule typeCheckFloatExpr(T:FPType, negZero) => T
+    rule typeCheckFloatExpr(T:FPType, posInf) => T
+    rule typeCheckFloatExpr(T:FPType, negInf) => T
+
+    rule <k> typeCheckFloatExpr(T:FPType, X:SymbolicValueRef) ~> K => .K </k>
+         <output>... .List => ListItem("error: float type position must either be a local variable or a constant expression without local variables.") </output>
+         requires isLocalVariable(X)
+
+    rule <k> typeCheckFloatExpr(T:FPType, badValue) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: float value cannot fit in the float type.") </output>
+
+    rule <k> typeCheckFloatExpr(Ty:FPType, F:K) ~> K => .K </k>
+         <output>... .List => ListItem("error: float constant must have float type") </output>
+         requires notBool isValidFloatExpr(F)
+
+    rule <k> typeCheckFloatExpr(Ty:K, A:K) ~> K => .K </k>
+         <output>... .List => ListItem("error: float constant expression type mismatch") </output>
+         requires notBool isFloatType(Ty)
 
     //start type checking integer arguments
     rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T

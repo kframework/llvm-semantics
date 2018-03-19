@@ -1037,6 +1037,10 @@ module LLVM-HELPERS
                               // op, type, int, int, flags
                    | applyInt(K, K, K, K, Set) [function]
                                 // op, type, int, int, flags
+                   | applyFloats(K, K, K, K) [function]
+                              // op, type, floats, floats
+                   | applyFloat(K, K, K, K) [function]
+                                // op, type, float, float
                    | checkInt(K, K, K, Set) [function]
                                  //type, unsign, sign, flags
                    | checkExact(K, K, K, Set) [function]
@@ -1387,6 +1391,277 @@ module LLVM-HELPERS
          => badValue
          requires applyInt(Op, getIntType(T), V1, V2, S) ==K badValue
 
+    //floating addition
+    syntax KItem ::= addTwoFloat(List, List, List, Int) [function]
+    rule addTwoFloat(.List, .List,L:List, A:Int) => holdDigits(A, L)
+    rule addTwoFloat(L1:List ListItem(A:Int), L2:List ListItem(B:Int),
+                 L3:List, C:Int) => addTwoFloat(L1, L2,
+                       ListItem(A +Int B +Int C -Int 2) L3, 1)
+         requires A +Int B +Int C >=Int 2
+    rule addTwoFloat(L1:List ListItem(A:Int), L2:List ListItem(B:Int),
+                 L3:List, C:Int) => addTwoFloat(L1, L2,
+                       ListItem(A +Int B +Int C) L3, 0)
+         requires A +Int B +Int C <Int 2
+
+    //floating subtration
+    //if left is bigger than right in floats,
+     // if two have the same mantissa length
+    syntax Bool ::= isEqualBigger(List, List)  [function]
+    rule isEqualBigger(.List, .List) => true
+    rule isEqualBigger(ListItem(A:Int) L:List, ListItem(A) L':List)
+             => isEqualBigger(L, L')
+    rule isEqualBigger(ListItem(0) L:List, ListItem(1) L':List) => false
+    rule isEqualBigger(ListItem(1) L:List, ListItem(0) L':List) => true
+
+    syntax KItem ::= subTwoFloat(List, List, List, Int) [function]
+    rule subTwoFloat(.List, .List,L:List, A:Int) => holdDigits(A, L)
+    rule subTwoFloat(L1:List ListItem(0), L2:List ListItem(0), L:List, 0)
+            => subTwoFloat(L1, L2, ListItem(0) L, 0)
+    rule subTwoFloat(L1:List ListItem(0), L2:List ListItem(0), L:List, 1)
+            => subTwoFloat(L1, L2, ListItem(1) L, 1)
+    rule subTwoFloat(L1:List ListItem(1), L2:List ListItem(0), L:List, 0)
+            => subTwoFloat(L1, L2, ListItem(1) L, 0)
+    rule subTwoFloat(L1:List ListItem(1), L2:List ListItem(0), L:List, 1)
+            => subTwoFloat(L1, L2, ListItem(0) L, 0)
+    rule subTwoFloat(L1:List ListItem(0), L2:List ListItem(1), L:List, 0)
+            => subTwoFloat(L1, L2, ListItem(1) L, 1)
+    rule subTwoFloat(L1:List ListItem(0), L2:List ListItem(1), L:List, 1)
+            => subTwoFloat(L1, L2, ListItem(0) L, 1)
+    rule subTwoFloat(L1:List ListItem(1), L2:List ListItem(1), L:List, 0)
+            => subTwoFloat(L1, L2, ListItem(0) L, 0)
+    rule subTwoFloat(L1:List ListItem(1), L2:List ListItem(1), L:List, 1)
+            => subTwoFloat(L1, L2, ListItem(1) L, 1)
+
+    syntax List ::= cutMantissaBack(List, Int) [function]
+    rule cutMantissaBack(L:List, 0) => L
+    rule cutMantissaBack(L:List ListItem(A:Int), N:Int)
+              => cutMantissaBack(L, N -Int 1)
+         requires N >Int 0
+
+    syntax KItem ::= roundingAddFloat(K, List, Int, Int, Int) [function]
+                       //ty, mantissas, sign, high, low exp
+    rule roundingAddFloat(T:K, L:List, 0, X:Int, Y:Int) => posZero
+         requires X -Int Y >Int mantissaOf(T) +Int 1
+    rule roundingAddFloat(T:K, L:List, 1, X:Int, Y:Int) => negZero
+         requires X -Int Y >Int mantissaOf(T) +Int 1
+    rule roundingAddFloat(T:K, L:List, S:Int, X:Int, Y:Int)
+             => float(S, X, copyOfK(0, X -Int Y)
+                          cutMantissaBack(L, X -Int Y))
+         requires X -Int Y <=Int mantissaOf(T) +Int 1
+
+    syntax KItem ::= roundingSubFloat(K, List, Int, Int, Int) [function]
+    rule roundingSubFloat(T:K, L:List, 0, X:Int, Y:Int) => posZero
+         requires X -Int Y >Int mantissaOf(T) +Int 1
+    rule roundingSubFloat(T:K, L:List, 1, X:Int, Y:Int) => negZero
+         requires X -Int Y >Int mantissaOf(T) +Int 1
+    rule roundingSubFloat(T:K, L:List, S:Int, X:Int, Y:Int)
+             => float(S, X, copyOfK(0, X -Int Y) L)
+         requires X -Int Y <=Int mantissaOf(T) +Int 1
+
+    syntax KItem ::= formNewFloat(K, Int, Int, List)  [function]
+    rule formNewFloat(T:K, 0, B:Int, ListItem(0)) => posZero
+    rule formNewFloat(T:K, 1, B:Int, ListItem(0)) => negZero
+    rule formNewFloat(T:K, S:Int, B:Int, ListItem(1) L:List)
+             => float(S, B -Int (mantissaOf(T) -Int size(L)),
+                        L copyOfK(0, mantissaOf(T) -Int size(L)))
+         requires B -Int (mantissaOf(T) -Int size(L)) >=Int lowBoundExp(T)
+    rule formNewFloat(T:K, 0, B:Int, ListItem(1) L:List)  => posZero
+         requires B -Int (mantissaOf(T) -Int size(L)) <Int lowBoundExp(T)
+    rule formNewFloat(T:K, 1, B:Int, ListItem(1) L:List)  => negZero
+         requires B -Int (mantissaOf(T) -Int size(L)) <Int lowBoundExp(T)
+
+    syntax List ::= normalizeMantissa(K, List) [function]
+    rule normalizeMantissa(T:K, L:List) => L 
+         requires size(L) ==Int mantissaOf(T)
+    rule normalizeMantissa(T:K, L:List)
+                 => L copyOfK(0, mantissaOf(T) -Int size(L))
+         requires size(L) <Int mantissaOf(T)
+    rule normalizeMantissa(T:K, L:List)
+                => cutMantissaBack(L, size(L) -Int mantissaOf(T))
+         requires size(L) >Int mantissaOf(T)
+
+    syntax KItem ::= formSubFloat(K, Int, Int, List) [function]
+                     //ty, sign, exp, mantissa
+    rule formSubFloat(T:K, 0, B:Int, .List) => posZero 
+    rule formSubFloat(T:K, 1, B:Int, .List) => negZero
+    rule formSubFloat(T:K, I:Int, B:Int, ListItem(1) L:List) => posZero
+         requires B <Int lowBoundExp(T)
+    rule formSubFloat(T:K, I:Int, B:Int, ListItem(1) L:List) => negZero
+         requires B <Int lowBoundExp(T)
+    rule formSubFloat(T:K, I:Int, B:Int, ListItem(1) L:List)
+           => float(I, B, normalizeMantissa(T, L))
+         requires B <=Int upperBoundExp(T) andBool B >=Int lowBoundExp(T)
+    rule formSubFloat(T:K, I:Int, B:Int, ListItem(0) L:List)
+           => formSubFloat(T, I, B -Int 1, L)
+
+
+    syntax KItem ::= floatAdd(K, K, K) [function]
+                   | floatAddAux(K, Int, Int, K) [function]
+                           //type, Sign, exp, result
+                   | floatAddAuxA(K, K, K) [function]
+                   | floatAddSub(K, Int, Int, K) [function]
+                           //type, Sign, exp, result
+                   | floatAddSubA(K, K, K) [function]
+    rule floatAdd(T:K, posInf, negInf) => nan
+    rule floatAdd(T:K, negInf, posInf) => nan
+    rule floatAdd(T:K, posInf, A:K) => posInf
+         requires A =/=K negInf
+    rule floatAdd(T:K, A:K, posInf) => posInf
+         requires A =/=K negInf
+    rule floatAdd(T:K, negInf, A:K) => negInf
+         requires A =/=K posInf
+    rule floatAdd(T:K, A:K, negInf) => negInf
+         requires A =/=K posInf
+    rule floatAdd(T:K, undef, A:K) => undef
+         requires A =/=K posInf andBool A =/=K negInf
+    rule floatAdd(T:K, A:K, undef) => undef
+         requires A =/=K posInf andBool A =/=K negInf
+    rule floatAdd(T:K, posZero, A:K) => A
+         requires A =/=K posInf andBool A =/=K negInf
+                 andBool A =/=K undef
+    rule floatAdd(T:K, A:K, posZero) => A
+         requires A =/=K posInf andBool A =/=K negInf
+                 andBool A =/=K undef
+    rule floatAdd(T:K, negZero, A:K) => A
+         requires A =/=K posInf andBool A =/=K negInf
+                 andBool A =/=K undef andBool A =/=K posZero
+    rule floatAdd(T:K, A:K, negZero) => A
+         requires A =/=K posInf andBool A =/=K negInf
+                 andBool A =/=K undef andBool A =/=K posZero
+    rule floatAdd(T:K, float(I:Int, B:Int, L1:List),
+               float(I:Int, B:Int, L2:List))
+                => floatAddAux(T, I, B,
+                     addTwoFloat(ListItem(1) L1, ListItem(1)  L2, .List, 0))
+    rule floatAdd(T:K, float(I:Int, B1:Int, L1:List),
+               float(I:Int, B2:Int, L2:List))
+                => floatAddAuxA(T, float(I:Int, B1:Int, ListItem(1) L1:List),
+                       roundingAddFloat(T, ListItem(1)  L2, I, B1, B2))
+         requires B1 >Int B2
+    rule floatAdd(T:K, float(I:Int, B1:Int, L1:List),
+               float(I:Int, B2:Int, L2:List))
+                => floatAddAuxA(T, roundingAddFloat(T, ListItem(1) L1, I:Int, B2, B1),
+                       float(I:Int, B2:Int, ListItem(1) L2:List))
+         requires B1 <Int B2
+    rule floatAdd(T:K, float(1, B:Int, L1:List), float(0, B:Int, L2:List))
+                => floatAddSub(T, 1, B, subTwoFloat(ListItem(1) L1,
+                                ListItem(1) L2, .List, 0))
+         requires isEqualBigger(L1, L2)
+    rule floatAdd(T:K, float(1, B:Int, L1:List), float(0, B:Int, L2:List))
+                => floatAddSub(T, 0, B,
+                     subTwoFloat(ListItem(1) L2,
+                                ListItem(1) L1, .List, 0))
+         requires notBool isEqualBigger(L1, L2)
+    rule floatAdd(T:K, float(0, B:Int, L1:List),
+               float(1, B:Int, L2:List))
+                => floatAddSub(T, 0, B,
+                     subTwoFloat(ListItem(1) L1, ListItem(1) L2, .List, 0))
+         requires isEqualBigger(L1, L2)
+    rule floatAdd(T:K, float(0, B:Int, L1:List),
+               float(1, B:Int, L2:List))
+                => floatAddSub(T, 1, B,
+                     subTwoFloat(ListItem(1) L2, ListItem(1) L1, .List, 0))
+         requires notBool isEqualBigger(L1, L2)
+    rule floatAdd(T:K, float(I1:Int, B1:Int, L1:List),
+               float(I2:Int, B2:Int, L2:List))
+                => floatAddSubA(T, float(I1:Int, B1:Int,
+                             ListItem(1) L1:List copyOfK(0, B1 -Int B2)),
+                     roundingSubFloat(T, ListItem(1) L2, I2, B1, B2))
+         requires I1 =/=Int I2 andBool B1 >Int B2
+    rule floatAdd(T:K, float(I1:Int, B1:Int, L1:List),
+               float(I2:Int, B2:Int, L2:List))
+                => floatAddSubA(T, roundingSubFloat(T, ListItem(1) L1, I1, B2, B1),
+                   float(I2:Int, B2:Int,
+                             ListItem(1) L2:List copyOfK(0, B2 -Int B1)))
+         requires I1 =/=Int I2 andBool B1 <Int B2
+
+    rule floatAddSub(T:K, I:Int, B:Int, holdDigits(I':Int, L:List))
+            => formSubFloat(T, I, B, L)
+
+    rule floatAddSubA(T:K, A:K, B:K) => A
+         requires (A ==K posZero orBool A ==K negZero)
+                andBool (B ==K posZero orBool B ==K negZero)
+    rule floatAddSubA(T:K, float(I1:Int, B1:Int, L1:List), A:K)
+           => float(I1:Int, B1:Int, normalizeMantissa(T, L1))
+         requires A ==K posZero orBool A ==K negZero
+    rule floatAddSubA(T:K, A:K, float(I1:Int, B1:Int, L1:List))
+           => float(I1:Int, B1:Int, normalizeMantissa(T, L1))
+         requires A ==K posZero orBool A ==K negZero
+    rule floatAddSubA(T:K, float(1, B:Int, L1:List), float(0, B:Int, L2:List))
+                => floatAddSub(T, 1, B,
+                     subTwoFloat(ListItem(1) L1,
+                                ListItem(1) L2, .List, 0))
+         requires isEqualBigger(L1, L2)
+    rule floatAddSubA(T:K, float(1, B:Int, L1:List), float(0, B:Int, L2:List))
+                => floatAddSub(T, 0, B,
+                     subTwoFloat(ListItem(1) L2,
+                                ListItem(1) L1, .List, 0))
+         requires notBool isEqualBigger(L1, L2)
+    rule floatAddSubA(T:K, float(0, B:Int, L1:List),
+               float(1, B:Int, L2:List))
+                => floatAddSub(T, 0, B,
+                     subTwoFloat(ListItem(1) L1, ListItem(1) L2, .List, 0))
+         requires isEqualBigger(L1, L2)
+    rule floatAddSubA(T:K, float(0, B:Int, L1:List),
+               float(1, B:Int, L2:List))
+                => floatAddSub(T, 1, B,
+                     subTwoFloat(ListItem(1) L2, ListItem(1) L1, .List, 0))
+
+    rule floatAddAuxA(T:K, A:K, B:K) => A
+         requires (A ==K posZero orBool A ==K negZero)
+               andBool (B ==K posZero orBool B ==K negZero)
+    rule floatAddAuxA(T:K, A:K, float(I:Int, B:Int, ListItem(1) L:List))
+                => float(I:Int, B:Int, L:List)
+         requires A ==K posZero orBool A ==K negZero
+    rule floatAddAuxA(T:K, float(I:Int, B:Int, ListItem(1) L:List), A:K)
+                => float(I:Int, B:Int, L:List)
+         requires A ==K posZero orBool A ==K negZero
+    rule floatAddAuxA(T:K, float(I:Int, B:Int, L1:List),
+               float(I:Int, B:Int, L2:List))
+             => floatAddAux(T, I, B, addTwoFloat(L1, L2, .List, 0))
+
+    rule floatAddAux(T:K, I:Int, B:Int, holdDigits(1, L:List ListItem(N:Int)))
+            => float(I, B +Int 1, L)
+         requires B +Int 1 <=Int upperBoundExp(T)
+      rule floatAddAux(T:K, 0, B:Int, holdDigits(1, L:List ListItem(N:Int))) => posInf
+         requires B +Int 1 >Int upperBoundExp(T)
+      rule floatAddAux(T:K, 1, B:Int, holdDigits(1, L:List ListItem(N:Int))) => negInf
+         requires B +Int 1 >Int upperBoundExp(T)
+    rule floatAddAux(T:K, I:Int, B:Int, holdDigits(0, L:List))
+            => formNewFloat(T, I, B, deleteFrontZero(L))
+
+    syntax KItem ::= floatNeg(K) [function]
+    rule floatNeg(negInf) => posInf
+    rule floatNeg(posInf) => negInf
+    rule floatNeg(negZero) => posZero
+    rule floatNeg(posZero) => negZero
+    rule floatNeg(float(0, B:Int, L:List)) => float(1, B, L)
+    rule floatNeg(float(1, B:Int, L:List)) => float(0, B, L)
+    rule floatNeg(A:K) => A [owise]
+
+    rule applyFloat(Op:K, T:K, poisonVal, V2:K) => poisonVal
+    rule applyFloat(Op:K, T:K, V1:K, poisonVal) => poisonVal
+    rule applyFloat(Op:K, T:K, nan, V2:K) => nan
+         requires V2 =/=K poisonVal
+    rule applyFloat(Op:K, T:K, V1:K, nan) => nan
+         requires V1 =/=K poisonVal
+    rule applyFloat(fadd, T:K, V1:K, V2:K) => floatAdd(T:K, V1, V2)
+         requires V2 =/=K poisonVal andBool V2 =/=K nan
+                andBool V1 =/=K poisonVal andBool V1 =/=K nan
+    rule applyFloat(fsub, T:K, V1:K, V2:K) => floatAdd(T:K, V1, floatNeg(V2))
+         requires V2 =/=K poisonVal andBool V2 =/=K nan
+                andBool V1 =/=K poisonVal andBool V1 =/=K nan
+
+    rule applyFloats(Op:K, T:K,
+            vectorValue(Es:ElemList), vectorValue(Es':ElemList))
+             => vectorValue(applyFloats(Op,T, Es, Es'))
+    rule applyFloats(Op:K, T:K, .ElemList, .ElemList) => .ElemList
+    rule applyFloats(Op:K, vectorTypeValue(T:K, I:Int),
+           valValue(X:K),Es:ElemList, valValue(Y:K),Es':ElemList)
+         => valValue(applyFloat(Op, T, X, Y)),
+                      applyFloats(Op, vectorTypeValue(T:K, I:Int), Es, Es')
+    rule applyFloats(Op:K, vectorTypeValue(T:K, I:Int), A:K, B:K)
+         => applyFloat(Op, T, A, B) [owise]
+
     rule applyIcmp(OP:K, T:K, badValue, V2:K) => badValue
     rule applyIcmp(OP:K, T:K, V1:K, badValue) => badValue
     rule applyIcmp(OP:K, T:K, poisonVal, V2:K) => poisonVal
@@ -1597,6 +1872,11 @@ module LLVM-HELPERS
     rule getKLabelFromOp('sdiv(.KList)) => 'theSDiv
     rule getKLabelFromOp('urem(.KList)) => 'theURem
     rule getKLabelFromOp('srem(.KList)) => 'theSRem
+    rule getKLabelFromOp(fadd) => 'theFAdd
+    rule getKLabelFromOp(fsub) => 'theFSub
+    rule getKLabelFromOp(fmul) => 'theFMul
+    rule getKLabelFromOp(fdiv) => 'theFDiv
+    rule getKLabelFromOp(frem) => 'theFRem
     rule getKLabelFromOp('lshr(.KList)) => 'theLShr
     rule getKLabelFromOp('ashr(.KList)) => 'theAShr
     rule getKLabelFromOp('and(.KList)) => 'theAnd
@@ -2054,6 +2334,16 @@ module LLVM-HELPERS
                    T:K, V:SymbolicValueRef), Es:List)) => false
     rule isAvailable(A:K) => false [owise]
 
+    syntax Bool ::= isFloatOp(K) [function]
+    rule isFloatOp(A:K) => true
+        requires getKLabel(A) ==KLabel 'theFAdd
+              orBool getKLabel(A) ==KLabel 'theFSub
+              orBool getKLabel(A) ==KLabel 'theFMul
+              orBool getKLabel(A) ==KLabel 'theFMul
+              orBool getKLabel(A) ==KLabel 'theFDiv
+              orBool getKLabel(A) ==KLabel 'theFRem
+   rule isFloatOp(A:K) => false [owise]
+
     syntax Bool ::= isIntOp(K) [function]
     rule isIntOp(A:K) => true
         requires getKLabel(A) ==KLabel 'theAdd
@@ -2168,6 +2458,11 @@ module LLVM-HELPERS
         => Op:KLabel(Ty,, updateVarInTerm(Cur, C, V1, M, RM, Rev),,
                       updateVarInTerm(Cur, C, V2, M, RM, Rev))
         requires isIntOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+   rule updateVarInTerm(Cur:Int, C:Int, Op:KLabel(Ty:K,, V1:K,,
+                 V2:K), M:Map, RM:Map, Rev:Map)
+        => Op:KLabel(Ty,, updateVarInTerm(Cur, C, V1, M, RM, Rev),,
+                      updateVarInTerm(Cur, C, V2, M, RM, Rev))
+        requires isFloatOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
    rule updateVarInTerm(Cur:Int, C:Int, iCmp(Op:K, T:K,
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
@@ -3989,5 +4284,37 @@ module LLVM-HELPERS
          requires lowBoundExp(double) -Int 1 =/=Int
                      binToDecNoLimit(L) -Int exponentSub(double)
                    orBool notBool hasOne(L')
+
+    syntax KItem ::= formalizeFloat(K, K) [function] //ty, v
+    rule formalizeFloat(T:K, V:Floating) => toFormalFloat(T, 
+                                    deleteExpInFloat(floatToMid(V)))
+    rule formalizeFloat(T:K, V:HexConstant) => binToFloat(T, hexToBin(T, V))
+    rule formalizeFloat(T:K, zeroinitializer) => posZero
+    rule formalizeFloat(T:K, V:K) => V [owise]
+
+    syntax KItem ::= formalizeFloats(K, K) [function]
+    rule formalizeFloats(vectorTypeValue(T:K, I:Int)
+               ,vector(Es:ElemList))
+             => vector(formalizeFloats(vectorTypeValue(T:K, I:Int), Es))
+    rule formalizeFloats(T:K, .ElemList) => .ElemList
+    rule formalizeFloats(vectorTypeValue(T:K, I:Int),
+              val(operand(T':K, A:K)),Es:ElemList)
+            => val(operand(T', formalizeFloat(T, A))),
+                        formalizeFloats(vectorTypeValue(T:K, I:Int), Es)
+    rule formalizeFloats(vectorTypeValue(T:K, I:Int), zeroinitializer)
+               => vector(copyOfElemList(T, posZero, I))
+    rule formalizeFloats(T:K, A:K) => formalizeFloat(T, A) [owise]
+
+    syntax Bool ::= isValidFloatExpr(K) [function]
+    rule isValidFloatExpr('float(_,,_,,_)) => true
+    rule isValidFloatExpr(undef) => true
+    rule isValidFloatExpr(poisonVal) => true
+    rule isValidFloatExpr(A:ConstExpr) => true
+    rule isValidFloatExpr(nan) => true
+    rule isValidFloatExpr(posZero) => true
+    rule isValidFloatExpr(negZero) => true
+    rule isValidFloatExpr(posInf) => true
+    rule isValidFloatExpr(negInf) => true
+    rule isValidFloatExpr(A:K) => false
 
 endmodule

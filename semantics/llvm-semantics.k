@@ -85,15 +85,11 @@ module LLVM-FLOATING-POINT-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule
-        <k> theFAdd(Type:KResult, F1:Float, F2:Float)
-            => F1 +Float F2
-        ...</k>
+    rule theFAdd(Type:KResult, F1:KResult, F2:KResult)
+            => applyFloats(fadd, Type, F1, F2)
 
-    rule
-        <k> theFSub(Type:KResult, F1:Float, F2:Float)
-            => F1 -Float F2
-        ...</k>
+    rule theFSub(Type:KResult, F1:KResult, F2:KResult)
+            => applyFloats(fsub, Type, F1, F2)
 
     rule
         <k> theFMul(Type:KResult, F1:Float, F2:Float)

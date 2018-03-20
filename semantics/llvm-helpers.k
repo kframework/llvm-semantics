@@ -1119,7 +1119,7 @@ module LLVM-HELPERS
     rule applyOp('udiv(.KList), V1:Int, V2:Int) => V1 /Int V2
     rule applyOp(lshr, V1:Int, V2:Int) => V1 /Int (2 ^Int V2)
     rule applyOp(ashr, V1:Int, V2:Int) => V1 /Int (2 ^Int V2)
-    rule applyOp(urem, V1:Int, V2:Int) => V1 modInt V2
+    rule applyOp(urem, V1:Int, V2:Int) => V1 %Int V2
     rule applyOp(srem, V1:Int, V2:Int) => V1 %Int V2
     rule applyOp(eq, V1:Int, V2:Int) => boolToInt(V1 ==Int V2)
     rule applyOp(eq, loc(X:Int, Y:K, R:K,RT:K, BA:K, In:K),
@@ -1317,7 +1317,8 @@ module LLVM-HELPERS
          requires V2 ==K 0
     rule applyInt(urem, integerType(N:Int),
                    V1:Int, V2:Int, S:Set)
-                          => applyOp(urem, V1, V2)
+                          => applyOp(urem, normalizingInt(integerType(N:Int),V1),
+                  normalizingInt(integerType(N:Int),V2))
          requires V2 =/=K 0
     rule applyInt(srem, integerType(N:Int),
                    V1:Int, V2:Int, S:Set) => badValue

@@ -9,3 +9,5 @@
 5, LLVM does not check the number of hexadecimal constants.
 
 6, sometimes, zero and negative zero are not equal in LLVM.
+
+7, frem is error-prone. what is allowed input is not clear.

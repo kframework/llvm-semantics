@@ -1630,6 +1630,336 @@ module LLVM-HELPERS
     rule floatAddAux(T:K, I:Int, B:Int, holdDigits(0, L:List))
             => formNewFloat(T, I, B, deleteFrontZero(L))
 
+    //helper functions for floating division and reminder.
+    syntax List ::= getTheList(K) [function]
+    rule getTheList(holdDigits(A:K, B:List)) => B
+
+    syntax List ::= cutFirstElem(List) [function]
+    rule cutFirstElem(ListItem(A:K) L:List) => L
+    rule cutFirstElem(L:List) => L [owise]
+
+    //floating division implementation
+    syntax KItem ::= floatDiv(K, K, K) [function]
+                   | floatDivAux(K, Int, Int, List) [function]
+                   | floatDivAuxA(K, Int, K) [function]
+                   | floatDivCal(K, Int, List, List, List) [function]
+                   | floatDivCalAux(K, Int, K, List, List) [function]
+
+    rule floatDivCal(T:K, I:Int, L1:List, L2:List, Re:List) => Re
+         requires size(Re) >=Int mantissaOf(T) +Int 2
+    rule floatDivCal(T:K, 0, ListItem(0) L1:List, L2:List, Re:List)
+           => floatDivCal(T, 0, L1, L2, Re ListItem(0))
+         requires size(Re) <Int mantissaOf(T) +Int 2
+    rule floatDivCal(T:K, 0, ListItem(1) L1:List, L2:List, Re:List)
+           => floatDivCal(T, 0, cutFirstElem(getTheList(
+                subTwoFloat(ListItem(1) L1, L2, .List, 0))), L2, Re ListItem(1))
+         requires size(Re) <Int mantissaOf(T) +Int 2
+            andBool size(ListItem(1) L1:List) ==Int size(L2)
+            andBool isEqualBigger(ListItem(1) L1:List, L2)
+    rule floatDivCal(T:K, 0, ListItem(1) L1:List, L2:List, Re:List)
+           => floatDivCal(T, 1, L1, L2, Re ListItem(0))
+         requires size(Re) <Int mantissaOf(T) +Int 2
+            andBool size(ListItem(1) L1:List) ==Int size(L2)
+            andBool notBool isEqualBigger(ListItem(1) L1:List, L2)
+
+    rule floatDivCal(T:K, X:Int, ListItem(1) L1:List, L2:List, Re:List)
+          => floatDivCal(T:K, X, ListItem(1) L1:List copyOfK(0,
+                  size(L2) -Int size(ListItem(1) L1:List)), L2:List, Re:List)
+         requires size(Re) <Int mantissaOf(T) +Int 2
+            andBool size(ListItem(1) L1:List) <Int size(L2)
+    rule floatDivCal(T:K, X:Int, ListItem(1) L1:List, L2:List, Re:List)
+           => floatDivCalAux(T, X, countFromLeft(ListItem(1) L1:List,
+                   .List, size(L2)), L2, Re)
+         requires size(Re) <Int mantissaOf(T) +Int 2
+            andBool size(ListItem(1) L1:List) >Int size(L2)
+
+    rule floatDivCal(T:K, 1, L1:List, L2:List, Re:List)
+           => floatDivCal(T, 0, cutFirstElem(getTheList(subTwoFloat(
+                     ListItem(1) L1, L2, .List, 0))), L2, Re ListItem(1))
+         requires size(Re) <Int mantissaOf(T) +Int 2
+            andBool size(ListItem(1) L1:List) ==Int size(L2)
+
+    rule floatDivCalAux(T:K, 0, countByteResult(ListItem(1) L1:List,
+                   L1':List), L2:List, Re:List)
+           => floatDivCal(T, 0, cutFirstElem(getTheList(subTwoFloat(ListItem(1) L1,
+                        L2, .List, 0)) L1'), L2, Re ListItem(1))
+         requires isEqualBigger(ListItem(1) L1:List, L2)
+    rule floatDivCalAux(T:K, 0, countByteResult(ListItem(1) L1:List,
+                   L1':List), L2:List, Re:List)
+           => floatDivCal(T, 1, L1 L1', L2, Re ListItem(0))
+         requires notBool isEqualBigger(ListItem(1) L1:List, L2)
+    rule floatDivCalAux(T:K, 1, countByteResult(L1:List, L1':List), L2:List, Re:List)
+           => floatDivCal(T, 0, cutFirstElem(getTheList(subTwoFloat(
+                     ListItem(1) L1, L2, .List, 0))) L1', L2, Re ListItem(1))
+         requires size(ListItem(1) L1:List) ==Int size(L2)
+
+    rule floatDiv(T:K, A:K, B:K) => nan
+         requires (A ==K negZero orBool A ==K posZero)
+           andBool (B ==K negZero orBool B ==K posZero)
+    rule floatDiv(T:K, A:K, B:K) => nan
+         requires (B ==K negInf orBool B ==K posInf)
+           andBool (A ==K posInf orBool A ==K negInf)
+    rule floatDiv(T:K, posZero, B:K) => negZero
+         requires isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, negZero, B:K) => posZero
+         requires isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, posZero, B:K) => posZero
+         requires notBool isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, negZero, B:K) => negZero
+         requires notBool isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, posZero) => negInf
+         requires isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, negZero) => posInf
+         requires isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, posZero) => posInf
+         requires notBool isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, negZero) => negInf
+         requires notBool isNegFloat(B) andBool
+              B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, posInf) => negZero
+         requires isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, negInf) => posZero
+         requires isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, posInf) => posZero
+         requires notBool isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, negInf) => negZero
+         requires notBool isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, posInf, B:K) => negInf
+         requires isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, negInf, B:K) => posInf
+         requires isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, posInf, B:K) => posInf
+         requires notBool isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, negInf, B:K) => negInf
+         requires notBool isNegFloat(B) andBool
+              B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, undef, B:K) => undef
+         requires B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, B:K, undef) => undef
+         requires B =/=K posInf andBool B =/=K negInf
+              andBool B =/=K posZero andBool B =/=K negZero
+    rule floatDiv(T:K, float(I1:Int, B1:Int, L1:List),
+               float(I2:Int, B2:Int, L2:List))
+            => floatDivAux(T, (I1 +Int I2) %Int 2,
+                     B1 -Int B2, floatDivCal(T, 0, ListItem(1) L1, ListItem(1) L2, .List))
+ 
+    rule floatDivAux(T:K, I:Int, B:Int, ListItem(1) L:List)
+                => float(I, B, getLeftCountResult(countFromLeft(.List, L, mantissaOf(T))))
+         requires B >=Int lowBoundExp(T)
+    rule floatDivAux(T:K, 1, B:Int, ListItem(1) L:List) => negZero
+         requires B <Int lowBoundExp(T)
+    rule floatDivAux(T:K, 0, B:Int, ListItem(1) L:List) => posZero
+         requires B <Int lowBoundExp(T)
+    rule floatDivAux(T:K, I:Int, B:Int, ListItem(0) L:List)
+         => floatDivAuxA(T, I, moveFloatLeft(L, B))
+    rule floatDivAuxA(T:K, I:Int, holdDigits(A:Int, L:List))
+         => float(I, A, getLeftCountResult(countFromLeft(.List, L, mantissaOf(T))))
+         requires A >=Int lowBoundExp(T)
+    rule floatDivAuxA(T:K, 0, holdDigits(A:Int, L:List)) => posZero
+         requires A <Int lowBoundExp(T)
+    rule floatDivAuxA(T:K, 1, holdDigits(A:Int, L:List)) => negZero
+         requires A <Int lowBoundExp(T)
+
+    //function for implementing float reminder op.
+    syntax KItem ::= floatRem(K, K, K) [function]
+                  | floatRemAux(K, Int, Int, Int) [function]
+                  | floatRemAuxA(K, Int, Int, List) [function]
+    rule floatRem(T:K, A:K, B:K) => nan
+         requires A ==K posInf orBool A ==K negInf
+    rule floatRem(T:K, A:K, B:K) => nan
+         requires A =/=K posInf andBool A =/=K negInf
+             andBool (B ==K posZero orBool B ==K negZero)
+    rule floatRem(T:K, A:K, B:K) => A
+         requires B ==K posInf orBool B ==K negInf
+    rule floatRem(T:K, A:K, B:K) => A
+         requires B =/=K posZero andBool B =/=K negZero
+           andBool (A ==K posZero orBool A ==K negZero)
+    rule floatRem(T:K, undef, A:K) => undef
+         requires A =/=K posZero andBool A =/=K negZero 
+    rule floatRem(T:K, A:K, undef) => undef
+         requires A =/=K posInf andBool A =/=K negInf
+    rule floatRem(T:K, float(I1:Int, B1:Int, L1:List),
+           float(I2:Int, B2:Int, L2:List)) 
+            => float(I1:Int, B1:Int, L1:List)
+        requires isNegFloat(floatAdd(T:K,
+                float(0, B1:Int, L1:List), float(1, B2:Int, L2:List)))
+    rule floatRem(T:K, float(I1:Int, B1:Int, L1:List),
+           float(I2:Int, B2:Int, L2:List)) 
+            => floatRemAux(T, I1, B2,
+                  binToDecNoLimit(ListItem(1) L1 copyOfK(0, B1 -Int B2)) %Int
+                  binToDecNoLimit(ListItem(1) L2))
+        requires notBool isNegFloat(floatAdd(T:K,
+                float(0, B1:Int, L1:List), float(1, B2:Int, L2:List)))
+    rule floatRemAux(T:K, 0, B:Int, 0) => posZero
+    rule floatRemAux(T:K, 1, B:Int, 0) => posZero
+    rule floatRemAux(T:K, I:Int, B:Int, N:Int)
+               => floatRemAuxA(T, I, B, decToBinNoLimit(N))
+         requires N =/=Int 0
+    rule floatRemAuxA(T:K, I:Int, B:Int, L:List)
+          => float(I, B -Int
+              (mantissaOf(T) +Int 1 -Int size(L)), cutFirstElem(L)
+                copyOfK(0, mantissaOf(T) +Int 1 -Int size(L)))
+         requires B -Int (mantissaOf(T) +Int 1 -Int size(L))
+                      >=Int lowBoundExp(T)
+    rule floatRemAuxA(T:K, 1, B:Int, L:List)
+            => negZero
+         requires B -Int (mantissaOf(T) +Int 1 -Int size(L))
+                      <Int lowBoundExp(T)
+    rule floatRemAuxA(T:K, 0, B:Int, L:List)
+            => posZero
+         requires B -Int (mantissaOf(T) +Int 1 -Int size(L))
+                      <Int lowBoundExp(T)
+
+    //the functions for implementing float multiplication
+    syntax List ::= floatAddNoLimit(List, List) [function]
+                  | floatAddNotLimitAux(K) [function]
+    rule floatAddNoLimit(L1:List, L2:List)
+           => floatAddNoLimit(L1, copyOfK(0, size(L1) -Int size(L2)) L2)
+          requires size(L1) >Int size(L2)
+    rule floatAddNoLimit(L1:List, L2:List)
+           => floatAddNoLimit(copyOfK(0, size(L2) -Int size(L1)) L1, L2)
+          requires size(L1) <Int size(L2)
+    rule floatAddNoLimit(L1:List, L2:List)
+                 => floatAddNotLimitAux(addTwoFloat(L1, L2, .List, 0))
+         requires size(L1) ==Int size(L2)
+    rule floatAddNotLimitAux(holdDigits(1, L:List)) => ListItem(1) L
+    rule floatAddNotLimitAux(holdDigits(0, L:List)) => deleteFrontZero(L)
+
+
+    syntax List ::= floatMulCal(List, List, List, Int) [function]
+    rule floatMulCal(L1:List, .List, Re:List, N:Int) => Re
+    rule floatMulCal(L1:List, L2:List ListItem(0), Re:List, N:Int)
+          => floatMulCal(L1, L2, Re, N +Int 1)
+    rule floatMulCal(L1:List, L2:List ListItem(1), Re:List, N:Int)
+           => floatMulCal(L1, L2, floatAddNoLimit(L1 copyOfK(0, N), Re), N +Int 1)
+
+    syntax Bool ::= isNegFloat(K) [function]
+    rule isNegFloat(posZero) => false
+    rule isNegFloat(negZero) => true
+    rule isNegFloat(negInf) => true
+    rule isNegFloat(posInf) => false
+    rule isNegFloat(float(1, B:Int, L:List)) => true
+    rule isNegFloat(float(0, B:Int, L:List)) => false
+
+    syntax KItem ::= floatMul(K, K, K) [function]
+                   | floatMulAux(K, Int, Int, K) [function]
+    rule floatMul(T:K, A:K, B:K) => nan
+         requires (A ==K negZero orBool A ==K posZero)
+           andBool (B ==K posInf orBool B ==K negInf)
+    rule floatMul(T:K, A:K, B:K) => nan
+         requires (B ==K negZero orBool B ==K posZero)
+           andBool (A ==K posInf orBool A ==K negInf)
+    rule floatMul(T:K, posZero, A:K) => negZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool isNegFloat(A)
+    rule floatMul(T:K, posZero, A:K) => posZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool notBool isNegFloat(A)
+    rule floatMul(T:K, negZero, A:K) => posZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool isNegFloat(A)
+    rule floatMul(T:K, negZero, A:K) => negZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool notBool isNegFloat(A)
+    rule floatMul(T:K, A:K, posZero) => negZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool isNegFloat(A)
+    rule floatMul(T:K, A:K, posZero) => posZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool notBool isNegFloat(A)
+    rule floatMul(T:K, A:K, negZero) => posZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool isNegFloat(A)
+    rule floatMul(T:K, A:K, negZero) => negZero
+         requires A =/=K posInf andBool A =/=K negInf
+               andBool notBool isNegFloat(A)
+    rule floatMul(T:K, posInf, A:K) => negInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool isNegFloat(A)
+    rule floatMul(T:K, posInf, A:K) => posInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool notBool isNegFloat(A)
+    rule floatMul(T:K, negInf, A:K) => posInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool isNegFloat(A)
+    rule floatMul(T:K, negInf, A:K) => negInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool notBool isNegFloat(A)
+    rule floatMul(T:K, A:K, posInf) => negInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool isNegFloat(A)
+    rule floatMul(T:K, A:K, posInf) => posInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool notBool isNegFloat(A)
+    rule floatMul(T:K, A:K, negInf) => posInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool isNegFloat(A)
+    rule floatMul(T:K, A:K, negInf) => negInf
+         requires A =/=K posZero andBool A =/=K negZero
+              andBool notBool isNegFloat(A)
+    rule floatMul(T:K, A:K, undef) => undef
+         requires A =/=K negInf andBool A =/=K posInf
+                andBool A =/=K posZero andBool A =/=K negZero
+    rule floatMul(T:K, undef, A:K) => undef
+         requires A =/=K negInf andBool A =/=K posInf
+                andBool A =/=K posZero andBool A =/=K negZero
+    rule floatMul(T:K, float(I1:Int, B1:Int, L1:List),
+                              float(I2:Int, B2:Int, L2:List))
+          => floatMulAux(T, (I1 +Int I2) %Int 2,
+                    B1 +Int B2, countFromRight(
+           floatMulCal(ListItem(1) L1, ListItem(1) L2,
+                 ListItem(0), 0), .List, mantissaOf(T) *Int 2))
+
+    rule floatMulAux(T:K, I:Int, B:Int,
+               countByteResult(ListItem(1) Left:List, Right:List))
+          => float(I, B:Int +Int size(Left), getLeftCountResult(
+                  countFromLeft(.List, Left Right, mantissaOf(T))))
+         requires B +Int size(Left) <=Int upperBoundExp(T)
+               andBool B +Int size(Left) >=Int lowBoundExp(T)
+               andBool size(Left Right) >=Int mantissaOf(T)
+    rule floatMulAux(T:K, I:Int, B:Int,
+               countByteResult(ListItem(1) Left:List, Right:List))
+          => float(I, B:Int +Int size(Left), Left Right
+                      copyOfK(0, mantissaOf(T) -Int size(Left Right)))
+         requires B +Int size(Left) <=Int upperBoundExp(T)
+               andBool B +Int size(Left) >=Int lowBoundExp(T)
+               andBool size(Left Right) <Int mantissaOf(T)
+    rule floatMulAux(T:K, 1, B:Int,
+               countByteResult(ListItem(1) Left:List, Right:List)) => negInf
+         requires B +Int size(Left) >Int upperBoundExp(T)
+    rule floatMulAux(T:K, 0, B:Int,
+               countByteResult(ListItem(1) Left:List, Right:List)) => posInf
+         requires B +Int size(Left) >Int upperBoundExp(T)
+    rule floatMulAux(T:K, 1, B:Int,
+               countByteResult(ListItem(1) Left:List, Right:List)) => negZero
+         requires B +Int size(Left) <Int lowBoundExp(T)
+    rule floatMulAux(T:K, 0, B:Int,
+               countByteResult(ListItem(1) Left:List, Right:List)) => posZero
+         requires B +Int size(Left) <Int lowBoundExp(T)
+
     syntax KItem ::= floatNeg(K) [function]
     rule floatNeg(negInf) => posInf
     rule floatNeg(posInf) => negInf
@@ -1641,6 +1971,10 @@ module LLVM-HELPERS
 
     rule applyFloat(Op:K, T:K, poisonVal, V2:K) => poisonVal
     rule applyFloat(Op:K, T:K, V1:K, poisonVal) => poisonVal
+    rule applyFloat(Op:K, T:K, undef, undef) => posZero
+         requires Op ==K fsub orBool Op ==K fdiv orBool Op ==K frem
+    rule applyFloat(Op:K, T:K, undef, undef) => undef
+         requires Op ==K fadd orBool Op ==K fmul
     rule applyFloat(Op:K, T:K, nan, V2:K) => nan
          requires V2 =/=K poisonVal
     rule applyFloat(Op:K, T:K, V1:K, nan) => nan
@@ -1648,9 +1982,23 @@ module LLVM-HELPERS
     rule applyFloat(fadd, T:K, V1:K, V2:K) => floatAdd(T:K, V1, V2)
          requires V2 =/=K poisonVal andBool V2 =/=K nan
                 andBool V1 =/=K poisonVal andBool V1 =/=K nan
+                andBool (V1 =/=K undef orBool V2 =/=K undef)
     rule applyFloat(fsub, T:K, V1:K, V2:K) => floatAdd(T:K, V1, floatNeg(V2))
          requires V2 =/=K poisonVal andBool V2 =/=K nan
                 andBool V1 =/=K poisonVal andBool V1 =/=K nan
+                andBool (V1 =/=K undef orBool V2 =/=K undef)
+    rule applyFloat(fmul, T:K, V1:K, V2:K) => floatMul(T:K, V1, V2)
+         requires V2 =/=K poisonVal andBool V2 =/=K nan
+                andBool V1 =/=K poisonVal andBool V1 =/=K nan
+                andBool (V1 =/=K undef orBool V2 =/=K undef)
+    rule applyFloat(fdiv, T:K, V1:K, V2:K) => floatDiv(T:K, V1, V2)
+         requires V2 =/=K poisonVal andBool V2 =/=K nan
+                andBool V1 =/=K poisonVal andBool V1 =/=K nan
+                andBool (V1 =/=K undef orBool V2 =/=K undef)
+    rule applyFloat(frem, T:K, V1:K, V2:K) => floatRem(T:K, V1, V2)
+         requires V2 =/=K poisonVal andBool V2 =/=K nan
+                andBool V1 =/=K poisonVal andBool V1 =/=K nan
+                andBool (V1 =/=K undef orBool V2 =/=K undef)
 
     rule applyFloats(Op:K, T:K,
             vectorValue(Es:ElemList), vectorValue(Es':ElemList))
@@ -2339,7 +2687,6 @@ module LLVM-HELPERS
     rule isFloatOp(A:K) => true
         requires getKLabel(A) ==KLabel 'theFAdd
               orBool getKLabel(A) ==KLabel 'theFSub
-              orBool getKLabel(A) ==KLabel 'theFMul
               orBool getKLabel(A) ==KLabel 'theFMul
               orBool getKLabel(A) ==KLabel 'theFDiv
               orBool getKLabel(A) ==KLabel 'theFRem
@@ -4019,7 +4366,7 @@ module LLVM-HELPERS
          requires lengthString(A) >Int 0 andBool isDecDigit(substrString(A, 0, 1))
 
     //move dot around on the float
-    syntax List ::= frontCount(List, List, Int) [function]
+    syntax KItem ::= frontCount(List, List, Int) [function]
     rule frontCount(L:List, Now:List, 0) => countByteResult(L, Now)
     rule frontCount(L:List, .List, N:Int)
             => frontCount(L ListItem(0),.List, N -Int 1)
@@ -4028,7 +4375,7 @@ module LLVM-HELPERS
             => frontCount(L ListItem(A), Now, N -Int 1)
          requires N >Int 0
 
-    syntax List ::= backCount(List, List, Int) [function]
+    syntax KItem ::= backCount(List, List, Int) [function]
     rule backCount(L:List, Now:List, 0) => countByteResult(L, Now)
     rule backCount(.List, L:List, N:Int)
             => backCount(.List, ListItem(0) L, N -Int 1)
@@ -4150,6 +4497,15 @@ module LLVM-HELPERS
          requires N >Int 0
     rule countFromLeft(L:List, ListItem(A:K) L':List, N:Int)
                => countFromLeft(L ListItem(A), L', N -Int 1)
+         requires N >Int 0
+
+    syntax List ::= countFromRight(List, List, Int) [function]
+    rule countFromRight(L:List, L':List, 0) => countByteResult(L, L')
+    rule countFromRight(.List, L:List, N:Int)
+                 => countFromRight(.List, ListItem(0) L, N -Int 1)
+         requires N >Int 0
+    rule countFromRight(L:List ListItem(A:K) , L':List, N:Int)
+               => countFromRight(L,  ListItem(A) L', N -Int 1)
          requires N >Int 0
 
     syntax KItem ::= toSmallFloat(K, K, K) [function]//or_ty, v, new_ty

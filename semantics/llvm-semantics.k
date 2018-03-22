@@ -91,13 +91,14 @@ module LLVM-FLOATING-POINT-ARITHMETIC
     rule theFSub(Type:KResult, F1:KResult, F2:KResult)
             => applyFloats(fsub, Type, F1, F2)
 
-    rule
-        <k> theFMul(Type:KResult, F1:Float, F2:Float)
-            => F1 *Float F2
-        ...</k>
+    rule theFMul(Type:KResult, F1:KResult, F2:KResult)
+            => applyFloats(fmul, Type, F1, F2)
 
-    // TODO incorrect since NaN * 0 = NaN
-    rule theFMul(_, F:#Float, PositiveZero) => 0.0
+    rule theFDiv(Type:KResult, F1:KResult, F2:KResult)
+            => applyFloats(fdiv, Type, F1, F2)
+
+    rule theFRem(Type:KResult, F1:KResult, F2:KResult)
+            => applyFloats(frem, Type, F1, F2)
 
 endmodule
 

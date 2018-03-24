@@ -2203,40 +2203,9 @@ module LLVM-COMPARISONS
 
     rule iCmp(Op:K, T:KResult, V1:KResult, V2:KResult)
                         => applyIcmps(Op, T, V1, V2, .ElemList)
-/*
-    // TODO not handling QNAN
-    rule oEQ(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float ==Float F2:Float)
-    rule oGT(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float >Float F2:Float)
-    rule oGE(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float >=Float F2:Float)
-    rule oLT(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float <Float F2:Float)
-    rule oLE(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float <=Float F2:Float)
-    rule oNE(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float =/=Float F2:Float)
-    // rule ORD(Type:KResult, F1:Float, F2:Float)
-        // => // if both are not QNAN
-    rule uEQ(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float ==Float F2:Float)
-    rule uGT(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float >Float F2:Float)
-    rule uGE(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float >=Float F2:Float)
-    rule uLT(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float <Float F2:Float)
-    rule uLE(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float <=Float F2:Float)
-    rule uNE(Type:KResult, F1:Float, F2:Float)
-        => boolToInt(F1:Float =/=Float F2:Float)
-    // rule UNO(Type:KResult, F1:Float, F2:Float)
-        // => if either is QNAN
-*/
-    syntax KItem ::= boolToInt(K)
-    rule boolToInt(true) => 1
-    rule boolToInt(false) => 0
+
+    rule fCmp(Op:K, T:KResult, V1:KResult, V2:KResult)
+                        => applyFcmps(Op, T, V1, V2)
 
 endmodule
 

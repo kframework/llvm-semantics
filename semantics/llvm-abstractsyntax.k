@@ -169,6 +169,7 @@ module LLVM-ABSTRACTSYNTAX
              // TODO [semantic] base, type, range, inrange?
     syntax Loc ::= aLoc(K, K, K) //base, type, rangeType
     syntax Loc ::= intLoc(K, K, K,K, K) //base(int), type, range, rangetype, blockaddr?
+    syntax Loc ::= floatLoc(K, K, K,K, K) //base(float), type, range, rangetype, blockaddr?
     syntax KItem ::= funptr(K)//name
     //syntax KItem ::= funCountLabel(Int, K)//position, ptr
     syntax ValueRef ::= Loc
@@ -505,31 +506,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "either" | "heap" | "stack" | GlobalType
 
     syntax KItem ::= theDefinition(K,K) [strict]
-    syntax KItem ::= iCmp(K, K, K, K)      [strict(2,3,4)]//op, type, left, right
-/*
-    syntax KItem ::= iNotEq(K, K, K) [strict] // type, left op, right op
-    syntax KItem ::= iEq(K, K, K) [strict]
-    syntax KItem ::= uGT(K, K, K) [strict]
-    syntax KItem ::= uGE(K, K, K) [strict]
-    syntax KItem ::= uLT(K, K, K) [strict]
-    syntax KItem ::= uLE(K, K, K) [strict]
-    syntax KItem ::= sGT(K, K, K) [strict]
-    syntax KItem ::= sGE(K, K, K) [strict]
-    syntax KItem ::= sLT(K, K, K) [strict]
-    syntax KItem ::= sLE(K, K, K) [strict]
-
-    syntax KItem ::= oEQ(K, K, K) [strict]
-    syntax KItem ::= oGT(K, K, K) [strict]
-    syntax KItem ::= oGE(K, K, K) [strict]
-    syntax KItem ::= oLT(K, K, K) [strict]
-    syntax KItem ::= oLE(K, K, K) [strict]
-    syntax KItem ::= oNE(K, K, K) [strict]
-    syntax KItem ::= oRD(K, K, K) [strict]
-    syntax KItem ::= uNE(K, K, K) [strict]
-    //syntax LLVM ::= uNE(K, K, K) [strict]
-    syntax KItem ::= uNO(K, K, K) [strict]
-    syntax KItem ::= uEQ(K, K, K) [strict]
-*/
+    syntax KItem ::= iCmp(K, K, K, K)      [strict(3,4)]//op, type, left, right
+    syntax KItem ::= fCmp(K, K, K, K)      [strict(3,4)]//op, type, left, right
 
     //@ Binary Operations
     syntax KItem ::= flagStage(K, K) //op, int value

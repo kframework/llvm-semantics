@@ -105,8 +105,8 @@ module LLVM-NORMALIZING
                    | typeCheckBr(K, K, K, K, K, InstructionMetadatas)    [strict(2)]//block, t, ..., instmeta
                    | typeCheckICmp(K, K, K, K, K, K, InstructionMetadatas)
                               [strict(4)]//block, var, op, type, v1, v2, instmeta
-                   | typeCheckFCmp(K, K, K, K, K, K, InstructionMetadatas)
-                              [strict(4)]//block, var, op, type, v1, v2, instmeta
+                   | typeCheckFCmp(K, K, K, K, K, K, Set, InstructionMetadatas)
+                              [strict(4)]//block, var, op, type, v1, v2, mods, instmeta
                    | typeCheckPhi(K, K, K, ElemList, ElemList, Set, ElemList, InstructionMetadatas)
                               [strict(3)]//block, var, type, value-list, label-list, phi-list, instmeta
                    | typeCheckRet(K, K, K, InstructionMetadatas)           [strict(2)]//block, t, v, Meta
@@ -263,9 +263,9 @@ module LLVM-NORMALIZING
                    addNameToString(V1), addNameToString(V2), Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, fcmp Op:FPredicate
-                   Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
+             Fs:FastMathFlags Ty:Type V1:ValueRef , V2:ValueRef Ins:InstructionMetadatas)
          => typeCheckFCmp(Name:SymbolicValueRef, X, Op, Ty,
-                  addNameToString(V1), addNameToString(V2), Ins)
+                  addNameToString(V1), addNameToString(V2), formSet(Fs), Ins)
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                      phi Ty:Type Pl:PHIList Ins:InstructionMetadatas)
          => typeCheckPhi(Name:SymbolicValueRef, X,
@@ -1567,6 +1567,52 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("bitcast vector pointer conversion must have source type of vector of pointers.") </output>
              requires isValidBitCastType(T1)
                   andBool (notBool isVectorType(T1) orBool notBool hasPointerType(T1))
+
+    //type checking fcmp ops
+    //deal with fcmp
+    rule <k> typeCheckFCmp(Name:SymbolicValueRef,X:SymbolicValueRef,
+              Op:K, T:FPType, V1:K, V2:K, Mods:Set, Meta:InstructionMetadatas)
+               => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T, val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList))
+                    ~> assignUses(Name, TheCount,
+                       T, (val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList))
+                   ~> assignType(Name, TheCount, X, integerType(1)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(fCmp(Op,
+                     T, formalizeFloat(T,V1), formalizeFloat(T,V2)), Mods,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+              vectorTypeValue(T:FPType, I:Int), V1:K, V2:K, Mods:Set, Meta:InstructionMetadatas)
+               => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(T, I:Int), val(formalizeFloats(
+                   vectorTypeValue(T, I:Int),V1)),val(formalizeFloats(
+                   vectorTypeValue(T, I:Int),V2)),.ElemList))
+                ~> (assignUses(Name, TheCount, vectorTypeValue(T, I:Int),
+                  (val(formalizeFloats(
+                   vectorTypeValue(T, I:Int),V1)),val(formalizeFloats(
+                   vectorTypeValue(T, I:Int),V2)),.ElemList))
+                     ~> assignType(Name, TheCount, X, vectorTypeValue(integerType(1), I:Int))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(fCmp(Op,
+                  vectorTypeValue(T, I:Int), formalizeFloats(
+                   vectorTypeValue(T, I:Int),V1), formalizeFloats(
+                   vectorTypeValue(T, I:Int),V2)), Mods,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:K, Op:K,
+                 T:KResult, V1:K, V2:K, _:Set, _:InstructionMetadatas)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: fcmp requires floating point operands") </output>
+         requires notBool isFloatType(T) andBool notBool isVectorType(T)
+
+    rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:K, Op:K,
+                 vectorTypeValue(T:K, I:Int), V1:K, V2:K, _:Set, _:InstructionMetadatas)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: fcmp vector requires floating point operands") </output>
+         requires notBool isFloatType(T)
 
     //type checking icmp ops
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,

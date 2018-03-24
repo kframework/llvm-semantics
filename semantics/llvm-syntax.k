@@ -1078,7 +1078,7 @@ module LLVM-SYNTAX
     syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
                      | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
                      | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
-                     | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                     | "fcmp" FPredicate FastMathFlags ResolvedVal "," ValueRef InstructionMetadatas
                      | CastOps ResolvedVal "to" Type InstructionMetadatas
                      | Select ResolvedVal "," ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "va_arg" ResolvedVal "," Type InstructionMetadatas

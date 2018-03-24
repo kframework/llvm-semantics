@@ -20,6 +20,8 @@ module LLVM-HELPERS
     rule dealWithZeroInitializer(vectorTypeValue(T:K, N:Int))
             => vectorValue(zeroVectorAux(T:K, N:Int, .ElemList))
     rule dealWithZeroInitializer(integerType(N:Int)) => 0
+    rule dealWithZeroInitializer(A:K) => posZero
+         requires isFloatType(A)
     rule dealWithZeroInitializer(pointerTypeValue(X:K, Y:K))
                => loc(nullMemoryLoc, void,
                           value(nullMemoryLoc,nullMemoryLoc),heap, none, none)
@@ -1407,6 +1409,13 @@ module LLVM-HELPERS
     //floating subtration
     //if left is bigger than right in floats,
      // if two have the same mantissa length
+    syntax Bool ::= isListEqual(List, List) [function]
+    rule isListEqual(.List, .List) => true
+    rule isListEqual(ListItem(A:Int) L:List, ListItem(A) L':List)
+          => isListEqual(L, L')
+    rule isListEqual(ListItem(A:Int) L:List, ListItem(A':K) L':List) => false
+         requires A =/=K A'
+
     syntax Bool ::= isEqualBigger(List, List)  [function]
     rule isEqualBigger(.List, .List) => true
     rule isEqualBigger(ListItem(A:Int) L:List, ListItem(A) L':List)
@@ -2079,6 +2088,145 @@ module LLVM-HELPERS
            vectorValue(valValue(V2:K),E2:ElemList), Es:ElemList)
          => badValue
          requires applyIcmp(Op, getIntType(T), V1, V2) ==K badValue
+
+    //deal with fcmp
+    syntax KItem ::= getFloatFromLoc(K) [function]
+    rule getFloatFromLoc(floatLoc(A:K, _,_,_,_)) => A
+
+    syntax KItem ::= applyFcmps(K, K, K, K) [function]
+                                        // op, type, value1, value2, vector
+                   | applyFcmp(K, K, K, K) [function] // op, type, int, int
+                   | applyFcmpAux(K, K, K, K) [function] // op, type, int, int
+                   | applyOeq(K, K) [function]
+                   | flipBooleanBit(K) [function]
+                   | applyOgt(K, K, K) [function]//type, v1, v2
+                   | applyOge(K, K, K) [function]//type, v1, v2
+
+    rule flipBooleanBit(1) => 0
+    rule flipBooleanBit(0) => 1
+
+    rule applyOeq(undef, undef) => 1
+    rule applyOeq(nan, A:K) => 0
+    rule applyOeq(A:K, nan) => 0
+    rule applyOeq(posInf, posInf) => 1
+    rule applyOeq(negInf, negInf) => 1
+    rule applyOeq(A:K, B:K) => 1
+         requires (A ==K posZero orBool A ==K negZero)
+            andBool (B ==K posZero orBool B ==K negZero)
+    rule applyOeq(float(X:Int, Y:Int, Z:List),
+                      float(X:Int, Y:Int, Z':List)) => 1
+         requires isListEqual(Z, Z')
+    rule applyOeq(A:K, B:K) => 0 [owise]
+
+    rule applyOgt(T:K, nan, A:K) => 0
+    rule applyOgt(T:K, A:K, nan) => 0
+    rule applyOgt(T:K, posInf, A:K) => 1
+         requires A =/=K posInf andBool A =/=K nan
+    rule applyOgt(T:K, A:K, negInf) => 1
+         requires A =/=K negInf andBool A =/=K nan
+    rule applyOgt(T:K, A:K, B:K) => 1
+         requires (B ==K posZero orBool B ==K negZero)
+            andBool A =/=K nan andBool A =/=K undef 
+           andBool notBool isNegFloat(A)
+           andBool A =/=K posZero
+    rule applyOgt(T:K, A:K, B:K) => 1
+         requires (A ==K posZero orBool A ==K negZero)
+            andBool B =/=K nan andBool B =/=K undef 
+           andBool isNegFloat(B) andBool B =/=K negZero
+    rule applyOgt(T:K, float(X:Int, Y:Int, Z:List),
+                      float(X':Int, Y':Int, Z':List))
+             => applyOgt(T, applyFloat(fsub, T, float(X:Int, Y:Int, Z:List),
+                    float(X':Int, Y':Int, Z':List)), posZero)
+    rule applyOgt(T:K, A:K, B:K) => 0 [owise]
+
+    rule applyOge(T:K, nan, A:K) => 0
+    rule applyOge(T:K, A:K, nan) => 0
+    rule applyOge(T:K, posInf, A:K) => 1
+         requires A =/=K nan
+    rule applyOge(T:K, A:K, negInf) => 1
+         requires A =/=K nan
+    rule applyOge(T:K, A:K, B:K) => 1
+         requires (B ==K posZero orBool B ==K negZero)
+            andBool A =/=K nan andBool A =/=K undef 
+           andBool (notBool isNegFloat(A)
+                   orBool A ==K posZero)
+    rule applyOge(T:K, A:K, B:K) => 1
+         requires (A ==K posZero orBool A ==K negZero)
+            andBool B =/=K nan andBool B =/=K undef 
+           andBool (isNegFloat(B) orBool B ==K negZero)
+    rule applyOge(T:K, float(X:Int, Y:Int, Z:List),
+                      float(X':Int, Y':Int, Z':List))
+             => applyOge(T, applyFloat(fsub, T, float(X:Int, Y:Int, Z:List),
+                    float(X':Int, Y':Int, Z':List)), posZero)
+    rule applyOge(T:K, A:K, B:K) => 0 [owise]
+
+    rule applyFcmpAux(true, T:K, V1:K, V2:K) => 1
+    rule applyFcmpAux(false, T:K, V1:K, V2:K) => 0
+    rule applyFcmpAux(oeq, T:K, V1:K, V2:K) => applyOeq(V1, V2)
+    rule applyFcmpAux(ogt, T:K, V1:K, V2:K) => applyOgt(T, V1, V2)
+    rule applyFcmpAux(oge, T:K, V1:K, V2:K) => applyOge(T, V1, V2)
+    rule applyFcmpAux(olt, T:K, V1:K, V2:K) => applyOgt(T, V2, V1)
+    rule applyFcmpAux(ole, T:K, V1:K, V2:K) => applyOge(T, V2, V1)
+    rule applyFcmpAux(one, T:K, V1:K, V2:K) => flipBooleanBit(applyOeq(V1, V2))
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux(one, T:K, V1:K, V2:K) => 0
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux(ord, T:K, V1:K, V2:K) => 1
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux(ord, T:K, V1:K, V2:K) => 0
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux(ueq, T:K, V1:K, V2:K) => applyOeq(V1, V2)
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux(ueq, T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux('ugtOfFcmp(.KList), T:K, V1:K, V2:K) => applyOgt(T, V1, V2)
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux('ugtOfFcmp(.KList), T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux('ugeOfFcmp(.KList), T:K, V1:K, V2:K) => applyOge(T, V1, V2)
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux('ugeOfFcmp(.KList), T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux('ultOfFcmp(.KList), T:K, V1:K, V2:K) => applyOgt(T, V2, V1)
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux('ultOfFcmp(.KList), T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux('uleOfFcmp(.KList), T:K, V1:K, V2:K) => applyOge(T, V2, V1)
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux('uleOfFcmp(.KList), T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux(une, T:K, V1:K, V2:K) => flipBooleanBit(applyOeq(V1, V2))
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux(une, T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+    rule applyFcmpAux(uno, T:K, V1:K, V2:K) => 0
+         requires V1 =/=K nan andBool V2 =/=K nan
+    rule applyFcmpAux(uno, T:K, V1:K, V2:K) => 1
+         requires V1 ==K nan orBool V2 ==K nan
+
+    rule applyFcmp(X:K, T:K, floatLoc(A:K, B:K, C:K, D:K, E:K), V2:K)
+           => applyFcmp(X, T, getFloatFromLoc(floatLoc(
+                          A:K, B:K, C:K, D:K, E:K)), V2)
+    rule applyFcmp(X:K, T:K, V1:K, floatLoc(A:K, B:K, C:K, D:K, E:K))
+           => applyFcmp(X, T, V1, getFloatFromLoc(floatLoc(
+                          A:K, B:K, C:K, D:K, E:K)))
+    rule applyFcmp(Op:K, T:K, poisonVal, V2:K) => poisonVal
+    rule applyFcmp(Op:K, T:K, V1:K, poisonVal) => poisonVal
+    rule applyFcmp(Op:K, T:K, V1:K, V2:K)
+           => applyFcmpAux(Op, T, V1, V2) [owise]
+
+    rule applyFcmps(Op:K, T:K, vectorValue(Es:ElemList), vectorValue(Es':ElemList))
+           => vectorValue(applyFcmps(Op, T, Es, Es'))
+    rule applyFcmps(Op:K, vectorTypeValue(T:K, I:Int), .ElemList, .ElemList)
+         => .ElemList
+    rule applyFcmps(Op:K, vectorTypeValue(T:K, I:Int),
+          valValue(A:K),Es1:ElemList, valValue(B:K),Es2:ElemList)
+         => valValue(applyFcmp(Op, T, A, B)),
+                applyFcmps(Op, vectorTypeValue(T:K, I:Int), Es1, Es2)
+    rule applyFcmps(Op:K, T:K, V1:K, V2:K) => applyFcmp(Op, T, V1, V2)
+         requires isFloatType(T)
+    rule applyFcmps(Op:K, vectorTypeValue(T:K, I:Int), V1:K, V2:K)
+            => applyFcmp(Op, T, V1, V2) [owise]
 
 
     syntax Int ::= seqAdds(Int, Int) [function]
@@ -2811,6 +2959,10 @@ module LLVM-HELPERS
         => Op:KLabel(Ty,, updateVarInTerm(Cur, C, V1, M, RM, Rev),,
                       updateVarInTerm(Cur, C, V2, M, RM, Rev))
         requires isFloatOp(Op:KLabel(Ty:K,, V1:K,, V2:K))
+   rule updateVarInTerm(Cur:Int, C:Int, fCmp(Op:K, T:K,
+                        V1:K, V2:K), M:Map, RM:Map, Rev:Map)
+        => fCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
+               updateVarInTerm(Cur, C, V2, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, iCmp(Op:K, T:K,
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
@@ -3551,6 +3703,11 @@ module LLVM-HELPERS
                   | isMemAvailableAAux(K, K, List)  [function]
                   | isMemAvailableB(K, K)  [function]
                   | isALoc(K) [function]
+                  | isRealLoc(K) [function]
+
+    rule isRealLoc(floatLoc(_,_,_,_,_)) => true
+    rule isRealLoc(intLoc(_,_,_,_,_)) => true
+    rule isRealLoc(A:K) => isALoc(A) [owise]
 
     rule isALoc(loc(A:K, B:K, _,_,_, _)) => true
     //rule isALoc(stackLoc(A:K, B:K,_, _)) => true

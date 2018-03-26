@@ -2328,15 +2328,33 @@ module LLVM-CONVERSIONS
     rule theFPExt(Ty1:KResult, F:KResult, Ty2:KResult)
          => applyFloatCasts(fpext, Ty1, F, Ty2, .List)
 
-    rule
-        <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
-            => signed(Type, Float2Int(F))
-        ...</k>
+    rule theFpToSI(Type:KResult, F:KResult, Type2:KResult)
+            => theFpToSIAux(applyFloatInts(fptosi, Type, F, Type2, .List))
 
-    rule
-        <k> theFpToUI(Type:KResult, F:Float, Type2:KResult)
-            => unsigned(Type, Float2Int(F))
-        ...</k>
+    rule <k> theFpToSIAux(badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: the value in the fptosi op cannot fit in the size of the user defined int type.") </output>
+
+    rule theFpToSIAux(A:K) => A
+         requires A =/=K badValue
+
+    rule theFpToUI(Type:KResult, F:KResult, Type2:KResult)
+            => theFpToUIAux(applyFloatInts(fptoui, Type, F, Type2, .List))
+
+    rule <k> theFpToUIAux(badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: the value in the fptoui op cannot fit in the size of the user defined int type or it is negative.") </output>
+
+    rule theFpToUIAux(A:K) => A
+         requires A =/=K badValue
 
 endmodule
 

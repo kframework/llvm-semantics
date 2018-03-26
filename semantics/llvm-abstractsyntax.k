@@ -381,13 +381,15 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theIntToPtrAux(K, K) // op, totype
     syntax KItem ::= thePtrToInt(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= thePtrToIntAux(K, K) //op totype
-    syntax KItem ::= theFpToSI(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theFpToUI(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theFpToSI(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theFpToSIAux(K) //v
+    syntax KItem ::= theFpToUI(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theFpToUIAux(K) //v
     syntax KItem ::= theFPTrunc(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theFPTruncAux(K)
     syntax KItem ::= theFPExt(K, K, K) [strict(2)] // type, op, totype
-    syntax KItem ::= theSIToFP(K, K, K) [strict] // type, op, totype
-    syntax KItem ::= theUIToFP(K, K, K) [strict] // type, op, totype
+    syntax KItem ::= theSIToFP(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theUIToFP(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theAddrSpaceCast(K, K, K) [strict(2)]//type, op, totype
 
     syntax KItem ::= constantStruct(ElemList) [strict] //arguments

@@ -1147,6 +1147,141 @@ module LLVM-NORMALIZING
     LLVM documentation mistake. trunc is not just working on values.
 */
 
+    //type checking sitofp/uitofp
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, Op:K, integerType(N:Int),
+                  V:K, T:FPType, Meta:InstructionMetadatas)
+              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N:Int), val(V),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       integerType(N:Int), (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X, T) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+                  integerType(N:Int),, V,, T), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires (Op ==K uitofp orBool Op ==K sitofp)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(integerType(N:Int), I:Int),
+                  V:K, vectorTypeValue(T:FPType, I:Int),
+                 Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(integerType(N:Int), I:Int),
+                             val(V),.ElemList))
+                ~> assignUses(Name, TheCount,
+                       vectorTypeValue(integerType(N:Int), I:Int),
+                              (val(V),.ElemList))
+                 ~> assignType(Name, TheCount, X,
+                      vectorTypeValue(T, I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+         vectorTypeValue(integerType(N:Int), I:Int),, V,,
+               vectorTypeValue(T, I:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires Op ==K uitofp orBool Op ==K sitofp
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, Op:K, Ty:KResult,
+                  V:K, Ty':KResult, Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int to float ops must have source/target types being either int/float types or vector of int/float types") </output>
+         requires (Op ==K uitofp orBool Op ==K sitofp) andBool
+           notBool (isIntegerType(Ty) andBool isFloatType(Ty'))
+          andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List => ListItem("Int to float vector ops must have inner types being int/float types.") </output>
+         requires (Op ==K uitofp orBool Op ==K sitofp) andBool 
+           notBool (isIntegerType(Ty) andBool isFloatType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Int to float vector ops must have target/source vector types having the same argument number.") </output>
+         requires (Op ==K uitofp orBool Op ==K sitofp) andBool isIntegerType(Ty)
+                    andBool isFloatType(Ty') andBool I =/=Int I'
+
+    //type checking fptosi and fptoui
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, Op:K, T1:FPType,
+                  V:K, integerType(N:Int), Meta:InstructionMetadatas)
+              => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T1, val(formalizeFloat(T1,V)),.ElemList))
+                 ~> assignUses(Name, TheCount,
+                       T1, (val(formalizeFloat(T1,V)),.ElemList))
+                 ~> assignType(Name, TheCount, X, integerType(N:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+                 T1,, formalizeFloat(T1,V),, integerType(N:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires (Op ==K fptoui orBool Op ==K fptosi)
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(T1:FPType, I:Int),
+                  V:K, vectorTypeValue(integerType(N:Int), I:Int),
+                 Meta:InstructionMetadatas)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(T1, I:Int),
+                             val(formalizeFloats(
+                   vectorTypeValue(T1, I),V)),.ElemList))
+                ~> assignUses(Name, TheCount,
+                       vectorTypeValue(T1, I:Int),
+                  (val(formalizeFloats(vectorTypeValue(T1, I),V)),.ElemList))
+                 ~> assignType(Name, TheCount, X,
+                      vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+         vectorTypeValue(T1, I:Int),,
+            formalizeFloats(vectorTypeValue(T1, I),V),,
+               vectorTypeValue(integerType(N:Int), I:Int)), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+         requires Op ==K fptoui orBool Op ==K fptosi
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef,
+                     X:SymbolicValueRef, Op:K, Ty:KResult,
+                  V:K, Ty':KResult, Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Float to int ops must have source/target types being either float/int types or vector of float/int types") </output>
+         requires (Op ==K fptoui orBool Op ==K fptosi) andBool
+           notBool (isFloatType(Ty) andBool isIntegerType(Ty'))
+          andBool notBool (isVectorType(Ty) andBool isVectorType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Float to int vector ops must have inner types being float/int types.") </output>
+         requires (Op ==K fptoui orBool Op ==K fptosi) andBool 
+           notBool (isFloatType(Ty) andBool isIntegerType(Ty'))
+
+    rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
+                  vectorTypeValue(Ty:K, I':Int),
+                  V:K, vectorTypeValue(Ty':K, I:Int),
+                 Meta:InstructionMetadatas)
+               ~> K:K => .K </k>
+         <output>... .List
+                       => ListItem("Float to int vector ops must have target/source vector types having the same argument number.") </output>
+         requires (Op ==K fptoui orBool Op ==K fptosi) andBool isFloatType(Ty)
+                    andBool isIntegerType(Ty') andBool I =/=Int I'
+
+
+    //type check float casting
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, Op:K, T1:FPType,
                   V:K, T2:FPType, Meta:InstructionMetadatas)
@@ -1235,8 +1370,7 @@ module LLVM-NORMALIZING
          requires notBool compareCastFloatTypes(Op, Ty1, Ty2)
                 andBool (Op ==K fptrunc orBool Op ==K fpext)
 
-
-
+    //type check int casting ops
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, Op:K, integerType(N:Int),
                   V:K, integerType(N':Int), Meta:InstructionMetadatas)

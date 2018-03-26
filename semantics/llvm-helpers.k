@@ -2265,9 +2265,14 @@ module LLVM-HELPERS
 
 
     //dealing with floating point casting fptrunc and fpext
+    //and also float to int casting
     syntax KItem ::= applyFloatCasts(K, K, K, K, List) [function]
                    | applyFloatCast(K, K, K, K) [function]
                    | applyFPTrunc(Int, Int, K) [function]
+                   | applyFloatInts(K, K, K, K, List) [function]
+                   | applyFloatInt(K, K, K, K) [function]
+                   | applyUnsignedFloatInt(K, K) [function] //value, type
+                   | applySignedFloatInt(Int, K, K) [function] //sign, value, type
 
     rule applyFloatCast(Op:K, T:K, floatLoc(A:K, B:K, R:K,D:K,BA:K), T':K)
               => floatLoc(applyFloatCast(Op, T, A, T'), B, R,D,BA:K)
@@ -2307,6 +2312,67 @@ module LLVM-HELPERS
              => applyFloatCasts(Op, T1, dealWithZeroInitializer(T1), T2, L)
     rule applyFloatCasts(Op:K, T1:K, V:K, T2:K, L:List)
            => applyFloatCast(Op, T1, V, T2) [owise]
+
+    //float to int casting function
+    rule applyFloatInt(Op:K, T:K, floatLoc(A:K, B:K, R:K,D:K,BA:K), T':K)
+              => intLoc(applyFloatInt(Op, T, A, T'), B, R,D,BA:K)
+    rule applyFloatInt(Op:K, T:K, poisonVal, T':K) => poisonVal
+    rule applyFloatInt(Op:K, T:K, undef, T':K) => undef
+    rule applyFloatInt(Op:K, T:K, zeroinitializer, T':K)
+               => applyFloatInt(Op:K, T:K, dealWithZeroInitializer(T), T')
+    rule applyFloatInt(Op:K, T:K, A:K, T':K) => 0
+         requires A ==K posZero orBool A ==K negZero
+    rule applyFloatInt(Op:K, T:K, A:K, T':K) => badValue
+         requires A ==K posInf orBool A ==K negInf orBool A ==K nan
+    rule applyFloatInt(fptoui, T1:K, float(I:Int, S:Int, L:List), T2:K) => badValue
+         requires I ==Int 1
+    rule applyFloatInt(fptoui, T1:K, float(I:Int, S:Int, L:List), T2:K) => 0
+         requires I ==Int 0 andBool S <Int 0
+    rule applyFloatInt(fptoui, T1:K, float(I:Int, S:Int, L:List), T2:K)
+                 => applyUnsignedFloatInt(
+                     binToDecNoLimit(ListItem(1) getLeftCountResult(
+                               countFromLeftNoLimit(.List, L, S))), T2)
+         requires I ==Int 0 andBool S >=Int 0
+    rule applyFloatInt(fptosi, T1:K, float(I:Int, S:Int, L:List), T2:K) => 0
+         requires S <Int 0
+    rule applyFloatInt(fptosi, T1:K, float(I:Int, S:Int, L:List), T2:K)
+                 => applySignedFloatInt(I,
+                     binToDecNoLimit(ListItem(1) getLeftCountResult(
+                               countFromLeftNoLimit(.List, L, S))), T2)
+         requires S >=Int 0
+
+    rule applySignedFloatInt(0, I:Int, integerType(N:Int))
+              => normalizingInt(integerType(N), I)
+         requires I <Int (2 ^Int (N -Int 1))
+    rule applySignedFloatInt(0, I:Int, integerType(N:Int)) => badValue
+         requires I >=Int (2 ^Int (N -Int 1))
+    rule applySignedFloatInt(1, I:Int, integerType(N:Int))
+                => normalizingInt(integerType(N), 0 -Int I)
+         requires I <=Int (2 ^Int (N -Int 1))
+    rule applySignedFloatInt(1, I:Int, integerType(N:Int)) => badValue
+         requires I >Int (2 ^Int (N -Int 1))
+
+    rule applyUnsignedFloatInt(I:Int, integerType(N:Int)) => I
+         requires I <Int (2 ^Int N)
+    rule applyUnsignedFloatInt(I:Int, T:K) => badValue [owise]
+
+
+    rule applyFloatInts(Op:K, vectorTypeValue(T1:K, I:Int),
+                          vectorValue(.ElemList), vectorTypeValue(T2:K, I:Int), L:List)
+           => vectorValue(listToElemList(L))
+    rule applyFloatInts(Op:K, vectorTypeValue(T1:K, I:Int), vectorValue(
+                    valValue(A:K),Es:ElemList), vectorTypeValue(T2:K, I:Int), L:List)
+             => applyFloatInts(Op, vectorTypeValue(T1:K, I:Int), vectorValue(Es),
+                vectorTypeValue(T2, I), L ListItem(applyFloatInt(Op, T1, A, T2)))
+         requires applyFloatInt(Op, T1, A, T2) =/=K badValue
+    rule applyFloatInts(Op:K, vectorTypeValue(T1:K, I:Int),
+               vectorValue(valValue(A:K),Es:ElemList),
+                   vectorTypeValue(T2:K, I:Int), L:List) => badValue
+         requires applyFloatInt(Op, T1, A, T2) ==K badValue
+    rule applyFloatInts(Op:K, T1:K, zeroinitializer, T2:K, L:List)
+             => applyFloatInts(Op, T1, dealWithZeroInitializer(T1), T2, L)
+    rule applyFloatInts(Op:K, T1:K, V:K, T2:K, L:List)
+           => applyFloatInt(Op, T1, V, T2) [owise]
 
     rule applySelect(0, A:K, B:K) => A
     rule applySelect(I:Int, A:K, B:K) => B
@@ -2426,6 +2492,10 @@ module LLVM-HELPERS
     rule getKLabelFromOp('and(.KList)) => 'theAnd
     rule getKLabelFromOp('or(.KList)) => 'theOr
     rule getKLabelFromOp('xor(.KList)) => 'theXor
+    rule getKLabelFromOp(uitofp) => 'theUIToFP
+    rule getKLabelFromOp(sitofp) => 'theSIToFP
+    rule getKLabelFromOp(fptoui) => 'theFpToUI
+    rule getKLabelFromOp(fptosi) => 'theFpToSI
     rule getKLabelFromOp(fptrunc) => 'theFPTrunc
     rule getKLabelFromOp(fpext) => 'theFPExt
     rule getKLabelFromOp(trunc) => 'theTrunc
@@ -3016,6 +3086,12 @@ module LLVM-HELPERS
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
                updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, theFpToSI(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theFpToSI(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theFpToUI(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theFpToUI(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
    rule updateVarInTerm(Cur:Int, C:Int, theFPExt(T:K,
                             V:K, T':K), M:Map, RM:Map, Rev:Map)
         => theFPExt(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
@@ -4709,6 +4785,15 @@ module LLVM-HELPERS
     rule toFormalFloatAuxB(T:K, S:Int, B:K) => badValue [owise]
 
     //dealing with input of hex
+    syntax List ::= countFromLeftNoLimit(List, List, Int) [function]
+    rule countFromLeftNoLimit(L:List, L':List, 0) => countByteResult(L, L')
+    rule countFromLeftNoLimit(L:List, .List, N:Int)
+            => countFromLeftNoLimit(L:List ListItem(0), .List, N -Int 1) 
+         requires N >Int 0
+    rule countFromLeftNoLimit(L:List, ListItem(A:K) L':List, N:Int)
+               => countFromLeftNoLimit(L ListItem(A), L', N -Int 1)
+         requires N >Int 0
+
     syntax List ::= countFromLeft(List, List, Int) [function]
     rule countFromLeft(L:List, L':List, 0) => countByteResult(L, L')
     rule countFromLeft(L:List, .List, N:Int) => ListItem(badValue)

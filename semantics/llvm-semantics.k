@@ -2311,6 +2311,23 @@ module LLVM-CONVERSIONS
          requires notBool hasPointerType(T1) andBool notBool hasPointerType(T2)
 
     // TODO need to normalize here
+    rule theFPTrunc(Ty1:KResult, F:KResult, Ty2:KResult)
+         => theFPTruncAux(applyFloatCasts(fptrunc, Ty1, F, Ty2, .List))
+
+    rule theFPTruncAux(A:K) => A
+         requires A =/=K badValue
+
+    rule <k> theFPTruncAux(badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: it undefined behavior when fptrunc op applied on a value which is either not exact float that can be trunced or it is overflow when truncing.") </output>
+
+    rule theFPExt(Ty1:KResult, F:KResult, Ty2:KResult)
+         => applyFloatCasts(fpext, Ty1, F, Ty2, .List)
+
     rule
         <k> theFpToSI(Type:KResult, F:Float, Type2:KResult)
             => signed(Type, Float2Int(F))

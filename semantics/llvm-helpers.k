@@ -1027,6 +1027,7 @@ module LLVM-HELPERS
     syntax KItem ::= getIntType(K)    [function]
                    | getIntInIntType(K) [function]
     rule getIntType(integerType(N:Int)) => integerType(N:Int)
+    rule getIntType(T:FPType) => T
     rule getIntType(vectorTypeValue(T:K, N:Int)) => T
     rule getIntType(K:K) => K [owise]
     rule getIntInIntType(integerType(N:Int)) => N
@@ -2249,7 +2250,8 @@ module LLVM-HELPERS
               => intLoc(applyCast(Op, T, A, T'), B, R,D,BA:K)
     rule applyCast(Op:K, T:K, poisonVal, T':K) => poisonVal
     rule applyCast(Op:K, T:K, undef, T':K) => undef
-    rule applyCast(Op:K, T:K, zeroinitializer, T':K) => applyCast(Op:K, T:K, 0, T')
+    rule applyCast(Op:K, T:K, zeroinitializer, T':K)
+               => applyCast(Op:K, T:K, dealWithZeroInitializer(T), T')
 
     rule applyCasts(Op:K, T:K, .ElemList, T':K) => .ElemList
     rule applyCasts(Op:K, T:K, vectorValue(Es:ElemList), T':K)
@@ -2260,6 +2262,51 @@ module LLVM-HELPERS
     rule applyCasts(Op:K, T:K, zeroinitializer, T2:K)
           => applyCasts(Op, T, dealWithZeroInitializer(T), T2)
     rule applyCasts(Op:K, T:K, I1:K, I2:K) => applyCast(Op, getIntType(T), I1, I2)    [owise]
+
+
+    //dealing with floating point casting fptrunc and fpext
+    syntax KItem ::= applyFloatCasts(K, K, K, K, List) [function]
+                   | applyFloatCast(K, K, K, K) [function]
+                   | applyFPTrunc(Int, Int, K) [function]
+
+    rule applyFloatCast(Op:K, T:K, floatLoc(A:K, B:K, R:K,D:K,BA:K), T':K)
+              => floatLoc(applyFloatCast(Op, T, A, T'), B, R,D,BA:K)
+    rule applyFloatCast(Op:K, T:K, poisonVal, T':K) => poisonVal
+    rule applyFloatCast(Op:K, T:K, undef, T':K) => undef
+    rule applyFloatCast(Op:K, T:K, zeroinitializer, T':K)
+               => applyFloatCast(Op:K, T:K, dealWithZeroInitializer(T), T')
+    rule applyFloatCast(Op:K, T:K, A:K, T':K) => A
+         requires A ==K posZero orBool A ==K negZero
+            orBool A ==K posInf orBool A ==K negInf orBool A ==K nan
+    rule applyFloatCast(fpext, T1:K, float(I:Int, S:Int, L:List), T2:K)
+           => float(I, S, L copyOfK(0, mantissaOf(T2) -Int mantissaOf(T1)))
+    rule applyFloatCast(fptrunc, T1:K, float(I:Int, S:Int, L:List), T2:K) => badValue
+         requires S >Int upperBoundExp(T2) orBool S <Int lowBoundExp(T2)
+    rule applyFloatCast(fptrunc, T1:K, float(I:Int, S:Int, L:List), T2:K)
+          => applyFPTrunc(I, S, countFromLeft(.List, L, mantissaOf(T2)))
+
+    rule applyFPTrunc(I:Int, S:Int, countByteResult(L1:List, L2:List))
+         => float(I, S, L1)
+         requires isZeroDigit(deleteFrontZero(L2))
+    rule applyFPTrunc(I:Int, S:Int, countByteResult(L1:List, L2:List)) => badValue
+         requires notBool isZeroDigit(deleteFrontZero(L2))
+
+    rule applyFloatCasts(Op:K, vectorTypeValue(T1:K, I:Int),
+                          vectorValue(.ElemList), vectorTypeValue(T2:K, I:Int), L:List)
+           => vectorValue(listToElemList(L))
+    rule applyFloatCasts(Op:K, vectorTypeValue(T1:K, I:Int), vectorValue(
+                    valValue(A:K),Es:ElemList), vectorTypeValue(T2:K, I:Int), L:List)
+             => applyFloatCasts(Op, vectorTypeValue(T1:K, I:Int), vectorValue(Es),
+                vectorTypeValue(T2, I), L ListItem(applyFloatCast(Op, T1, A, T2)))
+         requires applyFloatCast(Op, T1, A, T2) =/=K badValue
+    rule applyFloatCasts(Op:K, vectorTypeValue(T1:K, I:Int),
+               vectorValue(valValue(A:K),Es:ElemList),
+                   vectorTypeValue(T2:K, I:Int), L:List) => badValue
+         requires applyFloatCast(Op, T1, A, T2) ==K badValue
+    rule applyFloatCasts(Op:K, T1:K, zeroinitializer, T2:K, L:List)
+             => applyFloatCasts(Op, T1, dealWithZeroInitializer(T1), T2, L)
+    rule applyFloatCasts(Op:K, T1:K, V:K, T2:K, L:List)
+           => applyFloatCast(Op, T1, V, T2) [owise]
 
     rule applySelect(0, A:K, B:K) => A
     rule applySelect(I:Int, A:K, B:K) => B
@@ -2379,6 +2426,8 @@ module LLVM-HELPERS
     rule getKLabelFromOp('and(.KList)) => 'theAnd
     rule getKLabelFromOp('or(.KList)) => 'theOr
     rule getKLabelFromOp('xor(.KList)) => 'theXor
+    rule getKLabelFromOp(fptrunc) => 'theFPTrunc
+    rule getKLabelFromOp(fpext) => 'theFPExt
     rule getKLabelFromOp(trunc) => 'theTrunc
     rule getKLabelFromOp(zext) => 'theZExt
     rule getKLabelFromOp(sext) => 'theSExt
@@ -2967,6 +3016,12 @@ module LLVM-HELPERS
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
                updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, theFPExt(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theFPExt(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theFPTrunc(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theFPTrunc(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
    rule updateVarInTerm(Cur:Int, C:Int, theTrunc(T:K,
                             V:K, T':K), M:Map, RM:Map, Rev:Map)
         => theTrunc(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
@@ -4095,6 +4150,12 @@ module LLVM-HELPERS
     rule compareCastIntNums(trunc, N:Int, N':Int) => N >Int N'
     rule compareCastIntNums(zext, N:Int, N':Int) => N <Int N'
     rule compareCastIntNums(sext, N:Int, N':Int) => N <Int N'
+
+    syntax Bool ::= compareCastFloatTypes(K, K, K) [function]
+    rule compareCastFloatTypes(fptrunc, T1:K, T2:K)
+              => mantissaOf(T1) >Int mantissaOf(T2)
+    rule compareCastFloatTypes(fpext, T1:K, T2:K)
+              => mantissaOf(T1) <Int mantissaOf(T2)
 
     syntax Bool ::= isIntCastOp(K) [function]
     rule isIntCastOp(trunc) => true

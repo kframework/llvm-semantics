@@ -11,3 +11,15 @@
 6, sometimes, zero and negative zero are not equal in LLVM.
 
 7, frem is error-prone. what is allowed input is not clear.
+
+8, fptrunc is able to cast a vector of float to a vector of float but the document says that it cannot.
+
+9, fptrunc float to half is not valid
+
+10, 1.25 cannot be a constant of fp128, which is not discribed in the document.
+
+11, cannot use bitcast to cast a fp128 to a ppc_fp128 type.
+
+12, clang does not think ppc_fp128 is smaller than fp128, that will create a problem that there is no way to cast a fp128 to a ppc_fp128 and a ppc_fp128 to a fp128. It does not say and define in the llvm document.
+
+13, casting a negative float to a unsigned int by fptoui is undefined behavior

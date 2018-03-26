@@ -389,7 +389,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theFPTruncAux(K)
     syntax KItem ::= theFPExt(K, K, K) [strict(2)] // type, op, totype
     syntax KItem ::= theSIToFP(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theSIToFPAux(K) //v
     syntax KItem ::= theUIToFP(K, K, K) [strict(2)] // type, op, totype
+    syntax KItem ::= theUIToFPAux(K) //v
     syntax KItem ::= theAddrSpaceCast(K, K, K) [strict(2)]//type, op, totype
 
     syntax KItem ::= constantStruct(ElemList) [strict] //arguments

@@ -2356,6 +2356,34 @@ module LLVM-CONVERSIONS
     rule theFpToUIAux(A:K) => A
          requires A =/=K badValue
 
+    rule theSIToFP(T1:KResult, A:KResult, T2:KResult)
+            => theSIToFPAux(applyIntFloats(sitofp, T1, A, T2, .List))
+
+    rule theSIToFPAux(A:K) => A
+         requires A =/=K badValue
+
+    rule <k> theSIToFPAux(badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: the value in the sitofp op cannot fit in the size of the user defined float type.") </output>
+
+    rule theUIToFP(T1:KResult, A:KResult, T2:KResult)
+            => theUIToFPAux(applyIntFloats(uitofp, T1, A, T2, .List))
+
+    rule theUIToFPAux(A:K) => A
+         requires A =/=K badValue
+
+    rule <k> theUIToFPAux(badValue) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: the value in the uitofp op cannot fit in the size of the user defined float type.") </output>
+
 endmodule
 
 module LLVM-LITERALS

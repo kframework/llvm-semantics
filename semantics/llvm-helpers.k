@@ -2273,6 +2273,12 @@ module LLVM-HELPERS
                    | applyFloatInt(K, K, K, K) [function]
                    | applyUnsignedFloatInt(K, K) [function] //value, type
                    | applySignedFloatInt(Int, K, K) [function] //sign, value, type
+                   | applyUnsignedIntFloat(List, K) [function]
+                   | applyUnsignedIntFloatAux(Int, List, K) [function]
+                   | applySignedIntFloat(Int, List, K) [function]
+                   | applySignedIntFloatAux(Int, Int, List, K) [function]
+                   | applyIntFloats(K, K, K, K, List) [function]
+                   | applyIntFloat(K, K, K, K) [function]
 
     rule applyFloatCast(Op:K, T:K, floatLoc(A:K, B:K, R:K,D:K,BA:K), T':K)
               => floatLoc(applyFloatCast(Op, T, A, T'), B, R,D,BA:K)
@@ -2311,7 +2317,68 @@ module LLVM-HELPERS
     rule applyFloatCasts(Op:K, T1:K, zeroinitializer, T2:K, L:List)
              => applyFloatCasts(Op, T1, dealWithZeroInitializer(T1), T2, L)
     rule applyFloatCasts(Op:K, T1:K, V:K, T2:K, L:List)
-           => applyFloatCast(Op, T1, V, T2) [owise]
+           => applyFloatCast(Op, getIntType(T1), V, getIntType(T2)) [owise]
+
+    //int to float casting function
+    rule applyIntFloat(Op:K, T:K, intLoc(A:K, B:K, R:K,D:K,BA:K), T':K)
+              => floatLoc(applyIntFloat(Op, T, A, T'), B, R,D,BA:K)
+    rule applyIntFloat(Op:K, T:K, poisonVal, T':K) => poisonVal
+    rule applyIntFloat(Op:K, T:K, undef, T':K) => undef
+    rule applyIntFloat(Op:K, T:K, zeroinitializer, T':K)
+               => applyIntFloat(Op:K, T:K, dealWithZeroInitializer(T), T')
+    rule applyIntFloat(uitofp, integerType(N:Int), A:Int, T':K)
+               => applyUnsignedIntFloat(
+                   decToBinNoLimit(normalizingInt(integerType(N:Int), A)), T')
+    rule applyIntFloat(sitofp, integerType(N:Int), A:Int, T':K)
+               => applySignedIntFloat(deNormalizingInt(integerType(N),
+                           normalizingInt(integerType(N:Int), A)),
+                   decToBinNoLimit(absInt(deNormalizingInt(integerType(N),
+                         normalizingInt(integerType(N:Int), A)))), T')
+
+    rule applySignedIntFloat(I:Int, .List, T:FPType) => posZero
+    rule applySignedIntFloat(I:Int, ListItem(1) L:List, T:FPType)
+           => applySignedIntFloatAux(I, size(L), deleteBackZero(L), T)
+         requires size(L) <=Int upperBoundExp(T)
+    rule applySignedIntFloat(I:Int, ListItem(1) L:List, T:FPType) => badValue
+         requires size(L) >Int upperBoundExp(T)
+
+    rule applySignedIntFloatAux(I:Int, S:Int, L:List, T:FPType)
+           => float(0, S, L copyOfK(0, mantissaOf(T) -Int size(L)))
+         requires size(L) <=Int mantissaOf(T) andBool I >=Int 0
+    rule applySignedIntFloatAux(I:Int, S:Int, L:List, T:FPType)
+           => float(1, S, L copyOfK(0, mantissaOf(T) -Int size(L)))
+         requires size(L) <=Int mantissaOf(T) andBool I <Int 0
+    rule applySignedIntFloatAux(I:Int, S:Int, L:List, T:FPType) => badValue
+         requires size(L) >Int mantissaOf(T)
+
+    rule applyUnsignedIntFloat(.List, T:FPType) => posZero
+    rule applyUnsignedIntFloat(ListItem(1) L:List, T:FPType)
+              => applyUnsignedIntFloatAux(size(L), deleteBackZero(L), T)
+         requires size(L) <=Int upperBoundExp(T)
+    rule applyUnsignedIntFloat(ListItem(1) L:List, T:FPType) => badValue
+         requires size(L) >Int upperBoundExp(T)
+    rule applyUnsignedIntFloatAux(S:Int, L:List, T:FPType)
+           => float(0, S, L copyOfK(0, mantissaOf(T) -Int size(L)))
+         requires size(L) <=Int mantissaOf(T)
+    rule applyUnsignedIntFloatAux(S:Int, L:List, T:FPType) => badValue
+         requires size(L) >Int mantissaOf(T)
+
+    rule applyIntFloats(Op:K, vectorTypeValue(T1:K, I:Int),
+                          vectorValue(.ElemList), vectorTypeValue(T2:K, I:Int), L:List)
+           => vectorValue(listToElemList(L))
+    rule applyIntFloats(Op:K, vectorTypeValue(T1:K, I:Int), vectorValue(
+                    valValue(A:K),Es:ElemList), vectorTypeValue(T2:K, I:Int), L:List)
+             => applyIntFloats(Op, vectorTypeValue(T1:K, I:Int), vectorValue(Es),
+                vectorTypeValue(T2, I), L ListItem(applyIntFloat(Op, T1, A, T2)))
+         requires applyIntFloat(Op, T1, A, T2) =/=K badValue
+    rule applyIntFloats(Op:K, vectorTypeValue(T1:K, I:Int),
+               vectorValue(valValue(A:K),Es:ElemList),
+                   vectorTypeValue(T2:K, I:Int), L:List) => badValue
+         requires applyIntFloat(Op, T1, A, T2) ==K badValue
+    rule applyIntFloats(Op:K, T1:K, zeroinitializer, T2:K, L:List)
+             => applyIntFloats(Op, T1, dealWithZeroInitializer(T1), T2, L)
+    rule applyIntFloats(Op:K, T1:K, V:K, T2:K, L:List)
+           => applyIntFloat(Op, getIntType(T1), V, getIntType(T2)) [owise]
 
     //float to int casting function
     rule applyFloatInt(Op:K, T:K, floatLoc(A:K, B:K, R:K,D:K,BA:K), T':K)
@@ -2337,8 +2404,8 @@ module LLVM-HELPERS
          requires S <Int 0
     rule applyFloatInt(fptosi, T1:K, float(I:Int, S:Int, L:List), T2:K)
                  => applySignedFloatInt(I,
-                     binToDecNoLimit(ListItem(1) getLeftCountResult(
-                               countFromLeftNoLimit(.List, L, S))), T2)
+                     binToDecNoLimit(ListItem(1)
+           getLeftCountResult(countFromLeftNoLimit(.List, L, S))), T2)
          requires S >=Int 0
 
     rule applySignedFloatInt(0, I:Int, integerType(N:Int))
@@ -2356,7 +2423,6 @@ module LLVM-HELPERS
          requires I <Int (2 ^Int N)
     rule applyUnsignedFloatInt(I:Int, T:K) => badValue [owise]
 
-
     rule applyFloatInts(Op:K, vectorTypeValue(T1:K, I:Int),
                           vectorValue(.ElemList), vectorTypeValue(T2:K, I:Int), L:List)
            => vectorValue(listToElemList(L))
@@ -2372,7 +2438,7 @@ module LLVM-HELPERS
     rule applyFloatInts(Op:K, T1:K, zeroinitializer, T2:K, L:List)
              => applyFloatInts(Op, T1, dealWithZeroInitializer(T1), T2, L)
     rule applyFloatInts(Op:K, T1:K, V:K, T2:K, L:List)
-           => applyFloatInt(Op, T1, V, T2) [owise]
+           => applyFloatInt(Op, getIntType(T1), V, getIntType(T2)) [owise]
 
     rule applySelect(0, A:K, B:K) => A
     rule applySelect(I:Int, A:K, B:K) => B
@@ -3086,6 +3152,12 @@ module LLVM-HELPERS
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
                updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, theSIToFP(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theSIToFP(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
+   rule updateVarInTerm(Cur:Int, C:Int, theUIToFP(T:K,
+                            V:K, T':K), M:Map, RM:Map, Rev:Map)
+        => theUIToFP(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
    rule updateVarInTerm(Cur:Int, C:Int, theFpToSI(T:K,
                             V:K, T':K), M:Map, RM:Map, Rev:Map)
         => theFpToSI(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')

@@ -23,3 +23,5 @@
 12, clang does not think ppc_fp128 is smaller than fp128, that will create a problem that there is no way to cast a fp128 to a ppc_fp128 and a ppc_fp128 to a fp128. It does not say and define in the llvm document.
 
 13, casting a negative float to a unsigned int by fptoui is undefined behavior
+
+14, uitofp/sitofp document needs to be very specific that the not fit in the float value means both exp and mantissa.

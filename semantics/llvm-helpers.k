@@ -76,7 +76,23 @@ module LLVM-HELPERS
     syntax KItem ::= getConstIntValue(K, Int) [function]
     rule getConstIntValue(A:Int, N:Int) => deNormalizingInt(
                    integerType(N), normalizingInt(integerType(N), A))
+    rule getConstIntValue(intLoc(A:Int, B:K, C:K, D:K, E:K), N:Int)
+           => intLoc(deNormalizingInt(
+                   integerType(N), normalizingInt(integerType(N), A)), B, C, D, E)
+    rule getConstIntValue(constBinAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K), N:Int)
+          => getConstIntValue(constBinAST(getMainOp(Op), T1, V1, T2, V2), N)
+    rule getConstIntValue(constBinAST('add(.KList), T1:K, V1:K, T2:K, V2:K), N:Int)
+           => deNormalizingInt(integerType(N), normalizingInt(integerType(N), 
+                  getConstIntValue(V1, N) +Int getConstIntValue(V2, N)))
+    rule getConstIntValue(constBinAST('sub(.KList), T1:K, V1:K, T2:K, V2:K), N:Int)
+           => deNormalizingInt(integerType(N), normalizingInt(integerType(N),
+                      getConstIntValue(V1, N) -Int getConstIntValue(V2, N)))
     rule getConstIntValue(A:K, N:Int) => badValue [owise]
+
+    syntax KItem ::= getConstIntShuffle(K, Int) [function]
+    rule getConstIntShuffle(undef, N:Int) => undef
+    rule getConstIntShuffle(A:K, N:Int) => getConstIntValue(A, N) [owise]
+
 
     //for type check swtich
     rule typeCase(integerType(N:Int), A:K, L:K)
@@ -952,6 +968,12 @@ module LLVM-HELPERS
                 => val(callee(operand(addNameToString(Ty)
                   ,addNameToString(V)),modifiers(formElemList(Pa)))),toCallees(Pl)
 */
+    syntax KItem ::= getMainOp(K) [function]
+    rule getMainOp(Op:FloatOps F:FastMathFlags) => Op
+    rule getMainOp(Op:IntConstructors S:OptNW) => Op
+    rule getMainOp(Op:DivConstructors S:OptExact) => Op
+    rule getMainOp(Op:ArithmeticOps) => Op
+
     syntax KItem ::= addNameToString(K) [function]
 
     rule addNameToString(Var:LocalName) => name(localVar, substrString(#tokenToString(Var),1
@@ -3152,6 +3174,20 @@ module LLVM-HELPERS
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
                updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, elemExtract(T1:K,
+                            V1:K, T2:K, V2:K), M:Map, RM:Map, Rev:Map)
+        => elemExtract(T1, updateVarInTerm(Cur, C:Int, V1:K, M, RM, Rev),
+                   T2, updateVarInTerm(Cur, C:Int, V2:K, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, insertElem(T1:K,
+                   V1:K, T2:K, V2:K, T3:K, V3:K), M:Map, RM:Map, Rev:Map)
+        => insertElem(T1, updateVarInTerm(Cur, C:Int, V1:K, M, RM, Rev),
+                   T2, updateVarInTerm(Cur, C:Int, V2:K, M, RM, Rev), T3,
+                   updateVarInTerm(Cur, C:Int, V3:K, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, shuffleVector(T1:K,
+                   V1:K, V2:K, T3:K, V3:K), M:Map, RM:Map, Rev:Map)
+        => shuffleVector(T1, updateVarInTerm(Cur, C:Int, V1:K, M, RM, Rev),
+                  updateVarInTerm(Cur, C:Int, V2:K, M, RM, Rev), T3,
+                   updateVarInTerm(Cur, C:Int, V3:K, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, theSIToFP(T:K,
                             V:K, T':K), M:Map, RM:Map, Rev:Map)
         => theSIToFP(T, updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), T')
@@ -5048,5 +5084,32 @@ module LLVM-HELPERS
     rule isValidFloatExpr(posInf) => true
     rule isValidFloatExpr(negInf) => true
     rule isValidFloatExpr(A:K) => false
+
+    //insert a element to a vector
+    syntax KItem ::= insertElemFun(ElemList, Int, K, List) [function]
+    rule insertElemFun(.ElemList, N:Int, A:K, L:List) => badValue
+    rule insertElemFun(valValue(A:K),Es:ElemList, 0, B:K, L:List)
+             => vectorValue(listToElemList(L ListItem(B) elemListToList(Es)))
+    rule insertElemFun(valValue(A:K),Es:ElemList, N:Int, B:K, L:List)
+             => insertElemFun(Es, N -Int 1, B, L ListItem(A))
+         requires N >Int 0
+
+    syntax KItem ::= getListElem(List, Int) [function]
+    rule getListElem(ListItem(A:K) L:List, 0) => A
+    rule getListElem(ListItem(A:K) L:List, N:Int)
+          => getListElem(L, N -Int 1)
+         requires N >Int 0
+    rule getListElem(.List, N:Int) => badValue
+
+    syntax ElemList ::= getShuffleResult(List, ElemList) [function]
+    rule getShuffleResult(L:List, .ElemList) => .ElemList
+    rule getShuffleResult(L:List, valValue(A:K),Es:ElemList)
+             => valValue(A), getShuffleResult(L, Es)
+         requires A ==K poisonVal orBool A ==K undef
+    rule getShuffleResult(L:List, valValue(zeroinitializer),Es:ElemList)
+             => getShuffleResult(L:List, valValue(0),Es:ElemList)
+    rule getShuffleResult(L:List, valValue(A:Int),Es:ElemList)
+             => valValue(getListElem(L, A)),
+                 getShuffleResult(L:List, Es:ElemList)
 
 endmodule

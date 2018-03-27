@@ -82,6 +82,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax List ::= elemListToList(ElemList) [function]
 
     rule elemListToList(.ElemList) => .List
+    rule elemListToList(valValue(K:K), L:ElemList) => ListItem(K) elemListToList(L)
     rule elemListToList(val(K:K), L:ElemList) => ListItem(K) elemListToList(L)
 
     syntax ElemList ::= combineElemList(ElemList, ElemList) [function]
@@ -371,6 +372,14 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= arg(Set, K, K) [strict(2)]// Modifiers, Type, Value/Name
     syntax KResult ::= typedArg(Set, K, K)
     rule arg(S:Set, T:KResult, A:K) => typedArg(S, T, A)
+
+    //vector ops
+    syntax KItem ::= elemExtract(K, K, K, K) [strict(2, 4)]
+    syntax KItem ::= elemExtractAux(ElemList, K) //v1,v2
+    syntax KItem ::= insertElem(K, K, K, K, K, K) [strict(2, 4, 6)]
+                   //vectort, vector, elementt, element, intt, int
+    syntax KItem ::= insertElemAux(K)
+    syntax KItem ::= shuffleVector(K, K, K, K, K) [strict(2,3,5)]
 
     //@ Conversion Operations
     syntax KItem ::= theTrunc(K, K, K) [strict(2)] // type, op, totype

@@ -28,6 +28,21 @@ module LLVM-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
+    rule constBinAST(Op:IntConstructors S:OptNW, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, formSet(S), .ElemList))
+
+    rule constBinAST(Op:DivConstructors S:OptExact, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, formSet(S), .ElemList))
+
+    rule constBinAST(Op:ArithmeticOps, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, .Set, .ElemList))
+
     rule [int-arith]:
         <k> Op:KLabel(Type:KResult,, I1:KResult,, I2:KResult)
             => flagStage(toIntOp(Op), applyInts(toIntOp(Op),

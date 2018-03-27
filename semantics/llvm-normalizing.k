@@ -52,6 +52,14 @@ module LLVM-NORMALIZING
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
                    | typeCheckFloatOp(K, K, K, K, K, K, Set, InstructionMetadatas)    
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
+                   | typeCheckElemExtract(K, K, K, K, K, K, InstructionMetadatas)
+                                [strict(3, 5)]//block, variable, t1, v1, t2, v2, ins
+                   | typeCheckInsertElem(K, K, K, K, K, K, K, K, InstructionMetadatas)
+                                [strict(3, 5, 7)]//block, variable, t1, v1, t2, v2, t3,v3, ins
+                   | checkShuffleIndex(Int, K, K, K) [strict(2)]
+                               //max index, cur type, cur int, elems
+                   | typeCheckShuffle(K, K, K, K, K, K, K, K, InstructionMetadatas)
+                                [strict(3, 5, 7)]//block, variable, t1, v1, t2, v2,t3,v3, ins
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
                    | typeCheckArgList(K, ElemList)        [strict(2)]
@@ -99,8 +107,6 @@ module LLVM-NORMALIZING
                    | typeCheckLoad(K, K, K, K, K, K, K, Set, InstructionMetadatas)
                              [strict(3,4)]//block, var, t, pt, v, align, atomic, mods, instmeta
                    //| typeCheckIntArgList(K, ElemList)        [strict(2)]
-                   | typeCheckGepArgList(K, ElemList)        [strict(2)]
-                   | typeCheckGepArgListInNum(K, ElemList) //int number of vector, list of indexes
                    | TypeMatchFunctions(K, ElemList, ElemList)  [strict(2,3)]
                    | typeCheckBr(K, K, K, K, K, InstructionMetadatas)    [strict(2)]//block, t, ..., instmeta
                    | typeCheckICmp(K, K, K, K, K, K, InstructionMetadatas)
@@ -238,6 +244,24 @@ module LLVM-NORMALIZING
                  Ty:Type V1:ValueRef, V2:ValueRef Ins:InstructionMetadatas)
            => typeCheckFloatOp(Name:SymbolicValueRef, X, Op, Ty,
                            addNameToString(V1), addNameToString(V2), formSet(F), Ins)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, extractelement
+                 Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef Ins:InstructionMetadatas)
+           => typeCheckElemExtract(Name:SymbolicValueRef, X, Ty1,
+                           addNameToString(V1), Ty2, addNameToString(V2), Ins)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, insertelement
+                 Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef,
+                     Ty3:Type V3:ValueRef Ins:InstructionMetadatas)
+           => typeCheckInsertElem(Name:SymbolicValueRef, X, Ty1,
+                           addNameToString(V1), Ty2, addNameToString(V2),
+                             Ty3, addNameToString(V3), Ins)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, shufflevector
+                 Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef,
+                     Ty3:Type V3:ValueRef Ins:InstructionMetadatas)
+           => typeCheckShuffle(Name:SymbolicValueRef, X, Ty1,
+                           addNameToString(V1), Ty2, addNameToString(V2),
+                             Ty3, addNameToString(V3), Ins)
 /*
     rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas)
@@ -308,20 +332,175 @@ module LLVM-NORMALIZING
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .List, Meta)
 
+    //type check shuffle vector function
+    rule checkShuffleIndex(N:Int, skipValue, skipValue, zeroinitializer) => .K
+    rule checkShuffleIndex(N:Int, skipValue, skipValue, undef) => .K
+    rule checkShuffleIndex(N:Int, skipValue, skipValue, vector(.ElemList)) => .K
+    rule checkShuffleIndex(N:Int, skipValue, skipValue,
+              vector(val(operand(T:K, V:K)), Es:ElemList))
+             => checkShuffleIndex(N, T, getConstIntShuffle(V, 32), vector(Es))
+    rule checkShuffleIndex(N:Int, integerType(32), intLoc(A:Int,
+                       B:K, C:K, D:K, E:K), Vc:K)
+             => checkShuffleIndex(N, integerType(32), A, Vc)
+    rule checkShuffleIndex(N:Int, integerType(32), V:Int, Vc:K)
+             => checkShuffleIndex(N, skipValue, skipValue, Vc)
+         requires V <Int N andBool V >=Int 0
+    rule checkShuffleIndex(N:Int, integerType(32), undef, Vc:K)
+             => checkShuffleIndex(N, skipValue, skipValue, Vc)
+
+    rule <k> checkShuffleIndex(N:Int, T:KResult, V:K, Vc:K)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: shuffle vector op index is not a valid 32 bit int type.") </output>
+         requires T =/=K skipValue andBool T =/=K integerType(32)
+
+    rule <k> checkShuffleIndex(N:Int, T:K, V:Int, Vc:K)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: shuffle vector op index out of range of the input.") </output>
+         requires V >=Int N andBool V <Int 0
+
+    rule <k> checkShuffleIndex(N:Int, T:K, badValue, Vc:K)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("error: shuffle vector op index is not a valid constant int.") </output>
+
+    rule <k> typeCheckShuffle(Name:SymbolicValueRef,
+                  X:K, vectorTypeValue(T:KResult, I:Int), V1:K,
+                 vectorTypeValue(T:KResult, I:Int), V2:K,
+               vectorTypeValue(integerType(32), I':Int), V3:K, Meta:K)
+              => checkShuffleIndex( 2 *Int I, skipValue, skipValue, V3)
+                ~> (exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                 vectorTypeValue(T:KResult, I:Int), val(formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1)),
+                  val(formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V2)),.ElemList))
+                ~> (exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(integerType(32), I':Int), val(V3),.ElemList))
+                 ~> (assignUsesInCall(Name, TheCount,
+                      (valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
+                          formalizeFloats(vectorTypeValue(T:KResult, I:Int), V1))),
+                     valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
+                          formalizeFloats(vectorTypeValue(T:KResult, I:Int), V2)))
+                        ,valValue(typedArg(.Set,
+                       vectorTypeValue(integerType(32), I':Int), V3)),.ElemList))
+                 ~> assignType(Name, TheCount, X, vectorTypeValue(T:KResult, I':Int))))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(shuffleVector(
+                    vectorTypeValue(T:KResult, I:Int), formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1),
+              formalizeFloats(vectorTypeValue(T:KResult, I:Int), V2),
+             vectorTypeValue(integerType(32), I':Int), V3), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
+
+    rule <k> typeCheckShuffle(Name:K, X:K, T:KResult,
+                            V1:K, T2:KResult, V2:K, T3:KResult, V3:K, Meta:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: shuffle vector op must have first/second/third element being vector type.") </output>
+         requires notBool isVectorType(T) orBool notBool isVectorType(T2) orBool notBool isVectorType(T3)
+
+    rule <k> typeCheckShuffle(Name:K, X:K, T:KResult,
+                V1:K, T':KResult, V2:K, T3:K, V3:K, Meta:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: shuffle vector op must have first and second vector types be the same.") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckShuffle(Name:K, X:K, T1:K, V1:K, T2:K, V2:K, 
+               vectorTypeValue(A:KResult, I:Int), V3:K, Meta:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: shuffle vector op must have third element being i32 integer type.") </output>
+         requires A =/=K integerType(32)
+
+    //type check insertelement functions
+    rule <k> typeCheckInsertElem(Name:SymbolicValueRef,
+                  X:K, vectorTypeValue(T:KResult, I:Int), V1:K,
+                 T:KResult, V2:K, integerType(N:Int), V3:K, Meta:K)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                 vectorTypeValue(T:KResult, I:Int), val(formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1)),.ElemList))
+                ~> (typeCheckSingleArg(Name:SymbolicValueRef,
+                               T, formalizeFloat(T, V2))
+                 ~> (exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V3),.ElemList))
+                 ~> (assignUsesInCall(Name, TheCount,
+                      (valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
+                          formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1))),
+                     valValue(typedArg(.Set, T, formalizeFloat(T, V2)))
+                        ,valValue(typedArg(.Set, integerType(N), V3)),.ElemList))
+                 ~> assignType(Name, TheCount, X, vectorTypeValue(T:KResult, I:Int))))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(insertElem(
+                    vectorTypeValue(T:KResult, I:Int), formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1),
+              T,  formalizeFloat(T, V2), integerType(N), V3), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
+
+    rule <k> typeCheckInsertElem(Name:K, X:K, T:KResult,
+                            V1:K, T2:K, V2:K, T3:K, V3:K, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: insert element op must have first element being vector type.") </output>
+         requires notBool isVectorType(T)
+
+    rule <k> typeCheckInsertElem(Name:K, X:K, vectorTypeValue(T:KResult, I:Int),
+                V1:K, T':KResult, V2:K, T3:K, V3:K, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: insert element op must have first vector element type be the type of the second argument.") </output>
+         requires T =/=K T'
+
+    rule <k> typeCheckInsertElem(Name:K, X:K, T1:K, V1:K,
+                T2:K, V2:K, T3:KResult, V3:K, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: insert element op must have third element being integer type.") </output>
+         requires notBool isIntegerType(T3)
+
+    //type check elementextract function
+    rule <k> typeCheckElemExtract(Name:SymbolicValueRef,
+                  X:K, vectorTypeValue(T:KResult, I:Int),
+                        V1:K, integerType(N:Int), V2:K, Meta:K)
+              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+                 vectorTypeValue(T:KResult, I:Int), val(formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1)),.ElemList))
+                 ~> (exprType(typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V2),.ElemList))
+                 ~> (assignUsesInCall(Name, TheCount,
+                      (valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
+                          formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1)))
+                        ,valValue(typedArg(.Set, integerType(N), V2)),.ElemList))
+                 ~> assignType(Name, TheCount, X, T))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(elemExtract(
+                    vectorTypeValue(T:KResult, I:Int), formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1), integerType(N), V2), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
+
+    rule <k> typeCheckElemExtract(Name:K, X:K, T:KResult, V1:K, T2:K, V2:K, Meta:K)
+           ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: element extract op must have first element being vector type.") </output>
+         requires notBool isVectorType(T)
+
+    rule <k> typeCheckElemExtract(Name:K, X:K, T:K, V1:K, T2:KResult, V2:K, Meta:K)
+           ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: element extract op must have second element being integer type.") </output>
+         requires notBool isIntegerType(T)
+
     //type check the gep int list coordinated with the type
     rule singleGepTypeCheck(Name:K, Count:Int, X:K, Ad:Int, T:KResult)
           => assignType(Name, Count, X, pointerTypeValue(T, Ad))
 
     rule typeCheckInGepList(Name:K, T:KResult, .ElemList) => T
+
     rule <k> typeCheckInGepList(Name:K, gepTypeBag(T:KResult), .ElemList)
            ~> K:K => .K </k>
          <output>... .List
            => ListItem("error: getelementptr op must have at least one index.") </output>
+
     rule <k> typeCheckInGepList(Name:K,  gepTypeBag(T:KResult), valValue(Q:K), Es:ElemList)
            ~> K:K => .K </k>
          <output>... .List
              => ListItem("error: cannot calculate on the index type in the getelmentptr op.") </output>
          requires notBool isAggregateType(T)
+
     rule <k> typeCheckInGepList(Name:K,  T:KResult,
            valValue(typeOperandGepVal(In:K, T':KResult, V:K)), Es:ElemList) ~> K:K
              => .K  </k>
@@ -2099,11 +2278,11 @@ module LLVM-NORMALIZING
           requires notBool isGlobalVariable(X) orBool notBool isLocalVariable(Y)
 
     //type check elements of const exprs
-    rule typeCheckConstExprs(T:K, .ElemList) => .K
-    rule typeCheckConstExprs(T:KResult, (typeOperandResult(T, A:K), Es:ElemList))
+    rule typeCheckConstExprs(T:K, .ElemList) => T
+    rule typeCheckConstExprs(T:KResult, (valValue(typeOperandResult(T, A:K)), Es:ElemList))
           => exprType(typeCheckConstExpr(T, A))
                      ~> typeCheckConstExprs(T, Es)
-    rule <k> typeCheckConstExprs(T:K, (typeOperandResult(T':KResult, A:K), Es:ElemList))
+    rule <k> typeCheckConstExprs(T:K, (valValue(typeOperandResult(T':KResult, A:K)), Es:ElemList))
               ~> K:K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires T =/=K T'
@@ -2124,6 +2303,9 @@ module LLVM-NORMALIZING
          requires notBool isLocalVariable(X)
 
     //type check an arg without specifying the type
+    rule typeCheckSingleArg(Name:SymbolicValueRef, T:FPType, V:K)
+          => exprType(preTypeCheckFloatExpr(T, V))
+                   ~> checkUseVarInside(Name, T, V)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                    pointerTypeValue(T:KResult, Ad:KResult), V:K)
           => exprType(preTypeCheckPointerExpr(
@@ -2214,11 +2396,18 @@ module LLVM-NORMALIZING
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
            vectorTypeValue(T:K, I:Int), .ElemList) => vectorTypeValue(T:K, I:Int)
+         requires I >Int 0
+
+    rule <k> typeCheckVectorArgs(Name:SymbolicValueRef,
+           vectorTypeValue(T:K, 0), Es:ElemList) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invalid vector number for instruction") </output>
+
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
            vectorTypeValue(T:K, I:Int), val(V:K),Es:ElemList)
          => exprType(preTypeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
              ~> checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
              ~> typeCheckVectorArgs(Name, vectorTypeValue(T:K, I:Int), Es)
+         requires I >Int 0
 
     //type check single vector argument
     rule preTypeCheckVectorArg(T:K, I:Int, X:SymbolicValueRef) => T
@@ -2232,9 +2421,6 @@ module LLVM-NORMALIZING
     rule <k> preTypeCheckVectorArg(T:K, I:K, X:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: vector of x86 mmx type is invalid") </output>
          requires I >Int 0 andBool hasInValidMMXType(vectorTypeValue(T, I))
-
-    rule <k> preTypeCheckVectorArg(T:K, 0, X:K) ~> K:K => .K </k>
-         <output>... .List => ListItem("error: invalid vector number for instruction") </output>
 
     rule typeCheckVectorArg(T:KResult, I:Int, undef) => T
     rule typeCheckVectorArg(T:KResult, I:Int, zeroinitializer) => T

@@ -913,7 +913,7 @@ module LLVM-SYNTAX
       not have side effects (e.g. load and call are not supported).
       The following is the syntax for constant expressions.
     */
-    syntax ConstantIndexList ::= "," UnsignedInt | UnsignedInt "," ConstantIndexList
+    syntax ConstantIndexList ::= "," UnsignedInt | "," UnsignedInt ConstantIndexList
     syntax ConstExpr ::= CastOps "(" ResolvedVal "to" Type ")"              [klabel('constCast)]
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"       [klabel('constBin)]
                       | LogicalOps "(" ResolvedVal "," ResolvedVal ")"      [klabel('constLogic)]

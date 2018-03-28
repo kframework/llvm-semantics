@@ -67,6 +67,10 @@ module LLVM-ABSTRACTSYNTAX
     rule lengthOfList(val(K:K),L:ElemList) => 1 +Int lengthOfList(L)
     rule lengthOfList(valValue(K:K),L:ElemList) => 1 +Int lengthOfList(L)
 
+    syntax Int ::= lengthOfTypeList(TypeList) [function]
+    rule lengthOfTypeList(.TypeList) => 0
+    rule lengthOfTypeList(T:Type, Ts:TypeList) => 1 +Int lengthOfTypeList(Ts)
+
     syntax KItem ::= elemListToK(ElemList) [function]
 
     rule elemListToK(.ElemList) => .K
@@ -404,7 +408,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= theAddrSpaceCast(K, K, K) [strict(2)]//type, op, totype
 
     syntax KItem ::= constantStruct(ElemList) [strict] //arguments
+    syntax KResult ::= constStructVal(ElemList) //arguments
+    rule constantStruct(A:KResult) => constStructVal(A)
     syntax KItem ::= packedStruct(ElemList) [strict] //arguments
+    syntax KResult ::= packedStructVal(ElemList) //arguments
+    rule packedStruct(A:KResult) => packedStructVal(A)
 
     syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
     //syntax KItem ::= values(K) [function]
@@ -436,10 +444,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= insertElement(K, K, K) [strict]
     syntax KItem ::= shuffleVector(K, K, K) [strict]
     syntax KItem ::= landingPad(K,K,K) [strict(1,2)] // operand,operand modifiers
-    syntax KItem ::= extractValue(K, ElemList) [strict]
+    syntax KItem ::= extractValue(K, List) [strict(1)]
     syntax KItem ::= cmpxChg(K, K, K) [strict]
     syntax KItem ::= atomicRmw(K, K, K) [strict]
-    syntax KItem ::= insertValue(K, K, ElemList) [strict]
+    syntax KItem ::= insertValue(K, K, K, List) [strict(2,3)]
+                      //type, v1, v2, indexs
 
     syntax KItem ::= aliases(ElemList)
     syntax KItem ::= alias(Set, K, K) [strict(3)]//modifiers, Name, Aliasee

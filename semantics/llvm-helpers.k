@@ -14,9 +14,42 @@ module LLVM-HELPERS
               => dealWithZeroInitializer(T)
     rule dealWithZero(T:K, A:K) => A [owise]
 
+    syntax KItem ::= dealWithUndef(K) [function]//t, v
+                   | undefVectorAux(K, K, K)  [function]
+                   | undefArrayAux(K, K, K)   [function]
+                   | dealWithUndefAux(TypeList) [function]
+    
+    rule dealWithUndef(vectorTypeValue(T:K, N:Int))
+            => vectorValue(undefVectorAux(T:K, N:Int, .ElemList))
+    rule dealWithUndef(A:K) => undef
+         requires notBool isArrayType(A) andBool notBool isVectorType(A)
+             andBool notBool isStructType(A)
+    rule dealWithUndef(arrayTypeValue(T:K, N:Int))
+           => arrayValue(undefVectorAux(T, N, .ElemList))
+    rule dealWithUndef(structTypeValue(Ts:K))
+           => constStructVal(dealWithUndefAux(Ts))
+    rule dealWithUndef(packedStructTypeValue(Ts:K))
+           => packedStructVal(dealWithUndefAux(Ts))
+
+    rule undefVectorAux(T, N:Int, Es:ElemList) => Es
+         requires N ==Int 0
+    rule undefVectorAux(T, N:Int, Es:ElemList)
+               => undefVectorAux(T, N -Int 1, valValue(dealWithUndef(T)),Es)
+         requires N >Int 0
+    rule undefArrayAux(T, N:Int, Es:ElemList) => Es
+         requires N ==Int 0
+    rule undefArrayAux(T, N:Int, Es:ElemList)
+               => undefArrayAux(T, N -Int 1, valValue(dealWithUndef(T)),Es)
+         requires N >Int 0
+
+    rule dealWithUndefAux(.TypeList) => .ElemList
+    rule dealWithUndefAux(T:K, Ts:TypeList)
+            => valValue(dealWithUndef(T)), dealWithUndefAux(Ts)
+
     syntax KItem ::= dealWithZeroInitializer(K) [function]//t, v
                    | zeroVectorAux(K, K, K)  [function]
                    | zeroArrayAux(K, K, K)   [function]
+                   | dealWithZeroInitializerAux(TypeList) [function]
     rule dealWithZeroInitializer(vectorTypeValue(T:K, N:Int))
             => vectorValue(zeroVectorAux(T:K, N:Int, .ElemList))
     rule dealWithZeroInitializer(integerType(N:Int)) => 0
@@ -27,6 +60,15 @@ module LLVM-HELPERS
                           value(nullMemoryLoc,nullMemoryLoc),heap, none, none)
     rule dealWithZeroInitializer(arrayTypeValue(T:K, N:Int))
            => arrayValue(zeroArrayAux(T, N, .ElemList))
+    rule dealWithZeroInitializer(structTypeValue(Ts:K))
+           => constStructVal(dealWithZeroInitializerAux(Ts))
+    rule dealWithZeroInitializer(packedStructTypeValue(Ts:K))
+           => packedStructVal(dealWithZeroInitializerAux(Ts))
+
+    rule dealWithZeroInitializerAux(.TypeList) => .ElemList
+    rule dealWithZeroInitializerAux(T:K, Ts:TypeList)
+            => valValue(dealWithZeroInitializer(T)), dealWithZeroInitializerAux(Ts)
+
     rule zeroVectorAux(T, N:Int, Es:ElemList) => Es
          requires N ==Int 0
     rule zeroVectorAux(T, N:Int, Es:ElemList)
@@ -821,7 +863,7 @@ module LLVM-HELPERS
                        => val(S),.ElemList
     rule formElemList(, N:UnsignedInt)
               => val(String2Int(#tokenToString(N))),.ElemList
-    rule formElemList(N:UnsignedInt, Cil:ConstantIndexList)
+    rule formElemList(, N:UnsignedInt Cil:ConstantIndexList)
            => val(String2Int(#tokenToString(N))),formElemList(Cil)
     rule formElemList(X:Ordering) => val(X),.ElemList
     rule formElemList(X:Ordering Xl:OrderingList)
@@ -984,6 +1026,8 @@ module LLVM-HELPERS
                           ,lengthString(#tokenToString(Var)) -Int 1))
     rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
     rule addNameToString([ R:ReturnedVal ]) => array(formElemList(R))
+    rule addNameToString({ R:ReturnedVal }) => constantStruct(formElemList(R))
+    rule addNameToString(< { R:ReturnedVal } >) => packedStruct(formElemList(R))
     rule addNameToString('constCast(C:CastOps,, T1:Type V:ValueRef,, T2:Type))
             => constCastAST(C, T1, addNameToString(V), T2)
     rule addNameToString('constBin(C:BinaryOps,,
@@ -3174,6 +3218,13 @@ module LLVM-HELPERS
                         V1:K, V2:K), M:Map, RM:Map, Rev:Map)
         => iCmp(Op:K, T:K, updateVarInTerm(Cur, C, V1, M, RM, Rev),
                updateVarInTerm(Cur, C, V2, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, extractValue(V:K,
+                            L:List), M:Map, RM:Map, Rev:Map)
+        => extractValue(updateVarInTerm(Cur, C:Int, V:K, M, RM, Rev), L)
+   rule updateVarInTerm(Cur:Int, C:Int, insertValue(T1:K, V1:K, V2:K,
+                            L:List), M:Map, RM:Map, Rev:Map)
+        => insertValue(T1, updateVarInTerm(Cur, C:Int, V1:K, M, RM, Rev),
+               updateVarInTerm(Cur, C:Int, V2:K, M, RM, Rev), L)
    rule updateVarInTerm(Cur:Int, C:Int, elemExtract(T1:K,
                             V1:K, T2:K, V2:K), M:Map, RM:Map, Rev:Map)
         => elemExtract(T1, updateVarInTerm(Cur, C:Int, V1:K, M, RM, Rev),
@@ -5065,6 +5116,10 @@ module LLVM-HELPERS
                ,vector(Es:ElemList))
              => vector(formalizeFloats(vectorTypeValue(T:K, I:Int), Es))
     rule formalizeFloats(T:K, .ElemList) => .ElemList
+    rule formalizeFloats(vectorTypeValue(T:K, I:Int), valValue(A:K),Es:ElemList)
+            => val(formalizeFloat(T, A)),
+                        formalizeFloats(vectorTypeValue(T:K, I:Int), Es)
+
     rule formalizeFloats(vectorTypeValue(T:K, I:Int),
               val(operand(T':K, A:K)),Es:ElemList)
             => val(operand(T', formalizeFloat(T, A))),
@@ -5072,6 +5127,47 @@ module LLVM-HELPERS
     rule formalizeFloats(vectorTypeValue(T:K, I:Int), zeroinitializer)
                => vector(copyOfElemList(T, posZero, I))
     rule formalizeFloats(T:K, A:K) => formalizeFloat(T, A) [owise]
+
+    syntax KItem ::= formalizeAllFloats(K, K) [function]
+                   | formalizeAllFloatsAux(K, K) [function]
+    rule formalizeAllFloats(vectorTypeValue(T:K, I:Int), A:K)
+           => formalizeFloats(vectorTypeValue(T:K, I:Int), A:K)
+    rule formalizeAllFloats(T:K, A:K) => formalizeFloat(T, A)
+         requires notBool isVectorType(T)
+            andBool notBool isArrayType(T)
+            andBool notBool isStructType(T)
+    rule formalizeAllFloats(arrayTypeValue(T:K, I:Int)
+               ,array(Es:ElemList))
+             => array(formalizeAllFloats(arrayTypeValue(T:K, I:Int), Es))
+    rule formalizeAllFloats(arrayTypeValue(T:K, I:Int)
+               ,arrayValue(Es:ElemList))
+             => arrayValue(formalizeAllFloats(arrayTypeValue(T:K, I:Int), Es))
+    rule formalizeAllFloats(T:K, .ElemList) => .ElemList
+    rule formalizeAllFloats(arrayTypeValue(T:K, I:Int),
+              val(operand(T':K, A:K)),Es:ElemList)
+            => val(operand(T', formalizeAllFloats(T, A))),
+                        formalizeAllFloats(arrayTypeValue(T:K, I:Int), Es)
+    rule formalizeAllFloats(T:K, zeroinitializer)
+            => formalizeAllFloats(T, dealWithZeroInitializer(T))
+         requires isArrayType(T) orBool isStructType(T)
+    rule formalizeAllFloats(structTypeValue(T:K), constantStruct(A:K))
+            => constantStruct(formalizeAllFloatsAux(T, A))
+    rule formalizeAllFloats(structTypeValue(T:K), constStructVal(A:K))
+            => constStructVal(formalizeAllFloatsAux(T, A))
+    rule formalizeAllFloats(packedStructTypeValue(T:K), packedStruct(A:K))
+            => packedStruct(formalizeAllFloatsAux(T, A))
+    rule formalizeAllFloats(packedStructTypeValue(T:K), packedStructVal(A:K))
+            => packedStructVal(formalizeAllFloatsAux(T, A))
+    rule formalizeAllFloats(T:K, A:K) => A [owise]
+
+    rule formalizeAllFloatsAux(.TypeList, .ElemList) => .ElemList
+    rule formalizeAllFloatsAux(T:K, Ts:TypeList, valValue(A:K),Es:ElemList)
+             => valValue(formalizeAllFloats(T, A)), formalizeAllFloatsAux(Ts, Es)
+    rule formalizeAllFloatsAux(T:K, Ts:TypeList,
+                   val(operand(T':K, A:K)),Es:ElemList)
+             => val(operand(T', formalizeAllFloats(T, A))), formalizeAllFloatsAux(Ts, Es)
+    rule formalizeAllFloatsAux(T:K, V:K) => badValue [owise]
+
 
     syntax Bool ::= isValidFloatExpr(K) [function]
     rule isValidFloatExpr('float(_,,_,,_)) => true
@@ -5101,6 +5197,18 @@ module LLVM-HELPERS
          requires N >Int 0
     rule getListElem(.List, N:Int) => badValue
 
+    syntax KItem ::= getElemListElem(ElemList, Int) [function]
+    rule getElemListElem(val(A:K), L:ElemList, 0) => A
+    rule getElemListElem(valValue(A:K), L:ElemList, 0) => A
+    rule getElemListElem(val(A:K), L:ElemList, N:Int)
+          => getElemListElem(L, N -Int 1)
+         requires N >Int 0
+    rule getElemListElem(valValue(A:K), L:ElemList, N:Int)
+          => getElemListElem(L, N -Int 1)
+         requires N >Int 0
+    rule getElemListElem(.ElemList, N:Int) => badValue
+
+    //for dealing with shuffle op
     syntax ElemList ::= getShuffleResult(List, ElemList) [function]
     rule getShuffleResult(L:List, .ElemList) => .ElemList
     rule getShuffleResult(L:List, valValue(A:K),Es:ElemList)
@@ -5111,5 +5219,26 @@ module LLVM-HELPERS
     rule getShuffleResult(L:List, valValue(A:Int),Es:ElemList)
              => valValue(getListElem(L, A)),
                  getShuffleResult(L:List, Es:ElemList)
+
+    //a function to find the right place in an array
+    //or struct to place the insert element, assume no exception
+    syntax KItem ::= placeInsertValue(K, K, K, List) [function]
+    rule placeInsertValue(valValue(A:K),Es:ElemList, B:K, 0, .List)
+            => valValue(B),Es
+    rule placeInsertValue(Es:K, B:K, .K, ListItem(N:Int) L:List)
+         => placeInsertValue(Es, B, N, L)
+    rule placeInsertValue(arrayValue(Es:ElemList), B:K, X:K, L:List)
+         => arrayValue(placeInsertValue(Es, B, X, L))
+    rule placeInsertValue(constStructVal(Es:ElemList), B:K, X:K, L:List)
+         => constStructVal(placeInsertValue(Es, B, X, L))
+    rule placeInsertValue(packedStructVal(Es:ElemList), B:K, X:K, L:List)
+         => packedStructVal(placeInsertValue(Es, B, X, L))
+
+    rule placeInsertValue(valValue(A:K),Es:ElemList, B:K, 0, L:List)
+            => valValue(placeInsertValue(A, B, .K, L)),Es
+         requires size(L) >=Int 1
+    rule placeInsertValue(valValue(A:K),Es:ElemList, B:K, N:Int, L:List)
+             => valValue(A), placeInsertValue(Es, B, N -Int 1, L)
+         requires N >Int 0
 
 endmodule

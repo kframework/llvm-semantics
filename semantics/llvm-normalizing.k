@@ -52,6 +52,14 @@ module LLVM-NORMALIZING
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
                    | typeCheckFloatOp(K, K, K, K, K, K, Set, InstructionMetadatas)    
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
+                   | typeCheckExtractValue(K, K, K, K, List, InstructionMetadatas)
+                                [strict(3)]//block, variable, t1, v1, idendis, ins
+                   | typeCheckExtractValueAux(K, K, K, K, K, List, List, InstructionMetadatas)
+                           //block, variable, t1, temp ty1, v1, idendis, temp index, ins
+                   | typeCheckInsertValueAux(K, K, K, K, K, K, K, List, List, InstructionMetadatas)
+                              //block, variable, t1,temp ty1, v1,t2,v2, idendis, temp index, ins
+                   | typeCheckInsertValue(K, K, K, K, K, K, List, InstructionMetadatas)
+                                [strict(3,5)]//block, variable, t1, v1, idendis, ins
                    | typeCheckElemExtract(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(3, 5)]//block, variable, t1, v1, t2, v2, ins
                    | typeCheckInsertElem(K, K, K, K, K, K, K, K, InstructionMetadatas)
@@ -83,6 +91,9 @@ module LLVM-NORMALIZING
                    | typeCheckArrayExpr(K, Int, K) //type, n, var
                    | typeCheckArrayExpr(K, Int, K, K, K) [strict(3)]
                                                 //t, integer, type, value, terms
+                   | preTypeCheckStructExpr(K, K) //type, var
+                   | typeCheckStructExpr(K, K, K) //temp t, type, var
+                   | typeCheckStructExprAux(K, K, K) [strict(2)]//type, var
                    | preTypeCheckArrayExpr(K, Int, K) //type, n, var
                    | typeCheckArrayAux(K, K) //t, terms
                    | typeCheckIntArg(K, K, K)//block, t, var
@@ -262,6 +273,17 @@ module LLVM-NORMALIZING
            => typeCheckShuffle(Name:SymbolicValueRef, X, Ty1,
                            addNameToString(V1), Ty2, addNameToString(V2),
                              Ty3, addNameToString(V3), Ins)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, extractvalue
+             Ty1:Type V1:ValueRef Cs:ConstantIndexList Ins:InstructionMetadatas)
+           => typeCheckExtractValue(Name:SymbolicValueRef, X, Ty1,
+                           addNameToString(V1), elemListToList(formElemList(Cs)), Ins)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef, insertvalue
+                 Ty1:Type V1:ValueRef, Ty2:Type V2:ValueRef
+                 Cs:ConstantIndexList Ins:InstructionMetadatas)
+           => typeCheckInsertValue(Name:SymbolicValueRef, X, Ty1,
+                           addNameToString(V1), Ty2,
+                     addNameToString(V2), elemListToList(formElemList(Cs)), Ins)
 /*
     rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas)
@@ -331,6 +353,147 @@ module LLVM-NORMALIZING
                                   Meta:InstructionMetadatas)
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .List, Meta)
+
+    //type check insert value
+    rule typeCheckInsertValue(Name:K, X:K, T:KResult, V1:K, T2:KResult, V2:K, L:List, Meta:K)
+          => typeCheckInsertValueAux(Name, X, T, T, V1, T2, V2, L, L, Meta)
+
+    rule typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, arrayTypeValue(T1:K, I:Int), V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K)
+            => typeCheckInsertValueAux(Name, X, T, T1, V1, T2, V2, L1, L2, Meta)
+         requires N <Int I
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, T1:KResult, V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+             => ListItem("error: insert value is inserting to a place whose type cannot be extracted by the insertvalue op.") </output>
+             requires notBool isArrayType(T1) andBool notBool isStructType(T1)
+
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, arrayTypeValue(T1:K, I:Int), V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+             => ListItem("error: insert value index out of range of an array type range.") </output>
+             requires N >=Int I
+
+    rule typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, structTypeValue(Ts:K), V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K)
+            => typeCheckInsertValueAux(Name, X, T,
+                  getGepTypeInStruct(Ts, N), V1, T2, V2, L1, L2, Meta)
+         requires getGepTypeInStruct(Ts, N) =/=K badType
+
+    rule typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, packedStructTypeValue(Ts:K), V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K)
+            => typeCheckInsertValueAux(Name, X, T,
+                          getGepTypeInStruct(Ts, N), V1, T2, V2, L1, L2, Meta)
+         requires getGepTypeInStruct(Ts, N) =/=K badType
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+                    T:K, structTypeValue(Ts:K), V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+             => ListItem("error: insert value index out of range of a struct type range.") </output>
+         requires getGepTypeInStruct(Ts, N) ==K badType
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+                    T:K, packedStructTypeValue(Ts:K), V1:K, T2:K, V2:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+             => ListItem("error: insert value index out of range of a packed struct type range.") </output>
+         requires getGepTypeInStruct(Ts, N) ==K badType
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:KResult, T1:KResult, V1:K, T1, V2:K, L:List, .List, Meta:K)
+           => typeCheckSingleArg(Name:SymbolicValueRef,
+                               T, formalizeAllFloats(T, V1))
+             ~> (typeCheckSingleArg(Name:SymbolicValueRef,
+                               T1, formalizeAllFloats(T1, V2))
+             ~> (assignUses(Name, TheCount, T1, val(V2),.ElemList)
+                  ~> (assignUses(Name, TheCount, T, val(V1),.ElemList)
+               ~> assignType(Name, TheCount, X, T))))  ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(insertValue(T,
+                    operand(T, formalizeAllFloats(T, V1)),
+                operand(T1, formalizeAllFloats(T1, V2)), L), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
+         requires isArrayType(T) orBool isStructType(T1)
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:KResult, T1:KResult, V1:K, T2:KResult, V2:K, L:List, .List, Meta:K)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: insert value that does not match with the type of the original input element type.") </output>
+         requires T1 =/=K T2
+
+    //type check extract value
+    rule typeCheckExtractValue(Name:K, X:K, T:KResult, V1:K, L:List, Meta:K)
+          => typeCheckExtractValueAux(Name, X, T, T, V1, L, L, Meta)
+
+    rule typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, arrayTypeValue(T1:K, I:Int), V1:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K)
+            => typeCheckExtractValueAux(Name, X, T, T1, V1, L1, L2, Meta)
+         requires N <Int I
+
+    rule <k> typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, T1:KResult, V1:K,
+                     L1:List, ListItem(N:K) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: extract value is extracting invalid types to extract.") </output>
+         requires notBool isArrayType(T1) andBool notBool isStructType(T1)
+
+    rule <k> typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, arrayTypeValue(T1:K, I:Int), V1:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: extract value index out of range of an array type range.") </output>
+         requires N >=Int I
+
+    rule typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, structTypeValue(Ts:K), V1:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K)
+            => typeCheckExtractValueAux(Name, X, T,
+                          getGepTypeInStruct(Ts, N), V1, L1, L2, Meta)
+         requires getGepTypeInStruct(Ts, N) =/=K badType
+
+    rule typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:K, packedStructTypeValue(Ts:K), V1:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K)
+            => typeCheckExtractValueAux(Name, X, T,
+                          getGepTypeInStruct(Ts, N), V1, L1, L2, Meta)
+         requires getGepTypeInStruct(Ts, N) =/=K badType
+
+    rule <k> typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+                    T:K, structTypeValue(Ts:K), V1:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+             => ListItem("error: extract value index out of range of a struct type range.") </output>
+         requires getGepTypeInStruct(Ts, N) ==K badType
+
+    rule <k> typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+                    T:K, packedStructTypeValue(Ts:K), V1:K,
+                     L1:List, ListItem(N:Int) L2:List, Meta:K) ~> K:K => .K </k>
+         <output>... .List
+             => ListItem("error: extract value index out of range of a packed struct type range.") </output>
+         requires getGepTypeInStruct(Ts, N) ==K badType
+
+    rule <k> typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:KResult, T1:KResult, V1:K, L:List, .List, Meta:K)
+           => typeCheckSingleArg(Name:SymbolicValueRef,
+                               T, formalizeAllFloats(T, V1))
+             ~> (assignUses(Name, TheCount, T, val(V1),.ElemList)
+               ~> assignType(Name, TheCount, X, T1))  ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(extractValue(
+                    operand(T, formalizeAllFloats(T, V1)), L), .Set,
+                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
+         requires isArrayType(T) orBool isStructType(T1)
 
     //type check shuffle vector function
     rule checkShuffleIndex(N:Int, skipValue, skipValue, zeroinitializer) => .K
@@ -2307,6 +2470,12 @@ module LLVM-NORMALIZING
           => exprType(preTypeCheckFloatExpr(T, V))
                    ~> checkUseVarInside(Name, T, V)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
+                             arrayTypeValue(T:K, I:Int), V:K)
+          => exprType(preTypeCheckArrayExpr(
+                          arrayTypeValue(T:K, I:Int), I, V))
+                   ~> checkUseVarInside(Name,
+                            arrayTypeValue(T:K, I:Int), V)
+    rule typeCheckSingleArg(Name:SymbolicValueRef,
                    pointerTypeValue(T:KResult, Ad:KResult), V:K)
           => exprType(preTypeCheckPointerExpr(
               pointerTypeValue(T:KResult, Ad:KResult), V:K))
@@ -2324,19 +2493,104 @@ module LLVM-NORMALIZING
              O:OpaqueType ,V:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: the arg type cannot be opaque structural type.") </output>
 
+    //type check single struct argument
+    rule preTypeCheckStructExpr(T:K, X:SymbolicValueRef) => T
+         requires isLocalVariable(X)
+             andBool notBool hasInValidMMXType(T)
+    rule preTypeCheckStructExpr(T:K, X:K)
+           => typeCheckStructExpr(T, T, X)
+         requires notBool isLocalVariable(X)
+             andBool notBool hasInValidMMXType(T)
+
+    rule <k> preTypeCheckStructExpr(T:K, X:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: array of x86 mmx type is invalid") </output>
+         requires hasInValidMMXType(T)
+
+    rule typeCheckStructExpr(T:KResult, T':KResult, undef) => T
+    rule typeCheckStructExpr(T:KResult, T':KResult, zeroinitializer) => T
+    rule typeCheckStructExpr(T:KResult, T':KResult, X:SymbolicValueRef) => T
+         requires notBool isLocalVariable(X)
+
+    rule <k> typeCheckStructExpr(T:KResult, T':KResult, X:SymbolicValueRef)
+                  ~> K:K => .K </k>
+         <output>... .List => ListItem("error: struct type position must either be a local variable or a constant expression without local variables.") </output>
+         requires isLocalVariable(X)
+
+    rule typeCheckStructExpr(T:KResult, T':KResult, A:ConstExpr)
+         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
+           ~> typeCheckStructExpr(T:KResult, T', emptyHOLE)
+    rule T:KResult ~>
+            typeCheckStructExpr(T:KResult, T', emptyHOLE) => T
+
+    rule typeCheckStructExpr(T:KResult, structTypeValue(.TypeList),
+                   constantStruct(.ElemList)) => T
+    rule typeCheckStructExpr(T:KResult, packedStructTypeValue(.TypeList),
+                   packedStruct(.ElemList)) => T
+
+    rule <k> typeCheckStructExpr(T:KResult, structTypeValue(Ts:TypeList),
+                   constantStruct(.ElemList)) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: a defined struct element type has no corresponding struct element value associated.") </output>
+         requires lengthOfTypeList(Ts) >Int 0
+    rule <k> typeCheckStructExpr(T:KResult, structTypeValue(.TypeList),
+                   constantStruct(Es:ElemList)) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: a defined struct element value has no corresponding struct element type associated.") </output>
+         requires lengthOfList(Es) >Int 0
+    rule <k> typeCheckStructExpr(T:KResult, packedStructTypeValue(Ts:TypeList),
+                   packedStruct(.ElemList)) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: a defined packed struct element type has no corresponding packed struct element value associated.") </output>
+         requires lengthOfTypeList(Ts) >Int 0
+    rule <k> typeCheckStructExpr(T:KResult, packedStructTypeValue(.TypeList),
+                   packedStruct(Es:ElemList)) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: a defined packed struct element value has no corresponding packed struct element type associated.") </output>
+         requires lengthOfList(Es) >Int 0
+
+    rule typeCheckStructExpr(T1:KResult, structTypeValue(T:KResult, Ts:TypeList),
+                 constantStruct(val(operand(T':K, V:K)), Es:ElemList))
+         => exprType(typeCheckStructExprAux(T, T', V))
+                 ~> typeCheckStructExpr(T1, structTypeValue(Ts),  constantStruct(Es))
+
+    rule typeCheckStructExpr(T1:KResult, packedStructTypeValue(T:KResult, Ts:TypeList),
+                 packedStruct(val(operand(T':K, V:K)), Es:ElemList))
+         => exprType(typeCheckStructExprAux(T, T', V))
+                 ~> typeCheckStructExpr(T1, packedStructTypeValue(Ts),  packedStruct(Es))
+
+    rule typeCheckStructExprAux(integerType(N:Int), integerType(N), V:K)
+              => typeCheckIntExpr(integerType(N), V)
+    rule typeCheckStructExprAux(T:FPType, T, V:K) => typeCheckFloatExpr(T, V)
+    rule typeCheckStructExprAux(pointerTypeValue(T:KResult, Ad:Int),
+              pointerTypeValue(T:KResult, Ad:Int), V:K)
+              => typeCheckPointerExpr(pointerTypeValue(T:KResult, Ad:Int), V)
+    rule typeCheckStructExprAux(arrayTypeValue(T:KResult, I:Int),
+              arrayTypeValue(T:KResult, I:Int), V:K)
+              => typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), I, V)
+    rule typeCheckStructExprAux(vectorTypeValue(T:KResult, I:Int),
+              vectorTypeValue(T:KResult, I:Int), V:K)
+              => typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), I, V)
+    rule typeCheckStructExprAux(structTypeValue(Ts:TypeList),
+              structTypeValue(Ts:TypeList), V:K)
+              => typeCheckStructExpr(structTypeValue(Ts:TypeList),
+                                       structTypeValue(Ts:TypeList), V)
+    rule typeCheckStructExprAux(packedStructTypeValue(Ts:TypeList),
+              packedStructTypeValue(Ts:TypeList), V:K)
+              => typeCheckStructExpr(packedStructTypeValue(Ts:TypeList),
+                                packedStructTypeValue(Ts:TypeList), V)
+
+    rule <k> typeCheckStructExprAux(T:KResult, T':KResult, V:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: value type declaration is different from the struct type definition.") </output>
+         requires T =/=K T'
 
     //type check single array argument
     rule preTypeCheckArrayExpr(T:K, I:Int, X:SymbolicValueRef) => T
          requires isLocalVariable(X) andBool I >=Int 0
-             andBool notBool hasInValidMMXType(arrayTypeValue(T, I))
+             andBool notBool hasInValidMMXType(T)
     rule preTypeCheckArrayExpr(T:K, I:Int, X:K)
            => typeCheckArrayExpr(T, I, X)
          requires notBool isLocalVariable(X) andBool I >=Int 0
-             andBool notBool hasInValidMMXType(arrayTypeValue(T, I))
+             andBool notBool hasInValidMMXType(T)
 
     rule <k> preTypeCheckArrayExpr(T:K, I:K, X:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: array of x86 mmx type is invalid") </output>
-         requires I >=Int 0 andBool hasInValidMMXType(arrayTypeValue(T, I))
+         requires I >=Int 0 andBool hasInValidMMXType(T)
 
     rule <k> preTypeCheckArrayExpr(T:K, I:K, X:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: invalid array number for instruction") </output>
@@ -2359,9 +2613,9 @@ module LLVM-NORMALIZING
 
     rule typeCheckArrayExpr(T:KResult, 0, array(.ElemList)) => T
     rule typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), N:Int,
-                 array(val(operand(T':K, V:ValueRef)), R:ElemList))
+                 array(val(operand(T':K, V:K)), R:ElemList))
          => typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), N:Int,
-                 T':K, V:ValueRef, array(R:ElemList))
+                 T':K, V, array(R:ElemList))
          requires N >Int 0
     rule typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int),
                          N:Int, T:KResult, V:K, Vs:K)
@@ -2392,6 +2646,12 @@ module LLVM-NORMALIZING
     rule typeCheckArrayAux(vectorTypeValue(T:KResult, N:Int), V:K)
              => exprType(typeCheckVectorArg(
                           vectorTypeValue(T:KResult, N),N, V:K))
+    rule typeCheckArrayAux(structTypeValue(Ts:TypeList), V:K)
+             => exprType(typeCheckStructExpr(structTypeValue(Ts:TypeList),
+                              structTypeValue(Ts:TypeList), V:K))
+    rule typeCheckArrayAux(packedStructTypeValue(Ts:TypeList), V:K)
+             => exprType(typeCheckStructExpr(packedStructTypeValue(Ts:TypeList),
+                              packedStructTypeValue(Ts:TypeList), V:K))
 
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,

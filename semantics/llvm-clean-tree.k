@@ -17,10 +17,13 @@ module LLVM-CLEAN-TREE
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
+    rule operand(T:KResult, zeroinitializer) => dealWithZeroInitializer(T)
+
     rule <k> operand(integerType(N:Int), I:Int) => deNormalizingInt(integerType(N:Int),
                                                normalizingInt(integerType(N:Int), I)) ...</k>
-    rule <k> operand(Type:KResult, V:KResult) => V ...</k>
-        when notBool isIntegerType(Type)
+    rule operand(Type:KResult, V:KResult) => V 
+        when (notBool isIntegerType(Type) orBool notBool isAInt(V))
+             andBool V =/=K zeroinitializer
 /*
     // rule <k> Operand(Type:KResult, V:KResult) => V ...</k>
 

@@ -111,4 +111,29 @@ module LLVM-SELECTION
                   vectorValue(B:ElemList), T2:K, vectorValue(C:ElemList))
            => getShuffleResult(elemListToList(A) elemListToList(B), C)
 
+    //dealing with extract value
+    rule extractValue(poisonVal, L:List) => poisonVal
+    rule extractValue(undef, L:List) => undef
+    rule extractValue(V:K, .List) => V
+    rule extractValue(arrayValue(Es:ElemList), ListItem(N:Int) L:List)
+           => extractValue(getElemListElem(Es, N), L)
+    rule extractValue(constStructVal(Es:ElemList), ListItem(N:Int) L:List)
+           => extractValue(getElemListElem(Es, N), L)
+    rule extractValue(packedStructVal(Es:ElemList), ListItem(N:Int) L:List)
+           => extractValue(getElemListElem(Es, N), L)
+
+    //dealing with insert value
+    rule insertValue(T:K, poisonVal, A:K, L:List) => poisonVal
+    rule insertValue(T:K, A:K, poisonVal, L:List) => poisonVal
+    rule insertValue(T:K, undef, undef, L:List) => undef
+    rule insertValue(T:K, undef, A:K, L:List)
+               => insertValue(T, dealWithUndef(T), A, L)
+         requires A =/=K undef
+    rule insertValue(T:K, arrayValue(Es:ElemList), A:K, L:List)
+           => placeInsertValue(arrayValue(Es:ElemList), A, .K, L)
+    rule insertValue(T:K, constStructVal(Es:ElemList), A:K, L:List)
+           => placeInsertValue(constStructVal(Es:ElemList), A, .K, L)
+    rule insertValue(T:K, packedStructVal(Es:ElemList), A:K, L:List)
+           => placeInsertValue(packedStructVal(Es:ElemList), A, .K, L)
+
 endmodule

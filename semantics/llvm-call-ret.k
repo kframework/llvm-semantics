@@ -40,6 +40,7 @@ module LLVM-CALL-RET
     // TODO perhaps another semantic design pattern: idea of context switching: pushing on a stack, doing something, and then popping from the stack
     //need to modify the context switching to implement inalloca easily.
 
+    //function call find pointer
     rule <k> call(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
                         value(P:Int,P:Int), RT:K, BA:K, D:K), Args:ElemList))
          => call(A, calleeValue(V, Args)) ...</k>
@@ -86,6 +87,63 @@ module LLVM-CALL-RET
     rule
         <k> call(_, calleeValue(funptr(FunName), Args:ElemList)) ~> Tail:K
             => contextSwitch(FunName, Tail)
+            ~> bind(Args, Formals)
+            ~> startInitBlock(IBBName)
+        </k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <functionName> FunName </functionName>
+        <formalParameters> arguments(Formals:ElemList) </formalParameters>
+        <initialBasicBlock> IBBName:SymbolicValueRef </initialBasicBlock>
+        [large]
+
+    //invoke finds pointer
+    rule <k> invoke(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
+                        value(P:Int,P:Int), RT:K, BA:K, D:K), Args:ElemList), L1:K, L2:K)
+         => invoke(A, calleeValue(V, Args), L1:K, L2:K) ...</k>
+            <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T, V:K) ...</cbd>
+
+    rule <k> invoke(A:K, calleeValue(loc(P:Int,T:K,
+               value(P1:Int,P2:Int), RT:K, BA:K, C:K), Args:ElemList), L1:K, L2:K) ~> K:K 
+              => .K </k>
+         <output>... .List
+                => ListItem("error: invoke function pointer pointing to bad place.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         requires P <Int P1 orBool P >Int P2
+
+    rule <k> invoke(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
+              value(P:Int,P:Int), RT:K, BA:K, C:K), Args:ElemList), L1:K, L2:K) ~> K:K 
+              => .K </k>
+            <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T', V:K) ...</cbd>
+         <output>... .List
+                => ListItem("error: invoke function pointer pointing to wrong function type.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         requires T =/=K T'
+
+    rule <k> invoke(A:K, calleeValue(loc(P:Int,T:K,
+              value(P:Int,P:Int),RT:K, BA:K,C:K), Args:ElemList), L1:K, L2:K) ~> K:K 
+              => .K </k>
+          <cbd> M:Map </cbd>
+         <output>... .List
+                => ListItem("error: no such invoke function for the place or function has wrong type.") </output>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         requires notBool aLoc(P, T, heap) in keys(M)
+
+    rule
+        <k> invoke(_, calleeValue(funptr(FunName), Args:ElemList), L1:K, L2:K) ~> Tail:K
+            => contextSwitch(FunName, invokeBr(L1, L2) ~> Tail)
             ~> bind(Args, Formals)
             ~> startInitBlock(IBBName)
         </k>

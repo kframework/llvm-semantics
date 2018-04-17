@@ -245,7 +245,8 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
-    syntax KItem ::= invoke(K, K, K, K)//operand, Params, fromLabel toLabel
+    syntax KItem ::= invoke(K, K, K, K)  [strict(2)]//type, callee, normal, exception
+    syntax KItem ::= invokeBr(K, K) //normal, exception
     syntax KItem ::= initializer(K, K) // type, value
     syntax KItem ::= globalVariable(K, Set, K, K, Int, Int) [strict(3,4)]
               // Value/Name, Modifiers, Type, Initializer, address space, align
@@ -325,6 +326,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= runDynInst(K) [strict]
     syntax KResult ::= dynResult(K, K)
     syntax KResult ::= dynNoResult(K)
+    syntax KItem ::= waitForBranch(K)
     syntax KItem ::= exprType(K) [strict]
     syntax KItem ::= constExprType(K) [strict]
     syntax KItem ::= prePutInMemoryOrder(Int, Int, Int, K, K)

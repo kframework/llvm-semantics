@@ -2886,6 +2886,7 @@ module LLVM-HELPERS
     rule guessNextBlock(switch(A:K, B:K, C:K,
                       ListItem(typedCase(It:K, I:K, D:K)) Es:List)) => D
     rule guessNextBlock(indirectbr(A:K, ListItem(B:K) Es:List)) => B
+    rule guessNextBlock(invoke(A:K, B:K, C:K, D:K)) => C
     rule guessNextBlock(_:K) => .K [owise]
 
 /*    syntax Set ::= getAllBrBlocks(K) [function]
@@ -2948,6 +2949,15 @@ module LLVM-HELPERS
            , blockContent( _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
                    => removeItemFromSet(B, .K, indirectbrListToSet(Es))
+    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K),
+               .K, (C |-> E:K) M:Map)
+             => getRestBlocks(invoke(A:K, B:K, C:K, D:K), E, M:Map)
+    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K)
+           , blockContent( _:Map, true, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(D) SetItem(C)
+    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K)
+           , blockContent( _:Map, false, _:Set, _:Set, _:Set,
+              _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(D)
 
     syntax Set ::= removeItemFromSet(K, K, Set) [function]
     rule removeItemFromSet(A:K, .K, .Set) => .Set
@@ -3311,6 +3321,10 @@ module LLVM-HELPERS
                callee(V:K, arguments(Es:ElemList))), M:Map, RM:Map, Rev:Map)
           => call(T:K, callee(V:K,
                    arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))))
+   rule updateVarInTerm(Cur:Int, C:Int, invoke(T:K,
+               callee(V:K, arguments(Es:ElemList)), L1:K, L2:K), M:Map, RM:Map, Rev:Map)
+          => invoke(T:K, callee(V:K,
+                   arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))), L1, L2)
    rule updateVarInTerm(Cur:Int, C:Int, load(Ty:K, V:K, Al:Int), M:Map, RM:Map, Rev:Map)
         => load(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev), Al)
    rule updateVarInTerm(Cur:Int, C:Int,

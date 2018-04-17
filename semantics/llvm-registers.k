@@ -20,7 +20,7 @@ module LLVM-REGISTERS
          requires notBool isLoadVal(V)
 
     rule <k> assign(X:SymbolicValueRef, loadVal(Type:K))
-           => dynNoResult(skipValue) ...</k>
+           => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
                               <- varInstance(X, loadHold(Type, .List))]) </readBack>

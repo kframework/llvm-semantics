@@ -129,6 +129,11 @@ module LLVM-NORMALIZING
                    | typeCheckRet(K, K, K, InstructionMetadatas)           [strict(2)]//block, t, v, Meta
                    | typeCheckCall(K, K, K, K, K, ElemList, ElemList, ParamList, Set, InstructionMetadatas)
                                [strict(4, 6, 7)]//block, var, op, t, name, argt, argv, args, mods, instmeta
+                   | typeCheckInvoke(K, K, K, K, ElemList, ElemList,
+                                         ParamList, K, K, Set, InstructionMetadatas)
+                               [strict(3, 5, 6)]
+               //block, var, op, t, name, argt, argv, args, l1, l2, mods, instmeta
+
                    | typeCheckSwitch(K, K, K, K, ElemList, List, Set, InstructionMetadatas)
                                           [strict(2, 5)]
                                    //block, type, v, default, argv, argl, stroed argl, val_set, instmeta
@@ -332,6 +337,15 @@ module LLVM-NORMALIZING
          => typeCheckCall(Name:SymbolicValueRef, K, Ca, Ty1,
                     addNameToString(V1), getAllTypes(Pl), formTypeCheckList(Pl),
                     Pl, formSet(Ocv) formSet(Rat) formSet(Fat), Meta)
+    rule typeCheckOp(Name:SymbolicValueRef, K:K,
+                 invoke Opc:OptCallingConv Re:RetAttrs
+                   Ty:Type Va:ValueRef (Pl:ParamList) Fu:FuncAttrs
+                    to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas)
+         => typeCheckInvoke(Name:SymbolicValueRef, K, Ty,
+                    addNameToString(Va), getAllTypes(Pl), formTypeCheckList(Pl),
+                    Pl, addNameToString(La1),  addNameToString(La2),
+                       formSet(Opc) formSet(Re) formSet(Fu), Meta)
 
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                                        switch It:IntType Va:ValueRef ,
@@ -1447,7 +1461,7 @@ module LLVM-NORMALIZING
                                    +String S +String"' with wrong type!") </output>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, .K, Ca:OptTailCall, void,
-             V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
+             V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
               ~> typeCheckArgList(Name, Tv)
@@ -1463,7 +1477,7 @@ module LLVM-NORMALIZING
               Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
-             T:TypeResult, V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
+             T:TypeResult, V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckArgList(Name, Tv)
            ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
@@ -1479,9 +1493,62 @@ module LLVM-NORMALIZING
                           ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall, void,
-             V1:SymbolicValueRef, Ts:KResult, Tv:KResult,
+             V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas) ~> K:K </k>
          <output>... .List => ListItem("error: void call instruction must not have return variable.") </output>
+
+    //type check invoke
+    rule <k> typeCheckInvoke(Name:SymbolicValueRef, .K, void,
+             V1:K, Ts:KResult, Tv:KResult,
+             Arg:ParamList, La1:SymbolicValueRef,
+              La2:SymbolicValueRef, Mods:Set, Meta:InstructionMetadatas)
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
+              ~> (typeCheckArgList(Name, Tv)
+              ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
+             ~> (checkUseVarInside(Name, label, La1)
+                    ~> (checkUseVarInside(Name, label, La2)
+                    ~> assignUses(Name, TheCount,
+                       label, (val(La1),val(La2),.ElemList)))))) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <formalParameters> arguments(Ts':ElemList) </formalParameters>
+        <functionName> V1 </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(invoke(void, callee(V1,
+                           arguments(formArgList(Tv,Arg))), La1, La2),
+              Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
+        requires isLocalVariable(La1) andBool isLocalVariable(La2)
+
+    rule <k> typeCheckInvoke(Name:SymbolicValueRef, A:SymbolicValueRef,
+             T:TypeResult, V1:K, Ts:KResult, Tv:KResult,
+             Arg:ParamList,La1:SymbolicValueRef,
+              La2:SymbolicValueRef, Mods:Set, Meta:InstructionMetadatas)
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
+            ~> (typeCheckArgList(Name, Tv)
+           ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
+           ~> (checkUseVarInside(Name, label, La1)
+            ~> (checkUseVarInside(Name, label, La2)
+             ~> assignUses(Name, TheCount,
+                       label, (val(La1),val(La2),.ElemList))
+                 ~> assignType(Name, TheCount, A, T))))) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <formalParameters> arguments(Ts':ElemList) </formalParameters>
+        <functionName> V1 </functionName>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(A, instruction(invoke(T,
+                           callee(V1, arguments(formArgList(Tv,Arg))), La1, La2)
+                          ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
+        requires isLocalVariable(La1) andBool isLocalVariable(La2)
+
+    rule <k> typeCheckInvoke(Name:SymbolicValueRef, A:K,
+                T:TypeResult, V1:K,Ts:KResult, Tv:KResult,
+             Arg:ParamList, La1:SymbolicValueRef,La2:SymbolicValueRef,
+             Mods:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: invoke labels must be a basic block name.") </output>
+         requires (notBool isLocalVariable(La1)) orBool (notBool isLocalVariable(La1))
 
     //deal with cast operators
 /*
@@ -3105,12 +3172,30 @@ module LLVM-NORMALIZING
            instNumInfo(TheCount, noAssign(instruction(unreachable,.Set,
                   insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>
 
+    rule checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
+                                       void Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, _:Bool)
+         => typeCheckOp(N, .K, invoke Opc:OptCallingConv Re:RetAttrs
+                                       void Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas)
+             ~> checkSingleAssignmentInBlock(N, .K, false)
+
+    rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef, _:LocalName 
+                            = invoke Opc:OptCallingConv Re:RetAttrs
+                                       void Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       to La1:LabelValue unwind La2:LabelValue 
+                                  Meta:InstructionMetadatas, _:Bool) ~> K':K
+            => .K </k>
+         <output>... .List => ListItem("error: invoke function call has void return type but here assigns a variable to the return value.") </output>
+
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef, invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, _:Bool)
          => typeCheckOp(N, name(localVar, Int2String(I)), invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas)
              ~> checkSingleAssignmentInBlock(N, .K, false) ...</k>
@@ -3124,12 +3209,12 @@ module LLVM-NORMALIZING
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalVar
                                        = invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, _:Bool)
          => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))), invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas)
              ~> checkSingleAssignmentInBlock(N, .K, false)
@@ -3139,13 +3224,12 @@ module LLVM-NORMALIZING
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <varTypes> M:Map </varTypes>
-        <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
         requires notBool name(localVar, substrString(#tokenToString(Var),1
                ,lengthString(#tokenToString(Var)))) in keys(M)
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalVar
                                        = invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, _:Bool) ~> K':K
               => .K
@@ -3163,11 +3247,10 @@ module LLVM-NORMALIZING
 
     rule <k> checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalValID
                                        = invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, _:Bool) ~> K':K
-         => .K
-         </k>
+                 => .K </k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -3181,12 +3264,12 @@ module LLVM-NORMALIZING
 
     rule <k>checkSingleAssignmentInBlock(N:SymbolicValueRef,Var:LocalValID
                                        = invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas, _:Bool)
          => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var)))), invoke Opc:OptCallingConv Re:RetAttrs
-                                       Ty:Type Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
+                                       Ty:NonVoidType Va:ValueRef (Pa:ParamList) Fu:FuncAttrs
                                        to La1:LabelValue unwind La2:LabelValue 
                                   Meta:InstructionMetadatas)
              ~> checkSingleAssignmentInBlock(N, .K, false)
@@ -3281,8 +3364,7 @@ module LLVM-NORMALIZING
                Ins:InstructionList BB:BBTerminatorInstruction, _:Bool)
          => typeCheckOp(N, name(localVar, substrString(#tokenToString(Var),1
                           ,lengthString(#tokenToString(Var)))), In)
-             ~> checkSingleAssignmentInBlock(N, Ins BB, false)
-         ...</k>
+             ~> checkSingleAssignmentInBlock(N, Ins BB, false) ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>

@@ -27,3 +27,5 @@
 14, uitofp/sitofp document needs to be very specific that the not fit in the float value means both exp and mantissa.
 
 15, the document of LLVM does not say that the index of extractvalue/insertvalue must be integer.
+
+16, cannot compile a single invoke op successfully.

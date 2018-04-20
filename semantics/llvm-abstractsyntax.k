@@ -245,6 +245,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
+    syntax KItem ::= landingpad(K, List) //type caluses
     syntax KItem ::= invoke(K, K, K, K)  [strict(2)]//type, callee, normal, exception
     syntax KItem ::= invokeBr(K, K) //normal, exception
     syntax KItem ::= initializer(K, K) // type, value
@@ -285,6 +286,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= vectorGepTypeCheck(K ,Int, K, Int, K, List, List)
               //block, count, assign, add space, type
 
+    syntax KItem ::= clause(K, K) //caluse label, value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
     syntax KItem ::= typeOperandGep(K, K, K)  [strict(2)] //inrange, type, value
     syntax KResult ::= typeOperandGepVal(K, K, K) //inrange type, value
@@ -308,7 +310,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= memList(List, List, List, List, List)
             //used for toCommit cell: available to commit, available to commit
             //already wire, avialable to wire, not available
-    syntax Kitem ::= pairResult(K, K)
+    syntax KItem ::= pairResult(K, K)
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
@@ -358,7 +360,7 @@ module LLVM-ABSTRACTSYNTAX
           //cur block, next block name, list
 
     syntax KItem ::= "unreachable"
-    syntax KItem ::= resume(K)//operand
+    syntax KItem ::= resume(K, K)  [strict(2)]//operand
     syntax KItem ::= indirectbr(K, List)   [strict(1)]//operand, list of labels
     syntax KItem ::= unconditional(K)//label
     syntax KItem ::= conditional(K, K, K) [strict(1)]//operand, label1, label2
@@ -445,7 +447,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= extractElement(K, K) [strict]
     syntax KItem ::= insertElement(K, K, K) [strict]
     syntax KItem ::= shuffleVector(K, K, K) [strict]
-    syntax KItem ::= landingPad(K,K,K) [strict(1,2)] // operand,operand modifiers
+    //syntax KItem ::= landingPad(K,K,K) [strict(1,2)] // operand,operand modifiers
     syntax KItem ::= extractValue(K, List) [strict(1)]
     syntax KItem ::= cmpxChg(K, K, K) [strict]
     syntax KItem ::= atomicRmw(K, K, K) [strict]
@@ -480,6 +482,19 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= "checkUseVars"
     syntax KItem ::= "checkLabelUses"
     syntax KItem ::= checkBlockAddress(K)
+    syntax KItem ::= "checkLandingpad"
+    syntax KItem ::= "checkLandingDomResumes"
+    syntax KItem ::= "landingpadBadState"
+    syntax KItem ::= "performNextChecks"
+    syntax KItem ::= checkAllExpBlocksHavingLandingpad(K, Set)
+    syntax KItem ::= checkAllExpInFromInvoke(K, Set)
+    syntax KItem ::= checkAllExpInFromInvokeAux(K, K, Set)
+    syntax KItem ::= checkAllExpInFromInvokeCheck(K, K, Int, Map)
+    syntax KItem ::= checkNoNormalBlocksHavingLandingpad(K, Set)
+    syntax KItem ::= checkLandingDomResume(K, K, Set) //type, block, b-set
+    syntax KItem ::= checkLandingDomResumeAux(K, Set, Set)
+                  //type, in-set, b-set
+    syntax KItem ::= checkLandingDomResumeAuxA(K, Set, Set)
     syntax KItem ::= checkUseVars(K, Map)
     syntax KItem ::= checkUseVarsAux(K, Set, Set)
     //syntax KItem ::= checkUseVars(ElemList) [strict]

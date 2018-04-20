@@ -937,7 +937,7 @@ module LLVM-SYNTAX
       This attribute is used in the landingpad instruction.
       The optional cleanup flag indicates that the landing pad block is a cleanup.
     */
-    syntax OptCleanup ::= "cleanup" | "" [klabel('cleanupEmpty),onlyLabel]
+    syntax Cleanup ::= "cleanup"
 
     /*@
       define the factors for the landingpad instruction.
@@ -945,7 +945,8 @@ module LLVM-SYNTAX
       and contains the global variable representing the “type” that may
       be caught or filtered respectively. 
     */
-    syntax LandingpadFactor ::= "catch" ResolvedVal | "filter" ResolvedVal
+    syntax ClauseLabel ::= "catch" | "filter"
+    syntax LandingpadFactor ::= ClauseLabel ResolvedVal
     syntax LandingpadFactors ::= List{LandingpadFactor," "}
 
     //define the allocation metadata. It is a syntactic convince to define it like this.
@@ -1089,7 +1090,9 @@ module LLVM-SYNTAX
                      | "shufflevector" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas
                      | "phi" Type PHIList InstructionMetadatas              [klabel('phiFun)]
-                     | "landingpad" Type "personality" ResolvedVal OptCleanup
+                     | "landingpad" Type Cleanup
+                       LandingpadFactors InstructionMetadatas
+                     | "landingpad" Type LandingpadFactor
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
                        "(" ParamList ")" FuncAttrs InstructionMetadatas     [klabel('functionCall)]

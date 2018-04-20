@@ -706,6 +706,17 @@ module LLVM-HELPERS
     rule isPointerType(pointerTypeValue(_, _)) => true
     rule isPointerType(_) => false [owise]
 
+    syntax Bool ::= isValidCatchType(K) [function]
+    rule isValidCatchType(pointerTypeValue(pointerTypeValue(
+                    integerType(8), A2:K), A1:K)) => true
+    rule isValidCatchType(_) => false [owise]
+
+    syntax Bool ::= isValidFilterType(K) [function]
+    rule isValidFilterType(arrayTypeValue(
+        pointerTypeValue(pointerTypeValue(
+            integerType(8), A2:K), A1:K), I:Int)) => true
+    rule isValidFilterType(_) => false [owise]
+
     syntax Bool ::= isArrayType(K) [function]
     rule isArrayType(arrayType(_, _)) => true
     rule isArrayType(arrayTypeValue(_, _)) => true
@@ -841,8 +852,9 @@ module LLVM-HELPERS
             => val(edge(addNameToString(V1),addNameToString(V2)))
     rule formElemList([ V1:ValueRef , V2:ValueRef ] , Pl:PHIList)
             => val(edge(addNameToString(V1),addNameToString(V2))),formElemList(Pl)
-    rule formElemList(cleanup) => val(cleanup)
-    rule formElemList('cleanupEmpty(.KList)) => .ElemList
+    rule formElemList(cleanup) => val(typeOperand(void, cleanup))
+    rule formElemList(C:ClauseLabel T:Type V:ValueRef)
+                  => val(typeOperand(T, clause(C,addNameToString(V))))
     rule formElemList(.LandingpadFactors) => .ElemList
     rule formElemList(Lpf:LandingpadFactor Lpfs:LandingpadFactors)
                    => val(Lpf),formElemList(Lpfs)
@@ -2954,10 +2966,10 @@ module LLVM-HELPERS
              => getRestBlocks(invoke(A:K, B:K, C:K, D:K), E, M:Map)
     rule getRestBlocks(invoke(A:K, B:K, C:K, D:K)
            , blockContent( _:Map, true, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(D) SetItem(C)
+              _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(C)
     rule getRestBlocks(invoke(A:K, B:K, C:K, D:K)
            , blockContent( _:Map, false, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(D)
+              _:Set, _:Set, _:Set, _:Set), M:Map) => .Set
 
     syntax Set ::= removeItemFromSet(K, K, Set) [function]
     rule removeItemFromSet(A:K, .K, .Set) => .Set
@@ -3090,6 +3102,7 @@ module LLVM-HELPERS
     rule isAvailable(indirectbr(operand(T:K, V:KResult), Es:List)) => true
     rule isAvailable(indirectbr(operand(
                    T:K, V:SymbolicValueRef), Es:List)) => false
+    rule isAvailable(landingpad(T:K, L:List)) => true
     rule isAvailable(A:K) => false [owise]
 
     syntax Bool ::= isFloatOp(K) [function]
@@ -3321,6 +3334,8 @@ module LLVM-HELPERS
                callee(V:K, arguments(Es:ElemList))), M:Map, RM:Map, Rev:Map)
           => call(T:K, callee(V:K,
                    arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))))
+   rule updateVarInTerm(Cur:Int, C:Int, landingpad(T:K, L:List), M:Map, RM:Map, Rev:Map)
+          => landingpad(T, L)
    rule updateVarInTerm(Cur:Int, C:Int, invoke(T:K,
                callee(V:K, arguments(Es:ElemList)), L1:K, L2:K), M:Map, RM:Map, Rev:Map)
           => invoke(T:K, callee(V:K,
@@ -5254,5 +5269,69 @@ module LLVM-HELPERS
     rule placeInsertValue(valValue(A:K),Es:ElemList, B:K, N:Int, L:List)
              => valValue(A), placeInsertValue(Es, B, N -Int 1, L)
          requires N >Int 0
+
+    //checking landingpad correct
+    syntax Bool ::= isLandingpadInst(K) [function]
+    rule isLandingpadInst(landingpad(A:K, T:List)) => true
+    rule isLandingpadInst(_:K) => false [owise]
+
+    syntax Bool ::= isInvokeInst(K) [function]
+    rule isInvokeInst(invoke(_:K, _:K, _:K, _:K)) => true
+    rule isInvokeInst(_:K) => false [owise]
+
+    syntax KItem ::= checkLandingpadAux(K, K, K, Map)  [function]
+    rule checkLandingpadAux(I:K, .K,  .K, .Map) => checkLandingpad
+    rule checkLandingpadAux(I:K, .K, .K, (A:K |-> B:K) M:Map)
+            => checkLandingpadAux(I, A, B, M)
+    rule checkLandingpadAux(I:Int, I:Int, X:K, M:Map)
+          => checkLandingpadAux(I, .K, .K, M)
+    rule checkLandingpadAux(I:Int, I1:Int,
+              instNumInfo(TheCount:K, AK:K, phiInst), M:Map)
+          => checkLandingpadAux(I, .K, .K, M)
+       requires I1 <Int I
+    rule checkLandingpadAux(I:Int, I1:Int,
+              instNumInfo(TheCount:K, assign(X:K, instruction(Inst:K,
+                  S:Set, Me:K)), InLabel:K), M:Map)
+          => checkLandingpadAux(I, .K, .K, M)
+       requires I1 >Int I andBool notBool isLandingpadInst(Inst)
+    rule checkLandingpadAux(I:Int, I1:Int, AK:K, M:Map)
+          => landingpadBadState [owise]
+
+    syntax Bool ::= containLandingpads(K, Map) [function]
+    rule containLandingpads(.K,.Map) => false
+    rule containLandingpads(.K, (A:K |-> B:K) M:Map)
+             => containLandingpads(B, M)
+    rule containLandingpads(instNumInfo(TheCount:K, assign(X:K, instruction(Inst:K,
+                  S:Set, Me:K)), InLabel:K), M:Map) => true
+         requires isLandingpadInst(Inst)
+    rule containLandingpads(instNumInfo(
+                TheCount:K, AK:K, InLabel:K), M:Map)
+           => containLandingpads(.K, M) [owise]
+
+    syntax Int ::= getMaxFromSet(K, K, Set) [function]
+    rule getMaxFromSet(.K, .K, .Set) => 0
+    rule getMaxFromSet(.K, .K, SetItem(A:K) S:Set)
+            => getMaxFromSet(A, A, S)
+    rule getMaxFromSet(A:Int, .K, SetItem(B:K) S:Set)
+            => getMaxFromSet(A, B, S)
+    rule getMaxFromSet(A:Int, B:Int, S:Set) => getMaxFromSet(A, .K, S)
+         requires A >=Int B
+       rule getMaxFromSet(A:Int, B:Int, S:Set) => getMaxFromSet(B, .K, S)
+         requires B >Int A
+
+    syntax Bool ::= containLandingpadAndTyped(K, K, Map) [function]
+    rule containLandingpadAndTyped(T:K, .K, .Map) => false
+    rule containLandingpadAndTyped(T:K, .K, (A:K |-> B:K) M:Map)
+             => containLandingpadAndTyped(T, B, M)
+    rule containLandingpadAndTyped(T:K, instNumInfo(
+            TheCount:K, assign(X:K, instruction(landingpad(T, L:List),
+                  S:Set, Me:K)), InLabel:K), M:Map) => true
+    rule containLandingpadAndTyped(T:K, instNumInfo(
+            TheCount:K, assign(X:K, instruction(landingpad(T':K, L:List),
+                  S:Set, Me:K)), InLabel:K), M:Map) => false
+         requires T =/=K T'
+    rule containLandingpadAndTyped(T:K, instNumInfo(
+            TheCount:K, AX:K, InLabel:K), M:Map)
+           => containLandingpadAndTyped(T, .K, M) [owise]
 
 endmodule

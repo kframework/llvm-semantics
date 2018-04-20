@@ -144,7 +144,8 @@ module LLVM-NORMALIZING
                         //block,name type, value, firstT, firstV, secondT, secondV, instmeta
                    | typeCheckResume(K, K, K, InstructionMetadatas)    [strict(2)]
                              //block, type, value, instmeta
-
+                   | typeCheckLandingpad(K, K, K, ElemList, List, InstructionMetadatas)    [strict(3)]
+                             //block, name, type, clauses, stored clauses, instmeta
 
     //type check distribution function
     rule typeCheckOp(Name:SymbolicValueRef,X:SymbolicValueRef, IntOp:IntConstructors
@@ -289,14 +290,10 @@ module LLVM-NORMALIZING
            => typeCheckInsertValue(Name:SymbolicValueRef, X, Ty1,
                            addNameToString(V1), Ty2,
                      addNameToString(V2), elemListToList(formElemList(Cs)), Ins)
-/*
-    rule <k> typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
+
+    rule typeCheckOp(Name:SymbolicValueRef, K:K, resume Ty:Type Va:ValueRef
                                     Meta:InstructionMetadatas)
-           => typeCheckResume(Name:SymbolicValueRef, addNameToString(Ty), addNameToString(Va)) ...</k>
-            <tempBlockInst> Now:K => Now ~> instruction(resume(operand(addNameToString(Ty)
-                                   ,addNameToString(Va)))
-                            ,.Set, insMetas(formElemList(Meta))) </tempBlockInst>
-*/
+           => typeCheckResume(Name:SymbolicValueRef, Ty, addNameToString(Va), Meta)
 
     rule typeCheckOp(Name:SymbolicValueRef, K:K, br label La:ValueRef Meta:InstructionMetadatas)
            => typeCheckBr(Name:SymbolicValueRef, undef, undef, addNameToString(La), undef, Meta)
@@ -367,6 +364,16 @@ module LLVM-NORMALIZING
                                   Meta:InstructionMetadatas)
          => typeCheckIndirectBr(Name:SymbolicValueRef, Ty,
                         addNameToString(Va), getOutEdges(Las), .List, Meta)
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+           landingpad T:Type cleanup Ls:LandingpadFactors Meta:InstructionMetadatas)
+             => typeCheckLandingpad(Name, X, T,
+                 val(typeOperand(void, cleanup)),formElemList(Ls), .List, Meta)
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+           landingpad T:Type L:LandingpadFactor
+                     Ls:LandingpadFactors Meta:InstructionMetadatas)
+             => typeCheckLandingpad(Name, X, T,
+                 combineElemList(formElemList(L),formElemList(Ls)), .List, Meta)
 
     //type check insert value
     rule typeCheckInsertValue(Name:K, X:K, T:KResult, V1:K, T2:KResult, V2:K, L:List, Meta:K)
@@ -1511,6 +1518,8 @@ module LLVM-NORMALIZING
                        label, (val(La1),val(La2),.ElemList)))))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
+        <tempExceptionUses> ETL:Set (.Set => SetItem(La2)) </tempExceptionUses>
+        <tempLabelUses> TL:Set (.Set => SetItem(La1) SetItem(La2)) </tempLabelUses>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
@@ -1534,6 +1543,8 @@ module LLVM-NORMALIZING
                  ~> assignType(Name, TheCount, A, T))))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
+        <tempExceptionUses> ETL:Set (.Set => SetItem(La2)) </tempExceptionUses>
+        <tempLabelUses> TL:Set (.Set => SetItem(La1) SetItem(La2)) </tempLabelUses>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
@@ -1549,6 +1560,64 @@ module LLVM-NORMALIZING
              Mods:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: invoke labels must be a basic block name.") </output>
          requires (notBool isLocalVariable(La1)) orBool (notBool isLocalVariable(La1))
+
+    //type check landingpad op
+    rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, .ElemList, L:List, Meta:InstructionMetadatas)
+              => assignType(Name, TheCount, X, T) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempLandingpads> TL:List => TL ListItem(value(Name,TheCount)) </tempLandingpads>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X, instruction(landingpad(T, L)
+                          ,.Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
+
+    rule typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, valValue(typeOperandResult(void, cleanup)), Es:ElemList,
+                L:List, Meta:InstructionMetadatas)
+         => typeCheckLandingpad(Name, X, T, Es, L ListItem(cleanup), Meta)
+
+    rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, valValue(typeOperandResult(pointerTypeValue(
+            pointerTypeValue(integerType(8), A2:K), A1:K), clause(catch, V:K))),
+              Es:ElemList, L:List, Meta:InstructionMetadatas)
+         => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
+                     pointerTypeValue(pointerTypeValue(
+                    integerType(8), A2:K), A1:K), val(V),.ElemList))
+            ~> assignUses(Name, TheCount,
+                       pointerTypeValue(pointerTypeValue(
+                    integerType(8), A2:K), A1:K), (val(V),.ElemList))
+           ~>typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(catch,V)), Meta) ...</k>
+        <instructionCounter> TheCount:Int </instructionCounter>
+
+    rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, valValue(typeOperandResult(T1:KResult, clause(catch, V:K))),
+              Es:ElemList, L:List, Meta:InstructionMetadatas) ~> K:K
+               => .K </k>
+         <output>... .List
+                       => ListItem("landingpad op catch clause does not have a valid type.") </output>
+         requires notBool isValidCatchType(T1)
+
+    rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, valValue(typeOperandResult(arrayTypeValue(
+        pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int),
+           clause(filter, V:K))), Es:ElemList, L:List, Meta:InstructionMetadatas)
+         => exprType(preTypeCheckArrayExpr(arrayTypeValue(
+        pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int), I, V))
+                   ~> (checkUseVarInside(Name, arrayTypeValue(
+        pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int), V)
+            ~> (assignUses(Name, TheCount, arrayTypeValue(
+        pointerTypeValue(pointerTypeValue(integerType(8),
+              A2:K), A1:K), I:Int), (val(V),.ElemList))
+           ~> typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(filter,V)), Meta))) ...</k>
+        <instructionCounter> TheCount:Int </instructionCounter>
+
+    rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T:KResult, valValue(typeOperandResult(T1:KResult, clause(filter, V:K))),
+              Es:ElemList, L:List, Meta:InstructionMetadatas) ~> K:K
+               => .K </k>
+         <output>... .List
+                       => ListItem("landingpad op filter clause does not have a valid type.") </output>
+         requires notBool isValidFilterType(T1)
 
     //deal with cast operators
 /*
@@ -2971,15 +3040,42 @@ module LLVM-NORMALIZING
          <varTypes>... addNameToString(X) |-> T':K ...</varTypes>
          requires T =/=K T'
 
+    //dealing with resume op. 
+    rule <k> typeCheckResume(N:SymbolicValueRef, T:KResult, V:K
+                    , Meta:InstructionMetadatas)
+          => exprType(typeCheckSingleArg(N, T, formalizeAllFloats(T, V)))
+               ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
+        <tempResumes> Res:List (.List => ListItem(value(N, T))) </tempResumes>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, noAssign(instruction(resume(T,V) ,.Set
+                            ,insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>    
+
     //deal with ret, first deal with integer variable only
     rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas)
-          => exprType(typeCheckIntArgs(N, T, val(V),.ElemList))
+          => exprType(typeCheckSingleArg(N, T, formalizeAllFloats(T, V)))
                ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(instruction(ret(T,V) ,.Set
                                         ,insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <returnType> T </returnType>
+
+    rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
+                    , Meta:InstructionMetadatas) ~> K:K => .K </k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+        <returnType> T':KResult </returnType>
+         <output>... .List => ListItem("error: type in ret op and function return type mismatch.") </output>
+        requires T =/=K T'
+
 
     //set out edges for a block
     rule setOutEdge(N:K, .ElemList) => .K
@@ -3821,22 +3917,192 @@ create an abstract for fence and do the same for fence operation.
          <initialBasicBlock> B </initialBasicBlock>
          <output>... .List => ListItem("Block name of a blockaddress cannot be the entry block.") </output>
 
+    //checking landingpad block contains unique landingpad
+    rule <k> checkLandingpad => .K ...</k>
+         <tempLandingpads> .List </tempLandingpads>
+
+rule <k> landingpadBadState ~> K:K => .K </k>
+         <output>... .List => ListItem("A landingpad block can only contains one landingpad inst and the inst must be the first non-phi inst.") </output>
+
+    rule <k> checkLandingpad => checkLandingpadAux(I, .K, .K, Inst) ...</k>
+         <tempLandingpads> (ListItem(value(Name:K, I:K)) => .List) L:List </tempLandingpads>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... Name |-> blockContent(Inst:Map,_:Bool, _:Set, _:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    //check all exception pointing block from invoke having a landingpad inst
+    rule checkAllExpBlocksHavingLandingpad(.K, .Set) => .Set
+
+    rule checkAllExpBlocksHavingLandingpad(.K, SetItem(A:K) S:Set)
+            => checkAllExpBlocksHavingLandingpad(A, S)
+
+    rule <k> checkAllExpBlocksHavingLandingpad(X:SymbolicValueRef, S:Set)
+              => checkAllExpBlocksHavingLandingpad(.K, S) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... X |-> blockContent(Inst:Map,_:Bool, _:Set, _:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+        requires containLandingpads(.K, Inst)
+
+    rule <k> checkAllExpBlocksHavingLandingpad(X:SymbolicValueRef, S:Set)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("invoke exception pointing block must point to a block that contains landingpad inst.") </output>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... X |-> blockContent(Inst:Map,_:Bool, _:Set, _:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+        requires notBool containLandingpads(.K, Inst)
+
+    //check no normal blocks having landingpad inst
+    rule checkNoNormalBlocksHavingLandingpad(.K, .Set) => .Set
+
+    rule checkNoNormalBlocksHavingLandingpad(.K, SetItem(A:K) S:Set)
+            => checkNoNormalBlocksHavingLandingpad(A, S)
+
+    rule <k> checkNoNormalBlocksHavingLandingpad(X:SymbolicValueRef, S:Set)
+              => checkNoNormalBlocksHavingLandingpad(.K, S) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... X |-> blockContent(Inst:Map,_:Bool, _:Set, _:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+        requires notBool containLandingpads(.K, Inst)
+
+    rule <k> checkNoNormalBlocksHavingLandingpad(X:SymbolicValueRef, S:Set)
+              ~> K:K => .K </k>
+         <output>... .List => ListItem("A normal block cannot contain landingpad inst.") </output>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... X |-> blockContent(Inst:Map,_:Bool, _:Set, _:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+        requires containLandingpads(.K, Inst)
+
+    //checking all incoming edges of a landingpad block comes from invoke.
+    rule checkAllExpInFromInvoke(.K, .Set) => .Set
+
+    rule checkAllExpInFromInvoke(.K, SetItem(A:K) S:Set)
+            => checkAllExpInFromInvoke(A, S)
+
+    rule <k> checkAllExpInFromInvoke(X:SymbolicValueRef, S:Set)
+              => checkAllExpInFromInvokeAux(X, .K, Ins)
+                    ~> checkAllExpInFromInvoke(.K, S) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... X |-> blockContent(_:Map,_:Bool, _:Set, Ins:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    rule checkAllExpInFromInvokeAux(X:K, .K, .Set) => .Set
+
+    rule checkAllExpInFromInvokeAux(X:K, .K, SetItem(A:K) S:Set)
+            => checkAllExpInFromInvokeAux(X, A, S)
+
+    rule <k> checkAllExpInFromInvokeAux(A:K, X:SymbolicValueRef, S:Set)
+              => checkAllExpInFromInvokeCheck(A:K,
+                    .K, getMaxFromSet(.K, .K, keys(Inst)), Inst)
+                   ~> checkAllExpInFromInvokeAux(A, .K, S) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... X |-> blockContent(Inst:Map,_:Bool, _:Set, _:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+
+    rule checkAllExpInFromInvokeCheck(X:K, .K, A:Int, (A |-> B:K) M:Map)
+            => checkAllExpInFromInvokeCheck(X, B, A, M)
+    rule checkAllExpInFromInvokeCheck(La2:K, 
+              instNumInfo(TheCount:K, assign(A:K, instruction(invoke(T,
+           Cal:K, La1:K, La2:K), Mods:Set, Me:K)), Label:K), Ind:Int, M:Map) => .K
+    rule checkAllExpInFromInvokeCheck(La2:K, 
+              instNumInfo(TheCount:K, noAssign(instruction(invoke(T,
+           Cal:K, La1:K, La2:K), Mods:Set, Me:K)), Label:K), Ind:Int, M:Map) => .K
+
+    rule <k> checkAllExpInFromInvokeCheck(La2:K, 
+              instNumInfo(TheCount:K, assign(X:K, instruction(invoke(T,
+           Cal:K, La1:K, La2':K), Mods:Set, Me:K)),
+                Label:K), Ind:Int, M:Map) ~> K:K  => .K </k>
+         <output>... .List => ListItem("A landingpad block does not comes from a invoke exception.") </output>
+         requires La2 =/=K La2'
+
+    rule <k> checkAllExpInFromInvokeCheck(La2:K, 
+              instNumInfo(TheCount:K, noAssign(instruction(invoke(T,
+           Cal:K, La1:K, La2':K), Mods:Set, Me:K)),
+                Label:K), Ind:Int, M:Map) ~> K:K  => .K </k>
+         <output>... .List => ListItem("A landingpad block does not comes from a invoke exception.") </output>
+         requires La2 =/=K La2'
+
+    rule <k> checkAllExpInFromInvokeCheck(La2:K, 
+              instNumInfo(TheCount:K, assign(X:K, instruction(Inst:K, Mods:Set, Me:K)),
+                Label:K), Ind:Int, M:Map) ~> K:K  => .K </k>
+         <output>... .List => ListItem("A landingpad block does not comes from a invoke op.") </output>
+         requires notBool isInvokeInst(Inst)
+
+    rule <k> checkAllExpInFromInvokeCheck(La2:K, 
+              instNumInfo(TheCount:K, noAssign(instruction(Inst:K, Mods:Set, Me:K)),
+                Label:K), Ind:Int, M:Map) ~> K:K  => .K </k>
+         <output>... .List => ListItem("A landingpad block does not comes from a invoke op.") </output>
+         requires notBool isInvokeInst(Inst)
+
+    //check if a resume has some landingpad ops that has the same type and dominates the resume
+    rule <k> checkLandingDomResumes => .K </k>
+         <tempResumes> .List </tempResumes>
+
+    rule <k> (.K => checkLandingDomResume(T, N, .Set))
+                      ~> checkLandingDomResumes ...</k>
+          <tempResumes> (ListItem(value(N:K, T:K)) => .List) Res:List </tempResumes>
+
+    rule <k> checkLandingDomResume(T:K, A:K, S:Set)
+              => .K ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... A |-> blockContent(Inst:Map,_:Bool, _:Set, Ins:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires containLandingpadAndTyped(T, .K, Inst)
+
+    rule <k> checkLandingDomResume(T:K, A:K, S:Set)
+              => checkLandingDomResumeAux(T, Ins -Set S, S) ...</k>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <currFunction> FunName:SymbolicValueRef </currFunction>
+        <functionName> FunName </functionName>
+         <basicBlocks>... A |-> blockContent(Inst:Map,_:Bool, _:Set, Ins:Set, _:Set,
+               _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+         requires notBool containLandingpadAndTyped(T, .K, Inst)
+
+    rule checkLandingDomResumeAux(T:K, SetItem(A:K) BS:Set, S:Set)
+            => checkLandingDomResumeAuxA(T, SetItem(A:K) BS:Set, SetItem(A:K) BS:Set S)
+
+    rule <k> checkLandingDomResumeAux(T:K, .Set, S:Set) ~> K:K => .K </k>
+         <output>... .List => ListItem("A resume op's return type do not have a dominant landingpad op that has the same type.") </output>
+
+    rule checkLandingDomResumeAuxA(T:K, .Set, S:Set) => .K
+    rule checkLandingDomResumeAuxA(T:K, SetItem(A:K) S1:Set, S2:Set)
+           => checkLandingDomResume(T, A, S2)
+                ~> checkLandingDomResumeAuxA(T, S1, S2)
+
     //define checkSingleAssignment
     //bugs and ambiguity in the LLVM document about the numbered label value
     rule <k> checkSingleAssignment(.K)
                => setInEdges(keys(M))
                   ~> (setLoopFlag
                   ~> (setLabelVars
-                  ~> calDefUse(.K, SetItem(InitName), .Set)
-                  //~> setBlockPaths(.K, keys(M))
-                  //~> setBlockInDefs(.K, keys(M))
-                  //~> setBlockInUses(.K, keys(M))
-                  //~> setBlockDependencies(.K, keys(M))
+                  ~> (calDefUse(.K, SetItem(InitName), .Set)
                   ~> (checkingPhisInEdges
                   ~> (checkUseVarInPhi
-                    ~> (checkUseVars
-                     ~> (checkLabelUses
-                     ~> checkBlockAddress(.K))))))) ...</k>
+                    ~> performNextChecks))))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <initialBasicBlock> InitName:SymbolicValueRef </initialBasicBlock>
@@ -3845,6 +4111,17 @@ create an abstract for fence and do the same for fence operation.
         <functionName> FunName </functionName>
         <formalParameters> arguments(E:ElemList) </formalParameters>
 
+    rule <k> performNextChecks
+             => checkUseVars
+                ~> (checkLabelUses
+                ~> (checkBlockAddress(.K)
+                ~> (checkNoNormalBlocksHavingLandingpad(.K, TNS -Set TES)
+                ~> (checkAllExpBlocksHavingLandingpad(.K, TES)
+                ~> (checkAllExpInFromInvoke(.K, TES)
+                ~> (checkLandingpad
+                ~> checkLandingDomResumes)))))) ...</k>
+          <tempLabelUses> TNS:Set </tempLabelUses>
+          <tempExceptionUses> TES:Set </tempExceptionUses>
 
     //case 1: if the block comes with a label
     //the label is an english name instead of a number
@@ -3859,7 +4136,8 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M':Map (.Map  => addNameToString(L)
               |-> blockContent(.Map, false, .Set, .Set,
                   SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
-               .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+               .Set, SetItem(varOp(addNameToString(L),0,
+              label, addNameToString(L))), .Set, .Set)) </basicBlocks>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
         <formalParameters> arguments(Args:ElemList) </formalParameters>
@@ -3897,7 +4175,8 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M':Map (.Map  => addNameToString(L)
                          |-> blockContent(.Map, false, .Set, .Set,
                       SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
-            .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+            .Set, SetItem(varOp(addNameToString(L),0,label,
+                 addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map (.Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool isIntString(substrString(#tokenToString(L), 0
@@ -3936,7 +4215,8 @@ create an abstract for fence and do the same for fence operation.
          <basicBlocks> M':Map (.Map  => addNameToString(L)
               |-> blockContent(.Map, false, .Set, .Set,
                   SetItem(varOp(addNameToString(L),0,label, addNameToString(L))),
-               .Set, SetItem(varOp(addNameToString(L),0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
+               .Set, SetItem(varOp(addNameToString(L)
+           ,0,label, addNameToString(L))), .Set, .Set)) </basicBlocks>
          <varTypes> M:Map ( .Map => addNameToString(L) |-> label) </varTypes>
          requires notBool addNameToString(L) in keys(M)
                   andBool notBool isIntString(substrString(#tokenToString(L), 0

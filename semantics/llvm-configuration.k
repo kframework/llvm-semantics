@@ -27,6 +27,9 @@ module LLVM-CONFIGURATION
             <tempGlobalVars> .List </tempGlobalVars> //use for store unnamed addr global vars
             <tempUses> .Set </tempUses> //set from use vars
             <tempLabelUses> .Set </tempLabelUses>
+            <tempExceptionUses> .Set </tempExceptionUses>
+            <tempLandingpads> .List </tempLandingpads>
+            <tempResumes> .List </tempResumes>
             <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
             <thread multiplicity="*"> //thread cell

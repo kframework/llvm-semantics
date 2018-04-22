@@ -66,6 +66,7 @@ module LLVM-CONFIGURATION
                     <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                     //current function that is being executed
                     <valist> .List </valist> //a cell storing variable argument list info
+                    <expResume> .K </expResume>
                     <registers color="teal"> .Map </registers>
                     <specRegisters color="teal"> .Map </specRegisters>
                     //registers (infinite) for a thread

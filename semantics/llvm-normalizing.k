@@ -144,7 +144,7 @@ module LLVM-NORMALIZING
                         //block,name type, value, firstT, firstV, secondT, secondV, instmeta
                    | typeCheckResume(K, K, K, InstructionMetadatas)    [strict(2)]
                              //block, type, value, instmeta
-                   | typeCheckLandingpad(K, K, K, ElemList, List, InstructionMetadatas)    [strict(3)]
+                   | typeCheckLandingpad(K, K, K, ElemList, List, InstructionMetadatas)    [strict(3,4)]
                              //block, name, type, clauses, stored clauses, instmeta
 
     //type check distribution function
@@ -337,7 +337,7 @@ module LLVM-NORMALIZING
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                  invoke Opc:OptCallingConv Re:RetAttrs
                    Ty:Type Va:ValueRef (Pl:ParamList) Fu:FuncAttrs
-                    to La1:LabelValue unwind La2:LabelValue 
+                    to label La1:ValueRef unwind label La2:ValueRef 
                                   Meta:InstructionMetadatas)
          => typeCheckInvoke(Name:SymbolicValueRef, K, Ty,
                     addNameToString(Va), getAllTypes(Pl), formTypeCheckList(Pl),
@@ -1525,7 +1525,7 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
              instNumInfo(TheCount, noAssign(instruction(invoke(void, callee(V1,
-                           arguments(formArgList(Tv,Arg))), La1, La2),
+                           arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet),
               Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
         requires isLocalVariable(La1) andBool isLocalVariable(La2)
 
@@ -1550,7 +1550,7 @@ module LLVM-NORMALIZING
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
              instNumInfo(TheCount, assign(A, instruction(invoke(T,
-                           callee(V1, arguments(formArgList(Tv,Arg))), La1, La2)
+                           callee(V1, arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet)
                           ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
         requires isLocalVariable(La1) andBool isLocalVariable(La2)
 
@@ -2618,6 +2618,16 @@ module LLVM-NORMALIZING
              ~> checkUseVarInside(Name, pointerTypeValue(
                                  T:KResult, Ad:KResult), V:K)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
+                   structTypeValue(T:KResult), V:K)
+          => exprType(preTypeCheckStructExpr(
+                      structTypeValue(T:KResult), V:K))
+             ~> checkUseVarInside(Name, structTypeValue(T:KResult), V:K)
+    rule typeCheckSingleArg(Name:SymbolicValueRef,
+                   packedStructTypeValue(T:KResult), V:K)
+          => exprType(preTypeCheckStructExpr(
+                      packedStructTypeValue(T:KResult), V:K))
+             ~> checkUseVarInside(Name, packedStructTypeValue(T:KResult), V:K)
+    rule typeCheckSingleArg(Name:SymbolicValueRef,
                   vectorTypeValue(T:K, I:Int), V:K)
          => exprType(typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
              ~> checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
@@ -3043,7 +3053,7 @@ module LLVM-NORMALIZING
     //dealing with resume op. 
     rule <k> typeCheckResume(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas)
-          => exprType(typeCheckSingleArg(N, T, formalizeAllFloats(T, V)))
+          => typeCheckSingleArg(N, T, formalizeAllFloats(T, V))
                ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
         <tempResumes> Res:List (.List => ListItem(value(N, T))) </tempResumes>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
@@ -3054,7 +3064,7 @@ module LLVM-NORMALIZING
     //deal with ret, first deal with integer variable only
     rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas)
-          => exprType(typeCheckSingleArg(N, T, formalizeAllFloats(T, V)))
+          => typeCheckSingleArg(N, T, formalizeAllFloats(T, V))
                ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
@@ -3690,16 +3700,18 @@ create an abstract for fence and do the same for fence operation.
         requires notBool V in keys(M) andBool notBool varOp(N, 0, T, V) in Def
 
     rule <k> setArgsToBlockEnv(N:SymbolicValueRef,
-                valValue(typeOperandResult(T:K, V:SymbolicValueRef)), E:ElemList) ~> K:K
-             => .K </k>
+                valValue(typeOperandResult(T:K, V:SymbolicValueRef)), E:ElemList)
+             => setArgsToBlockEnv(N:SymbolicValueRef, E:ElemList) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
-        <output>... .List => ListItem("error: define argument '" +String
-                       #tokenToString(V) +String "' twices in the function header") </output>
-        <varTypes> M:Map </varTypes>
-        requires V in keys(M)
+         <basicBlocks>... N |->
+                 blockContent(_:Map, _:Bool, _:Set, _:Set, Def:Set
+                    (.Set => SetItem(varOp(N,-1,T, V))), _:Set,
+             Def':Set (.Set => SetItem(varOp(N,-1,T, V))), _:Set, _:Set) ...</basicBlocks>
+         <varTypes> M:Map </varTypes>
+        requires V in keys(M) andBool notBool varOp(N, 0, T, V) in Def
 
     rule <k> setArgsToBlockEnv(N:SymbolicValueRef,
                 valValue(typeOperandResult(T:K, V:K)), E:ElemList) ~> K:K
@@ -3934,7 +3946,7 @@ rule <k> landingpadBadState ~> K:K => .K </k>
                _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
     //check all exception pointing block from invoke having a landingpad inst
-    rule checkAllExpBlocksHavingLandingpad(.K, .Set) => .Set
+    rule checkAllExpBlocksHavingLandingpad(.K, .Set) => .K
 
     rule checkAllExpBlocksHavingLandingpad(.K, SetItem(A:K) S:Set)
             => checkAllExpBlocksHavingLandingpad(A, S)
@@ -3961,7 +3973,7 @@ rule <k> landingpadBadState ~> K:K => .K </k>
         requires notBool containLandingpads(.K, Inst)
 
     //check no normal blocks having landingpad inst
-    rule checkNoNormalBlocksHavingLandingpad(.K, .Set) => .Set
+    rule checkNoNormalBlocksHavingLandingpad(.K, .Set) => .K
 
     rule checkNoNormalBlocksHavingLandingpad(.K, SetItem(A:K) S:Set)
             => checkNoNormalBlocksHavingLandingpad(A, S)
@@ -3988,7 +4000,7 @@ rule <k> landingpadBadState ~> K:K => .K </k>
         requires containLandingpads(.K, Inst)
 
     //checking all incoming edges of a landingpad block comes from invoke.
-    rule checkAllExpInFromInvoke(.K, .Set) => .Set
+    rule checkAllExpInFromInvoke(.K, .Set) => .K
 
     rule checkAllExpInFromInvoke(.K, SetItem(A:K) S:Set)
             => checkAllExpInFromInvoke(A, S)
@@ -4003,7 +4015,7 @@ rule <k> landingpadBadState ~> K:K => .K </k>
          <basicBlocks>... X |-> blockContent(_:Map,_:Bool, _:Set, Ins:Set, _:Set,
                _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
 
-    rule checkAllExpInFromInvokeAux(X:K, .K, .Set) => .Set
+    rule checkAllExpInFromInvokeAux(X:K, .K, .Set) => .K
 
     rule checkAllExpInFromInvokeAux(X:K, .K, SetItem(A:K) S:Set)
             => checkAllExpInFromInvokeAux(X, A, S)
@@ -4023,21 +4035,21 @@ rule <k> landingpadBadState ~> K:K => .K </k>
             => checkAllExpInFromInvokeCheck(X, B, A, M)
     rule checkAllExpInFromInvokeCheck(La2:K, 
               instNumInfo(TheCount:K, assign(A:K, instruction(invoke(T,
-           Cal:K, La1:K, La2:K), Mods:Set, Me:K)), Label:K), Ind:Int, M:Map) => .K
+           Cal:K, La1:K, La2:K, FL:K), Mods:Set, Me:K)), Label:K), Ind:Int, M:Map) => .K
     rule checkAllExpInFromInvokeCheck(La2:K, 
               instNumInfo(TheCount:K, noAssign(instruction(invoke(T,
-           Cal:K, La1:K, La2:K), Mods:Set, Me:K)), Label:K), Ind:Int, M:Map) => .K
+           Cal:K, La1:K, La2:K, FL:K), Mods:Set, Me:K)), Label:K), Ind:Int, M:Map) => .K
 
     rule <k> checkAllExpInFromInvokeCheck(La2:K, 
               instNumInfo(TheCount:K, assign(X:K, instruction(invoke(T,
-           Cal:K, La1:K, La2':K), Mods:Set, Me:K)),
+           Cal:K, La1:K, La2':K, FL:K), Mods:Set, Me:K)),
                 Label:K), Ind:Int, M:Map) ~> K:K  => .K </k>
          <output>... .List => ListItem("A landingpad block does not comes from a invoke exception.") </output>
          requires La2 =/=K La2'
 
     rule <k> checkAllExpInFromInvokeCheck(La2:K, 
               instNumInfo(TheCount:K, noAssign(instruction(invoke(T,
-           Cal:K, La1:K, La2':K), Mods:Set, Me:K)),
+           Cal:K, La1:K, La2':K, FL:K), Mods:Set, Me:K)),
                 Label:K), Ind:Int, M:Map) ~> K:K  => .K </k>
          <output>... .List => ListItem("A landingpad block does not comes from a invoke exception.") </output>
          requires La2 =/=K La2'
@@ -4055,7 +4067,7 @@ rule <k> landingpadBadState ~> K:K => .K </k>
          requires notBool isInvokeInst(Inst)
 
     //check if a resume has some landingpad ops that has the same type and dominates the resume
-    rule <k> checkLandingDomResumes => .K </k>
+    rule <k> checkLandingDomResumes => .K ...</k>
          <tempResumes> .List </tempResumes>
 
     rule <k> (.K => checkLandingDomResume(T, N, .Set))

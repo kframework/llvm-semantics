@@ -99,12 +99,12 @@ module LLVM-CALL-RET
 
     //invoke finds pointer
     rule <k> invoke(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
-                        value(P:Int,P:Int), RT:K, BA:K, D:K), Args:ElemList), L1:K, L2:K)
-         => invoke(A, calleeValue(V, Args), L1:K, L2:K) ...</k>
+                        value(P:Int,P:Int), RT:K, BA:K, D:K), Args:ElemList), L1:K, L2:K, FL:K)
+         => invoke(A, calleeValue(V, Args), L1:K, L2:K, FL:K) ...</k>
             <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T, V:K) ...</cbd>
 
     rule <k> invoke(A:K, calleeValue(loc(P:Int,T:K,
-               value(P1:Int,P2:Int), RT:K, BA:K, C:K), Args:ElemList), L1:K, L2:K) ~> K:K 
+               value(P1:Int,P2:Int), RT:K, BA:K, C:K), Args:ElemList), L1:K, L2:K, FL:K) ~> K:K 
               => .K </k>
          <output>... .List
                 => ListItem("error: invoke function pointer pointing to bad place.") </output>
@@ -116,7 +116,7 @@ module LLVM-CALL-RET
          requires P <Int P1 orBool P >Int P2
 
     rule <k> invoke(A:K, calleeValue(loc(P:Int,pointerTypeValue(T:K, Ad:Int),
-              value(P:Int,P:Int), RT:K, BA:K, C:K), Args:ElemList), L1:K, L2:K) ~> K:K 
+              value(P:Int,P:Int), RT:K, BA:K, C:K), Args:ElemList), L1:K, L2:K, FL:K) ~> K:K 
               => .K </k>
             <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T', V:K) ...</cbd>
          <output>... .List
@@ -129,7 +129,7 @@ module LLVM-CALL-RET
          requires T =/=K T'
 
     rule <k> invoke(A:K, calleeValue(loc(P:Int,T:K,
-              value(P:Int,P:Int),RT:K, BA:K,C:K), Args:ElemList), L1:K, L2:K) ~> K:K 
+              value(P:Int,P:Int),RT:K, BA:K,C:K), Args:ElemList), L1:K, L2:K, FL:K) ~> K:K 
               => .K </k>
           <cbd> M:Map </cbd>
          <output>... .List
@@ -142,8 +142,8 @@ module LLVM-CALL-RET
          requires notBool aLoc(P, T, heap) in keys(M)
 
     rule
-        <k> invoke(_, calleeValue(funptr(FunName), Args:ElemList), L1:K, L2:K) ~> Tail:K
-            => contextSwitch(FunName, invokeBr(L1, L2) ~> Tail)
+        <k> invoke(_, calleeValue(funptr(FunName), Args:ElemList), L1:K, L2:K, FL:K) ~> Tail:K
+            => contextSwitch(FunName, FL ~> (invokeBr(L1, L2) ~> Tail))
             ~> bind(Args, Formals)
             ~> startInitBlock(IBBName)
         </k>
@@ -377,7 +377,8 @@ module LLVM-CALL-RET
 
     // might need a way to convert nonmatching types here?  depends on semantics
     rule
-        <k> bind((valValue(Arg:K), Args:ElemList), (valValue(typedArg(_, _, Formal:K)), Formals:ElemList))
+        <k> bind((valValue(typedArg(_, _, Arg:K)), Args:ElemList),
+                    (valValue(typedArg(_, _, Formal:K)), Formals:ElemList))
             => stacticAssign(Formal, Arg)
             ~> bind(Args, Formals)
         ...</k>
@@ -385,7 +386,7 @@ module LLVM-CALL-RET
         <k> bind(.ElemList, .ElemList) => .K ...</k>
 
     rule
-        <k> bind((valValue(Arg:K), L:ElemList
+        <k> bind((valValue(typedArg(_, _, Arg:K)), L:ElemList
                   => L), val(vararg)) ...</k>
         <valist>... .List => ListItem(Arg) </valist>
 
@@ -393,8 +394,16 @@ module LLVM-CALL-RET
         <k> bind(.ElemList, val(vararg)) => .K ...</k>
 
     // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
-    syntax KItem ::= "clearVoid"
-    syntax KItem ::= clearLocalMemory(K, Set)
+
+    rule <k> resume(T:KResult, V:KResult) ~> _
+            => clearLocalMemory(.K, Locals)
+            ~> (initializer(T, V)
+            ~> (clearResume
+            ~> Tail))
+        </k>
+        <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag)) => .List ...</callStack>
+        <control> <localMemory> Locals:Set </localMemory> _ => C </control>
+        <tomasulo> _:Bag => D </tomasulo>
 
     // TODO rename Tail
     rule
@@ -430,6 +439,10 @@ module LLVM-CALL-RET
 
     rule initializer(void, V:K) ~> clearVoid => .K
     rule initializer(T:K, V:KResult) ~> clearVoid => V
+         when T =/=K void
+
+    rule initializer(void, V:K) ~> clearResume => resumeVal(undef)
+    rule initializer(T:K, V:KResult) ~> clearResume => resumeVal(V)
          when T =/=K void
 
 endmodule

@@ -106,10 +106,19 @@ module LLVM-BRANCHING
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          requires hasRestBlocks(.K, RM) andBool (Count -Int maxSpecGap <Int BN)
 
-    //deal with invokebr
+    //deal with invokebr and resume back from invoke
     rule invokeBr(L1:K, L1:K) => unconditional(L1)
     rule V:KResult ~> invokeBr(L1:K, L1:K) => unconditional(L1) ~> waitForBranch(V)
     rule dynNoResult(undef) ~> waitForBranch(V:KResult) => V
+
+    rule <k> isResumeVal(A:K) ~> invokeNoRet => .K ...</k>
+         <expResume> X:K => A </expResume>
+    rule <k> isResumeVal(A:K) ~> invokeRet => undef ...</k>
+         <expResume> X:K => A </expResume>
+
+    rule invokeNoRet => .K
+    rule V:KResult ~> invokeRet => V
+         requires notBool isResumeVal(V)
 
     rule
         <k> conditional(I:Int, Label:K, _)

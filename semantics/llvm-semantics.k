@@ -2692,6 +2692,9 @@ module LLVM-EXCEPTIONS
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
+    rule <k> landingpad(T:K, L:List) => V </k>
+         <expResume> V:K => .K </expResume>
+         requires V =/=K .K
 
 /*
     rule

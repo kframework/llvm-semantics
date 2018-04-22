@@ -245,8 +245,17 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KItem ::= constantArray(K, K) [strict] // element type, arguments
 
+    syntax KItem ::= "clearVoid"
+    syntax KItem ::= clearLocalMemory(K, Set)
+    syntax KItem ::= "clearResume"
+    syntax KResult ::= resumeVal(K)
+    syntax KItem ::= "invokeNoRet"
+    syntax KItem ::= "invokeRet"
+
+    syntax KResult ::= Cleanup
     syntax KItem ::= landingpad(K, List) //type caluses
-    syntax KItem ::= invoke(K, K, K, K)  [strict(2)]//type, callee, normal, exception
+    syntax KItem ::= invoke(K, K, K, K, K)  [strict(2)]
+           //type, callee, normal, exception, flag on return or not
     syntax KItem ::= invokeBr(K, K) //normal, exception
     syntax KItem ::= initializer(K, K) // type, value
     syntax KItem ::= globalVariable(K, Set, K, K, Int, Int) [strict(3,4)]
@@ -271,7 +280,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= loadVal(K)//type
     syntax KItem ::= loadHold(K, List)//type, List
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
-    syntax KItem ::= assignUsesInCall(K, K, ElemList)//blockname, inst num, args
+    syntax KItem ::= assignUsesInCall(K, K, ElemList)  [strict(3)]//blockname, inst num, args
     syntax KItem ::= varOp(K, K, K, K)//block num, instruction num, type, name
     syntax KItem ::= setLabelVars(Map)
     syntax KItem ::= "setLabelVars"
@@ -447,7 +456,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= extractElement(K, K) [strict]
     syntax KItem ::= insertElement(K, K, K) [strict]
     syntax KItem ::= shuffleVector(K, K, K) [strict]
-    //syntax KItem ::= landingPad(K,K,K) [strict(1,2)] // operand,operand modifiers
+
     syntax KItem ::= extractValue(K, List) [strict(1)]
     syntax KItem ::= cmpxChg(K, K, K) [strict]
     syntax KItem ::= atomicRmw(K, K, K) [strict]

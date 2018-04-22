@@ -2898,7 +2898,7 @@ module LLVM-HELPERS
     rule guessNextBlock(switch(A:K, B:K, C:K,
                       ListItem(typedCase(It:K, I:K, D:K)) Es:List)) => D
     rule guessNextBlock(indirectbr(A:K, ListItem(B:K) Es:List)) => B
-    rule guessNextBlock(invoke(A:K, B:K, C:K, D:K)) => C
+    rule guessNextBlock(invoke(A:K, B:K, C:K, D:K, FL:K)) => C
     rule guessNextBlock(_:K) => .K [owise]
 
 /*    syntax Set ::= getAllBrBlocks(K) [function]
@@ -2961,13 +2961,13 @@ module LLVM-HELPERS
            , blockContent( _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
                    => removeItemFromSet(B, .K, indirectbrListToSet(Es))
-    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K),
+    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K),
                .K, (C |-> E:K) M:Map)
-             => getRestBlocks(invoke(A:K, B:K, C:K, D:K), E, M:Map)
-    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K)
+             => getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K), E, M:Map)
+    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K)
            , blockContent( _:Map, true, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(C)
-    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K)
+    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K)
            , blockContent( _:Map, false, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map) => .Set
 
@@ -3337,9 +3337,9 @@ module LLVM-HELPERS
    rule updateVarInTerm(Cur:Int, C:Int, landingpad(T:K, L:List), M:Map, RM:Map, Rev:Map)
           => landingpad(T, L)
    rule updateVarInTerm(Cur:Int, C:Int, invoke(T:K,
-               callee(V:K, arguments(Es:ElemList)), L1:K, L2:K), M:Map, RM:Map, Rev:Map)
+               callee(V:K, arguments(Es:ElemList)), L1:K, L2:K, FL:K), M:Map, RM:Map, Rev:Map)
           => invoke(T:K, callee(V:K,
-                   arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))), L1, L2)
+                   arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))), L1, L2, FL:K)
    rule updateVarInTerm(Cur:Int, C:Int, load(Ty:K, V:K, Al:Int), M:Map, RM:Map, Rev:Map)
         => load(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev), Al)
    rule updateVarInTerm(Cur:Int, C:Int,
@@ -5276,8 +5276,12 @@ module LLVM-HELPERS
     rule isLandingpadInst(_:K) => false [owise]
 
     syntax Bool ::= isInvokeInst(K) [function]
-    rule isInvokeInst(invoke(_:K, _:K, _:K, _:K)) => true
+    rule isInvokeInst(invoke(_:K, _:K, _:K, _:K, _:K)) => true
     rule isInvokeInst(_:K) => false [owise]
+
+    syntax Bool ::= isResumeVal(K) [function]
+    rule isResumeVal(resumeVal(_:K)) => true
+    rule isResumeVal(_:K) => false [owise]
 
     syntax KItem ::= checkLandingpadAux(K, K, K, Map)  [function]
     rule checkLandingpadAux(I:K, .K,  .K, .Map) => checkLandingpad
@@ -5290,13 +5294,17 @@ module LLVM-HELPERS
           => checkLandingpadAux(I, .K, .K, M)
        requires I1 <Int I
     rule checkLandingpadAux(I:Int, I1:Int,
+              instNumInfo(TheCount:K, noAssign(AK:K), InLabel:K), M:Map)
+          => checkLandingpadAux(I, .K, .K, M)
+         requires I1 >Int I
+    rule checkLandingpadAux(I:Int, I1:Int,
               instNumInfo(TheCount:K, assign(X:K, instruction(Inst:K,
                   S:Set, Me:K)), InLabel:K), M:Map)
           => checkLandingpadAux(I, .K, .K, M)
        requires I1 >Int I andBool notBool isLandingpadInst(Inst)
-    rule checkLandingpadAux(I:Int, I1:Int, AK:K, M:Map)
+    /*rule checkLandingpadAux(I:Int, I1:Int, AK:K, M:Map)
           => landingpadBadState [owise]
-
+*/
     syntax Bool ::= containLandingpads(K, Map) [function]
     rule containLandingpads(.K,.Map) => false
     rule containLandingpads(.K, (A:K |-> B:K) M:Map)

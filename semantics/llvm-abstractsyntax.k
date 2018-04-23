@@ -35,6 +35,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "badValue"
     syntax KResult ::= "skipValue"
     syntax KItem ::= "none"
+    syntax KResult ::= "vaListType"
+    rule 'vaArgs(.KList) => vaListType
+
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
     syntax KResult ::= flagType(K, K) //flags, type
@@ -89,6 +92,334 @@ module LLVM-ABSTRACTSYNTAX
     rule elemListToList(valValue(K:K), L:ElemList) => ListItem(K) elemListToList(L)
     rule elemListToList(val(K:K), L:ElemList) => ListItem(K) elemListToList(L)
 
+    //parsing string in LLVM to byte list
+    syntax KItem ::= doubleList(RetAttrs, FuncAttrs)
+
+    syntax List ::= stringToCharList(String, Int) [function]
+    rule stringToCharList(S:String, N:Int) => .List
+         requires N ==Int lengthString(S)
+    rule stringToCharList(S:String, N:Int)
+              => ListItem(ordChar(substrString(S, N, N +Int 1))) stringToCharList(S, N +Int 1)
+         requires N <Int lengthString(S)
+
+    syntax Bool ::= isValidCharHex(Int) [function]
+    rule isValidCharHex(A:Int) => true
+         requires (A >=Int 48 andBool A <=Int 57)
+             orBool (A >=Int 97 andBool A <=Int 102)
+             orBool (A >=Int 65 andBool A <=Int 70)
+    rule isValidCharHex(A:Int) => false [owise]
+
+    syntax Int ::= hexCharToInt(Int) [function]
+    rule hexCharToInt(A:Int) => A -Int 48
+          requires (A >=Int 48 andBool A <=Int 57)
+    rule hexCharToInt(A:Int) => 10
+          requires A ==K 97 orBool A ==K 65
+    rule hexCharToInt(A:Int) => 11
+          requires A ==K 98 orBool A ==K 66
+    rule hexCharToInt(A:Int) => 12
+          requires A ==K 99 orBool A ==K 67
+    rule hexCharToInt(A:Int) => 13
+          requires A ==K 100 orBool A ==K 68
+    rule hexCharToInt(A:Int) => 14
+          requires A ==K 101 orBool A ==K 69
+    rule hexCharToInt(A:Int) => 15
+          requires A ==K 102 orBool A ==K 70
+
+    syntax Int ::= makeLowerCase(Int) [function]
+    rule makeLowerCase(A:Int) => A +Int 32
+         requires (A >=Int 65 andBool A <=Int 90)
+    rule makeLowerCase(A:Int) => A [owise]
+
+    syntax KItem ::= findSlashList(List)  [function]
+    rule findSlashList(.List) => badValue
+    rule findSlashList(ListItem(92) L:List) => charListResult(ListItem(92), L)
+    rule findSlashList(ListItem(110) L:List) => charListResult(ListItem(10), L)
+    rule findSlashList(ListItem(34) L:List) => charListResult(ListItem(34), L)
+    rule findSlashList(ListItem(116) L:List) => charListResult(ListItem(9), L)
+    rule findSlashList(ListItem(114) L:List) => charListResult(ListItem(13), L)
+    rule findSlashList(ListItem(A:Int) ListItem(B:Int) L:List)
+                  => charListResult(ListItem(hexCharToInt(A) *Int 16 +Int hexCharToInt(B)), L)
+         requires isValidCharHex(A) andBool isValidCharHex(B)
+    rule findSlashList(L:List) => badValue [owise]
+
+    syntax List ::= charListFilter(List)  [function]
+                  | charListFilterAux(K)  [function]
+    rule charListFilter(.List) => .List
+    rule charListFilter(ListItem(X:Int) L:List)
+           => ListItem(X) charListFilter(L)
+         requires X =/=Int 92
+    rule charListFilter(ListItem(92) L:List)
+          => charListFilterAux(findSlashList(L))
+    rule charListFilterAux(badValue) => ListItem(badValue)
+    rule charListFilterAux(charListResult(L:List, L':List))
+                => L charListFilter(L')
+
+    syntax ElemList ::= parseCharListToOperands(List) [function]
+    rule parseCharListToOperands(.List) => .ElemList
+    rule parseCharListToOperands(ListItem(A:Int) L:List)
+          => val(operand(integerType(8), A)), parseCharListToOperands(L)
+
+    syntax ElemList ::= parseStringToList(StringName) [function]
+    rule parseStringToList(X:StringName) => 
+              parseCharListToOperands(charListFilter(stringToCharList(
+              substrString(#tokenToString(X), 1, lengthString(#tokenToString(X)) -Int 1),0)))
+
+    //parse concrete var to AST var
+    syntax KItem ::= addNameToString(K) [function]
+
+    rule addNameToString(Var:LocalName) => name(localVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var))))
+    rule addNameToString(Var:GlobalName) => name(globalVar, substrString(#tokenToString(Var),1
+                          ,lengthString(#tokenToString(Var))))
+    rule addNameToString(Var:LabelStringConstant) => name(localVar, substrString(#tokenToString(Var),0
+                          ,lengthString(#tokenToString(Var)) -Int 1))
+    rule addNameToString(< R:ReturnedVal >) => vector(formElemList(R))
+    rule addNameToString([ R:ReturnedVal ]) => array(formElemList(R))
+    rule addNameToString({ R:ReturnedVal }) => constantStruct(formElemList(R))
+    rule addNameToString(< { R:ReturnedVal } >) => packedStruct(formElemList(R))
+    rule addNameToString('constCast(C:CastOps,, T1:Type V:ValueRef,, T2:Type))
+            => constCastAST(C, T1, addNameToString(V), T2)
+    rule addNameToString('constBin(C:BinaryOps,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constBinAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constLogic(C:LogicalOps,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constLogicAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constBlock(V1:ValueRef,, V2:ValueRef))
+            => blockAddAST(addNameToString(V1), addNameToString(V2))
+    rule addNameToString('constIcmp(C:IPredicate,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constIcmpAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constFcmp(C:FPredicate,,
+                      T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constFcmpAST(C, T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constExtract(T1:Type V1:ValueRef,, C:ConstantIndexList))
+            => constExValueAST(T1, addNameToString(V1), formElemList(C))
+    rule addNameToString('constInsert(T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, C:ConstantIndexList))
+            => constInValueAST(T1, addNameToString(V1),
+                                   T2, addNameToString(V2), formElemList(C))
+    rule addNameToString('constShuffle(T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, T3:Type V3:ValueRef))
+            => constSuffleAST(T1, addNameToString(V1),
+                        T2, addNameToString(V2), T3, addNameToString(V3))
+    rule addNameToString('constGep(F:OptInBounds,, T:Type,, R:ReturnedVal))
+            => constGepAST(F, T, formElemList(R))
+    rule addNameToString('constSelect(Op:Select,, T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, T3:Type V3:ValueRef))
+            => constSelectAST(T1, addNameToString(V1),
+                        T2, addNameToString(V2), T3, addNameToString(V3))
+    rule addNameToString('constExElem(T1:Type V1:ValueRef,, T2:Type V2:ValueRef))
+            => constExElemAST(T1, addNameToString(V1), T2, addNameToString(V2))
+    rule addNameToString('constInsertElem(T1:Type V1:ValueRef,,
+                           T2:Type V2:ValueRef,, T3:Type V3:ValueRef))
+            => constInElemAST(T1, addNameToString(V1),
+                        T2, addNameToString(V2), T3, addNameToString(V3))
+    rule addNameToString(c S:StringName) => array(parseStringToList(S))
+    rule addNameToString(K:K) => K [owise]
+
+    syntax ElemList ::= getAllTypes(K)   [function]
+    rule getAllTypes(.ParamList) => .ElemList
+    rule getAllTypes(T:Type _:ParamAttrs _:ValueRef, Pl:ParamList)
+                   => val(T), getAllTypes(Pl)
+    rule getAllTypes(.ElemList) => .ElemList
+    rule getAllTypes(valValue(typedArg(A:K, B:K, C:K)), Pl:ElemList)
+                   => valValue(B), getAllTypes(Pl)
+    rule getAllTypes(valValue(vaListType), Pl:ElemList)
+                   => valValue(vaListType), getAllTypes(Pl)
+
+    //useful function to turn a kitem into an elemList
+    //here: add addNameToString to every position where it has type or valueref
+    syntax ElemList ::= formElemList(K) [function]
+
+    rule formElemList('.InstructionMetadatas(.KList)) => .ElemList
+    rule formElemList(, Mv:MetadataVar Mi:MetadataValueInt Ins:InstructionMetadatas)
+              => val(Mv Mi),formElemList(Ins)
+    rule formElemList(, Mv:MetadataVar ! { In:MetadataValues } Ins:InstructionMetadatas)
+              => val(Mv ! { In }),formElemList(Ins)
+    rule formElemList(.LabelValues) => .ElemList
+    rule formElemList(label Va:ValueRef, Ls:LabelValues)
+                    => val(addNameToString(Va)),formElemList(Ls)
+    rule formElemList(doubleList(.RetAttrs,.FuncAttrs)) => .ElemList
+    rule formElemList(doubleList(.RetAttrs,F:FuncAttr Fs:FuncAttrs))
+            => val(F),formElemList(doubleList(.RetAttrs,Fs))
+    rule formElemList(doubleList(R:RetAttr Rs:RetAttrs,Fs:FuncAttrs))
+            => val(R),formElemList(doubleList(Rs,Fs))
+    rule formElemList(.ParamList) => .ElemList
+    rule formElemList(Ty:Type Pa:ParamAttrs Va:ValueRef, Pl:ParamList)
+            => val(arg(formSet(Pa),
+                     addNameToString(Ty),addNameToString(Va))),formElemList(Pl)
+    rule formElemList(.ParamAttrs) => .ElemList
+    rule formElemList(Pa:ParamAttr Ps:ParamAttrs) => val(Pa),formElemList(Ps)
+    rule formElemList(A:Align) => val(A)
+    rule formElemList(nsw) => val(nsw)
+    rule formElemList(nuw) => val(nuw)
+    rule formElemList(nsw nuw) => val(nsw),val(nuw)
+    rule formElemList(nuw nsw) => val(nsw),val(nuw)
+    rule formElemList('nwEmpty(.KList)) => .ElemList
+    rule formElemList(.FastMathFlags) => .ElemList
+    //here | Done
+    //do the same as fast for "nnan" | "ninf" | "nsz" | "arcp"
+    rule formElemList(fast Fl:FastMathFlags) => val(fast),formElemList(Fl)
+    rule formElemList(nnan Fl:FastMathFlags) => val(nnan),formElemList(Fl)
+    rule formElemList(ninf Fl:FastMathFlags) => val(ninf),formElemList(Fl)
+    rule formElemList(nsz Fl:FastMathFlags) => val(nsz),formElemList(Fl)
+    rule formElemList(arcp Fl:FastMathFlags) => val(arcp),formElemList(Fl)
+
+    rule formElemList(inbounds) => val(inbounds)
+    rule formElemList('inBoundsEmpty(.KList)) => .ElemList
+    rule formElemList('.IntResolveVals(.KList)) => .ElemList
+    rule formElemList(, It:IntType V:ValueRef Ins:IntResolveVals)
+            => val(operand(It,addNameToString(V))),formElemList(Ins)
+    rule formElemList([ V1:ValueRef , V2:ValueRef ])
+            => val(edge(addNameToString(V1),addNameToString(V2)))
+    rule formElemList([ V1:ValueRef , V2:ValueRef ] , Pl:PHIList)
+            => val(edge(addNameToString(V1),addNameToString(V2))),formElemList(Pl)
+    rule formElemList(cleanup) => val(typeOperand(void, cleanup))
+    rule formElemList(C:ClauseLabel T:Type V:ValueRef)
+                  => val(typeOperand(T, clause(C,addNameToString(V))))
+    rule formElemList(.LandingpadFactors) => .ElemList
+    rule formElemList(Lpf:LandingpadFactor Lpfs:LandingpadFactors)
+                   => val(Lpf),formElemList(Lpfs)
+    rule formElemList('callingConvEmpty(.KList)) => .ElemList
+    rule formElemList(Ocv:OptCallingConv) => val(Ocv)
+            when Ocv =/=K 'callingConvEmpty(.KList)
+    rule formElemList(.RetAttrs) => .ElemList
+    rule formElemList(A:RetAttr As:RetAttrs) => val(A),formElemList(As)
+    rule formElemList(.FuncAttrs) => .ElemList
+    rule formElemList(A:FuncAttr As:FuncAttrs) => val(A),formElemList(As)
+    rule formElemList('atomicEmpty(.KList)) => .ElemList
+    rule formElemList(atomic) => val(atomic)
+    rule formElemList('volatileEmpty(.KList)) => .ElemList
+    rule formElemList(volatile) => val(volatile)
+    rule formElemList('scopeorderEmpty(.KList)) => .ElemList
+    rule formElemList('singlethreadEmpty(.KList)) => .ElemList
+    rule formElemList(syncscope(" S:SyncScopeKey "))
+                       => val(S),.ElemList
+    rule formElemList(, N:UnsignedInt)
+              => val(String2Int(#tokenToString(N))),.ElemList
+    rule formElemList(, N:UnsignedInt Cil:ConstantIndexList)
+           => val(String2Int(#tokenToString(N))),formElemList(Cil)
+    rule formElemList(X:Ordering) => val(X),.ElemList
+    rule formElemList(X:Ordering Xl:OrderingList)
+                 => val(X),formElemList(Xl)
+    rule formElemList('argListUnit(.KList)) => .ElemList
+    rule formElemList('vaArgs(.KList)) => val('vaArgs(.KList)),.ElemList
+    rule formElemList(Ty:Type Pa:ParamAttrs)
+             => val(arg(formSet(Pa),addNameToString(Ty),.K))
+    rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar))
+             => val(arg(formSet(Pa),addNameToString(Ty)
+                                                        ,addNameToString(Na)))
+    rule formElemList(Ty:Type Pa:ParamAttrs, Al:ArgList)
+             => val(arg(formSet(Pa),addNameToString(Ty),.K)),formElemList(Al)
+    rule formElemList('argTypeThree(Ty:Type,, Pa:ParamAttrs,, Na:LocalVar), Al:ArgList)
+             => val(arg(formSet(Pa),addNameToString(Ty)
+                                           ,addNameToString(Na))),formElemList(Al)
+    rule formElemList(.ReturnedVal) => .ElemList
+    rule formElemList(T:Type V:ValueRef , R:ReturnedVal)
+                            => val(operand(T, addNameToString(V))),formElemList(R)
+    rule formElemList(K:K) => K [owise]
+
+    syntax Set ::= formSet(K) [function]
+    rule formSet('nwEmpty(.KList)) => .Set
+    rule formSet(nuw nsw) => SetItem(nuw) SetItem(nsw)
+    rule formSet(nsw nuw) => SetItem(nuw) SetItem(nsw)
+    rule formSet(nuw) => SetItem(nuw)
+    rule formSet(nsw) => SetItem(nsw)
+    rule formSet(A:NonExternalLinkage) => SetItem(A)
+         requires A =/=K 'nonExternalLinkageEmpty(.KList)
+    rule formSet('nonExternalLinkageEmpty(.KList)) => .Set
+    rule formSet(A:GlobalType) => SetItem(A)
+    rule formSet(, section S:StringName , C:Comdat , A:Align)
+                                          => SetItem(section S) SetItem(C) SetItem(A)
+    rule formSet(, section S:StringName , C:Comdat) => SetItem(section S) SetItem(C)
+    rule formSet(, A:Align , section S:StringName) => SetItem(section S) SetItem(A)
+    rule formSet(, section S:StringName , A:Align) => SetItem(section S) SetItem(A)
+    rule formSet(, C:Comdat , A:Align) => SetItem(C) SetItem(A)
+    rule formSet(, C:Comdat) => SetItem(C)
+    rule formSet(, A:Align) => SetItem(A)
+    rule formSet(, section S:StringName) => SetItem(section S)
+    rule formSet('sectionComdatAndAlignEmpty(.KList)) => .Set
+    rule formSet(section S:StringName) => SetItem(section S)
+    rule formSet('sectionEmpty(.KList)) => .Set
+    rule formSet(externally_initialized) => SetItem(externally_initialized)
+    rule formSet('externallyInitEmpty(.KList)) => .Set
+    rule formSet(unnamed_addr) => SetItem(unnamed_addr)
+    rule formSet('unnamedEmpty(.KList)) => .Set
+    rule formSet(prefix T:Type V:ValueRef) => SetItem(prefix T V)
+    rule formSet('prefixEmpty(.KList)) => .Set
+    rule formSet(prologue T:Type V:ValueRef) => SetItem(prologue T V)
+    rule formSet('prologueEmpty(.KList)) => .Set
+    rule formSet(E:OptAddrSpace) => SetItem(E)
+         requires E =/=K 'addrEmpty(.KList)
+    rule formSet('addrEmpty(.KList)) => .Set
+    rule formSet(E:OptThreadLocal) => SetItem(E)
+         requires E =/=K 'threadLocalEmpty(.KList)
+    rule formSet('threadLocalEmpty(.KList)) => .Set
+    rule formSet(E:OptDllStorageClass) => SetItem(E)
+         requires E =/=K 'dllStorageEmpty(.KList)
+    rule formSet('dllStorageEmpty(.KList)) => .Set
+    rule formSet(E:OptVisibilityStyle) => SetItem(E)
+         requires E =/=K 'visibilityEmpty(.KList)
+    rule formSet('visibilityEmpty(.KList)) => .Set
+    rule formSet(E:ExternalLinkage) => SetItem(E)
+    rule formSet('exactEmpty(.KList)) => .Set
+    rule formSet(exact) => SetItem(exact)
+    rule formSet('inallocaOfAlloca(.KList)) => SetItem('inallocaOfAlloca(.KList))
+    rule formSet('inallocaEmpty(.KList)) => .Set
+    rule formSet('atomicEmpty(.KList)) => .Set
+    rule formSet(atomic) => SetItem(atomic)
+    rule formSet(A:Align) => SetItem(A)
+    rule formSet('alignEmpty(.KList)) => .Set
+    rule formSet(C:Comdat) => SetItem(C)
+    rule formSet('comdatEmpty(.KList)) => .Set
+    rule formSet(gc S:StringName) => SetItem(gc S)
+    rule formSet('gcEmpty(.KList)) => .Set
+    rule formSet('volatileEmpty(.KList)) => .Set
+    rule formSet(volatile) => SetItem(volatile)
+    rule formSet('scopeorderEmpty(.KList)) => .Set
+    rule formSet('singlethreadEmpty(.KList)) => .Set
+    rule formSet(syncscope(" S:SyncScopeKey ")) => SetItem(S)
+    rule formSet(S:Ordering) => SetItem(S)
+    rule formSet(S:Ordering Ss:OrderingList) => SetItem(S) formSet(Ss)
+    rule formSet(.FastMathFlags) => .Set
+    rule formSet(F:FastMathFlag Fl:FastMathFlags) => SetItem(F) formSet(Fl)
+    rule formSet(inbounds) => SetItem(inbounds)
+    rule formSet('inBoundsEmpty(.KList)) => .Set
+    rule formSet(cleanup) => SetItem(cleanup)
+    rule formSet('cleanupEmpty(.KList)) => .Set
+    rule formSet('callingConvEmpty(.KList)) => .Set
+    rule formSet(X:OptCallingConv) => SetItem(X)
+         requires X =/=K 'callingConvEmpty(.KList)
+    rule formSet(R:RetAttr Rs:RetAttrs) => SetItem(R) formSet(Rs)
+    rule formSet(.RetAttrs) => .Set
+    rule formSet(R:FuncAttr Rs:FuncAttrs) => SetItem(R) formSet(Rs)
+    rule formSet(.FuncAttrs) => .Set
+    rule formSet(R:ParamAttr Rs:ParamAttrs) => SetItem(R) formSet(Rs)
+    rule formSet(.ParamAttrs) => .Set
+    rule formSet(K:K) => SetItem(K) [owise]
+
+    syntax ElemList ::= formElemListInGep(ReturnedVal) [function]
+    rule formElemListInGep(.ReturnedVal) => .ElemList
+    rule formElemListInGep(T:Type V:ValueRef, R:ReturnedVal)
+            => val(typeOperand(T, addNameToString(V))), formElemListInGep(R)
+
+
+    syntax ElemList ::= formTypeCheckList(K)   [function]
+    rule formTypeCheckList('.ReturnedValGep(.KList)) => .ElemList
+    rule formTypeCheckList('inRangeEmpty(.KList)
+                         It:Type V:ValueRef , Ins:ReturnedValGep)
+            => val(typeOperandGep(.K, It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList(inrange It:Type V:ValueRef , Ins:ReturnedValGep)
+         => val(typeOperandGep(inrange, It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList('.ReturnedVal(.KList)) => .ElemList
+    rule formTypeCheckList(It:Type V:ValueRef , Ins:ReturnedVal)
+            => val(typeOperand(It,addNameToString(V))),formTypeCheckList(Ins)
+    rule formTypeCheckList(.ParamList) => .ElemList
+    rule formTypeCheckList(T:Type _:ParamAttrs V:ValueRef, Pl:ParamList)
+            => val(typeOperand(T,addNameToString(V))),formTypeCheckList(Pl)
+    rule formTypeCheckList(K:K) => K [owise]
+
     syntax ElemList ::= combineElemList(ElemList, ElemList) [function]
 
     rule combineElemList(.ElemList,Bs:ElemList) => Bs
@@ -117,10 +448,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax IntTypeCore ::= integerType(K)
     syntax IntType ::= IntTypeCore
 
+/*
     syntax TypeList ::= argListToTypeList(ArgList) [function]
 
     rule argListToTypeList('argListUnit(.KList)) => .TypeList
-    rule argListToTypeList(...) => .TypeList
+
     rule argListToTypeList('argTypeTwo(T:Type,, Pas:ParamAttrs))
                             => T
     rule argListToTypeList('argTypeThree(T:Type,, Pas:ParamAttrs,, L:LocalVar))
@@ -129,15 +461,17 @@ module LLVM-ABSTRACTSYNTAX
                             => T,argListToTypeList(As)
     rule argListToTypeList('argTypeThree(T:Type,, Pas:ParamAttrs,, L:LocalVar), As:ArgList)
                             => T,argListToTypeList(As)
+*/
 
     rule addrspace(I:UnsignedInt) => addrSpaceResult(String2Int(#tokenToString(I)))
     rule 'addrEmpty(.KList) => addrSpaceResult(0)
     rule arrayType(K1:KResult, K2:KResult) => arrayTypeValue(K1, K2) [structural]
     rule 'structType(K1:KResult) => structTypeValue(K1) [structural]
     rule 'packedStructType(K1:KResult) => packedStructTypeValue(K1) [structural]
-    rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, argListToTypeList(K2))
+    rule 'functionType(K1:K,, K2:ArgList) => functionTypeEval(K1, formElemList(K2))
                                                         [structural]
-    rule functionTypeEval(K1:KResult, K2:KResult) => functionTypeValue(K1, K2) [structural]
+    rule functionTypeEval(K1:KResult, K2:KResult)
+                     => functionTypeValue(K1, getAllTypes(K2)) [structural]
     rule 'pointerType(K1:KResult,, A:OptAddrSpace)
                      => pointerTypeValue(K1, dealWithAddrSpace(A)) [structural]
 

@@ -28,21 +28,6 @@ module LLVM-ARITHMETIC
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule constBinAST(Op:IntConstructors S:OptNW, T1:KResult,
-                         I1:KResult, T1:KResult, I2:KResult)
-          => flagStage(Op, applyInts(Op,
-                                T1, I1, I2, formSet(S), .ElemList))
-
-    rule constBinAST(Op:DivConstructors S:OptExact, T1:KResult,
-                         I1:KResult, T1:KResult, I2:KResult)
-          => flagStage(Op, applyInts(Op,
-                                T1, I1, I2, formSet(S), .ElemList))
-
-    rule constBinAST(Op:ArithmeticOps, T1:KResult,
-                         I1:KResult, T1:KResult, I2:KResult)
-          => flagStage(Op, applyInts(Op,
-                                T1, I1, I2, .Set, .ElemList))
-
     rule [int-arith]:
         <k> Op:KLabel(Type:KResult,, I1:KResult,, I2:KResult)
             => flagStage(toIntOp(Op), applyInts(toIntOp(Op),
@@ -941,6 +926,10 @@ module LLVM-MEMORY
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
 
+    rule preStaticStore(Type:KResult,
+               typeOperandResult(Type, V:K), T2:K, Loc:K, Ra:Int)
+          => staticStore(Type, V, T2, Loc, Ra)
+
     rule <k> staticStore(Type:KResult, V:KResult, T2:K,
                    loc(Base:Int, pointerTypeValue(Type, Ad:Int),
                value(Left:Int, Right:Int), stack, none, InR:K), RA:Int) => .K ...</k>
@@ -1147,16 +1136,17 @@ module LLVM-MEMORY
              => memList(Ava:List, Ava':List, Avb:List
                  ListItem(singleMem(TID:Int,
                      Bn:Int, In:Int,Ran, Op:K)), S:List, Not:List) </toCommit>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          <specRegisters> M:Map </specRegisters>
          requires isARead(Op) andBool
                   notBool hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
                      getTheLoc(Ran, Op),.K, .K, M), Rev)
          [transition]
 
+/*
     rule <readBack> readMap((RM:Map (varInstance(Bn, In)
-                             |-> varInstance(X:K, V:K))) => RM) </readBack>
-         <reverseChoice> Rev:Map </reverseChoice>
+                             |-> readBackHold(X:K, V:K, Fl:K))) => RM) </readBack>
+         <specTree> Rev:Map </specTree>
          <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
                   getValueInTuple(
                   getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
@@ -1171,11 +1161,12 @@ module LLVM-MEMORY
                       removeInst(Bn, In, S:List), removeInst(Bn, In, Not:List)) </toCommit>
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
                      aLoc(Base, pointerTypeValue(Type, Ad:Int), stack),.K, .K, M), Rev)
+                   andBool Fl ==K .K
          [transition]
 
     rule <readBack> readMap((RM:Map (varInstance(Bn, In)
-                             |-> varInstance(X:K, V:K))) => RM) </readBack>
-         <reverseChoice> Rev:Map </reverseChoice>
+                   |-> readBackHold(X:K, V:K, Fl:K))) => RM) </readBack>
+         <specTree> Rev:Map </specTree>
          <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
                   getValueInTuple(
                   getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
@@ -1190,11 +1181,12 @@ module LLVM-MEMORY
                       removeInst(Bn, In, S:List), removeInst(Bn, In, Not:List)) </toCommit>
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
                      aLoc(Base, pointerTypeValue(Type, Ad:Int), heap),.K, .K, M), Rev)
+                  andBool Fl ==K .K
          [transition]
 
     rule <readBack> readMap((RM:Map (varInstance(Bn, In)
                              |-> varInstance(X:K, V:K))) => RM) </readBack>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
                   getValueInTuple(
                   getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
@@ -1212,7 +1204,7 @@ module LLVM-MEMORY
 
     rule <readBack> readMap((RM:Map (varInstance(Bn, In)
                              |-> varInstance(X:K, V:K))) => RM) </readBack>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          <specRegisters> M:Map => updateEnv(M,varInstance(Bn, X),
                   getValueInTuple(
                   getValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
@@ -1227,7 +1219,7 @@ module LLVM-MEMORY
          requires hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
                      aLoc(Base, pointerTypeValue(Type, Ad), heap),.K, .K, M), Rev)
          [transition]
-
+*/
     rule <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <memoryList> MOL:List </memoryList>
         <stackList> SL:List </stackList>
@@ -1325,9 +1317,82 @@ module LLVM-MEMORY
                  andBool notBool rightHitType(CL, Base, T)
                   andBool Ad =/=K Ad'
 
+    //stack close memory location
+    rule <stackOpList> (ListItem(singleMem(TID:Int, B, In,
+                stack, toClose(Base:Int))) => .List) L:List </stackOpList>
+         <stackObjects>...
+          (<stackObject> D:Bag
+           <stackThreadId> Tid </stackThreadId>
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+            </stackObject> => .Bag)
+         ...</stackObjects>
+         <localMemory> Local:Set (SetItem(Base) => .Set) </localMemory>
+         <stackList> SL:List => removeMemBlock(SL, Base) </stackList>
+        requires Base >=Int Left andBool Base <Int Right
+
     //non-atomic read stack
+    //deal with va_arg read a value and then read the actually content
+    //then write back the hold to the next struct position
+    rule <readBack> readMapAux(varInstance(B:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),
+                    (vaWaitRead(T1:K) ~> vaWaitWrite(Loc:Loc))), RM:Map)
+                  => readMap((varInstance(B:Int, In:Int)
+                         |-> readBackHold(X, loadHold(T1, .List), .K)) RM) </readBack>
+         <stackOpList> (ListItem(singleMem(TID:Int, B, In, stack, vaWait))
+                => genReadBytes(TID, B, In, stack, T1,
+             base(VaLoc) +Int sizeOfStruct(VaType, joinBytes(T, LL)), 0, sizeof(T1), 0)
+               genWriteBytes(TID, B, In, stack, getInnerType(vaArgType),
+              splitBytes(joinBytes(T, LL) +Int 1, getInnerType(vaArgType)),
+              storeOperand(TID, getInnerType(vaArgType), joinBytes(T, LL) +Int 1),
+                  base(Loc), 0, sizeof(getInnerType(vaArgType)), 0)) L:List </stackOpList>
+         <vaList> value(VaType:K, VaLoc:Loc) </vaList>
+           requires sizeof(T) ==K size(LL)
+                    andBool sizeOfStruct(VaType, joinBytes(T, LL)) =/=K -1
+              andBool sizeof(T1) <=Int sizeof(getTypeInStruct(VaType, joinBytes(T, LL)))
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(B:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),
+                    vaWaitWrite(Loc:Loc)), RM:Map) => readMap(RM) </readBack>
+         <stackOpList> (ListItem(singleMem(TID:Int, B, In, stack, vaWait))
+                => genWriteBytes(TID, B, In, stack, getInnerType(vaArgType),
+              splitBytes(joinBytes(T, LL), getInnerType(vaArgType)),
+              storeOperand(TID, getInnerType(vaArgType), joinBytes(T, LL)),
+                  base(Loc), 0, sizeof(getInnerType(vaArgType)), 0)) L:List </stackOpList>
+           requires sizeof(T) ==K size(LL)
+         [transition]
+
+    rule (<tomasulo> D:Bag
+            <readBack> readMapAux(varInstance(B:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),
+                    vaWaitRead(T1:K) ~> vaWaitWrite(Loc:K)), RM:Map) </readBack>
+          </tomasulo> => <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <vaList> value(VaType:K, VaLoc:K) </vaList>
+         <k> K:K => .K </k>
+        <output>... .List => ListItem("error: input arg va_arg type mismatch.") </output>
+           requires sizeof(T) ==K size(LL)
+                   andBool sizeOfStruct(VaType, joinBytes(T, LL)) =/=K -1
+                  andBool sizeof(T1) >Int sizeof(getTypeInStruct(VaType, joinBytes(T, LL)))
+
+
+    rule (<tomasulo> D:Bag
+           <readBack> readMapAux(varInstance(B:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),
+                    vaWaitRead(T1:K) ~> vaWaitWrite(Loc:K)), RM:Map) </readBack>
+              </tomasulo> <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <k> K:K => .K </k>
+         <vaList> value(VaType:K, VaLoc:Loc) </vaList>
+        <output>... .List => ListItem("error: try to read a outofrange place as a va_arg.") </output>
+           requires sizeof(T) ==K size(LL)
+                   andBool sizeOfStruct(VaType, joinBytes(T, LL)) ==K -1
+
+
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-              varInstance(X:K, loadHold(T:K, LL:List)), RM:Map)
+             readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
                   => readMap(RM) </readBack>
          <specRegisters> M:Map </specRegisters>
          <registers> M':Map => updateEnv(M', X, joinBytes(T, LL)) </registers>
@@ -1341,12 +1406,13 @@ module LLVM-MEMORY
                L, M, updateEnv(M', X, joinBytes(T, LL)), Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
+               andBool Fl ==K .K
          [transition]
 
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-              varInstance(X:K, loadHold(T:K, LL:List)), RM:Map)
+              readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
                   => readMap(RM) </readBack>
          <specRegisters> M:Map => updateEnv(M,
                       varInstance(Bn, X), joinBytes(T, LL)) </specRegisters>
@@ -1363,21 +1429,22 @@ module LLVM-MEMORY
                         joinBytes(T, LL)), M', Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
+                  andBool Fl ==K .K
          [transition]
 
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-              varInstance(X:K, loadHold(T:K, LL:List)), RM:Map)
+              readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
                   => readMap(RM (varInstance(Bn:Int, In:Int)
-                |-> varInstance(X:K, loadHold(T:K, LL:List)))) </readBack>
+                |-> readBackHold(X:K, loadHold(T:K, LL:List), Fl))) </readBack>
          requires sizeof(T) =/=K size(LL)
          [transition]
 
     rule <readBack> readMap(M:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), M) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), M) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
@@ -1393,9 +1460,9 @@ module LLVM-MEMORY
          [transition]
 
     rule <readBack> readMap(M:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), M) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), M) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
@@ -1703,9 +1770,9 @@ module LLVM-MEMORY
 
     //non-atomic read in heap
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1723,9 +1790,9 @@ module LLVM-MEMORY
           [transition]
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1746,9 +1813,9 @@ module LLVM-MEMORY
           [transition]
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1770,9 +1837,9 @@ module LLVM-MEMORY
                  andBool Size =/=Int 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1798,9 +1865,9 @@ module LLVM-MEMORY
                  andBool Ad =/=K Ad'
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
                         readAByte(T:K, Base:Int,
@@ -1821,9 +1888,9 @@ module LLVM-MEMORY
                  andBool Size =/=Int 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
                         readAByte(T:K, Base:Int,
@@ -1846,9 +1913,9 @@ module LLVM-MEMORY
                  andBool Size =/=Int 1 andBool Ad =/=K Ad'
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1868,9 +1935,9 @@ module LLVM-MEMORY
                  andBool Size =/=Int 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, LL:List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
          <threadId> Tid </threadId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
@@ -1994,9 +2061,9 @@ module LLVM-MEMORY
 
     //atomic read in stack
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, .List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
@@ -2011,9 +2078,9 @@ module LLVM-MEMORY
                  andBool rightHitType(CL, Base, T)
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, .List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
@@ -2132,9 +2199,9 @@ module LLVM-MEMORY
 
     //atomic read with unordered/monotonic in heap
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, .List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
@@ -2150,9 +2217,9 @@ module LLVM-MEMORY
                  andBool (Order ==K monotonic orBool Order ==K unordered)
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> varInstance(X:K, loadHold(T':K, .List))))
-             => readMapAux(varInstance(Bn, In), varInstance(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size))), RM) </readBack>
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
@@ -2517,8 +2584,8 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
         ...</k>
 
     rule
-        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.va_end")), _))
-            => .K
+        <k> call(_, calleeValue(funptr(name(globalVar, "llvm.va_end")), (valValue(V1:KResult))))
+            => vaClose(V1)
         ...</k>
 
     rule
@@ -2567,16 +2634,6 @@ module LLVM-STANDARD-LIBRARY
     // don't need to do anything for positive semantics
     rule
         <k> lifetimeEnd(_, _) => .K ...</k>
-
-    //@ Variadic intrinsics
-    rule
-        <k> vaStart(Loc:Loc) => write(i(numBitsPerByte), wvalist(VAList, Loc), Loc) ...</k>
-        <valist> VAList:List </valist>
-
-    rule
-        <k> vaCopy(Loc1:Loc, Loc2:Loc)
-            => write(i(numBitsPerByte), read(i(numBitsPerByte), Loc2), Loc1)
-        ...</k>
 
 endmodule
 

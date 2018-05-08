@@ -17,13 +17,21 @@ module LLVM-REGISTERS
     imports LLVM-CONFIGURATION
 
     rule assign(X:SymbolicValueRef, V:KResult) => dynResult(X, V)
-         requires notBool isLoadVal(V)
+         requires notBool isReadVal(V)
 
     rule <k> assign(X:SymbolicValueRef, loadVal(Type:K))
            => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
-                              <- varInstance(X, loadHold(Type, .List))]) </readBack>
+                      <- readBackHold(X, loadHold(Type, .List), .K)]) </readBack>
+        [structural]
+
+    rule <k> assign(X:SymbolicValueRef, vaArgOp(Loc:K, T2:K))
+           => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
+                      <- readBackHold(X, loadHold(getInnerType(vaArgType), .List),
+                       vaWaitRead(T2) ~> vaWaitWrite(Loc))]) </readBack>
         [structural]
 
     rule noAssign(V:KResult) => dynNoResult(V)

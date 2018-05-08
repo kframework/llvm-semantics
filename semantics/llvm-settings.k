@@ -47,4 +47,8 @@ module LLVM-SETTINGS
     
     syntax KItem ::= "blockAddressType" [function]
     rule blockAddressType => pointerTypeValue(integerType(8), 0)
+
+    syntax KItem ::= "vaArgType" [function]
+    rule vaArgType => pointerTypeValue(integerType(8), 0)
+
 endmodule

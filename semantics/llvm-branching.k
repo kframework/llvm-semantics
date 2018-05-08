@@ -21,21 +21,17 @@ module LLVM-BRANCHING
     //opeartors. 
     rule <k> unconditional(name(Label:K, S:String)) =>
             blockExecution(basicBlockNum(Count,name(Label:K, S:String)),
-                 formInstList(1, .K, Body))
+          selectPhis(OldCount,Name,formInstList(1, .K, Body)))
               ~> dynNoResult(undef) ...</k>
         <toExecute> Ex:K => .K </toExecute>
         <instQueue> AnyQueue:K => instList(.List) </instQueue>
-        <prevBlock> PrevB:K => basicBlockNum(OldCount:Int, Name:K) </prevBlock>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
             => basicBlockNum(Count,name(Label:K, S:String)) </currBlock>
-        <specChoice> allowChoice(Cho:Map => .Map) </specChoice>
-        <reverseChoice> _:Map => .Map </reverseChoice>
-        <restChoice> _:Map => .Map </restChoice>
-        <specRegisters> SRM:Map => cutOffRegs(OldCount, .K, .K, SRM) </specRegisters>
+        <specTree> Cho:Map </specTree>
+        <specRegisters> SRM:Map => .Map </specRegisters>
         <registers> RM:Map => updateMapByMap(RM, .K, .K,
-                              getOffRegs(OldCount, .K, .K, SRM)) </registers>
+                            getNewRootSpecMap(OldCount, .K, .K, SRM)) </registers>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
-        <currChoice> CurCh:Map => CurCh[Count <- name(Label:K, S:String)] </currChoice>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName </currFunction>
@@ -43,26 +39,30 @@ module LLVM-BRANCHING
         <basicBlocks>... name(Label:K, S:String)
                  |-> blockContent(Body:Map, _:Bool, _:Set,
                   _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-        requires notBool inChoiceMap(OldCount, name(Label:K, S:String), .K, Cho)
+        requires notBool inChoiceMap(name(Label:K, S:String),OldCount, .K, Cho)
 
     rule <k> unconditional(name(Label:K, S:String)) =>
-            setSpecChoice(OldCount, getBlockNum(OldCount,
-                             name(Label:K, S:String), .K, Cho),
-              collectNewSpecMap(name(Label:K, S:String),
-              Cho, OldCount), blockExecution(OldId:K, BE:List),
-                 mergeBackInstQueue(AnyQueue))
-             ~> dynNoResult(undef) ...</k>
-        <toExecute> blockExecution(OldId:K, BE:List) => .K </toExecute>
-        <instQueue> AnyQueue:K => instList(.List) </instQueue>
-        <prevBlock> PrevB:K => basicBlockNum(OldCount:Int, Name:K) </prevBlock>
+                   dynNoResult(undef) ...</k>
+        <toExecute> BlockEx:K => checkToKillBlockEx(getBlockNum(
+               name(Label:K, S:String),OldCount, .K, Cho), BlockEx,
+            getChildrenOfBlock(getBlockNum(
+               name(Label:K, S:String),OldCount, .K, Cho),.K,Cho),Cho, RestM) </toExecute>
+        <instQueue> instList(Insts:List)
+               => instList(getNewSpecOps(getChildrenOfBlock(getBlockNum(
+               name(Label:K, S:String),OldCount, .K, Cho)
+                    ,.K,Cho),.K,Insts)) </instQueue>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
-            => basicBlockNum(getBlockNum(OldCount,
-                             name(Label:K, S:String), .K, Cho)
+            => basicBlockNum(getBlockNum(name(Label:K, S:String),OldCount, .K, Cho)
                          ,name(Label:K, S:String)) </currBlock>
-        <specRegisters> SRM:Map => cutOffRegs(OldCount, .K, .K, SRM) </specRegisters>
+        <specTree> Cho:Map </specTree>
+        <restChoice> RestM:Map </restChoice>
+        <specRegisters> SRM:Map => getNewSpecMap(OldCount,
+           getChildrenOfBlock(getBlockNum(
+               name(Label:K, S:String),OldCount, .K, Cho)
+                    ,.K ,Cho), .K, .K, SRM) </specRegisters>
         <registers> RM:Map => updateMapByMap(RM, .K, .K,
-                              getOffRegs(OldCount, .K, .K, SRM)) </registers>
-        <specChoice> allowChoice(Cho:Map) => holdChoice(Cho) </specChoice>
+                           getNewRootSpecMap(getBlockNum(
+               name(Label:K, S:String),OldCount, .K, Cho), .K, .K, SRM)) </registers>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName </currFunction>
@@ -70,41 +70,7 @@ module LLVM-BRANCHING
         <basicBlocks>... name(Label:K, S:String)
                  |-> blockContent(Body:Map, _:Bool, _:Set,
                   _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-        requires inChoiceMap(OldCount, name(Label:K, S:String), .K, Cho)
-
-     rule <k> setSpecChoice(Old:Int, New:Int,
-                   newSpecMap(M:Map, S:Set), Ex:K, Queue:K)
-                => setExecutionInst(New, S, correctNewBlock(Ex, S),
-                   removeFailSpec(Queue, S)) ...</k>
-          <specChoice> holdChoice(Cho:Map)
-                         => allowChoice(M) </specChoice>
-          <reverseChoice> Rev:Map => collectNewMap(Rev, .K, S) </reverseChoice>
-          <restChoice> RM:Map => cutItemInMap(
-                         collectNewMap(RM, .K, S), .K, S) </restChoice>
-
-     rule <k> setExecutionInst(New:Int, S:Set, 
-             blockExecution(NewId:K, L:List), Queue:K) => .K ...</k>
-          <toExecute> OldEx:K => blockExecution(NewId:K, L:List) </toExecute>
-          <instQueue> OldQueue:K => Queue </instQueue>
-
-     rule <k> setExecutionInst(New:Int, S:Set,
-                          findNewBlock, Queue:K) => .K ...</k>
-          <instQueue> OldQueue:K => Queue </instQueue>
-          <restChoice> RM:Map </restChoice>
-         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
-         requires notBool hasRestBlocks(.K, RM)
-
-     rule <k> setExecutionInst(New:Int, S:Set,
-                          findNewBlock, Queue:K) => .K ...</k>
-          <toExecute> OldEx:K =>
-               blockExecutionAux(findNextBlock(New, Cho, RM)) </toExecute>
-          <instQueue> OldQueue:K => Queue </instQueue>
-          <specChoice> allowChoice(Cho:Map)
-                       => holdChoice(Cho) </specChoice>
-          <restChoice> RM:Map </restChoice>
-         <blockCount> Count:Int </blockCount> 
-         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
-         requires hasRestBlocks(.K, RM) andBool (Count -Int maxSpecGap <Int BN)
+        requires inChoiceMap(name(Label:K, S:String), OldCount, .K, Cho)
 
     //deal with invokebr and resume back from invoke
     rule invokeBr(L1:K, L1:K) => unconditional(L1)
@@ -129,19 +95,6 @@ module LLVM-BRANCHING
             => unconditional(Label:K) ...</k>
         requires normalizingInt(integerType(1), I) ==K 0
 
-/*
-    rule
-        <k> unconditional(name(Label:K, S:String))
-                => blockExecution(setBlock(name(Label:K, S:String))
-                           ~> getValueFromBlockMap(0,B)) </k>
-        <currModule> ModName:SymbolicValueRef </currModule>
-        <funModuleName> ModName </funModuleName>
-        <currFunction> FunName:SymbolicValueRef </currFunction>
-        <functionName> FunName </functionName>
-        <basicBlocks>... name(Label:K, S:String)
-                             |-> blockContent(B:Map, _:Set, _:Set, _:Set,
-                                           _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-*/
     // TODO put static switch information into a map like with phi nodes
     // TODO semantic design pattern: list traversal -> statically storing info and using simple rules later
     rule [switch-start]:

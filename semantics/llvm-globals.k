@@ -80,9 +80,8 @@ module LLVM-GLOBALS
 
     rule <k> preInit(L:Set, Ty:KResult, X:SymbolicValueRef,
                       Loc:Loc, Init:K, Ad:Int, Al:Int) => .K ...</k>
-        <savedGlobals>... .K => (exprType(typeCheckExpr(Ty, Init))
-                   ~> staticStore(Ty, Init,
-                       pointerTypeValue(Ty, Ad), Loc, Al)) </savedGlobals>
+        <savedGlobals>... .K => preStaticStore(Ty, typeCheckExpr(Ty, Init),
+                       pointerTypeValue(Ty, Ad), Loc, Al) </savedGlobals>
          <globalRegisters> GM => GM[X <- Loc] </globalRegisters>
          requires notBool isExternal(L)
 

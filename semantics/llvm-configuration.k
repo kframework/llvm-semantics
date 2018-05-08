@@ -43,9 +43,7 @@ module LLVM-CONFIGURATION
                     <cpu> .K </cpu> //central execution unit
                     <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
                     <readBack> readMap(.Map) </readBack>
-                    <currChoice> .Map </currChoice>
-                    <specChoice> allowChoice(.Map) </specChoice>
-                    <reverseChoice> .Map </reverseChoice>
+                    <specTree> .Map </specTree> //speculative tree
                     <restChoice> .Map </restChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </tomasulo>//simulating tomosulo execution model.
@@ -65,7 +63,7 @@ module LLVM-CONFIGURATION
                     //current module
                     <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                     //current function that is being executed
-                    <valist> .List </valist> //a cell storing variable argument list info
+                    <vaList> .K </vaList>//a cell storing variable argument list info
                     <expResume> .K </expResume>
                     <registers color="teal"> .Map </registers>
                     <specRegisters color="teal"> .Map </specRegisters>

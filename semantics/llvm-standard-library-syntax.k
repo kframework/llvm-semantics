@@ -11,4 +11,6 @@ module LLVM-STANDARD-LIBRARY-SYNTAX
 
     syntax KItem ::= vaStart(K)
     syntax KItem ::= vaCopy(K, K)
+    syntax KItem ::= vaClose(K)
+
 endmodule

@@ -40,14 +40,15 @@ module LLVM-NORMALIZING
            => assignUsesInCall(Name:K, Count:Int, E:ElemList)
          requires notBool isLocalVariable(V1)
 
-    rule constExprType(A:KResult) => A
-    rule exprType(K:KResult) => .K
+    //rule constExprType(A:KResult) => A
 
     rule <k> badType ~> K => .K </k>
          <output>... .List => ListItem("error: expected type") </output>
 
     //type check functions
     syntax KItem ::= typeCheckOp(K, K, K) //block name, var name, op
+                   | typeCheckVaArg(K, K, K, K, K, InstructionMetadatas) [strict(3,5)]
+                       //block, var, ty1, v, ty2, instmeta
                    | typeCheckIntOp(K, K, K, K, K, K, Set, InstructionMetadatas)    
                                  [strict(4)]//block name, var name, op, ty, v1, v2, attributes, instmeta
                    | typeCheckFloatOp(K, K, K, K, K, K, Set, InstructionMetadatas)    
@@ -70,18 +71,12 @@ module LLVM-NORMALIZING
                                 [strict(3, 5, 7)]//block, variable, t1, v1, t2, v2,t3,v3, ins
                    | typeCheckCastOp(K, K, K, K, K, K, InstructionMetadatas)
                                 [strict(4, 6)]//block, variable, operator, T1, V, T2
-                   | typeCheckArgList(K, ElemList)        [strict(2)]
                    | typeCheckArgWithMMX(K, K, K) // block, t, arg
                    | typeCheckMMXExpr(K, K) // t, arg
                    | typeCheckSingleArg(K, K, K) //block t, arg
-                   | typeCheckIntArgs(K, K, ElemList)
-                   | typeCheckFloatArgs(K, K, ElemList)
-                   | typeCheckPointerArgs(K, K, ElemList)
-                   | typeCheckVectorArgs(K, K, ElemList) //block, t, integer, terms
                    | preTypeCheckPointerExpr(K, K)
                    | typeCheckPointerExpr(K, K)
                    | typeCheckConstExpr(K, K)   [strict(1)]//type var
-                   | typeCheckConstExprs(K, ElemList)   [strict(2)]//type, oprends
                    | typeMatch(K, K)            [strict] //type, type
                    | typeCheckExpr(K, K)//t, v
                    | preTypeCheckFloatExpr(K, K)//type, var
@@ -89,24 +84,24 @@ module LLVM-NORMALIZING
                    | preTypeCheckIntExpr(K, K)//type, var
                    | typeCheckIntExpr(K, K) //type, var
                    | typeCheckArrayExpr(K, Int, K) //type, n, var
-                   | typeCheckArrayExpr(K, Int, K, K, K) [strict(3)]
+                   | typeCheckArrayExpr(K, Int, K, K, ElemList, ElemList) [strict(3)]
                                                 //t, integer, type, value, terms
                    | preTypeCheckStructExpr(K, K) //type, var
-                   | typeCheckStructExpr(K, K, K) //temp t, type, var
+                   | typeCheckStructExpr(K, K, K, ElemList) //temp t, type, var
                    | typeCheckStructExprAux(K, K, K) [strict(2)]//type, var
                    | preTypeCheckArrayExpr(K, Int, K) //type, n, var
                    | typeCheckArrayAux(K, K) //t, terms
                    | typeCheckIntArg(K, K, K)//block, t, var
                    | preTypeCheckVectorArg(K, Int, K) //t, integer, terms
                    | typeCheckVectorArg(K, Int, K) //t, integer, terms
-                   | typeCheckVectorArg(K, Int, K, K, K)  [strict(3)]
+                   | typeCheckVectorArg(K, Int, K, K, ElemList, ElemList)  [strict(3)]
                                                 //t, integer, type, value, terms
                    | typeCheckVectorAux(K, K) //t, terms
-                   | typeCheckInGepList(K, K, ElemList)
-                            //block, assign, addspace, current type, index list
-                   | typeCheckInGepListAux(K, K, K, ElemList)
+                   | typeCheckInGepList(K, K, ElemList, ElemList)
+                            //block, assign, addspace, current type, index list, store-list
+                   | typeCheckInGepListAux(K, K, K, ElemList, ElemList)
                             //block, assign, addspace, current type, value, index list
-                   | typeCheckInGepListStruct(K, K, K, ElemList)
+                   | typeCheckInGepListStruct(K, K, K, ElemList, ElemList)
                             //block, assign, addspace, current type, value, index list
                    | typeCheckIntArg(K, K, K, K, K, K)    [strict(5)]
                    | typeCheckGepOp(K, K, K, K, K, ElemList, Set, InstructionMetadatas)
@@ -146,6 +141,16 @@ module LLVM-NORMALIZING
                              //block, type, value, instmeta
                    | typeCheckLandingpad(K, K, K, ElemList, List, InstructionMetadatas)    [strict(3,4)]
                              //block, name, type, clauses, stored clauses, instmeta
+                    | typeCheckFence(K, K, Set, InstructionMetadatas)
+                        //block,order, mods, instmeta
+
+    syntax ElemList ::= typeCheckIntArgs(K, K, ElemList, ElemList)
+                      | typeCheckVectorArgs(K, K, ElemList, ElemList)
+                         //block, t, integer, terms, store
+                      | typeCheckFloatArgs(K, K, ElemList, ElemList)
+                     | typeCheckPointerArgs(K, K, ElemList, ElemList)
+                    | typeCheckConstExprs(K, ElemList, ElemList)   [strict(2)]//type, oprends
+                   | typeCheckArgList(K, ElemList, ElemList)        [strict(2)]
 
     //type check distribution function
     rule typeCheckOp(Name:SymbolicValueRef,X:SymbolicValueRef, IntOp:IntConstructors
@@ -190,6 +195,10 @@ module LLVM-NORMALIZING
                     .ReturnedValGep Ins:InstructionMetadatas)
                  ~> K:K => .K </k>
          <output>... .List => ListItem("error: no reference target pointer for getelementptr.") </output>
+
+    rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
+                         va_arg T1:Type V:ValueRef, T2:Type Ins:InstructionMetadatas)
+           => typeCheckVaArg(Name:SymbolicValueRef, X,T1, addNameToString(V), T2, Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                          alloca Oil:OptInalloca Ty:Type
@@ -317,7 +326,7 @@ module LLVM-NORMALIZING
     rule typeCheckOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                      phi Ty:Type Pl:PHIList Ins:InstructionMetadatas)
          => typeCheckPhi(Name:SymbolicValueRef, X,
-               Ty, getValueOfPhi(Pl), getLabelOfPhi(Pl), .Set, formElemList(Pl), Ins)
+               Ty, getValueOfPhi(Pl), getLabelOfPhi(Pl), .Set, .ElemList, Ins)
 
     rule typeCheckOp(Name:SymbolicValueRef, K:K,
                                      ret T:NonVoidType V:ValueRef I:InstructionMetadatas)
@@ -374,6 +383,9 @@ module LLVM-NORMALIZING
                      Ls:LandingpadFactors Meta:InstructionMetadatas)
              => typeCheckLandingpad(Name, X, T,
                  combineElemList(formElemList(L),formElemList(Ls)), .List, Meta)
+    rule typeCheckOp(N, .K, fence Ost:OptSingleThread Ord:Ordering 
+                                            Ins:InstructionMetadatas)
+          => typeCheckFence(N, Ord, formSet(Ost), Ins)
 
     //type check insert value
     rule typeCheckInsertValue(Name:K, X:K, T:KResult, V1:K, T2:KResult, V2:K, L:List, Meta:K)
@@ -428,21 +440,27 @@ module LLVM-NORMALIZING
              => ListItem("error: insert value index out of range of a packed struct type range.") </output>
          requires getGepTypeInStruct(Ts, N) ==K badType
 
-    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
-           T:KResult, T1:KResult, V1:K, T1, V2:K, L:List, .List, Meta:K)
-           => typeCheckSingleArg(Name:SymbolicValueRef,
-                               T, formalizeAllFloats(T, V1))
-             ~> (typeCheckSingleArg(Name:SymbolicValueRef,
-                               T1, formalizeAllFloats(T1, V2))
-             ~> (assignUses(Name, TheCount, T1, val(V2),.ElemList)
-                  ~> (assignUses(Name, TheCount, T, val(V1),.ElemList)
-               ~> assignType(Name, TheCount, X, T))))  ...</k>
-        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+    rule <k> exprInsertValueType(TheCount:Int, X:K,
+          valValue(typeOperandResult(T:K, V1:K)),
+             valValue(typeOperandResult(T1:K, V2:K)),.ElemList, L:List, Meta:K)
+               => .K ...</k>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, assign(X,instruction(insertValue(T,
-                    operand(T, formalizeAllFloats(T, V1)),
-                operand(T1, formalizeAllFloats(T1, V2)), L), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
+                    operand(T, V1), operand(T1, V2), L), .Set,
+                    Meta)), normalInst)) </tempBlockMap> 
+
+    rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
+           T:KResult, T1:KResult, V1:K, T1, V2:K, L:List, .List, Meta:K)
+           => exprInsertValueType(TheCount, X, 
+                 typeCheckArgList(Name, valValue(typeOperandResult(
+                             T, formalizeAllFloats(T, V1))),
+                  valValue(typeOperandResult(T1,
+                      formalizeAllFloats(T1, V2))),.ElemList, .ElemList),
+                      L, insMetas(formElemList(Meta)))
+             ~> (assignUses(Name, TheCount, T1, val(V2),.ElemList)
+                  ~> (assignUses(Name, TheCount, T, val(V1),.ElemList)
+               ~> assignType(Name, TheCount, X, T)))  ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          requires isArrayType(T) orBool isStructType(T1)
 
     rule <k> typeCheckInsertValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -503,10 +521,18 @@ module LLVM-NORMALIZING
              => ListItem("error: extract value index out of range of a packed struct type range.") </output>
          requires getGepTypeInStruct(Ts, N) ==K badType
 
+    rule <k> exprExtractValueType(TheCount:Int, X:K,
+              typeOperandResult(T:K, V1:K), L:List, Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(extractValue(
+                    operand(T, V1), L), .Set, Meta)), normalInst)) </tempBlockMap> 
+
     rule <k> typeCheckExtractValueAux(Name:SymbolicValueRef, X:SymbolicValueRef,
            T:KResult, T1:KResult, V1:K, L:List, .List, Meta:K)
-           => typeCheckSingleArg(Name:SymbolicValueRef,
-                               T, formalizeAllFloats(T, V1))
+           => exprExtractValueType(TheCount, X, 
+               typeCheckSingleArg(Name:SymbolicValueRef,
+                               T, formalizeAllFloats(T, V1)),
+                   L, insMetas(formElemList(Meta)))
              ~> (assignUses(Name, TheCount, T, val(V1),.ElemList)
                ~> assignType(Name, TheCount, X, T1))  ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
@@ -546,18 +572,25 @@ module LLVM-NORMALIZING
               ~> K:K => .K </k>
          <output>... .List => ListItem("error: shuffle vector op index is not a valid constant int.") </output>
 
+    rule <k> exprShuffleType(TheCount:Int, X:K,
+         (valValue(typeOperandResult(T:K, V1:K)),valValue(typeOperandResult(T:K, V2:K))
+         ,valValue(typeOperandResult(T3:K, V3:K)),.ElemList), Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(shuffleVector(
+                    T, V1, V2, T3, V3), .Set, Meta)), normalInst)) </tempBlockMap> 
+
     rule <k> typeCheckShuffle(Name:SymbolicValueRef,
                   X:K, vectorTypeValue(T:KResult, I:Int), V1:K,
                  vectorTypeValue(T:KResult, I:Int), V2:K,
                vectorTypeValue(integerType(32), I':Int), V3:K, Meta:K)
               => checkShuffleIndex( 2 *Int I, skipValue, skipValue, V3)
-                ~> (exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                 vectorTypeValue(T:KResult, I:Int), val(formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V1)),
-                  val(formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V2)),.ElemList))
-                ~> (exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                  vectorTypeValue(integerType(32), I':Int), val(V3),.ElemList))
+                ~> (exprShuffleType(TheCount, X, typeCheckArgList(Name,
+                valValue(typeOperandResult(vectorTypeValue(T, I), formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V1))),
+                valValue(typeOperandResult(vectorTypeValue(T, I), formalizeFloats(
+                          vectorTypeValue(T:KResult, I:Int), V2))),
+                valValue(typeOperandResult(vectorTypeValue(integerType(32), I':Int),V3)),
+                  .ElemList, .ElemList), insMetas(formElemList(Meta)))
                  ~> (assignUsesInCall(Name, TheCount,
                       (valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
                           formalizeFloats(vectorTypeValue(T:KResult, I:Int), V1))),
@@ -565,15 +598,8 @@ module LLVM-NORMALIZING
                           formalizeFloats(vectorTypeValue(T:KResult, I:Int), V2)))
                         ,valValue(typedArg(.Set,
                        vectorTypeValue(integerType(32), I':Int), V3)),.ElemList))
-                 ~> assignType(Name, TheCount, X, vectorTypeValue(T:KResult, I':Int))))) ...</k>
+                 ~> assignType(Name, TheCount, X, vectorTypeValue(T:KResult, I':Int)))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(shuffleVector(
-                    vectorTypeValue(T:KResult, I:Int), formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V1),
-              formalizeFloats(vectorTypeValue(T:KResult, I:Int), V2),
-             vectorTypeValue(integerType(32), I':Int), V3), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
 
     rule <k> typeCheckShuffle(Name:K, X:K, T:KResult,
                             V1:K, T2:KResult, V2:K, T3:KResult, V3:K, Meta:K) ~> K:K => .K </k>
@@ -591,30 +617,30 @@ module LLVM-NORMALIZING
          requires A =/=K integerType(32)
 
     //type check insertelement functions
+    rule <k> exprInsertElemType(TheCount:Int, X:K,
+         (valValue(typeOperandResult(T1:K, V1:K)),valValue(typeOperandResult(T2:K, V2:K))
+         ,valValue(typeOperandResult(T3:K, V3:K)),.ElemList), Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(insertElem(
+                    T1, V1, T2, V2, T3, V3), .Set, Meta)), normalInst)) </tempBlockMap> 
+
     rule <k> typeCheckInsertElem(Name:SymbolicValueRef,
                   X:K, vectorTypeValue(T:KResult, I:Int), V1:K,
                  T:KResult, V2:K, integerType(N:Int), V3:K, Meta:K)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                 vectorTypeValue(T:KResult, I:Int), val(formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V1)),.ElemList))
-                ~> (typeCheckSingleArg(Name:SymbolicValueRef,
-                               T, formalizeFloat(T, V2))
-                 ~> (exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N), val(V3),.ElemList))
+              => exprInsertElemType(TheCount, X, typeCheckArgList(Name, valValue(
+                 typeOperandResult(vectorTypeValue(T:KResult, I:Int),
+                   formalizeFloats(vectorTypeValue(T:KResult, I:Int), V1))),
+                 valValue(typeOperandResult(T,formalizeFloat(T, V2))),
+                 valValue(typeOperandResult(integerType(N), V3)),
+                     .ElemList, .ElemList), insMetas(formElemList(Meta)))
                  ~> (assignUsesInCall(Name, TheCount,
                       (valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
                           formalizeFloats(
                           vectorTypeValue(T:KResult, I:Int), V1))),
                      valValue(typedArg(.Set, T, formalizeFloat(T, V2)))
                         ,valValue(typedArg(.Set, integerType(N), V3)),.ElemList))
-                 ~> assignType(Name, TheCount, X, vectorTypeValue(T:KResult, I:Int))))) ...</k>
+                 ~> assignType(Name, TheCount, X, vectorTypeValue(T:KResult, I:Int))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(insertElem(
-                    vectorTypeValue(T:KResult, I:Int), formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V1),
-              T,  formalizeFloat(T, V2), integerType(N), V3), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
 
     rule <k> typeCheckInsertElem(Name:K, X:K, T:KResult,
                             V1:K, T2:K, V2:K, T3:K, V3:K, Meta:K) ~> K:K => .K </k>
@@ -635,26 +661,28 @@ module LLVM-NORMALIZING
          requires notBool isIntegerType(T3)
 
     //type check elementextract function
+    rule <k> exprElemExtractType(TheCount:Int, X:K,
+         (valValue(typeOperandResult(T1:K, V1:K)),valValue(typeOperandResult(T2:K, V2:K))
+           ,.ElemList), Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(elemExtract(
+                    T1, V1, T2, V2), .Set, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckElemExtract(Name:SymbolicValueRef,
                   X:K, vectorTypeValue(T:KResult, I:Int),
                         V1:K, integerType(N:Int), V2:K, Meta:K)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                 vectorTypeValue(T:KResult, I:Int), val(formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V1)),.ElemList))
-                 ~> (exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N), val(V2),.ElemList))
+              => exprElemExtractType(TheCount, X, typeCheckArgList(Name,
+               valValue(typeOperandResult(vectorTypeValue(T:KResult, I:Int),
+                formalizeFloats(vectorTypeValue(T:KResult, I:Int), V1))),
+              valValue(typeOperandResult(integerType(N), V2)),
+                .ElemList,.ElemList), insMetas(formElemList(Meta)))
                  ~> (assignUsesInCall(Name, TheCount,
                       (valValue(typedArg(.Set,vectorTypeValue(T:KResult, I:Int),
                           formalizeFloats(
                           vectorTypeValue(T:KResult, I:Int), V1)))
                         ,valValue(typedArg(.Set, integerType(N), V2)),.ElemList))
-                 ~> assignType(Name, TheCount, X, T))) ...</k>
+                 ~> assignType(Name, TheCount, X, T)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(elemExtract(
-                    vectorTypeValue(T:KResult, I:Int), formalizeFloats(
-                          vectorTypeValue(T:KResult, I:Int), V1), integerType(N), V2), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap> 
 
     rule <k> typeCheckElemExtract(Name:K, X:K, T:KResult, V1:K, T2:K, V2:K, Meta:K)
            ~> K:K => .K </k>
@@ -669,141 +697,207 @@ module LLVM-NORMALIZING
          requires notBool isIntegerType(T)
 
     //type check the gep int list coordinated with the type
-    rule singleGepTypeCheck(Name:K, Count:Int, X:K, Ad:Int, T:KResult)
-          => assignType(Name, Count, X, pointerTypeValue(T, Ad))
+    rule typeCheckInGepList(Name:K, T:KResult, .ElemList, Es:ElemList)
+              => typeOperandResult(T, Es)
 
-    rule typeCheckInGepList(Name:K, T:KResult, .ElemList) => T
-
-    rule <k> typeCheckInGepList(Name:K, gepTypeBag(T:KResult), .ElemList)
+    rule <k> typeCheckInGepList(Name:K, gepTypeBag(T:KResult), .ElemList, Vs:ElemList)
            ~> K:K => .K </k>
          <output>... .List
            => ListItem("error: getelementptr op must have at least one index.") </output>
 
-    rule <k> typeCheckInGepList(Name:K,  gepTypeBag(T:KResult), valValue(Q:K), Es:ElemList)
+    rule <k> typeCheckInGepList(Name:K,  gepTypeBag(T:KResult),
+                         valValue(Q:K), Es:ElemList, Vs:ElemList)
            ~> K:K => .K </k>
          <output>... .List
              => ListItem("error: cannot calculate on the index type in the getelmentptr op.") </output>
          requires notBool isAggregateType(T)
 
     rule <k> typeCheckInGepList(Name:K,  T:KResult,
-           valValue(typeOperandGepVal(In:K, T':KResult, V:K)), Es:ElemList) ~> K:K
+           valValue(typeOperandGepVal(In:K, T':KResult, V:K)),
+                   Es:ElemList, Vs:ElemList) ~> K:K
              => .K  </k>
          <output>... .List => ListItem("error: index must have integer type.") </output>
          requires isAggregateType(T) andBool notBool isIntegerType(T')
 
+    rule exprGepArgType(A:K, typeOperandResult(T:K, V:K)) ~> 
+         typeCheckInGepList(Name:K, T1:K, Es:ElemList, Vs:ElemList)
+         => typeCheckInGepList(Name, T1, Es, addElemToEnd(val(gepOperand(A, T, V)), Vs))
+    rule exprGepArgType(A:K, typeOperandResult(T:K, V:K)) ~> 
+         typeCheckInGepListAux(Name:K, T1:K, V1:K, Es:ElemList, Vs:ElemList)
+         => typeCheckInGepListAux(Name, T1, V1,
+                      Es, addElemToEnd(val(gepOperand(A, T, V)), Vs))
+    rule exprGepArgType(A:K, typeOperandResult(T:K, V:K)) ~> 
+         typeCheckInGepListStruct(Name:K, T1:K, V1:K, Es:ElemList, Vs:ElemList)
+         => typeCheckInGepListStruct(Name, T1, V1,
+                      Es, addElemToEnd(val(gepOperand(A, T, V)), Vs))
+
+
     rule typeCheckInGepList(Name:K,  gepTypeBag(T:KResult),
-            valValue(typeOperandGepVal(.K, integerType(N:Int), V:K)), Es:ElemList)
-          => exprType(typeCheckIntArgs(Name,
+            valValue(typeOperandGepVal(
+                  .K, integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
+          => exprGepArgType(.K, typeCheckIntArgs(Name,
                      integerType(N), val(V),.ElemList))
-                 ~> typeCheckInGepList(Name:K, T, Es)
+                 ~> typeCheckInGepList(Name:K, T, Es, Vs)
     rule typeCheckInGepList(Name:K,  gepTypeBag(T:KResult),
-            valValue(typeOperandGepVal(inrange, integerType(N:Int), V:K)), Es:ElemList)
-          => exprType(typeCheckIntArgs(Name,
-                     integerType(N), val(V),.ElemList))
-                 ~> typeCheckInGepListAux(Name:K, T, getConstIntValue(V, N), Es)
+            valValue(typeOperandGepVal(
+                  inrange, integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
+          => exprGepArgType(inrange, typeCheckIntArgs(Name,
+                                 integerType(N), val(V),.ElemList))
+                 ~> typeCheckInGepListAux(Name:K,
+                       gepTypeBag(T:KResult), getConstIntValue(V, N), Es, Vs)
 
     rule typeCheckInGepList(Name:K,
-                 arrayTypeValue(T:KResult, I:Int),
-                   valValue(typeOperandGepVal(.K, integerType(N:Int), V:K)), Es:ElemList)
-             => exprType(typeCheckIntArgs(Name,
+                 arrayTypeValue(T:KResult, I:Int),valValue(
+            typeOperandGepVal(.K, integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
+             => exprGepArgType(.K, typeCheckIntArgs(Name,
                      integerType(N), val(V),.ElemList))
-                 ~> typeCheckInGepList(Name, T, Es)
+                 ~> typeCheckInGepList(Name, T, Es, Vs)
     rule typeCheckInGepList(Name:K,
-                 vectorTypeValue(T:KResult, I:Int),
-                   valValue(typeOperandGepVal(.K, integerType(N:Int), V:K)), Es:ElemList)
-             => exprType(typeCheckIntArgs(Name,
+                 vectorTypeValue(T:KResult, I:Int), valValue(
+             typeOperandGepVal(.K, integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
+             => exprGepArgType(.K, typeCheckIntArgs(Name,
                      integerType(N), val(V),.ElemList))
-                 ~> typeCheckInGepList(Name, T, Es)
+                 ~> typeCheckInGepList(Name, T, Es, Vs)
 
     rule typeCheckInGepList(Name:K,
                  arrayTypeValue(T:KResult, I:Int), valValue(
-              typeOperandGepVal(inrange, integerType(N:Int), V:K)), Es:ElemList)
-             => exprType(typeCheckIntArgs(Name,
+              typeOperandGepVal(inrange,
+                   integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
+             => exprGepArgType(inrange, typeCheckIntArgs(Name,
                      integerType(N), val(V),.ElemList))
-                 ~> typeCheckInGepListAux(Name, T, getConstIntValue(V, N), Es)
+                 ~> typeCheckInGepListAux(Name, arrayTypeValue(
+                     T:KResult, I:Int), getConstIntValue(V, N), Es, Vs)
     rule typeCheckInGepList(Name:K,
                  vectorTypeValue(T:KResult, I:Int), valValue(
-           typeOperandGepVal(inrange, integerType(N:Int), V:K)), Es:ElemList)
-             => exprType(typeCheckIntArgs(Name,
+           typeOperandGepVal(inrange,
+                 integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
+             => exprGepArgType(inrange, typeCheckIntArgs(Name,
                      integerType(N), val(V),.ElemList))
-                 ~> typeCheckInGepListAux(Name, T, getConstIntValue(V, N), Es)
+         ~> typeCheckInGepListAux(Name, vectorTypeValue(
+                T:KResult, I:Int), getConstIntValue(V, N), Es, Vs)
 
     rule typeCheckInGepListAux(Name:K, gepTypeBag(T:KResult),
-            V:Int, Es:ElemList) => typeCheckInGepList(Name, T, Es)
+            V:Int, Es:ElemList, Vs:ElemList) => typeCheckInGepList(Name, T, Es, Vs)
     rule typeCheckInGepListAux(Name:K, arrayTypeValue(T:KResult, I:Int),
-            V:Int, Es:ElemList) => typeCheckInGepList(Name, T, Es)
+            V:Int, Es:ElemList, Vs:ElemList) => typeCheckInGepList(Name, T, Es, Vs)
          requires V >=Int 0 andBool V <Int I
     rule typeCheckInGepListAux(Name:K, vectorTypeValue(T:KResult, I:Int),
-            V:Int, Es:ElemList) => typeCheckInGepList(Name, T, Es)
+            V:Int, Es:ElemList, Vs:ElemList) => typeCheckInGepList(Name, T, Es, Vs)
          requires V >=Int 0 andBool V <Int I
 
     rule <k> typeCheckInGepListAux(Name:K, T:KResult,
-            badValue, Es:ElemList) ~> K:K => .K </k>
+            badValue, Es:ElemList, Vs:ElemList) ~> K:K => .K </k>
           <output>... .List =>
               ListItem("error: getelementptr inrange type index must be constant.") </output>
     rule <k> typeCheckInGepListAux(Name:K, arrayTypeValue(T:KResult, I:Int),
-            V:Int, Es:ElemList) ~> K:K => .K </k>
+            V:Int, Es:ElemList, Vs:ElemList) ~> K:K => .K </k>
           <output>... .List => ListItem("error: getelementptr inrange type index must be in the range of the array type.") </output>
             requires V <Int 0 andBool V >=Int I
     rule <k> typeCheckInGepListAux(Name:K, vectorTypeValue(T:KResult, I:Int),
-            V:Int, Es:ElemList) ~> K:K => .K </k>
+            V:Int, Es:ElemList, Vs:ElemList) ~> K:K => .K </k>
           <output>... .List => ListItem("error: getelementptr inrange type index must be in the range of the vector type.") </output>
             requires V <Int 0 andBool V >=Int I
 
 
-    rule <k> typeCheckInGepList(Name:K, T:KResult,
-                   valValue(typeOperandGepVal(In:K, integerType(N:Int), V:K)), Es:ElemList)
+    rule <k> typeCheckInGepList(Name:K, T:KResult, valValue(
+           typeOperandGepVal(In:K, integerType(N:Int), V:K)), Es:ElemList, Vs:ElemList)
               ~> K:K => .K </k>
          <output>... .List =>
            ListItem("error: getelementptr structure type index must have i32 type.") </output>
          requires N =/=Int 32 andBool isStructType(T)
 
     rule typeCheckInGepList(Name:K,
-                 structTypeValue(Ts:KResult),
-                   valValue(typeOperandGepVal(In:K, integerType(32), V:K)), Es:ElemList)
-             => exprType(typeCheckIntArgs(Name,
+                 structTypeValue(Ts:KResult), valValue(
+            typeOperandGepVal(In:K, integerType(32), V:K)), Es:ElemList, Vs:ElemList)
+             => exprGepArgType(In, typeCheckIntArgs(Name,
                      integerType(32), val(V),.ElemList))
                  ~> typeCheckInGepListStruct(Name, Ts,
-                                     getConstIntValue(V, 32), Es)
+                                     getConstIntValue(V, 32), Es, Vs)
     rule typeCheckInGepList(Name:K,
-                 packedStructTypeValue(Ts:KResult),
-                   valValue(typeOperandGepVal(In:K, integerType(32), V:K)), Es:ElemList)
-             => exprType(typeCheckIntArgs(Name,
+                 packedStructTypeValue(Ts:KResult), valValue(
+            typeOperandGepVal(In:K, integerType(32), V:K)), Es:ElemList, Vs:ElemList)
+             => exprGepArgType(In, typeCheckIntArgs(Name,
                      integerType(32), val(V),.ElemList))
                  ~> typeCheckInGepListStruct(Name, Ts,
-                                     getConstIntValue(V, 32), Es)
+                                     getConstIntValue(V, 32), Es, Vs)
 
     rule <k> typeCheckInGepListStruct(Name:K, T:KResult,
-            badValue, Es:ElemList) ~> K:K => .K </k>
+            badValue, Es:ElemList, Vs:ElemList) ~> K:K => .K </k>
           <output>... .List =>
               ListItem("error: getelementptr structure type index must be constant.") </output>
 
-    rule typeCheckInGepListStruct(Name:K, Ts:KResult, V:Int, Es:ElemList)
-            => typeCheckInGepList(Name, getGepTypeInStruct(Ts, V), Es)
+    rule typeCheckInGepListStruct(Name:K, Ts:KResult, V:Int, Es:ElemList, Vs:ElemList)
+            => typeCheckInGepList(Name, getGepTypeInStruct(Ts, V), Es, Vs)
          requires getGepTypeInStruct(Ts, V) =/=K badType
 
     rule <k> typeCheckInGepListStruct(Name:K, Ts:KResult,
-              V:Int, Es:ElemList) ~> K:K => .K </k>
+              V:Int, Es:ElemList, Vs:ElemList) ~> K:K => .K </k>
           <output>... .List =>
               ListItem("error: getelementptr structure type index out of range.") </output>
          requires getGepTypeInStruct(Ts, V) ==K badType
 
-    rule vectorGepTypeCheck(Name:K, Count:Int, X:K,
-                              As:Int, T:K, Res:List, ListItem(Es:ElemList) L:List)
-            => typeCheckInGepList(Name, gepTypeBag(T), Es)
-                  ~> vectorGepTypeCheck(Name, Count, X, As, T, Res, L)
-    rule T:KResult ~> vectorGepTypeCheck(Name:K,
-                      Count:Int, X, As:Int, T':K, Res:List, L:List)
-            => vectorGepTypeCheck(Name, Count, X, As, T', Res ListItem(T), L)
+    //assigning type and generating gep code.
+    rule typeOperandResult(T1:K, V1:K) ~> 
+              singleGepTypeCheck(Name:K, TheCount:Int, X:K, Ad:Int,
+            TK:K, .K, Mods:Set, Meta:K)
+          => singleGepTypeCheck(Name:K, TheCount:Int, X:K, Ad:Int,
+            TK:K, typeOperandResult(T1:K, V1:K), Mods:Set, Meta:K)
 
-    rule vectorGepTypeCheck(Name:K,
-                Count:Int, X:K,  Ad:Int, T:K, Res:List, .List)
+    rule <k> singleGepTypeCheck(Name:K, TheCount:Int, X:K, Ad:Int,
+                typeOperandResult(T:KResult, Vs:ElemList), 
+            typeOperandResult(T1:KResult, V:K), Mods:Set, Meta:K)
+          => assignType(Name, TheCount, X, pointerTypeValue(T, Ad)) ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X, instruction(getElementPtr(
+                       T1, V, Vs), Mods, Meta)), normalInst)) </tempBlockMap>
+
+    rule typeOperandResult(T1:K, V1:K) ~>
+              vectorGepTypeCheck(Name:K, Count:Int, X:K, Ad:Int, T:K, VI:Int,
+               Res:List, SL:List, .K, Args:List, Mods:Set, Meta:K)
+         => vectorGepTypeCheck(Name:K, Count:Int, X:K, Ad:Int, T, VI:Int,
+               Res:List, SL:List, typeOperandResult(T1:K, V1:K), Args:List, Mods:Set, Meta:K)
+
+    rule vectorGepTypeCheck(Name:K, Count:Int, X:K,
+                    As:Int, T:KResult, VI:Int, Res:List, ListItem(Es:ElemList) L:List,
+                      Rt:K, Args:List, Mods:Set, Meta:K)
+            => typeCheckInGepList(Name, gepTypeBag(T), Es, .ElemList)
+                  ~> vectorGepTypeCheck(Name, Count, X, As, T,
+                             VI, Res, L, Rt, Args, Mods, Meta)
+    rule typeOperandResult(T:KResult, Es:ElemList)
+            ~> vectorGepTypeCheck(Name:K,
+                      Count:Int, X, As:Int, T':K, VI:Int, Res:List, L:List,
+               Rt:KResult, Args:List, Mods:Set, Meta:K)
+            => vectorGepTypeCheck(Name, Count, X, As, T', VI, Res ListItem(T),
+                  L,Rt, Args ListItem(Es), Mods, Meta)
+
+    rule <k> vectorGepTypeCheck(Name:K,
+                Count:Int, X:K,  Ad:Int, T':K, VI:Int, Res:List, .List,
+              typeOperandResult(pointerTypeValue(T:K, A:K), V:K),
+                         Args:List, Mods:Set, Meta:K)
            => assignType(Name, Count, X, vectorTypeValue(
-                     pointerTypeValue(T, Ad), size(Res)))
+                     pointerTypeValue(T', Ad), VI)) ...</k>
+        <tempBlockMap> Now:Map => Now (Count |->
+              instNumInfo(Count, assign(X, instruction(getElementPtr(
+             vectorTypeValue(pointerTypeValue(T:K, A:K), VI),
+                    vector(copyOfElemList(pointerTypeValue(T:K, A:K),V,VI)),
+              toVectorGep(Args, VI)), Mods, Meta)), normalInst)) </tempBlockMap>
          requires isAllSameType(Res)
 
     rule <k> vectorGepTypeCheck(Name:K,
-          Count:Int, X:K,  Ad:Int, T:K, Res:List, .List) ~> K:K => .K </k>
+                Count:Int, X:K,  Ad:Int, T':K, VI:Int, Res:List, .List,
+              typeOperandResult(vectorTypeValue(
+                 pointerTypeValue(T:K, A:K), N:Int), V:K), Args:List, Mods:Set, Meta:K)
+           => assignType(Name, Count, X, vectorTypeValue(
+                     pointerTypeValue(T', Ad), VI)) ...</k>
+        <tempBlockMap> Now:Map => Now (Count |->
+              instNumInfo(Count, assign(X, instruction(getElementPtr(
+             vectorTypeValue(pointerTypeValue(T:K, A:K), N:Int), V,
+              toVectorGep(Args, VI)), Mods, Meta)), normalInst)) </tempBlockMap>
+         requires isAllSameType(Res)
+
+    rule <k> vectorGepTypeCheck(Name:K,
+              Count:Int, X:K,  Ad:Int, T:K, VI:Int, Res:List, .List,
+              Rt:KResult, Args:List, Mods:Set, Meta:K) ~> K:K => .K </k>
          <output>... .List =>
             ListItem("error: vector type sub indices do not match with each other.") </output>
          requires notBool isAllSameType(Res)
@@ -814,32 +908,24 @@ module LLVM-NORMALIZING
                                   L:KResult, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name, pointerTypeValue(T, A), V)
                   ~> (singleGepTypeCheck(Name, TheCount, X, A,
-                           typeCheckInGepList(Name, gepTypeBag(T), L))
+                      typeCheckInGepList(Name, gepTypeBag(T), L,.ElemList), .K,
+                         Mods getInrange(L), insMetas(formElemList(Meta)))
                  ~> assignUsesInCall(Name, TheCount, valValue((typedArg(.Set,
                                pointerTypeValue(T, A:K), V:K))),toArgList(L)))
          ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X, instruction(getElementPtr(
-                       pointerTypeValue(T, A:K), V, toGepOperand(L)), Mods getInrange(L)
-                          , insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires notBool hasVectorInList(L)
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                                 T:KResult, pointerTypeValue(T, A:K),
                         V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name, pointerTypeValue(T, A), V)
-             ~> (vectorGepTypeCheck(Name, TheCount,X,A, T, .List,
-                 divideElemList(fulfillVector(L, getVectorNum(L)), .List))
+             ~> (vectorGepTypeCheck(Name, TheCount,X,A, T, getVectorNum(L), .List,
+                 divideElemList(fulfillVector(L, getVectorNum(L)), .List),
+                     .K, .List, Mods getInrange(L), insMetas(formElemList(Meta)))
                  ~> assignUsesInCall(Name, TheCount, valValue((typedArg(.Set,
             pointerTypeValue(T, A:K), V:K))),toArgList(L))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X, instruction(getElementPtr(
-             vectorTypeValue(pointerTypeValue(T, A:K), getVectorNum(L)),
-                vector(copyOfElemList(pointerTypeValue(T, A:K),V,getVectorNum(L))),
-            toGepOperand(fulfillVector(L, getVectorNum(L)))),
-        Mods getInrange(L), insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires hasVectorInList(L) andBool getVectorNum(L) =/=K badType
                   andBool isSameVectorNum(L, getVectorNum(L))
                andBool allSameStructVectorNum(gepTypeBag(T),
@@ -862,19 +948,16 @@ module LLVM-NORMALIZING
                                  fulfillVector(L, getVectorNum(L)))
 
     rule <k> typeCheckGepOp(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
-                 vectorTypeValue(pointerTypeValue(T, A:K), N:Int),
+                 vectorTypeValue(pointerTypeValue(T:KResult, A:K), N:Int),
                  V:K, L:KResult, Mods:Set, Meta:InstructionMetadatas)
               => typeCheckSingleArg(Name,
                        vectorTypeValue(pointerTypeValue(T, A:K), N), V)
-              ~> (vectorGepTypeCheck(Name, TheCount, X, A, T, .List,
-                 divideElemList(fulfillVector(L, N), .List))
+              ~> (vectorGepTypeCheck(Name, TheCount, X, A,T, N, .List,
+                 divideElemList(fulfillVector(L, N), .List),
+                .K,.List, Mods getInrange(L), insMetas(formElemList(Meta)))
                  ~> assignUsesInCall(Name, TheCount, valValue((typedArg(.Set,
             vectorTypeValue(pointerTypeValue(T, A:K), N), V:K))),toArgList(L))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X, instruction(getElementPtr(
-      vectorTypeValue(pointerTypeValue(T, A:K), N), V, toGepOperand(fulfillVector(L, N))),
-        Mods getInrange(L), insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
         requires isSameVectorNum(L, N)
                andBool allSameStructVectorNum(gepTypeBag(T), fulfillVector(L, N))
 
@@ -924,43 +1007,43 @@ module LLVM-NORMALIZING
          requires notBool isPointerType(T')
 
     //deal with Select
+    rule <k> exprSelectType(TheCount:Int, X:K, valValue(typeOperandResult(T:K, V:K)),
+            valValue(typeOperandResult(T1:K, V1:K)),
+             valValue(typeOperandResult(T1:K, V2:K)), Meta:K) => .K </k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X, instruction(select(
+                   T,V, operand(T1,V1), operand(T1,V2))
+              ,.Set ,Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckSelect(N:SymbolicValueRef, X:SymbolicValueRef,
                     integerType(1), V1:K, T1:KResult, V2:K,
                     T1:KResult, V3:K, Meta:InstructionMetadatas)
-            => exprType(typeCheckIntArgs(N, integerType(1), val(V1:K),.ElemList))
-               ~> (typeCheckSingleArg(N, T1, V2)
-               ~> (typeCheckSingleArg(N, T1, V3)
+            => exprSelectType(TheCount, X, typeCheckArgList(N,
+          (valValue(typeOperandResult(integerType(1), V1)),
+           valValue(typeOperandResult(T1, V2)),valValue(typeOperandResult(T1, V3))
+            ,.ElemList),.ElemList), insMetas(formElemList(Meta)))
                ~> (assignUses(N, TheCount, integerType(1), val(V1),.ElemList)
                ~> (assignUses(N, TheCount, T1, val(V2),val(V3),.ElemList)
-               ~> assignType(N, TheCount, X, T1))))) ...</k>
+               ~> assignType(N, TheCount, X, T1))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X, instruction(select(integerType(1)
-                                 ,V1 ,operand(T1,V2)
-                                     ,operand(T1,V3))
-              ,.Set ,insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
      rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
                   vectorTypeValue(integerType(1), N:Int), V1:K,
                  vectorTypeValue(T1:KResult, N:Int), V2:K,
                  vectorTypeValue(T1:KResult, N:Int), V3:K, Meta:InstructionMetadatas)
-            => exprType(typeCheckVectorArgs(Name, vectorTypeValue(
-                               integerType(1), N:Int), (val(V1:K),.ElemList)))
-               ~> (exprType(typeCheckVectorArgs(Name, vectorTypeValue(
-                                T1:KResult, N:Int), (val(V2),val(V3),.ElemList)))
+            => exprSelectType(TheCount, X, typeCheckArgList(Name,
+          valValue(typeOperandResult(vectorTypeValue(
+                               integerType(1), N:Int), V1)),
+         valValue(typeOperandResult(vectorTypeValue(T1, N:Int), V2)),
+         valValue(typeOperandResult(vectorTypeValue(T1, N:Int), V3)),.ElemList, .ElemList),
+          insMetas(formElemList(Meta)))
                ~> (assignUses(Name, TheCount, vectorTypeValue(
                               integerType(1), N:Int), val(V1),.ElemList)
                ~> (assignUses(Name, TheCount, vectorTypeValue(
                            T1:KResult, N:Int), val(V2),val(V3),.ElemList)
                ~> assignType(Name, TheCount, X, vectorTypeValue(
-                           T1:KResult, N:Int))))) ...</k>
+                           T1:KResult, N:Int)))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount,
-                      assign(X, instruction(select(vectorTypeValue(integerType(1), N:Int)
-                                 ,V1 ,operand(vectorTypeValue(T1:KResult, N:Int), V2)
-                    ,operand(vectorTypeValue(T1:KResult, N:Int), V3))
-                  ,.Set ,insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckSelect(Name:SymbolicValueRef, X:SymbolicValueRef,
                    integerType(A:Int), V1:K, T1:KResult, V2:K,
@@ -998,20 +1081,26 @@ module LLVM-NORMALIZING
          requires getKLabel(T) =/=KLabel 'integerType andBool getKLabel(T) =/=KLabel 'vectorTypeValue
 
     //deal with type of alloca
+    rule <k> exprAllocaType(TheCount:Int, X:K, T:K, valValue(
+              typeOperandResult(T1:K, V:K)),.ElemList,
+          Ad:Int, Align:Int, Mods:Set, Meta:K) => .K </k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X, instruction(
+                  alloca(T,preAlloca(T1, V), Ad, Align, false),
+                       Mods, Meta)), allocaInst)) </tempBlockMap>
+
     rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
                  T:KResult, Ad:Int, integerType(I:Int), V:K, Align:Int,
                  Mods:Set, Meta:InstructionMetadatas)
-              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(I:Int), val(V),.ElemList))
+              => exprAllocaType(TheCount, X, T, 
+                    typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(I:Int), val(V),.ElemList),
+                       Ad, Align, Mods, insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        integerType(I:Int), (val(V),.ElemList))
                      ~> assignType(Name,TheCount, X, pointerTypeValue(T, Ad))
          ...</k>
          <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X, instruction(
-                  alloca(T,preAlloca(integerType(I:Int), V), Ad, Align, false),
-                       Mods, insMetas(formElemList(Meta)))), allocaInst)) </tempBlockMap>
          requires isValidAlign(Align)
 
     rule <k> typeCheckAllocaOp(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1027,33 +1116,33 @@ module LLVM-NORMALIZING
          requires notBool isValidAlign(Align)
 
     //deal with type of load
+    rule <k> exprLoadType(TheCount:Int, X:K, typeOperandResult(T:K, V:K),
+                Align:Int, Mods:Set, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,assign(X,
+                   instruction(load(T, V, Align), Mods, Meta)),loadInst)) </tempBlockMap>
+
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                             Align:Int, At:K, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckSingleArg(Name, pointerTypeValue(T:KResult, A:K), V2)
+              => exprLoadType(TheCount, X, typeCheckSingleArg(Name,
+             pointerTypeValue(T:KResult, A:K), V2), Align, Mods, insMetas(formElemList(Meta)))
                  ~> (assignUses(Name, TheCount,
                       pointerTypeValue(T:KResult, A:K), (val(V2),.ElemList))
                  ~> assignType(Name,TheCount, X, T)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount,assign(X,
-                   instruction(load(pointerTypeValue(T:KResult, A:K),
-           V2, Align), Mods, insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool At =/=K atomic
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, integerType(N:Int),
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                            Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckSingleArg(Name,
-                         pointerTypeValue(integerType(N:Int), A:K), V2)
+              => exprLoadType(TheCount, X, typeCheckSingleArg(Name,
+                 pointerTypeValue(integerType(N:Int), A:K), V2),
+                        Align, Mods, insMetas(formElemList(Meta)))
                  ~> (assignUses(Name, TheCount,
                       pointerTypeValue(integerType(N:Int), A:K), (val(V2),.ElemList))
                  ~> assignType(Name,TheCount, X, integerType(N:Int))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount,assign(X, instruction(
-                 load(pointerTypeValue(integerType(N:Int), A:K),
-                   V2, Align) ,Mods ,insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool isPowOfTwo(N, 8)
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
@@ -1062,16 +1151,13 @@ module LLVM-NORMALIZING
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                            Align:Int, atomic, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckSingleArg(Name,
-                         pointerTypeValue(T:KResult, A:K), V2)
+              => exprLoadType(TheCount, X, typeCheckSingleArg(Name,
+                         pointerTypeValue(T:KResult, A:K), V2),
+                                 Align, Mods, insMetas(formElemList(Meta)))
                  ~> (assignUses(Name, TheCount,
                       pointerTypeValue(T:KResult, A:K), (val(V2),.ElemList))
                  ~> assignType(Name,TheCount, X, T)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount,assign(X,
-                  instruction(load(pointerTypeValue(T:KResult, A:K),
-               V2, Align) ,Mods ,insMetas(formElemList(Meta)))),loadInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool release in Mods
                   andBool notBool acq_rel in Mods
@@ -1120,40 +1206,79 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isValidAlign(Align)
 
-    //deal with type of store
-    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
-                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
-                     Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckSingleArg(Name:SymbolicValueRef, T, V1)
-                 ~> (typeCheckSingleArg(Name:SymbolicValueRef,
-                             pointerTypeValue(T:KResult, A:K), V2)
-                 ~> (assignUses(Name, TheCount, T, (val(V1),.ElemList))
-                 ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
-                           (val(V2),.ElemList))))
-         ...</k>
+    //deal with type of va_arg
+    rule <k> typeCheckVaArg(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 T1:KResult, V:K, T2:KResult, Meta:InstructionMetadatas) ~> K:K
+              => .K </k>
+         <output>... .List
+       => ListItem("error: va_arg must have a pointer type input as reference to the va_list.") </output>
+         requires notBool isPointerType(T1)
+
+    rule <k> exprVaArgType(TheCount:Int, X:K, typeOperandResult(T1:K, V:K), T2:K, Meta:K)
+                 => .K ...</k> 
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,
+                  instruction(theVAArg(T1, V,T2),.Set, Meta)),readWriteInst)) </tempBlockMap>
+
+    rule <k> typeCheckVaArg(Name:SymbolicValueRef, X:SymbolicValueRef,
+                 pointerTypeValue(T1:KResult, A:K),
+                     V:K, T2:KResult, Meta:InstructionMetadatas)
+              => exprVaArgType(TheCount,X, typeCheckSingleArg(Name:SymbolicValueRef,
+                  pointerTypeValue(T1:KResult, A:K), V), T2, insMetas(formElemList(Meta)))
+                  ~> (assignUses(Name, TheCount,
+                        pointerTypeValue(T1:KResult, A:K), (val(V),.ElemList))
+                 ~> assignType(Name,TheCount, X, T2)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+
+    //deal with type of fence
+    rule <k> typeCheckFence(Name:SymbolicValueRef, Od:Ordering,
+                Mods:Set, Meta:InstructionMetadatas) => .K ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(
-                  instruction(store(T, V1 ,pointerTypeValue(T:KResult, A:K), V2, Align),
-                       Mods, insMetas(formElemList(Meta)))),storeInst)) </tempBlockMap>
+                  instruction(fence(Od),
+                       Mods, insMetas(formElemList(Meta)))),fenceInst)) </tempBlockMap>
+        requires Od =/=K unordered andBool Od =/=K monotonic
+
+    rule <k> typeCheckFence(Name:SymbolicValueRef, Od:Ordering,
+                Mods:Set, Meta:InstructionMetadatas) ~> K:K => .K </k>
+         <output>... .List
+           => ListItem("error: fence op cannot have unordered or monotonic ordering.") </output>
+        requires Od ==K unordered orBool Od ==K monotonic
+
+    //deal with type of store
+    rule <k> exprStoreType(TheCount:Int, (valValue(typeOperandResult(T1:K, V1:K))
+                  ,valValue(typeOperandResult(T2:K, V2:K)),.ElemList),
+               Align:Int, Mods:Set, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, noAssign(
+                  instruction(store(T1, V1 ,T2, V2, Align),
+                       Mods, Meta)),storeInst)) </tempBlockMap>
+
+    rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
+                     pointerTypeValue(T:KResult, A:K), V2:K, Align:Int,
+                     Mods:Set, Meta:InstructionMetadatas)
+              => exprStoreType(TheCount, typeCheckArgList(Name, valValue(
+                    typeOperandResult(T, V1)), valValue(
+           typeOperandResult(pointerTypeValue(T:KResult, A:K), V2)),.ElemList,.ElemList),
+                   Align, Mods, insMetas(formElemList(Meta)))
+                 ~> (assignUses(Name, TheCount, T, (val(V1),.ElemList))
+                 ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
+                           (val(V2),.ElemList))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
          requires isValidAlign(Align) andBool notBool (atomic in Mods)
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,
                      pointerTypeValue(T:KResult, A:K), V2:K,
                           Align:Int, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckSingleArg(Name:SymbolicValueRef, T, V1)
-                 ~> (typeCheckSingleArg(Name:SymbolicValueRef,
-                             pointerTypeValue(T:KResult, A:K), V2)
+              => exprStoreType(TheCount, typeCheckArgList(Name, valValue(
+                    typeOperandResult(T, V1)), valValue(
+           typeOperandResult(pointerTypeValue(T:KResult, A:K), V2)),.ElemList, .ElemList),
+                   Align, Mods, insMetas(formElemList(Meta)))
                  ~> (assignUses(Name, TheCount, T, (val(V1),.ElemList))
                  ~> assignUses(Name, TheCount, pointerTypeValue(T:KResult, A:K),
-                           (val(V2),.ElemList))))
-         ...</k>
+                           (val(V2),.ElemList))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, noAssign(instruction(store(T:KResult, V1,
-                      pointerTypeValue(T:KResult, A:K), V2, Align),
-                       Mods, insMetas(formElemList(Meta)))),
-                 storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool (isFloatType(T) orBool isPointerType(T))
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods andBool (atomic in Mods)
@@ -1162,19 +1287,14 @@ module LLVM-NORMALIZING
     rule <k> typeCheckStore(Name:SymbolicValueRef, integerType(N:Int), V1:K,
                      pointerTypeValue(integerType(N:Int), A:K), V2:K,
                           Align:Int, Mods:Set, Meta:InstructionMetadatas)
-              => typeCheckSingleArg(Name:SymbolicValueRef, integerType(N:Int), V1)
-                 ~> (typeCheckSingleArg(Name:SymbolicValueRef,
-                             pointerTypeValue(integerType(N:Int), A:K), V2)
+              => exprStoreType(TheCount, typeCheckArgList(Name, valValue(
+                    typeOperandResult(integerType(N:Int), V1)), valValue(
+           typeOperandResult(pointerTypeValue(integerType(N:Int), A:K), V2)),.ElemList, .ElemList),
+                   Align, Mods, insMetas(formElemList(Meta)))
                  ~> (assignUses(Name, TheCount, integerType(N:Int), (val(V1),.ElemList))
                  ~> assignUses(Name, TheCount, pointerTypeValue(integerType(N:Int), A:K),
-                           (val(V2),.ElemList))))
-         ...</k>
+                           (val(V2),.ElemList))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, noAssign(instruction(store(integerType(N:Int), V1,
-                    pointerTypeValue(integerType(N:Int), A:K), V2, Align),
-                       Mods, insMetas(formElemList(Meta)))),
-                 storeInst)) </tempBlockMap>
          requires isValidAlign(Align) andBool isPowOfTwo(N, 8)
                   andBool notBool acquire in Mods
                   andBool notBool acq_rel in Mods andBool (atomic in Mods)
@@ -1228,23 +1348,23 @@ module LLVM-NORMALIZING
     //hence, this is a undefined behavior for what it will goto in this case.
     //clang doesnt this behavior
 
-    rule <k> (.K => exprType(typeCheckExpr(T, V))
-               ~> assignUses(Name, TheCount, T, (val(V),.ElemList)))
+    rule exprPhiType(typeOperandResult(T, V:K), L:K)
              ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
-                  (val(V:K), E1:ElemList => E1),
-                     _:ElemList, _:Set, _:ElemList, _:InstructionMetadatas)
-            ...</k>
-        <instructionCounter> TheCount:Int </instructionCounter>
+                  E1:ElemList, E2:ElemList, InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
+        => typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
+                  E1:ElemList, E2:ElemList, InSet:Set, addElemToEnd(val(edge(V, L)),Es), Meta)
 
     rule <k> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
-              T:KResult, E1:ElemList, val(name(localVar, S:String)),
-                     L:ElemList, InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
+              T:KResult, (val(V:K),E1:ElemList), (val(name(localVar, S:String)),
+                     L:ElemList), InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
              => checkUseVarInside(Name, label, name(localVar, S:String))
-               ~> assignUses(Name, TheCount, label,
+               ~> (assignUses(Name, TheCount, label,
                       (val(name(localVar, S:String)),.ElemList))
+             ~> (assignUses(Name, TheCount, T, val(V),.ElemList)
+            ~> (exprPhiType(typeCheckExpr(T, V), name(localVar, S:String))
             ~> typeCheckPhi(Name:SymbolicValueRef, X:SymbolicValueRef,
               T:KResult, E1:ElemList, L, SetItem(name(localVar, S:String))
-                       InSet:Set, Es:ElemList, Meta:InstructionMetadatas)
+                       InSet:Set, Es:ElemList, Meta:InstructionMetadatas))))
          ...</k>
         <tempLabelUses> TL:Set (.Set => SetItem(name(localVar, S:String))) </tempLabelUses>
         <instructionCounter> TheCount:Int </instructionCounter>
@@ -1286,9 +1406,17 @@ module LLVM-NORMALIZING
          requires getKLabel(K) =/=KLabel 'name
 
     //type check switch
+    rule <k> exprSwitchType(TheCount:Int, valValue(
+                   typeOperandResult(T:K, V:K)),.ElemList,
+                 L:K, Rs:List, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(
+               switch(T, V, L, Rs),.Set, Meta)), terminators)) </tempBlockMap>
+
     rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K,
                 .ElemList, Rs:List, So:Set, Meta:InstructionMetadatas)
-                => exprType(typeCheckIntArgs(Name, It, val(V),.ElemList))
+                => exprSwitchType(TheCount, typeCheckIntArgs(Name, It, val(V),.ElemList),
+                     L, Rs, insMetas(formElemList(Meta)))
                 ~> (checkUseVarInside(Name, label, L)
                  ~> (assignUses(Name, TheCount, label, (val(L),.ElemList))
                    ~> assignUses(Name, TheCount, It, (val(V),.ElemList)))) ...</k>
@@ -1298,10 +1426,6 @@ module LLVM-NORMALIZING
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(
-               switch(It, V, L, Rs),.Set
-                   ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
          requires isLocalVariable(L)
 
     rule <k> typeCheckSwitch(Name:SymbolicValueRef, It:KResult, V:K, L:K, .ElemList, 
@@ -1347,18 +1471,22 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: comparison value in jump table must be a valid int constant.") </output>
 
     //type check indirectbr
+    rule <k> exprIndirctBrType(TheCount:Int, valValue(
+                       typeOperandResult(T:K, V:K)),.ElemList,
+                   Es:List, Meta:K) ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(indirectbr(
+                              operand(T, V), Es),.Set, Meta)), terminators)) </tempBlockMap>
+
     rule <k> typeCheckIndirectBr(Name:SymbolicValueRef,
                     pointerTypeValue(T:K, Ad:Int), V:K, .ElemList,
                                       Es:List, Meta:InstructionMetadatas)
-          => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
-                       pointerTypeValue(T:K, Ad:Int), val(V),.ElemList))
+          => exprIndirctBrType(TheCount, typeCheckPointerArgs(Name:SymbolicValueRef,
+                       pointerTypeValue(T:K, Ad:Int), val(V),.ElemList,.ElemList),
+                        Es, insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount, pointerTypeValue(
                                          T:K, Ad:Int), (val(V),.ElemList)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(indirectbr(
-                              operand(pointerTypeValue(T:K, Ad:Int), V), Es),.Set
-                                  ,insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
 
     rule <k> typeCheckIndirectBr(Name:SymbolicValueRef,
                     T:KResult, V:K, .ElemList,
@@ -1410,10 +1538,18 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: branching label must be a basic block name.") </output>
          requires (notBool isLocalVariable(A)) orBool (notBool isLocalVariable(B))
 
+    rule <k> exprBrType(TheCount:Int, valValue(typeOperandResult(T:K, V:K)),.ElemList,
+                L1:K, L2:K, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(
+                 conditional(operand(T,V), L1, L2),.Set, Meta)), terminators)) </tempBlockMap>
+
     rule <k> typeCheckBr(Name:SymbolicValueRef,
              integerType(1), A:K, L1:SymbolicValueRef,
                      L2:SymbolicValueRef, Meta:InstructionMetadatas)
-                 => exprType(typeCheckIntArgs(Name, integerType(1), val(A),.ElemList))
+                 => exprBrType(TheCount,
+                 typeCheckIntArgs(Name, integerType(1), val(A),.ElemList),
+                   L1, L2, insMetas(formElemList(Meta)))
                    ~> (checkUseVarInside(Name, label, L1)
                     ~> (checkUseVarInside(Name, label, L2)
                     ~> (assignUses(Name, TheCount,
@@ -1426,10 +1562,6 @@ module LLVM-NORMALIZING
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(
-                 conditional(operand(integerType(1),A), L1, L2),.Set,
-                             insMetas(formElemList(Meta)))), terminators)) </tempBlockMap>
          requires (isLocalVariable(L1)) andBool (isLocalVariable(L2))
 
     rule <k> typeCheckBr(Name:SymbolicValueRef,
@@ -1443,11 +1575,15 @@ module LLVM-NORMALIZING
          requires T =/=K undef andBool getKLabel(T) =/=KLabel 'integerType
 
     //deal with calls
-    rule typeCheckArgList(Name:SymbolicValueRef, .ElemList) => .K
+    rule typeCheckArgList(Name:SymbolicValueRef, .ElemList, Es:ElemList) => Es
     rule typeCheckArgList(Name:SymbolicValueRef,
-                         valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList)
+            valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList, Es:ElemList)
                     => typeCheckSingleArg(Name:SymbolicValueRef, T, V)
-                                ~> typeCheckArgList(Name:SymbolicValueRef, Vs)
+                   ~> typeCheckArgList(Name:SymbolicValueRef, Vs, Es)
+    rule typeOperandResult(T:K, V:K) ~>
+          typeCheckArgList(Name:K, Vs:ElemList, Es:ElemList) 
+          => typeCheckArgList(Name, Vs,
+                 addElemToEnd(valValue(typeOperandResult(T:K, V:K)), Es))
 
     rule TypeMatchFunctions(A:K, .ElemList, .ElemList) => .K
     rule TypeMatchFunctions(A:K, valValue(T:KResult), E:ElemList,
@@ -1470,11 +1606,19 @@ module LLVM-NORMALIZING
                                    +String S +String"' with wrong type!") </output>
          requires T' =/=K vaListType
 
+    rule <k> exprCallType(TheCount:Int, .K, Ca:K, T:K, V1:K,
+                  Tv:KResult, Arg:ParamList, Mods:Set, Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(getKLabelFromOp(Ca)(T,, callee(V1,
+                           arguments(formArgList(Tv,Arg)))),
+              Mods, Meta)), callInst)) </tempBlockMap>
+
     rule <k> typeCheckCall(Name:SymbolicValueRef, .K, Ca:OptTailCall, void,
              V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
-              ~> typeCheckArgList(Name, Tv)
+              ~> exprCallType(TheCount, .K, Ca, void, V1, typeCheckArgList(Name, Tv, .ElemList),
+                    Arg, Mods, insMetas(formElemList(Meta)))
               ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg)) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -1482,17 +1626,14 @@ module LLVM-NORMALIZING
         <returnType> void </returnType>
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(getKLabelFromOp(Ca)(void,, callee(V1,
-                           arguments(formArgList(Tv,Arg)))),
-              Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, .K, Ca:OptTailCall,
                functionTypeValue(void, ArgTypes:KResult),
              V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
-              ~> typeCheckArgList(Name, Tv)
+              ~> exprCallType(TheCount, .K, Ca, void, V1, typeCheckArgList(Name, Tv, .ElemList),
+                     Arg, Mods, insMetas(formElemList(Meta)))
               ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg)) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
@@ -1500,46 +1641,45 @@ module LLVM-NORMALIZING
         <returnType> void </returnType>
         <functionName> V1 </functionName>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(getKLabelFromOp(Ca)(void,, callee(V1,
-                           arguments(formArgList(Tv,Arg)))),
-              Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
          requires getAllTypes(Ts') ==K ArgTypes
+
+    rule <k> exprCallType(TheCount:Int, A:SymbolicValueRef, Ca:K, T:K, V1:K,
+                  Tv:KResult, Arg:ParamList, Mods:Set, Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(A, instruction(getKLabelFromOp(Ca)(T,,
+                     callee(V1, arguments(formArgList(Tv,Arg))))
+              ,Mods, Meta)), callInst)) </tempBlockMap>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
              T:TypeResult, V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
-        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckArgList(Name, Tv)
-           ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
-           ~> assignType(Name, TheCount, A, T) ...</k>
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
+           ~> (exprCallType(TheCount, A, Ca, T, V1, typeCheckArgList(Name, Tv, .ElemList),
+                      Arg, Mods, insMetas(formElemList(Meta)))
+           ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
+           ~> assignType(Name, TheCount, A, T))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
         <returnType> T </returnType>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(A, instruction(getKLabelFromOp(Ca)(T,,
-                           callee(V1, arguments(formArgList(Tv,Arg))))
-                          ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
 
     rule <k> typeCheckCall(Name:SymbolicValueRef, A:SymbolicValueRef, Ca:OptTailCall,
              functionTypeValue(T:TypeResult, ArgTypes:KResult),
               V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, Mods:Set, Meta:InstructionMetadatas)
-        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts')) ~> typeCheckArgList(Name, Tv)
-           ~> assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
-           ~> assignType(Name, TheCount, A, T) ...</k>
+        => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
+          ~> (exprCallType(TheCount, A, Ca, T, V1, typeCheckArgList(Name, Tv, .ElemList),
+                Arg, Mods, insMetas(formElemList(Meta)))
+           ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
+           ~> assignType(Name, TheCount, A, T))) ...</k>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <formalParameters> arguments(Ts':ElemList) </formalParameters>
         <functionName> V1 </functionName>
         <returnType> T </returnType>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(A, instruction(getKLabelFromOp(Ca)(T,,
-                           callee(V1, arguments(formArgList(Tv,Arg))))
-                          ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
          requires getAllTypes(Ts') ==K ArgTypes
 
     rule <k> typeCheckCall(Name:K, A:K, Ca:OptTailCall,
@@ -1565,12 +1705,20 @@ module LLVM-NORMALIZING
          requires T =/=K T' andBool notBool isRetTypeOfFun(T, T')
 
     //type check invoke
+    rule <k> exprInvokeType(TheCount:Int, .K, T:K, V1:K, La1:K, La2:K,
+                  Tv:KResult, Arg:ParamList, Mods:Set, Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, noAssign(instruction(invoke(T, callee(V1,
+                           arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet),
+              Mods, Meta)), callInst)) </tempBlockMap>
+
     rule <k> typeCheckInvoke(Name:SymbolicValueRef, .K, void,
              V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList, La1:SymbolicValueRef,
               La2:SymbolicValueRef, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
-              ~> (typeCheckArgList(Name, Tv)
+              ~> (exprInvokeType(TheCount, .K, void, V1, La1, La2,
+            typeCheckArgList(Name, Tv, .ElemList), Arg, Mods, insMetas(formElemList(Meta)))
               ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
              ~> (checkUseVarInside(Name, label, La1)
                     ~> (checkUseVarInside(Name, label, La2)
@@ -1584,10 +1732,6 @@ module LLVM-NORMALIZING
         <functionName> V1 </functionName>
         <returnType> void </returnType>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(invoke(void, callee(V1,
-                           arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet),
-              Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
         requires isLocalVariable(La1) andBool isLocalVariable(La2)
 
     rule <k> typeCheckInvoke(Name:SymbolicValueRef, .K,
@@ -1596,7 +1740,8 @@ module LLVM-NORMALIZING
              Arg:ParamList, La1:SymbolicValueRef,
               La2:SymbolicValueRef, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
-              ~> (typeCheckArgList(Name, Tv)
+              ~> (exprInvokeType(TheCount, .K, void, V1, La1, La2,
+            typeCheckArgList(Name, Tv, .ElemList), Arg, Mods, insMetas(formElemList(Meta)))
               ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
              ~> (checkUseVarInside(Name, label, La1)
                     ~> (checkUseVarInside(Name, label, La2)
@@ -1610,19 +1755,23 @@ module LLVM-NORMALIZING
         <functionName> V1 </functionName>
         <returnType> void </returnType>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, noAssign(instruction(invoke(void, callee(V1,
-                           arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet),
-              Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
         requires isLocalVariable(La1) andBool isLocalVariable(La2)
              andBool ArgTypes ==K getAllTypes(Ts')
+
+    rule <k> exprInvokeType(TheCount:Int, A:SymbolicValueRef, T:K, V1:K, La1:K, La2:K,
+                  Tv:KResult, Arg:ParamList, Mods:Set, Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(A, instruction(invoke(T,
+                           callee(V1, arguments(formArgList(Tv,Arg))), La1, La2, invokeRet)
+                     ,Mods, Meta)), callInst)) </tempBlockMap>
 
     rule <k> typeCheckInvoke(Name:SymbolicValueRef, A:SymbolicValueRef,
              T:TypeResult, V1:K, Ts:KResult, Tv:KResult,
              Arg:ParamList,La1:SymbolicValueRef,
               La2:SymbolicValueRef, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
-            ~> (typeCheckArgList(Name, Tv)
+            ~> (exprInvokeType(TheCount, A, T, V1, La1, La2,
+            typeCheckArgList(Name, Tv, .ElemList), Arg, Mods, insMetas(formElemList(Meta)))
            ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
            ~> (checkUseVarInside(Name, label, La1)
             ~> (checkUseVarInside(Name, label, La2)
@@ -1637,10 +1786,6 @@ module LLVM-NORMALIZING
         <functionName> V1 </functionName>
         <returnType> T </returnType>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(A, instruction(invoke(T,
-                           callee(V1, arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet)
-                          ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
         requires isLocalVariable(La1) andBool isLocalVariable(La2)
 
     rule <k> typeCheckInvoke(Name:SymbolicValueRef, A:SymbolicValueRef,
@@ -1648,7 +1793,8 @@ module LLVM-NORMALIZING
              Arg:ParamList,La1:SymbolicValueRef,
               La2:SymbolicValueRef, Mods:Set, Meta:InstructionMetadatas)
         => TypeMatchFunctions(V1, Ts, getAllTypes(Ts'))
-            ~> (typeCheckArgList(Name, Tv)
+            ~> (exprInvokeType(TheCount, A, T, V1, La1, La2,
+             typeCheckArgList(Name, Tv, .ElemList), Arg, Mods, insMetas(formElemList(Meta)))
            ~> (assignUsesInCall(Name, TheCount, formArgList(Tv,Arg))
            ~> (checkUseVarInside(Name, label, La1)
             ~> (checkUseVarInside(Name, label, La2)
@@ -1663,10 +1809,6 @@ module LLVM-NORMALIZING
         <functionName> V1 </functionName>
         <returnType> T </returnType>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(A, instruction(invoke(T,
-                           callee(V1, arguments(formArgList(Tv,Arg))), La1, La2, invokeNoRet)
-                          ,Mods, insMetas(formElemList(Meta)))), callInst)) </tempBlockMap>
         requires isLocalVariable(La1) andBool isLocalVariable(La2)
                 andBool ArgTypes ==K getAllTypes(Ts')
 
@@ -1715,17 +1857,22 @@ module LLVM-NORMALIZING
                 L:List, Meta:InstructionMetadatas)
          => typeCheckLandingpad(Name, X, T, Es, L ListItem(cleanup), Meta)
 
+    rule exprLandingpadType(catch, valValue(typeOperandResult(T1:K, V:K)),.ElemList)
+          ~> typeCheckLandingpad(Name:K, X:K, T:K, Es:ElemList,
+                   L:List, Meta:InstructionMetadatas)
+          => typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(catch, V)), Meta)
+
     rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
                  T:KResult, valValue(typeOperandResult(pointerTypeValue(
             pointerTypeValue(integerType(8), A2:K), A1:K), clause(catch, V:K))),
               Es:ElemList, L:List, Meta:InstructionMetadatas)
-         => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
-                     pointerTypeValue(pointerTypeValue(
-                    integerType(8), A2:K), A1:K), val(V),.ElemList))
-            ~> assignUses(Name, TheCount,
+         => assignUses(Name, TheCount,
                        pointerTypeValue(pointerTypeValue(
                     integerType(8), A2:K), A1:K), (val(V),.ElemList))
-           ~>typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(catch,V)), Meta) ...</k>
+           ~> (exprLandingpadType(catch, typeCheckPointerArgs(Name:SymbolicValueRef,
+                     pointerTypeValue(pointerTypeValue(
+                    integerType(8), A2:K), A1:K), val(V),.ElemList,.ElemList))
+           ~> typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(catch,V)), Meta)) ...</k>
         <instructionCounter> TheCount:Int </instructionCounter>
 
     rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
@@ -1736,17 +1883,22 @@ module LLVM-NORMALIZING
                        => ListItem("landingpad op catch clause does not have a valid type.") </output>
          requires notBool isValidCatchType(T1)
 
+    rule exprLandingpadType(filter, typeOperandResult(T1:K, V:K))
+          ~> typeCheckLandingpad(Name:K, X:K, T:K, Es:ElemList,
+                   L:List, Meta:InstructionMetadatas)
+          => typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(filter, V)), Meta)
+
     rule <k> typeCheckLandingpad(Name:SymbolicValueRef, X:SymbolicValueRef,
                  T:KResult, valValue(typeOperandResult(arrayTypeValue(
         pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int),
            clause(filter, V:K))), Es:ElemList, L:List, Meta:InstructionMetadatas)
-         => exprType(preTypeCheckArrayExpr(arrayTypeValue(
-        pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int), I, V))
-                   ~> (checkUseVarInside(Name, arrayTypeValue(
+         => checkUseVarInside(Name, arrayTypeValue(
         pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int), V)
             ~> (assignUses(Name, TheCount, arrayTypeValue(
         pointerTypeValue(pointerTypeValue(integerType(8),
               A2:K), A1:K), I:Int), (val(V),.ElemList))
+          ~> (exprLandingpadType(filter, preTypeCheckArrayExpr(arrayTypeValue(
+        pointerTypeValue(pointerTypeValue(integerType(8), A2:K), A1:K), I:Int), I, V))
            ~> typeCheckLandingpad(Name, X, T, Es, L ListItem(clause(filter,V)), Meta))) ...</k>
         <instructionCounter> TheCount:Int </instructionCounter>
 
@@ -1765,39 +1917,43 @@ module LLVM-NORMALIZING
 */
 
     //type checking sitofp/uitofp
+    rule <k> exprCastOpType(TheCount:Int, X:K, Op:K,
+              (valValue(typeOperandResult(T:K, V:K)),.ElemList), T2:K, Meta:K) =>  .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(T,, V,, T2),
+                .Set, Meta)), normalInst)) </tempBlockMap>
+         requires (Op ==K fptrunc orBool Op ==K fpext
+                  orBool Op ==K fptoui orBool Op ==K fptosi
+                 orBool Op ==K uitofp orBool Op ==K sitofp)
+
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, Op:K, integerType(N:Int),
                   V:K, T:FPType, Meta:InstructionMetadatas)
-              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N:Int), val(V),.ElemList))
+              => exprCastOpType(TheCount, X, Op,
+                   typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N:Int), val(V),.ElemList),
+                       T, insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X, T) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                  integerType(N:Int),, V,, T), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires (Op ==K uitofp orBool Op ==K sitofp)
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                   vectorTypeValue(integerType(N:Int), I:Int),
                   V:K, vectorTypeValue(T:FPType, I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+              => exprCastOpType(TheCount, X, Op,
+                     typeCheckVectorArgs(Name:SymbolicValueRef,
                   vectorTypeValue(integerType(N:Int), I:Int),
-                             val(V),.ElemList))
+                             val(V),.ElemList,.ElemList),
+         vectorTypeValue(T:FPType, I:Int), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(integerType(N:Int), I:Int),
                               (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X,
                       vectorTypeValue(T, I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-         vectorTypeValue(integerType(N:Int), I:Int),, V,,
-               vectorTypeValue(T, I:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires Op ==K uitofp orBool Op ==K sitofp
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
@@ -1833,38 +1989,31 @@ module LLVM-NORMALIZING
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, Op:K, T1:FPType,
                   V:K, integerType(N:Int), Meta:InstructionMetadatas)
-              => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
-                     T1, val(formalizeFloat(T1,V)),.ElemList))
+              => exprCastOpType(TheCount, X, Op,
+                     typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T1, val(formalizeFloat(T1,V)),.ElemList),
+                 integerType(N:Int), insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        T1, (val(formalizeFloat(T1,V)),.ElemList))
                  ~> assignType(Name, TheCount, X, integerType(N:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                 T1,, formalizeFloat(T1,V),, integerType(N:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires (Op ==K fptoui orBool Op ==K fptosi)
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                   vectorTypeValue(T1:FPType, I:Int),
                   V:K, vectorTypeValue(integerType(N:Int), I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                  vectorTypeValue(T1, I:Int),
-                             val(formalizeFloats(
-                   vectorTypeValue(T1, I),V)),.ElemList))
+              => exprCastOpType(TheCount, X, Op,
+                  typeCheckVectorArgs(Name:SymbolicValueRef,
+                  vectorTypeValue(T1, I:Int), val(formalizeFloats(
+                   vectorTypeValue(T1, I),V)),.ElemList,.ElemList),
+            vectorTypeValue(integerType(N:Int), I:Int), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(T1, I:Int),
                   (val(formalizeFloats(vectorTypeValue(T1, I),V)),.ElemList))
                  ~> assignType(Name, TheCount, X,
                       vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-         vectorTypeValue(T1, I:Int),,
-            formalizeFloats(vectorTypeValue(T1, I),V),,
-               vectorTypeValue(integerType(N:Int), I:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires Op ==K fptoui orBool Op ==K fptosi
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
@@ -1902,16 +2051,14 @@ module LLVM-NORMALIZING
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, Op:K, T1:FPType,
                   V:K, T2:FPType, Meta:InstructionMetadatas)
-              => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
-                     T1, val(formalizeFloat(T1,V)),.ElemList))
+              => exprCastOpType(TheCount, X, Op,
+                     typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T1, val(formalizeFloat(T1,V)),.ElemList),
+                     T2, insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        T1, (val(formalizeFloat(T1,V)),.ElemList))
                  ~> assignType(Name, TheCount, X, T2) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                 T1,, formalizeFloat(T1,V),, T2), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires compareCastFloatTypes(Op, T1, T2) andBool
                  (Op ==K fptrunc orBool Op ==K fpext)
 
@@ -1919,10 +2066,12 @@ module LLVM-NORMALIZING
                   vectorTypeValue(T1:FPType, I:Int),
                   V:K, vectorTypeValue(T2:FPType, I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+              => exprCastOpType(TheCount, X, Op,
+                  typeCheckVectorArgs(Name:SymbolicValueRef,
                   vectorTypeValue(T1, I:Int),
                              val(formalizeFloats(
-                   vectorTypeValue(T1, I),V)),.ElemList))
+                   vectorTypeValue(T1, I),V)),.ElemList,.ElemList),
+                 vectorTypeValue(T2:FPType, I:Int), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(T1, I:Int),
                   (val(formalizeFloats(vectorTypeValue(T1, I),V)),.ElemList))
@@ -1988,39 +2137,40 @@ module LLVM-NORMALIZING
                 andBool (Op ==K fptrunc orBool Op ==K fpext)
 
     //type check int casting ops
+    rule <k> exprCastOpType(TheCount:Int, X:K, Op:K,
+              (valValue(typeOperandResult(T:K, V:K)),.ElemList), T2:K, Meta:K) =>  .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(T,, V,, T2),
+                .Set, Meta)), normalInst)) </tempBlockMap>
+         requires isIntCastOp(Op)
+
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, Op:K, integerType(N:Int),
                   V:K, integerType(N':Int), Meta:InstructionMetadatas)
-              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N), val(V),.ElemList))
+              => exprCastOpType(TheCount, X, Op,
+                    typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V),.ElemList),
+                       integerType(N':Int), insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X, integerType(N')) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                 integerType(N:Int),, V,, integerType(N':Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                   vectorTypeValue(integerType(N:Int), I:Int),
                   V:K, vectorTypeValue(integerType(N':Int), I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                  vectorTypeValue(integerType(N:Int), I:Int),
-                             val(V),.ElemList))
+              => exprCastOpType(TheCount, X, Op,
+                       typeCheckVectorArgs(Name:SymbolicValueRef,
+              vectorTypeValue(integerType(N:Int), I:Int), val(V),.ElemList,.ElemList),
+            vectorTypeValue(integerType(N':Int), I:Int), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(integerType(N:Int), I:Int),
                   (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X,
                       vectorTypeValue(integerType(N':Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-         vectorTypeValue(integerType(N:Int), I:Int),,
-            V,, vectorTypeValue(integerType(N':Int), I:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
          requires compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
@@ -2071,11 +2221,19 @@ module LLVM-NORMALIZING
          requires notBool compareCastIntNums(Op, N, N') andBool isIntCastOp(Op)
 
     //type check addrspacecast
+    rule <k> exprCastOpType(TheCount:Int, X:K, addrspacecast,
+              (valValue(typeOperandResult(T:K, V:K)),.ElemList), T2:K, Meta:K) =>  .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theAddrSpaceCast(T, V, T2),
+                .Set, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, addrspacecast, pointerTypeValue(T:K, Ad:Int),
                   V:K, pointerTypeValue(T':K, Ad':Int), Meta:InstructionMetadatas)
-              => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
-                     pointerTypeValue(T:K, Ad:Int), val(V),.ElemList))
+              => exprCastOpType(TheCount, X, addrspacecast, 
+                     typeCheckPointerArgs(Name:SymbolicValueRef,
+                     pointerTypeValue(T:K, Ad:Int), val(V),.ElemList,.ElemList),
+                pointerTypeValue(T':K, Ad':Int),insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        pointerTypeValue(T:K, Ad:Int), (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X, pointerTypeValue(T':K, Ad':Int)) ...</k>
@@ -2090,9 +2248,11 @@ module LLVM-NORMALIZING
                   vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
                   V:K, vectorTypeValue(pointerTypeValue(T':K, Ad':Int), I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-              vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
-                             val(V),.ElemList))
+              => exprCastOpType(TheCount, X, addrspacecast,
+                       typeCheckVectorArgs(Name:SymbolicValueRef,
+              vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int), val(V),.ElemList,.ElemList),
+                  vectorTypeValue(pointerTypeValue(T':K, Ad':Int), I:Int),
+                     insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
                   (val(V),.ElemList))
@@ -2150,38 +2310,38 @@ module LLVM-NORMALIZING
                        => ListItem("addspacecast vector ops must have target/source vector types having different address spaces.") </output>
 
     //type check pointer to int
+    rule <k> exprCastOpType(TheCount:Int, X:K, ptrtoint,
+              (valValue(typeOperandResult(T:K, V:K)),.ElemList), T2:K, Meta:K) =>  .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(T, V, T2),
+                .Set, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, ptrtoint, pointerTypeValue(T:K, Ad:Int),
                   V:K, integerType(N:Int), Meta:InstructionMetadatas)
-              => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
-                     pointerTypeValue(T:K, Ad:Int), val(V),.ElemList))
+              => exprCastOpType(TheCount, X, ptrtoint,
+                     typeCheckPointerArgs(Name:SymbolicValueRef,
+                     pointerTypeValue(T:K, Ad:Int), val(V),.ElemList,.ElemList),
+                       integerType(N:Int), insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        pointerTypeValue(T:K, Ad:Int), (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X, integerType(N:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(
-                pointerTypeValue(T:K, Ad:Int), V, integerType(N:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, ptrtoint,
                   vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
                   V:K, vectorTypeValue(integerType(N:Int), I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-              vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
-                             val(V),.ElemList))
+              => exprCastOpType(TheCount, X, ptrtoint,
+               typeCheckVectorArgs(Name:SymbolicValueRef,
+              vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),val(V),.ElemList,.ElemList),
+              vectorTypeValue(integerType(N:Int), I:Int), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
                   (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X,
                      vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(thePtrToInt(
-         vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
-            V, vectorTypeValue(integerType(N:Int), I:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, ptrtoint, Ty:KResult,
@@ -2212,38 +2372,39 @@ module LLVM-NORMALIZING
                     andBool isIntegerType(Ty') andBool I =/=Int I'
 
     //type check int to pointer
+    rule <k> exprCastOpType(TheCount:Int, X:K, inttoptr,
+              (valValue(typeOperandResult(T:K, V:K)),.ElemList), T2:K, Meta:K) =>  .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theIntToPtr(T, V, T2),
+                .Set, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, inttoptr, integerType(N:Int),
                   V:K, pointerTypeValue(T:K, Ad:Int), Meta:InstructionMetadatas)
-              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N:Int), val(V),.ElemList))
+              => exprCastOpType(TheCount, X, inttoptr,
+                     typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N:Int), val(V),.ElemList),
+                 pointerTypeValue(T:K, Ad:Int), insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X, pointerTypeValue(T:K, Ad:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(theIntToPtr(
-                integerType(N:Int), V, pointerTypeValue(T:K, Ad:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, inttoptr,
                   vectorTypeValue(integerType(N:Int), I:Int),
                   V:K, vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
                  Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                   vectorTypeValue(integerType(N:Int), I:Int),
-                             val(V),.ElemList))
+              => exprCastOpType(TheCount, X, inttoptr,
+                       typeCheckVectorArgs(Name:SymbolicValueRef,
+                   vectorTypeValue(integerType(N:Int), I:Int), val(V),.ElemList,.ElemList),
+                     vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int),
+                       insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                       vectorTypeValue(integerType(N:Int), I:Int),
                   (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X,
                  vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(theIntToPtr(
-             vectorTypeValue(integerType(N:Int), I:Int),
-            V, vectorTypeValue(pointerTypeValue(T:K, Ad:Int), I:Int)), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef,
                      X:SymbolicValueRef, inttoptr, Ty:KResult,
@@ -2274,16 +2435,20 @@ module LLVM-NORMALIZING
                     andBool isPointerType(Ty') andBool I =/=Int I'
 
     //type checking bitcast
+    rule <k> exprCastOpType(TheCount:Int, X:K, bitcast,
+              typeOperandResult(T:K, V:K), T2:K, Meta:K) =>  .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+             instNumInfo(TheCount, assign(X,instruction(theBitCast(T, V, T2),
+                .Set, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
                   T1:KResult, V:K, T2:KResult, Meta:InstructionMetadatas)
-              => typeCheckArgWithMMX(Name, T1, V)
+              => exprCastOpType(TheCount, X, bitcast,
+                   typeCheckArgWithMMX(Name, T1, V), T2, insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount, T1,
                   (val(V),.ElemList))
                  ~> assignType(Name, TheCount, X, T2) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(theBitCast(
-             T1, V, T2), .Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
         requires isValidBitCastType(T1) andBool isValidBitCastType(T2)
                  andBool notBool hasInValidMMXType(T1)
                    andBool notBool hasInValidMMXType(T2)
@@ -2293,17 +2458,14 @@ module LLVM-NORMALIZING
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
                   pointerTypeValue(T1:KResult, Ad:Int), V:K,
-       pointerTypeValue(T2:KResult, Ad:Int), Meta:InstructionMetadatas)
-              => typeCheckArgWithMMX(Name, pointerTypeValue(T1:KResult, Ad:Int), V)
+                  pointerTypeValue(T2:KResult, Ad:Int), Meta:InstructionMetadatas)
+              => exprCastOpType(TheCount, X, bitcast,
+                typeCheckArgWithMMX(Name, pointerTypeValue(T1:KResult, Ad:Int), V),
+                   pointerTypeValue(T1:KResult, Ad:Int), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount, pointerTypeValue(T1:KResult, Ad:Int),
                   (val(V),.ElemList))
          ~> assignType(Name, TheCount, X, pointerTypeValue(T2:KResult, Ad:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(theBitCast(
-             pointerTypeValue(T1:KResult, Ad:Int), V,
-                   pointerTypeValue(T2:KResult, Ad:Int)),
-                .Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
         requires notBool hasInValidMMXType(T1)
                    andBool notBool hasInValidMMXType(T2)
 
@@ -2353,19 +2515,17 @@ module LLVM-NORMALIZING
                   vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
             vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int),
                   I:Int), Meta:InstructionMetadatas)
-              => typeCheckArgWithMMX(Name, vectorTypeValue(
+              => exprCastOpType(TheCount, X, bitcast,
+                    typeCheckArgWithMMX(Name, vectorTypeValue(
                             pointerTypeValue(T1:KResult, Ad:Int), I:Int), V)
+                ,vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int), I:Int)
+                        ,insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount, vectorTypeValue(
                        pointerTypeValue(T1:KResult, Ad:Int), I:Int),
                   (val(V),.ElemList))
          ~> assignType(Name, TheCount, X, vectorTypeValue(
                  pointerTypeValue(T2:KResult, Ad:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-             instNumInfo(TheCount, assign(X,instruction(theBitCast(
-             vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V,
-                   vectorTypeValue(pointerTypeValue(T2:KResult, Ad:Int), I:Int)),
-                .Set, insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
         requires notBool hasInValidMMXType(T1)
                    andBool notBool hasInValidMMXType(T2)
 
@@ -2373,7 +2533,8 @@ module LLVM-NORMALIZING
                   vectorTypeValue(pointerTypeValue(T1:KResult, Ad:Int), I:Int), V:K,
             vectorTypeValue(pointerTypeValue(T2:KResult, Ad':Int),
                   I:Int), Meta:InstructionMetadatas) ~> K:K => .K </k>
-         <output>... .List => ListItem("bitcast vector pointer conversion must have same addrspaces.") </output>
+         <output>... .List
+           => ListItem("bitcast vector pointer conversion must have same addrspaces.") </output>
              requires Ad =/=K Ad'
 
     rule <k> typeCheckCastOp(Name:SymbolicValueRef, X:SymbolicValueRef, bitcast,
@@ -2411,37 +2572,38 @@ module LLVM-NORMALIZING
 
     //type checking fcmp ops
     //deal with fcmp
+    rule <k> exprFcmpOpType(TheCount:Int, X:K, Op:K,
+               (valValue(typeOperandResult(T:KResult, V1:K)),
+                   valValue(typeOperandResult(T:KResult, V2:K)),.ElemList),
+                   Mods:Set, Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(fCmp(Op,
+                     T, V1, V2), Mods, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckFCmp(Name:SymbolicValueRef,X:SymbolicValueRef,
               Op:K, T:FPType, V1:K, V2:K, Mods:Set, Meta:InstructionMetadatas)
-               => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
-                     T, val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList))
+               => exprFcmpOpType(TheCount, X, Op, typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T, val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList,.ElemList),
+                        Mods, insMetas(formElemList(Meta)))
                     ~> assignUses(Name, TheCount,
                        T, (val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList))
                    ~> assignType(Name, TheCount, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(fCmp(Op,
-                     T, formalizeFloat(T,V1), formalizeFloat(T,V2)), Mods,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
               vectorTypeValue(T:FPType, I:Int), V1:K, V2:K, Mods:Set, Meta:InstructionMetadatas)
-               => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+               => exprFcmpOpType(TheCount, X, Op, typeCheckVectorArgs(Name:SymbolicValueRef,
                   vectorTypeValue(T, I:Int), val(formalizeFloats(
                    vectorTypeValue(T, I:Int),V1)),val(formalizeFloats(
-                   vectorTypeValue(T, I:Int),V2)),.ElemList))
+                   vectorTypeValue(T, I:Int),V2)),.ElemList,.ElemList),
+                        Mods, insMetas(formElemList(Meta)))
                 ~> (assignUses(Name, TheCount, vectorTypeValue(T, I:Int),
                   (val(formalizeFloats(
                    vectorTypeValue(T, I:Int),V1)),val(formalizeFloats(
                    vectorTypeValue(T, I:Int),V2)),.ElemList))
-                     ~> assignType(Name, TheCount, X, vectorTypeValue(integerType(1), I:Int))) ...</k>
+                     ~> assignType(Name,
+                      TheCount, X, vectorTypeValue(integerType(1), I:Int))) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(fCmp(Op,
-                  vectorTypeValue(T, I:Int), formalizeFloats(
-                   vectorTypeValue(T, I:Int),V1), formalizeFloats(
-                   vectorTypeValue(T, I:Int),V2)), Mods,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckFCmp(Name:SymbolicValueRef, X:K, Op:K,
                  T:KResult, V1:K, V2:K, _:Set, _:InstructionMetadatas)
@@ -2456,62 +2618,58 @@ module LLVM-NORMALIZING
          requires notBool isFloatType(T)
 
     //type checking icmp ops
+    rule <k> exprIcmpOpType(TheCount:Int, X:K, Op:K,
+               (valValue(typeOperandResult(T:KResult, V1:K)),
+                   valValue(typeOperandResult(T:KResult, V2:K)),.ElemList),
+                    Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
+                       T, V1, V2), .Set, Meta)), normalInst)) </tempBlockMap>
+
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
                integerType(N:Int), V1:K, V2:K, Meta:InstructionMetadatas)
-               => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N), val(V1),val(V2),.ElemList))
+               => exprIcmpOpType(TheCount, X, Op, typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V1),val(V2),.ElemList,.ElemList), insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V1),val(V2),.ElemList))
                   ~> assignType(Name, TheCount, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
-                     integerType(N:Int), V1, V2), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
                pointerTypeValue(T:KResult, Ad:KResult), V1:K, V2:K, Meta:InstructionMetadatas)
-               => exprType(typeCheckPointerArgs(Name:SymbolicValueRef,
-            pointerTypeValue(T, Ad), val(V1),val(V2),.ElemList))
+               => exprIcmpOpType(TheCount, X, Op, typeCheckPointerArgs(Name:SymbolicValueRef,
+            pointerTypeValue(T, Ad), val(V1),val(V2),.ElemList,.ElemList), insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                    pointerTypeValue(T, Ad), (val(V1),val(V2),.ElemList))
                   ~> assignType(Name, TheCount, X, integerType(1)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
-                pointerTypeValue(T, Ad), V1, V2), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:IPredicate,
                      vectorTypeValue(T:KResult, I:Int),
                      V1:K, V2:K, Meta:InstructionMetadatas)
-               => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
-                  vectorTypeValue(T, I:Int), val(V1),val(V2),.ElemList))
+               => exprIcmpOpType(TheCount, X, Op,
+                  typeCheckVectorArgs(Name:SymbolicValueRef, vectorTypeValue(T, I:Int),
+                 val(V1),val(V2),.ElemList,.ElemList), insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount, vectorTypeValue(T, I:Int),
                   (val(V1),val(V2),.ElemList))
                      ~> assignType(Name, TheCount, X,
-          vectorTypeValue(integerType(1), I:Int)) ...</k>
+                       vectorTypeValue(integerType(1), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(iCmp(Op,
-                  vectorTypeValue(T, I:Int), V1, V2), .Set,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
-          requires I >Int 0 andBool (getKLabel(T) ==KLabel 'integerType
-               orBool getKLabel(T) ==KLabel 'pointerTypeValue)
+          requires I >Int 0 andBool (isIntegerType(T) orBool isPointerType(T))
 
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X, Op:K,
               T:KResult, V1:K, V2:K, _:InstructionMetadatas) ~> K:K  => .K </k>
          <output>... .List => ListItem("error: icmp requires integer/pointer/int vector operands") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
-               andBool getKLabel(T) =/=KLabel 'pointerTypeValue
-               andBool getKLabel(T) =/=KLabel 'vectorTypeValue
+         requires notBool isIntegerType(T)
+               andBool notBool isPointerType(T)
+               andBool notBool isVectorType(T)
 
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X, Op:K,
              vectorTypeValue(T:K, I:Int), V1:K, V2:K,
              _:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: icmp vector requires integer operands") </output>
-         requires getKLabel(T) =/=KLabel 'integerType
-                andBool getKLabel(T) =/=KLabel 'pointerTypeValue
+         requires notBool isIntegerType(T)
+                andBool notBool isPointerType(T)
 
     rule <k> typeCheckICmp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(Ty:KResult, I:Int),
@@ -2523,37 +2681,29 @@ module LLVM-NORMALIZING
     //type checking and instruction AST from with integer ops and logical ops.
     rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                  T:FPType, V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
-              => exprType(typeCheckFloatArgs(Name:SymbolicValueRef,
-                     T, val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList))
+              => exprBinOpType(TheCount, X, Op, typeCheckFloatArgs(Name:SymbolicValueRef,
+                     T, val(formalizeFloat(T,V1)),val(formalizeFloat(T,V2)),.ElemList,.ElemList)
+                    ,S,  insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        T, (val(formalizeFloat(T,V1)),
                                  val(formalizeFloat(T,V2)),.ElemList))
                  ~> assignType(Name, TheCount, X, T) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                       T,, formalizeFloat(T,V1),, formalizeFloat(T,V2)), S,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
             
     rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(T:FPType, I:Int),
                           V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+              => exprBinOpType(TheCount, X, Op,
+                  typeCheckVectorArgs(Name:SymbolicValueRef,
                   vectorTypeValue(T, I:Int), val(formalizeFloats(
-                vectorTypeValue(T:FPType, I:Int),V1)),
-                 val(formalizeFloats(vectorTypeValue(T:FPType, I:Int),V2)),.ElemList))
+                vectorTypeValue(T, I),V1)),
+                 val(formalizeFloats(vectorTypeValue(T, I),V2)),.ElemList,.ElemList)
+                 ,S, insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount, vectorTypeValue(T, I:Int),
                   (val(formalizeFloats(vectorTypeValue(T:FPType, I:Int),V1)),
                  val(formalizeFloats(vectorTypeValue(T:FPType, I:Int),V2)),.ElemList))
                  ~> assignType(Name, TheCount, X, vectorTypeValue(T, I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-           vectorTypeValue(T, I:Int),, formalizeFloats(
-                   vectorTypeValue(T:FPType, I:Int),V1),,
-                   formalizeFloats(vectorTypeValue(T:FPType, I:Int),V2)), S,
-                     insMetas(formElemList(Meta)))),
-                 normalInst)) </tempBlockMap>
           requires I >Int 0
 
     rule <k> typeCheckFloatOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
@@ -2577,36 +2727,37 @@ module LLVM-NORMALIZING
          requires notBool isVectorType(Ty) andBool notBool isFloatType(Ty)
 
     //type checking and instruction AST from with integer ops and logical ops.
+    rule <k> exprBinOpType(TheCount:Int, X:K, Op:K,
+               (valValue(typeOperandResult(T:KResult, V1:K)),
+                   valValue(typeOperandResult(T:KResult, V2:K)),.ElemList),
+                 S:Set, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
+                       T,, V1,, V2), S, Meta)), normalInst)) </tempBlockMap> 
+
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                  integerType(N:Int), V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
-              => exprType(typeCheckIntArgs(Name:SymbolicValueRef,
-                     integerType(N), val(V1),val(V2),.ElemList))
+              => exprBinOpType(TheCount, X, Op, typeCheckIntArgs(Name:SymbolicValueRef,
+                     integerType(N), val(V1),val(V2),.ElemList,.ElemList),
+                           S, insMetas(formElemList(Meta)))
                  ~> assignUses(Name, TheCount,
                        integerType(N:Int), (val(V1),val(V2),.ElemList))
                  ~> assignType(Name, TheCount, X, integerType(N:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                       integerType(N:Int),, V1,, V2), S,
-                     insMetas(formElemList(Meta)))), normalInst)) </tempBlockMap>
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
                vectorTypeValue(integerType(N:Int), I:Int),
                           V1:K, V2:K, S:Set, Meta:InstructionMetadatas)
-              => exprType(typeCheckVectorArgs(Name:SymbolicValueRef,
+        => exprBinOpType(TheCount, X, Op, 
+                 typeCheckVectorArgs(Name:SymbolicValueRef,
                   vectorTypeValue(integerType(N:Int), I:Int),
-                             val(V1),val(V2),.ElemList))
+              val(V1),val(V2),.ElemList,.ElemList), S, insMetas(formElemList(Meta)))
                 ~> assignUses(Name, TheCount,
                        vectorTypeValue(integerType(N:Int), I:Int),
                   (val(V1),val(V2),.ElemList))
                  ~> assignType(Name, TheCount, X,
                       vectorTypeValue(integerType(N:Int), I:Int)) ...</k>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, assign(X,instruction(getKLabelFromOp(Op)(
-                   vectorTypeValue(integerType(N:Int), I:Int),, V1,, V2), S,
-                     insMetas(formElemList(Meta)))),
-                 normalInst)) </tempBlockMap>
           requires I >Int 0
 
     rule <k> typeCheckIntOp(Name:SymbolicValueRef, X:SymbolicValueRef, Op:K,
@@ -2644,50 +2795,122 @@ module LLVM-NORMALIZING
           _:Set, _:Set) ...</basicBlocks>
 
     //type checking const expr
+    rule constBinAST(Op:IntConstructors S:OptNW, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, formSet(S), .ElemList))
+
+    rule constBinAST(Op:DivConstructors S:OptExact, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, formSet(S), .ElemList))
+
+    rule constBinAST(Op:ArithmeticOps, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, .Set, .ElemList))
+
+    rule constLogicAST(Op:LogicalOps, T1:KResult,
+                         I1:KResult, T1:KResult, I2:KResult)
+          => flagStage(Op, applyInts(Op,
+                                T1, I1, I2, .Set, .ElemList))
+
     rule <k> typeCheckConstExpr(T:K, name(localVar, X:K)) ~> K:K => .K </k>
          <output>... .List => ListItem("error: invalid use of function-local name.") </output>
 
-    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) => T ...</k>
+    rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) => typeOperandResult(T, Loc)  ...</k>
          <globalTypes>... name(globalVar, X:K) |->
                            flagType(L:Set, T) ...</globalTypes>
+         <globalRegisters>... name(globalVar, X:K) |-> Loc:K ...</globalRegisters>
     rule <k> typeCheckConstExpr(T:K, name(globalVar, X:K)) ~> K:K => .K </k>
          <globalTypes>... name(globalVar, X:K) |->
                            flagType(L:Set, T':K) ...</globalTypes>
          <output>... .List => ListItem("error: const expression type failed.") </output>
          requires T =/=K T'
-    rule typeCheckConstExpr(T:KResult, undef) => T
-    rule typeCheckConstExpr(T:KResult, zeroinitializer) => T
+
+    rule typeCheckConstExpr(T:KResult, undef) => typeOperandResult(T, undef)
+    rule typeCheckConstExpr(T:KResult, zeroinitializer)
+             => dealWithZeroInitializer(T)
     rule typeCheckConstExpr(integerType(N:Int), A:KResult)
                => typeCheckIntExpr(integerType(N:Int), A)
+
     rule typeCheckConstExpr(pointerTypeValue(T:KResult, Ad:KResult), A:KResult)
                => typeCheckPointerExpr(pointerTypeValue(T, Ad), A)
 
-    /*rule typeCheckConstExpr(T:K, constCastAST(Op:K, T1:K, V1:K, T2:K))
-          => typeMatch(T, T2) ~> typeCheckConstExpr(T1, V1)
-       not very correct
-    */
     rule typeCheckConstExpr(vectorTypeValue(T:K, I:Int), vector(Es:ElemList))
           => typeCheckVectorArg(
                     vectorTypeValue(T:K, I:Int), I, vector(Es:ElemList))
 
     rule typeCheckConstExpr(integerType(N:Int), constBinAST(Op:BinaryIntOps,
                                 T1:K, V1:K, T2:K, V2:K))
-          => typeCheckConstExprs(integerType(N:Int),
-               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+          => constIntBinType(integerType(N:Int), Op, 
+              typeCheckConstExprs(integerType(N:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList),.ElemList))
+
     rule typeCheckConstExpr(vectorTypeValue(integerType(N:Int), I:Int),
               constBinAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K))
-          => typeCheckConstExprs(vectorTypeValue(integerType(N:Int), I:Int),
-               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+          => constIntBinType(vectorTypeValue(integerType(N:Int), I:Int), Op, 
+               typeCheckConstExprs(vectorTypeValue(integerType(N:Int), I:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList),.ElemList))
 
-    rule typeCheckConstExpr(integerType(N:Int), constLogicAST(Op:BinaryIntOps,
+    rule typeCheckConstExpr(integerType(N:Int), constLogicAST(Op:LogicalOps,
                                 T1:K, V1:K, T2:K, V2:K))
-          => typeCheckConstExprs(integerType(N:Int),
-               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
-    rule typeCheckConstExpr(vectorTypeValue(integerType(N:Int), I:Int),
-              constLogicAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K))
-          => typeCheckConstExprs(vectorTypeValue(integerType(N:Int), I:Int),
-               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
+          => constIntBinType(integerType(N:Int), Op,
+                 typeCheckConstExprs(integerType(N:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList),.ElemList))
 
+    rule typeCheckConstExpr(vectorTypeValue(integerType(N:Int), I:Int),
+              constLogicAST(Op:LogicalOps, T1:K, V1:K, T2:K, V2:K))
+          => constIntBinType(vectorTypeValue(integerType(N:Int), I:Int), Op,
+                 typeCheckConstExprs(vectorTypeValue(integerType(N:Int), I:Int),
+               (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList),.ElemList))
+
+    rule constIntBinType(T:KResult, Op:BinaryIntOps,
+                  valValue(typeOperandResult(T:KResult, V1:KResult)),
+                    valValue(typeOperandResult(T:KResult, V2:KResult)),.ElemList)
+             => constExprType(T, constBinAST(Op, T, V1, T, V2))
+
+    rule constIntBinType(T:KResult, Op:BinaryIntOps,
+                  valValue(typeOperandResult(T:KResult, V1:KResult)),
+                    valValue(typeOperandResult(T:KResult, V2:KResult)),.ElemList)
+             => constExprType(T, constLogicAST(Op, T, V1, T, V2))
+
+    rule constExprType(T:KResult, V:KResult) => typeOperandResult(T, V)
+
+    rule <k> typeCheckConstExpr(vectorTypeValue(Ty:KResult, I:Int),
+               constBinAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K)) ~> K
+              => .K </k>
+         <output>... .List
+            => ListItem("error: invalid operand type for the vector int constant expr.") </output>
+         requires notBool isIntegerType(Ty)
+
+    rule <k> typeCheckConstExpr(vectorTypeValue(Ty:KResult, I:Int),
+               constLogicAST(Op:LogicalOps, T1:K, V1:K, T2:K, V2:K)) ~> K
+              => .K </k>
+         <output>... .List
+              => ListItem("error: invalid operand type for the vector logic constant expr.") </output>
+         requires notBool isIntegerType(Ty)
+
+    rule <k> typeCheckConstExpr(vectorTypeValue(Ty:KResult, I:Int), V:K) ~> K
+              => .K </k>
+         <output>... .List => ListItem("error: invalid vector number for constant expr") </output>
+         requires I <=Int 0
+
+    rule <k> typeCheckConstExpr(Ty:KResult,
+                 constBinAST(Op:BinaryIntOps, T1:K, V1:K, T2:K, V2:K)) ~> K
+              => .K </k>
+         <output>... .List
+              => ListItem("error: int const expr requires integer or integer vector operands") </output>
+         requires notBool isIntegerType(Ty) andBool notBool isVectorType(Ty)
+
+    rule <k> typeCheckConstExpr(Ty:KResult,
+                 constLogicAST(Op:LogicalOps, T1:K, V1:K, T2:K, V2:K)) ~> K
+              => .K </k>
+         <output>... .List
+              => ListItem("error: int const expr requires integer or integer vector operands") </output>
+         requires notBool isIntegerType(Ty) andBool notBool isVectorType(Ty)
+
+/*
     rule typeCheckConstExpr(T:FPType, constBinAST(Op:FloatOps Fl:FastMathFlags,
                                 T1:K, V1:K, T2:K, V2:K))
           => typeCheckConstExprs(T,
@@ -2696,7 +2919,7 @@ module LLVM-NORMALIZING
               constBinAST(Op:FloatOps Fl:FastMathFlags, T1:K, V1:K, T2:K, V2:K))
           => typeCheckConstExprs(vectorTypeValue(T:FPType, I:Int),
                (val(typeOperand(T1,V1)),val(typeOperand(T2,V2)),.ElemList))
-
+*/
     rule <k> typeCheckConstExpr(pointerTypeValue(integerType(8), 0),
               blockAddAST(name(globalVar, X:String), name(localVar, Y:String)))
           => pointerTypeValue(integerType(8), 0) ...</k>
@@ -2716,24 +2939,31 @@ module LLVM-NORMALIZING
           requires notBool isGlobalVariable(X) orBool notBool isLocalVariable(Y)
 
     //type check elements of const exprs
-    rule typeCheckConstExprs(T:K, .ElemList) => T
-    rule typeCheckConstExprs(T:KResult, (valValue(typeOperandResult(T, A:K)), Es:ElemList))
-          => exprType(typeCheckConstExpr(T, A))
-                     ~> typeCheckConstExprs(T, Es)
-    rule <k> typeCheckConstExprs(T:K, (valValue(typeOperandResult(T':KResult, A:K)), Es:ElemList))
+    rule typeCheckConstExprs(T:K, .ElemList, Es:ElemList) => Es
+    rule typeCheckConstExprs(T:KResult,
+            valValue(typeOperandResult(T:KResult, V:K)),Vs:ElemList, Es:ElemList)
+                    => typeCheckConstExpr(T, V)
+                   ~> typeCheckConstExprs(T, Vs, Es)
+    rule typeOperandResult(T:K, V:K) ~>
+          typeCheckConstExprs(T':K, Vs:ElemList, Es:ElemList)
+          => typeCheckConstExprs(T', Vs,
+                 addElemToEnd(valValue(typeOperandResult(T:K, V:K)), Es))
+
+    rule <k> typeCheckConstExprs(T:K, (valValue(typeOperandResult(
+                        T':KResult, A:K)), Es:ElemList), Vs:ElemList)
               ~> K:K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires T =/=K T'
 
     //type check an arg without speicfying types that is in bitcast,load/store
     rule typeCheckArgWithMMX(Name:SymbolicValueRef, x86_mmx, V:K)
-            => exprType(typeCheckMMXExpr(x86_mmx, V)) ~> 
-                 checkUseVarInside(Name, x86_mmx, V:K)
+            => checkUseVarInside(Name, x86_mmx, V:K)
+                 ~> typeCheckMMXExpr(x86_mmx, V)
     rule typeCheckArgWithMMX(Name:SymbolicValueRef, T:K, V:K)
             => typeCheckSingleArg(Name, T, V)
          requires T =/=K x86_mmx
 
-    rule typeCheckMMXExpr(x86_mmx, X:K) => x86_mmx
+    rule typeCheckMMXExpr(x86_mmx, X:K) => typeOperandResult(x86_mmx, X)
          requires isLocalVariable(X)
     rule <k> typeCheckMMXExpr(x86_mmx, X:K) ~> K:K 
             => .K </k>
@@ -2742,48 +2972,48 @@ module LLVM-NORMALIZING
 
     //type check an arg without specifying the type
     rule typeCheckSingleArg(Name:SymbolicValueRef, T:FPType, V:K)
-          => exprType(preTypeCheckFloatExpr(T, V))
-                   ~> checkUseVarInside(Name, T, V)
+          => checkUseVarInside(Name, T, V)
+              ~> preTypeCheckFloatExpr(T, V)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                              arrayTypeValue(T:K, I:Int), V:K)
-          => exprType(preTypeCheckArrayExpr(
-                          arrayTypeValue(T:K, I:Int), I, V))
-                   ~> checkUseVarInside(Name,
+          => checkUseVarInside(Name,
                             arrayTypeValue(T:K, I:Int), V)
+              ~> preTypeCheckArrayExpr(
+                          arrayTypeValue(T:K, I:Int), I, V)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                    pointerTypeValue(T:KResult, Ad:KResult), V:K)
-          => exprType(preTypeCheckPointerExpr(
-              pointerTypeValue(T:KResult, Ad:KResult), V:K))
-             ~> checkUseVarInside(Name, pointerTypeValue(
+          => checkUseVarInside(Name, pointerTypeValue(
                                  T:KResult, Ad:KResult), V:K)
+              ~> preTypeCheckPointerExpr(
+                  pointerTypeValue(T:KResult, Ad:KResult), V:K)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                    structTypeValue(T:KResult), V:K)
-          => exprType(preTypeCheckStructExpr(
-                      structTypeValue(T:KResult), V:K))
-             ~> checkUseVarInside(Name, structTypeValue(T:KResult), V:K)
+          => checkUseVarInside(Name, structTypeValue(T:KResult), V:K)
+               ~> preTypeCheckStructExpr(
+                      structTypeValue(T:KResult), V:K)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                    packedStructTypeValue(T:KResult), V:K)
-          => exprType(preTypeCheckStructExpr(
-                      packedStructTypeValue(T:KResult), V:K))
-             ~> checkUseVarInside(Name, packedStructTypeValue(T:KResult), V:K)
+          => checkUseVarInside(Name, packedStructTypeValue(T:KResult), V:K)
+             ~> preTypeCheckStructExpr(
+                      packedStructTypeValue(T:KResult), V:K)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                   vectorTypeValue(T:K, I:Int), V:K)
-         => exprType(typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
-             ~> checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
+         => checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
+             ~> typeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V)
     rule typeCheckSingleArg(Name:SymbolicValueRef,
                   integerType(N:Int), V:K)
-         => exprType(preTypeCheckIntExpr(integerType(N:Int), V))
-             ~> checkUseVarInside(Name, integerType(N:Int), V)
+         => checkUseVarInside(Name, integerType(N:Int), V)
+             ~> preTypeCheckIntExpr(integerType(N:Int), V)
     rule <k> typeCheckSingleArg(Name:SymbolicValueRef,
              O:OpaqueType ,V:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: the arg type cannot be opaque structural type.") </output>
 
     //type check single struct argument
-    rule preTypeCheckStructExpr(T:K, X:SymbolicValueRef) => T
+    rule preTypeCheckStructExpr(T:K, X:SymbolicValueRef) => typeOperandResult(T, X)
          requires isLocalVariable(X)
              andBool notBool hasInValidMMXType(T)
     rule preTypeCheckStructExpr(T:K, X:K)
-           => typeCheckStructExpr(T, T, X)
+           => typeCheckStructExpr(T, T, X, .ElemList)
          requires notBool isLocalVariable(X)
              andBool notBool hasInValidMMXType(T)
 
@@ -2791,53 +3021,60 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: array of x86 mmx type is invalid") </output>
          requires hasInValidMMXType(T)
 
-    rule typeCheckStructExpr(T:KResult, T':KResult, undef) => T
-    rule typeCheckStructExpr(T:KResult, T':KResult, zeroinitializer) => T
-    rule typeCheckStructExpr(T:KResult, T':KResult, X:SymbolicValueRef) => T
+    rule typeCheckStructExpr(T:KResult, T':KResult, undef, .ElemList)
+                   => typeOperandResult(T, undef)
+    rule typeCheckStructExpr(T:KResult, T':KResult, zeroinitializer, .ElemList)
+               => typeOperandResult(T, dealWithZeroInitializer(T))
+    rule <k> typeCheckStructExpr(T:KResult, T':KResult, X:SymbolicValueRef, Es:ElemList)
+               ~> K:K => .K </k>
+         <output>... .List => ListItem("error: global variable must be pointer type instead of struct type.") </output>
          requires notBool isLocalVariable(X)
 
-    rule <k> typeCheckStructExpr(T:KResult, T':KResult, X:SymbolicValueRef)
+    rule <k> typeCheckStructExpr(T:KResult, T':KResult, X:SymbolicValueRef, Es:ElemList)
                   ~> K:K => .K </k>
          <output>... .List => ListItem("error: struct type position must either be a local variable or a constant expression without local variables.") </output>
          requires isLocalVariable(X)
 
-    rule typeCheckStructExpr(T:KResult, T':KResult, A:ConstExpr)
-         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
-           ~> typeCheckStructExpr(T:KResult, T', emptyHOLE)
-    rule T:KResult ~>
-            typeCheckStructExpr(T:KResult, T', emptyHOLE) => T
+    rule typeCheckStructExpr(T:KResult, T':KResult, A:ConstExpr, .ElemList)
+         => typeCheckConstExpr(T, A:ConstExpr)
 
     rule typeCheckStructExpr(T:KResult, structTypeValue(.TypeList),
-                   constantStruct(.ElemList)) => T
+                   constantStruct(.ElemList), Es:ElemList)
+                    => typeOperandResult(T, constantStruct(Es))
     rule typeCheckStructExpr(T:KResult, packedStructTypeValue(.TypeList),
-                   packedStruct(.ElemList)) => T
+             packedStruct(.ElemList), Es:ElemList) => typeOperandResult(T, packedStruct(Es))
 
     rule <k> typeCheckStructExpr(T:KResult, structTypeValue(Ts:TypeList),
-                   constantStruct(.ElemList)) ~> K:K => .K </k>
+                   constantStruct(.ElemList), Es:ElemList) ~> K:K => .K </k>
          <output>... .List => ListItem("error: a defined struct element type has no corresponding struct element value associated.") </output>
          requires lengthOfTypeList(Ts) >Int 0
     rule <k> typeCheckStructExpr(T:KResult, structTypeValue(.TypeList),
-                   constantStruct(Es:ElemList)) ~> K:K => .K </k>
+                   constantStruct(Es:ElemList), Vs:ElemList) ~> K:K => .K </k>
          <output>... .List => ListItem("error: a defined struct element value has no corresponding struct element type associated.") </output>
          requires lengthOfList(Es) >Int 0
     rule <k> typeCheckStructExpr(T:KResult, packedStructTypeValue(Ts:TypeList),
-                   packedStruct(.ElemList)) ~> K:K => .K </k>
+                   packedStruct(.ElemList), Vs:ElemList) ~> K:K => .K </k>
          <output>... .List => ListItem("error: a defined packed struct element type has no corresponding packed struct element value associated.") </output>
          requires lengthOfTypeList(Ts) >Int 0
     rule <k> typeCheckStructExpr(T:KResult, packedStructTypeValue(.TypeList),
-                   packedStruct(Es:ElemList)) ~> K:K => .K </k>
+                   packedStruct(Es:ElemList), Vs:ElemList) ~> K:K => .K </k>
          <output>... .List => ListItem("error: a defined packed struct element value has no corresponding packed struct element type associated.") </output>
          requires lengthOfList(Es) >Int 0
 
     rule typeCheckStructExpr(T1:KResult, structTypeValue(T:KResult, Ts:TypeList),
-                 constantStruct(val(operand(T':K, V:K)), Es:ElemList))
-         => exprType(typeCheckStructExprAux(T, T', V))
-                 ~> typeCheckStructExpr(T1, structTypeValue(Ts),  constantStruct(Es))
+                 constantStruct(val(operand(T':K, V:K)), Es:ElemList), Vs:ElemList)
+         => typeCheckStructExprAux(T, T', V)
+                 ~> typeCheckStructExpr(T1, structTypeValue(Ts), constantStruct(Es), Vs)
+    rule typeOperandResult(T:K, V:K)
+               ~> typeCheckStructExpr(T1:K, T1':K, V1:K, Vs:ElemList)
+             => typeCheckStructExpr(T1, T1', V1,
+                addElemToEnd(valValue(typeOperandResult(T:K, V:K)), Vs))
 
     rule typeCheckStructExpr(T1:KResult, packedStructTypeValue(T:KResult, Ts:TypeList),
-                 packedStruct(val(operand(T':K, V:K)), Es:ElemList))
-         => exprType(typeCheckStructExprAux(T, T', V))
-                 ~> typeCheckStructExpr(T1, packedStructTypeValue(Ts),  packedStruct(Es))
+                 packedStruct(val(operand(T':K, V:K)), Es:ElemList), Vs:ElemList)
+         => typeCheckStructExprAux(T, T', V)
+                 ~> typeCheckStructExpr(T1,
+                    packedStructTypeValue(Ts),  packedStruct(Es), Vs)
 
     rule typeCheckStructExprAux(integerType(N:Int), integerType(N), V:K)
               => typeCheckIntExpr(integerType(N), V)
@@ -2854,18 +3091,19 @@ module LLVM-NORMALIZING
     rule typeCheckStructExprAux(structTypeValue(Ts:TypeList),
               structTypeValue(Ts:TypeList), V:K)
               => typeCheckStructExpr(structTypeValue(Ts:TypeList),
-                                       structTypeValue(Ts:TypeList), V)
+                                       structTypeValue(Ts:TypeList), V, .ElemList)
     rule typeCheckStructExprAux(packedStructTypeValue(Ts:TypeList),
               packedStructTypeValue(Ts:TypeList), V:K)
               => typeCheckStructExpr(packedStructTypeValue(Ts:TypeList),
-                                packedStructTypeValue(Ts:TypeList), V)
+                                packedStructTypeValue(Ts:TypeList), V, .ElemList)
 
     rule <k> typeCheckStructExprAux(T:KResult, T':KResult, V:K) ~> K:K => .K </k>
          <output>... .List => ListItem("error: value type declaration is different from the struct type definition.") </output>
          requires T =/=K T'
 
     //type check single array argument
-    rule preTypeCheckArrayExpr(T:K, I:Int, X:SymbolicValueRef) => T
+    rule preTypeCheckArrayExpr(T:K, I:Int, X:SymbolicValueRef)
+                   => typeOperandResult(T, X)
          requires isLocalVariable(X) andBool I >=Int 0
              andBool notBool hasInValidMMXType(T)
     rule preTypeCheckArrayExpr(T:K, I:Int, X:K)
@@ -2881,9 +3119,12 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: invalid array number for instruction") </output>
          requires I <Int 0
 
-    rule typeCheckArrayExpr(T:KResult, I:Int, undef) => T
-    rule typeCheckArrayExpr(T:KResult, I:Int, zeroinitializer) => T
-    rule typeCheckArrayExpr(T:KResult, I:Int, X:SymbolicValueRef) => T
+    rule typeCheckArrayExpr(T:KResult, I:Int, undef) => typeOperandResult(T, undef)
+    rule typeCheckArrayExpr(T:KResult, I:Int, zeroinitializer)
+                    => typeOperandResult(T, dealWithZeroInitializer(T))
+    rule <k> typeCheckArrayExpr(T:KResult, I:Int, X:SymbolicValueRef)
+                 ~> K:K => .K </k>
+         <output>... .List => ListItem("error: global variable must have pointer type instead of array type.") </output>
          requires notBool isLocalVariable(X)
     rule <k> typeCheckArrayExpr(T:KResult, I:Int, X:SymbolicValueRef)
                   ~> K:K => .K </k>
@@ -2891,71 +3132,87 @@ module LLVM-NORMALIZING
          requires isLocalVariable(X)
 
     rule typeCheckArrayExpr(T:KResult, I:Int, A:ConstExpr)
-         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
-           ~> typeCheckArrayExpr(T:KResult, I:Int, emptyHOLE)
-    rule T:KResult ~>
-            typeCheckArrayExpr(T:KResult, I:Int, emptyHOLE) => T
+            => typeCheckConstExpr(T, A:ConstExpr)
 
-    rule typeCheckArrayExpr(T:KResult, 0, array(.ElemList)) => T
     rule typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), N:Int,
-                 array(val(operand(T':K, V:K)), R:ElemList))
+                 array(R:ElemList))
          => typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int), N:Int,
-                 T':K, V, array(R:ElemList))
+                 skipValue, .K, R:ElemList, .ElemList)
+
+    rule typeCheckArrayExpr(T:K, 0, skipValue, .K, .ElemList, Es:ElemList)
+           => typeOperandResult(T, array(Es))
+    rule typeCheckArrayExpr(T:K, N:Int, skipValue, .K,
+                (val(operand(T':K, V:K)),Vs:ElemList), Es:ElemList)
+           => typeCheckArrayExpr(T, N -Int 1, T', V, Vs, Es)
          requires N >Int 0
+
     rule typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int),
-                         N:Int, T:KResult, V:K, Vs:K)
-         => typeCheckArrayAux(T, V) 
+                         N:Int, T:KResult, V:K, Vs:ElemList, Es:ElemList)
+         => typeCheckArrayAux(T, V)
               ~> typeCheckArrayExpr(
-                   arrayTypeValue(T:KResult, I:Int), N -Int 1, Vs)
+                   arrayTypeValue(T:KResult, I:Int), N, skipValue, .K, Vs, Es)
+         requires T =/=K skipValue
+
+    rule typeOperandResult(T:K, V:K) ~> typeCheckArrayExpr(
+             T':K, N, T2:K, V:K, Vs:ElemList, Es:ElemList)
+          => typeCheckArrayExpr(T', N, skipValue, T2, V, Vs,
+          addElemToEnd(valValue(typeOperandResult(T:K, V:K)), Es))
 
     rule <k> typeCheckArrayExpr(arrayTypeValue(T:KResult, I:Int),
-                          N:Int, T':KResult, V:K, Vs:K) ~> K:K
+                          N:Int, T':KResult, V:K, Vs:ElemList, Es:ElemList) ~> K:K
                 => .K </k>
          <output>... .List => ListItem("error: array element type mismatch.") </output>
          requires T =/=K T'
-    rule <k> typeCheckArrayExpr(T:K, 0, array(R:ElemList)) ~> K => .K </k>
+    rule <k> typeCheckArrayExpr(T:K, 0, T:K, V:K, R:ElemList, Es:ElemList) ~> K => .K </k>
          <output>... .List => ListItem("error: array index and element number mismatch.") </output>
          requires R =/=K .ElemList
-    rule <k> typeCheckArrayExpr(T:K, I:Int, array(.ElemList)) ~> K => .K </k>
+    rule <k> typeCheckArrayExpr(T:K, I:Int, T:K, V:K, .ElemList, Es:ElemList) ~> K => .K </k>
          <output>... .List => ListItem("error: array index and element number mismatch.") </output>
          requires I >Int 0
 
     rule typeCheckArrayAux(integerType(N:Int), V:K)
-             => exprType(typeCheckIntExpr(integerType(N:Int), V:K))
+             => typeCheckIntExpr(integerType(N:Int), V:K)
     rule typeCheckArrayAux(pointerTypeValue(T:KResult, Ad:KResult), V:K)
-             => exprType(typeCheckPointerExpr(
-                          pointerTypeValue(T:KResult, Ad:KResult), V:K))
+             => typeCheckPointerExpr(
+                          pointerTypeValue(T:KResult, Ad:KResult), V:K)
     rule typeCheckArrayAux(arrayTypeValue(T:KResult, N:Int), V:K)
-             => exprType(typeCheckArrayExpr(
-                          arrayTypeValue(T:KResult, N), N, V:K))
+             => typeCheckArrayExpr(
+                          arrayTypeValue(T:KResult, N), N, V:K)
     rule typeCheckArrayAux(vectorTypeValue(T:KResult, N:Int), V:K)
-             => exprType(typeCheckVectorArg(
-                          vectorTypeValue(T:KResult, N),N, V:K))
+             => typeCheckVectorArg(
+                          vectorTypeValue(T:KResult, N),N, V:K)
     rule typeCheckArrayAux(structTypeValue(Ts:TypeList), V:K)
-             => exprType(typeCheckStructExpr(structTypeValue(Ts:TypeList),
-                              structTypeValue(Ts:TypeList), V:K))
+             => typeCheckStructExpr(structTypeValue(Ts:TypeList),
+                              structTypeValue(Ts:TypeList), V:K, .ElemList)
     rule typeCheckArrayAux(packedStructTypeValue(Ts:TypeList), V:K)
-             => exprType(typeCheckStructExpr(packedStructTypeValue(Ts:TypeList),
-                              packedStructTypeValue(Ts:TypeList), V:K))
+             => typeCheckStructExpr(packedStructTypeValue(Ts:TypeList),
+                              packedStructTypeValue(Ts:TypeList), V:K, .ElemList)
 
     //start type checking vector arguments
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
-           vectorTypeValue(T:K, I:Int), .ElemList) => vectorTypeValue(T:K, I:Int)
+           vectorTypeValue(T:K, I:Int), .ElemList, Es:ElemList) => Es
          requires I >Int 0
 
     rule <k> typeCheckVectorArgs(Name:SymbolicValueRef,
-           vectorTypeValue(T:K, 0), Es:ElemList) ~> K:K => .K </k>
+           vectorTypeValue(T:K, 0), Es:ElemList, Vs:ElemList) ~> K:K => .K </k>
          <output>... .List => ListItem("error: invalid vector number for instruction") </output>
 
     rule typeCheckVectorArgs(Name:SymbolicValueRef,
-           vectorTypeValue(T:K, I:Int), val(V:K),Es:ElemList)
-         => exprType(preTypeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V))
-             ~> checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
-             ~> typeCheckVectorArgs(Name, vectorTypeValue(T:K, I:Int), Es)
+           vectorTypeValue(T:K, I:Int), val(V:K),Es:ElemList, Vs:ElemList)
+         => checkUseVarInside(Name, vectorTypeValue(T:K, I:Int), V)
+            ~> (preTypeCheckVectorArg(vectorTypeValue(T:K, I:Int), I, V)
+             ~> typeCheckVectorArgs(Name, vectorTypeValue(T:K, I:Int), Es, Vs))
          requires I >Int 0
 
+    rule typeOperandResult(T:KResult, V:K) ~> 
+             typeCheckVectorArgs(Name:K,
+               T, Vs:ElemList, Es:ElemList)
+          => typeCheckVectorArgs(Name, T, Vs,
+                addElemToEnd(valValue(typeOperandResult(T:KResult, V:K)), Es))
+
     //type check single vector argument
-    rule preTypeCheckVectorArg(T:K, I:Int, X:SymbolicValueRef) => T
+    rule preTypeCheckVectorArg(T:K, I:Int, X:SymbolicValueRef)
+              => typeOperandResult(T, X)
          requires isLocalVariable(X) andBool I >Int 0
              andBool notBool hasInValidMMXType(vectorTypeValue(T, I))
     rule preTypeCheckVectorArg(T:K, I:Int, X:K)
@@ -2967,80 +3224,111 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: vector of x86 mmx type is invalid") </output>
          requires I >Int 0 andBool hasInValidMMXType(vectorTypeValue(T, I))
 
-    rule typeCheckVectorArg(T:KResult, I:Int, undef) => T
-    rule typeCheckVectorArg(T:KResult, I:Int, zeroinitializer) => T
-    rule typeCheckVectorArg(T:KResult, I:Int, X:SymbolicValueRef) => T
+    rule typeCheckVectorArg(T:KResult, I:Int, undef) => typeOperandResult(T, undef)
+    rule typeCheckVectorArg(T:KResult, I:Int, zeroinitializer)
+           => typeOperandResult(T, dealWithZeroInitializer(T))
+
+    rule <k> typeCheckVectorArg(T:KResult, I:Int, X:SymbolicValueRef)
+               ~> K:K => .K </k>
+          <output>... .List
+        => ListItem("error: global variable must be pointer type and cannot be a vector.") </output>
          requires notBool isLocalVariable(X)
+
     rule <k> typeCheckVectorArg(T:KResult, I:Int, X:SymbolicValueRef)
                   ~> K:K => .K </k>
          <output>... .List => ListItem("error: vector type position must either be a local variable or a constant expression without local variables.") </output>
          requires isLocalVariable(X)
 
     rule typeCheckVectorArg(T:KResult, I:Int, A:ConstExpr)
-         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
-           ~> typeCheckVectorArg(T:KResult, I:Int, emptyHOLE)
-    rule T:KResult ~>
-            typeCheckVectorArg(T:KResult, I:Int, emptyHOLE) => T
+         => typeCheckConstExpr(T, A:ConstExpr)
 
-    rule typeCheckVectorArg(T:KResult, 0, vector(.ElemList)) => T
+    rule <k> typeCheckVectorArg(T:KResult, I:Int, vector(.ElemList))
+                ~> K:K => .K </k>
+         <output>... .List => ListItem("error: vector value cannot have zero element.") </output>
+
+    rule typeCheckVectorArg(T:KResult, I:Int, vector(val(operand(T1:K, V:ValueRef)), Es:ElemList))
+            => typeCheckVectorArg(T, I -Int 1, T1, V, Es, .ElemList)
+         requires I >Int 0
+
+    rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N:Int, T,
+                     V, Vs:ElemList, Es:ElemList)
+         => typeCheckVectorAux(T, V) ~>
+            typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
+                N, skipValue, .K, Vs, Es)
+         requires T =/=K skipValue
+ 
+    rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), 0,
+                 skipValue, .K, .ElemList, Es)
+           => typeOperandResult(vectorTypeValue(T:KResult, I:Int), vector(Es))
     rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N:Int,
-                 vector(val(operand(T':K, V:ValueRef)), R:ElemList))
-         => typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N:Int,
-                 T':K, V:ValueRef, vector(R:ElemList))
-         requires N >Int 0
-    rule typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
-                         N:Int, T:KResult, V:K, Vs:K)
-         => typeCheckVectorAux(T, V) 
-              ~> typeCheckVectorArg(
-                   vectorTypeValue(T:KResult, I:Int), N -Int 1, Vs)
+                 skipValue, .K, (val(operand(T1:K, V:ValueRef)),Vs:ElemList), Es)
+          => typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int), N -Int 1,
+                 T1, V, Vs, Es)
+    rule typeOperandResult(T:KResult, V:K) ~> 
+            typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
+                N:Int, T1:K, V1:K, Vs:ElemList, Es:ElemList)
+          => typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
+                N:Int, T1:K, V1:K, Vs:ElemList,
+          addElemToEnd(valValue(typeOperandResult(T:KResult, V:K)), Es:ElemList))
 
     rule <k> typeCheckVectorArg(vectorTypeValue(T:KResult, I:Int),
-                          N:Int, T':KResult, V:K, Vs:K) ~> K:K
+                          N:Int, T':KResult, V:K, Vs:K, Es:K) ~> K:K
                 => .K </k>
          <output>... .List => ListItem("error: vector element type mismatch") </output>
          requires T =/=K T'
-    rule <k> typeCheckVectorArg(T:K, 0, vector(R:ElemList)) ~> K => .K </k>
+    rule <k> typeCheckVectorArg(T:K, 0, T':K, V:K, R:ElemList, Es:ElemList) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires R =/=K .ElemList
-    rule <k> typeCheckVectorArg(T:K, I:Int, vector(.ElemList)) ~> K => .K </k>
+    rule <k> typeCheckVectorArg(T:K, I:Int, T':K, V:K, .ElemList, Es:ElemList) ~> K => .K </k>
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
          requires I >Int 0
 
     rule typeCheckVectorAux(T:FPType, V:K)
-             => exprType(typeCheckFloatExpr(T, V:K))
+             => typeCheckFloatExpr(T, V:K)
     rule typeCheckVectorAux(integerType(N:Int), V:K)
-             => exprType(typeCheckIntExpr(integerType(N:Int), V:K))
+             => typeCheckIntExpr(integerType(N:Int), V:K)
     rule typeCheckVectorAux(pointerTypeValue(T:KResult, Ad:KResult), V:K)
-             => exprType(typeCheckPointerExpr(
-                          pointerTypeValue(T:KResult, Ad:KResult), V:K))
+             => typeCheckPointerExpr(
+                          pointerTypeValue(T:KResult, Ad:KResult), V:K)
 
     //start type checking float arguments
-    rule typeCheckFloatArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
+    rule typeCheckFloatArgs(Name:SymbolicValueRef,
+                    T:TypeResult, .ElemList, Es:ElemList) => Es
     rule typeCheckFloatArgs(Name:SymbolicValueRef, T:TypeResult,
-         val(V:K), Vs:ElemList)
-           => exprType(preTypeCheckFloatExpr(T, V))
-                   ~> checkUseVarInside(Name, T, V)
-                   ~> typeCheckFloatArgs(Name:SymbolicValueRef, T, Vs)
+            (val(V:K),Vs:ElemList), Es:ElemList)
+        => checkUseVarInside(Name, T, V)
+              ~> (preTypeCheckFloatExpr(T, V)
+                 ~> typeCheckFloatArgs(Name:SymbolicValueRef, T, Vs, Es))
+    rule typeOperandResult(T:KResult, V:K)
+              ~> typeCheckFloatArgs(Name:K, T, Vs:ElemList, Es:ElemList)
+            => typeCheckFloatArgs(Name, T, Vs,
+               addElemToEnd(valValue(typeOperandResult(T:KResult, V:K)), Es))
 
      //type checking each float argument
-    rule preTypeCheckFloatExpr(T:K, V:SymbolicValueRef) => T
+    rule preTypeCheckFloatExpr(T:K, V:SymbolicValueRef) => typeOperandResult(T,V)
          requires isLocalVariable(V)
     rule preTypeCheckFloatExpr(T:K, V:K) => typeCheckFloatExpr(T, V)
          requires notBool isLocalVariable(V)
 
     rule typeCheckFloatExpr(T:FPType, A:ConstExpr) => typeCheckConstExpr(T, A)
-    rule typeCheckFloatExpr(T:FPType, undef) => T
-    rule typeCheckFloatExpr(T:FPType, zeroinitializer) => T
-    rule typeCheckFloatExpr(T:FPType, float(A:Int, B:Int, L:List)) => T
-    rule typeCheckFloatExpr(T:FPType, nan) => T
-    rule typeCheckFloatExpr(T:FPType, posZero) => T
-    rule typeCheckFloatExpr(T:FPType, negZero) => T
-    rule typeCheckFloatExpr(T:FPType, posInf) => T
-    rule typeCheckFloatExpr(T:FPType, negInf) => T
+    rule typeCheckFloatExpr(T:FPType, undef) => typeOperandResult(T, undef)
+    rule typeCheckFloatExpr(T:FPType, zeroinitializer)
+                     => typeOperandResult(T, dealWithZeroInitializer(T))
+    rule typeCheckFloatExpr(T:FPType, float(A:Int, B:Int, L:List))
+                   => typeOperandResult(T, float(A:Int, B:Int, L:List))
+    rule typeCheckFloatExpr(T:FPType, nan) => typeOperandResult(T, nan)
+    rule typeCheckFloatExpr(T:FPType, posZero) => typeOperandResult(T, posZero)
+    rule typeCheckFloatExpr(T:FPType, negZero) => typeOperandResult(T, negZero)
+    rule typeCheckFloatExpr(T:FPType, posInf) => typeOperandResult(T, posInf)
+    rule typeCheckFloatExpr(T:FPType, negInf) => typeOperandResult(T, negInf)
 
     rule <k> typeCheckFloatExpr(T:FPType, X:SymbolicValueRef) ~> K => .K </k>
          <output>... .List => ListItem("error: float type position must either be a local variable or a constant expression without local variables.") </output>
          requires isLocalVariable(X)
+
+    rule <k> typeCheckFloatExpr(T:FPType, X:SymbolicValueRef) ~> K => .K </k>
+         <output>... .List => ListItem("error: global variable cannot be a float type.") </output>
+         requires notBool isLocalVariable(X)
 
     rule <k> typeCheckFloatExpr(T:FPType, badValue) ~> K:K => .K </k>
          <output>... .List => ListItem("error: float value cannot fit in the float type.") </output>
@@ -3054,19 +3342,30 @@ module LLVM-NORMALIZING
          requires notBool isFloatType(Ty)
 
     //start type checking integer arguments
-    rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
-    rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult, val(V:K),Vs:ElemList)
-                    => exprType(preTypeCheckIntExpr(T, V))
-                          ~> checkUseVarInside(Name, T, V)
-                           ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs)
+    rule typeCheckIntArgs(Name:SymbolicValueRef,
+                    T:TypeResult, .ElemList, Es:ElemList) => Es
+    rule typeCheckIntArgs(Name:SymbolicValueRef, T:TypeResult,
+            (val(V:K),Vs:ElemList), Es:ElemList)
+        => checkUseVarInside(Name, T, V)
+              ~> (preTypeCheckIntExpr(T, V)
+                 ~> typeCheckIntArgs(Name:SymbolicValueRef, T, Vs, Es))
+    rule typeOperandResult(T:KResult, V:K)
+              ~> typeCheckIntArgs(Name:K, T, Vs:ElemList, Es:ElemList)
+            => typeCheckIntArgs(Name, T, Vs,
+               addElemToEnd(valValue(typeOperandResult(T:KResult, V:K)), Es))
 
     //start type checking pointer arguments
-    rule typeCheckPointerArgs(Name:SymbolicValueRef, T:TypeResult, .ElemList) => T
     rule typeCheckPointerArgs(Name:SymbolicValueRef,
-                           T:TypeResult, val(V:K),Vs:ElemList)
-                    => exprType(preTypeCheckPointerExpr(T, V))
-                          ~> checkUseVarInside(Name, T, V)
-                           ~> typeCheckPointerArgs(Name:SymbolicValueRef, T, Vs)
+                    T:TypeResult, .ElemList, Es:ElemList) => Es
+    rule typeCheckPointerArgs(Name:SymbolicValueRef, T:TypeResult,
+            (val(V:K),Vs:ElemList), Es:ElemList)
+        => checkUseVarInside(Name, T, V)
+              ~> (preTypeCheckPointerExpr(T, V)
+                 ~> typeCheckPointerArgs(Name:SymbolicValueRef, T, Vs, Es))
+    rule typeOperandResult(T:KResult, V:K)
+              ~> typeCheckPointerArgs(Name:K, T, Vs:ElemList, Es:ElemList)
+            => typeCheckPointerArgs(Name, T, Vs,
+               addElemToEnd(valValue(typeOperandResult(T:KResult, V:K)), Es))
 
     //type check general expression
     rule typeCheckExpr(pointerTypeValue(T:KResult, Ad:KResult), V:K)
@@ -3077,34 +3376,51 @@ module LLVM-NORMALIZING
           => preTypeCheckIntExpr(integerType(N:Int), V:K)
     rule typeCheckExpr(arrayTypeValue(A:K, I:Int), V:K)
           => preTypeCheckArrayExpr(arrayTypeValue(A:K, I:Int), I, V:K)
+    rule typeCheckExpr(T:FPType, V:K)
+          => preTypeCheckFloatExpr(T, V)
+    rule typeCheckExpr(structTypeValue(T:KResult), V:K)
+          => preTypeCheckStructExpr(
+                      structTypeValue(T:KResult), V:K)
+    rule typeCheckExpr(packedStructTypeValue(T:KResult), V:K)
+          => preTypeCheckStructExpr(
+                      packedStructTypeValue(T:KResult), V:K)
+    rule <k> typeCheckExpr(O:OpaqueType ,V:K) ~> K:K => .K </k>
+         <output>... .List => ListItem("error: the phi ret type cannot be opaque structural type.") </output>
 
     //type checking each pointer argument
-    rule preTypeCheckPointerExpr(T:K, V:SymbolicValueRef) => T
+    rule preTypeCheckPointerExpr(T:K, V:SymbolicValueRef) => typeOperandResult(T, V)
          requires isLocalVariable(V)
     rule preTypeCheckPointerExpr(T:K, V:K) => typeCheckPointerExpr(T, V)
          requires notBool isLocalVariable(V)
 
     rule typeCheckPointerExpr(
                       pointerTypeValue(T:KResult, Ad:KResult), undef)
-                   => pointerTypeValue(T:KResult, Ad:KResult)
+            => typeOperandResult(pointerTypeValue(T:KResult, Ad:KResult), undef)
     rule typeCheckPointerExpr(
                 pointerTypeValue(T:KResult, Ad:KResult), zeroinitializer)
-                   => pointerTypeValue(T:KResult, Ad:KResult)
-    rule typeCheckPointerExpr(
+          => typeOperandResult(pointerTypeValue(T:KResult, Ad:KResult),
+           dealWithZeroInitializer(pointerTypeValue(T:KResult, Ad:KResult)))
+    rule <k> typeCheckPointerExpr(
            pointerTypeValue(T:KResult, Ad:KResult), X:SymbolicValueRef)
-                     => pointerTypeValue(T:KResult, Ad:KResult)
+            => typeOperandResult(pointerTypeValue(T:KResult, Ad:KResult), X) ...</k>
+         <globalTypes>... X |-> flagType(L:K,
+                   pointerTypeValue(T:KResult, Ad:KResult)) ...</globalTypes>
          requires notBool isLocalVariable(X)
+
+    rule <k> typeCheckPointerExpr(T:KResult, X:SymbolicValueRef) ~> K:K
+                => .K </k>
+         <globalTypes>... X |-> flagType(L:K, T':KResult) ...</globalTypes>
+         <output>... .List => ListItem("error: global variable type mismatch.") </output>
+         requires notBool isLocalVariable(X) andBool T =/=K T'
+
     rule <k> typeCheckPointerExpr(Ty:K, X:SymbolicValueRef) ~> K => .K </k>
          <output>... .List => ListItem("error: pointer type position must either be a local variable or a constant expression without local variables.") </output>
          requires isLocalVariable(X)
 
     rule typeCheckPointerExpr(
               pointerTypeValue(T:KResult, Ad:KResult), A:ConstExpr)
-         => constExprType(typeCheckConstExpr(
-               pointerTypeValue(T:KResult, Ad:KResult), A:ConstExpr))
-           ~> typeCheckPointerExpr(
-                   pointerTypeValue(T:KResult, Ad:KResult), emptyHOLE)
-    rule T:KResult ~> typeCheckPointerExpr(T, emptyHOLE) => T
+         => typeCheckConstExpr(
+               pointerTypeValue(T:KResult, Ad:KResult), A:ConstExpr)
 
     rule <k> typeCheckPointerExpr(Ty:K, I:Int) ~> K => .K </k>
          <output>... .List => ListItem("error: integer constant must have integer type") </output>
@@ -3114,24 +3430,27 @@ module LLVM-NORMALIZING
          <output>... .List => ListItem("error: constant expression type mismatch") </output>
 
     //type check each integer argument
-    rule preTypeCheckIntExpr(T:KResult, A:K) => T
+    rule preTypeCheckIntExpr(T:KResult, A:K) => typeOperandResult(T, A)
          requires isLocalVariable(A)
     rule preTypeCheckIntExpr(T:KResult, A:K)
                  => typeCheckIntExpr(T, A)
          requires notBool isLocalVariable(A)
 
     rule typeCheckIntExpr(T:KResult, A:ConstExpr)
-         => constExprType(typeCheckConstExpr(T, A:ConstExpr))
-           ~> typeCheckIntExpr(T:KResult, emptyHOLE)
-    rule T:KResult ~>
-            typeCheckIntExpr(T:KResult, emptyHOLE) => T
+         => typeCheckConstExpr(T, A:ConstExpr)
 
     //type check interger expressions
-    rule typeCheckIntExpr(T:KResult, undef) => T
-    rule typeCheckIntExpr(T:KResult, zeroinitializer) => T
-    rule typeCheckIntExpr(integerType(N:Int), I:Int) => integerType(N:Int)
-    rule typeCheckIntExpr(integerType(1), B:Bool) => integerType(1)
-    rule typeCheckIntExpr(T:KResult, X:SymbolicValueRef) => T
+    rule typeCheckIntExpr(T:KResult, undef) => typeOperandResult(T, undef)
+    rule typeCheckIntExpr(T:KResult, zeroinitializer)
+              => typeOperandResult(T, 0)
+    rule typeCheckIntExpr(integerType(N:Int), I:Int)
+               => typeOperandResult(integerType(N:Int), I)
+    rule typeCheckIntExpr(integerType(1), B:Bool)
+               => typeOperandResult(integerType(1), boolToInt(B))
+
+    rule <k> typeCheckIntExpr(T:KResult, X:SymbolicValueRef) ~> K:K => .K </k>
+         <output>... .List
+         => ListItem("error: global variable must have poniter type instead of int type.") </output>
          requires notBool isLocalVariable(X)
 
     rule <k> typeCheckIntExpr(T:KResult, A:HexConstant) ~> K:K => .K </k>
@@ -3166,6 +3485,7 @@ module LLVM-NORMALIZING
          <basicBlocks>... Name |-> blockContent(_:Map, _:Bool, _:Set, _:Set,
                _:Set, _:Set, Defs:Set, _:Set, _:Set) ...</basicBlocks>
          requires isInDefs(addNameToString(X),.K,Defs)
+                andBool isLocalVariable(X)
 
     rule <k> checkUseVarInside(Name:SymbolicValueRef, T:K, X:SymbolicValueRef) => .K ...</k>
          <currModule> ModName:SymbolicValueRef </currModule>
@@ -3176,6 +3496,7 @@ module LLVM-NORMALIZING
                _:Set, _:Set, Defs:Set, _:Set,
               Uses:Set  (.Set => SetItem(operand(T, addNameToString(X))))) ...</basicBlocks>
          requires notBool isInDefs(addNameToString(X),.K, Defs)
+                andBool isLocalVariable(X)
 
     rule <k> checkUseVarInside(Name:SymbolicValueRef,
                                         T:K, X:SymbolicValueRef) ~> K => .K </k>
@@ -3190,25 +3511,35 @@ module LLVM-NORMALIZING
          requires T =/=K T'
 
     //dealing with resume op. 
+    rule <k> exprResumeType(TheCount:Int, typeOperandResult(T:K, V:K),
+                  Meta:K) => .K ...</k>
+        <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount, noAssign(instruction(resume(T,V) ,.Set
+                            ,Meta)), returnInst)) </tempBlockMap>    
+
     rule <k> typeCheckResume(N:SymbolicValueRef, T:KResult, V:K
                     , Meta:InstructionMetadatas)
-          => typeCheckSingleArg(N, T, formalizeAllFloats(T, V))
+          => exprResumeType(TheCount, 
+              typeCheckSingleArg(N, T, formalizeAllFloats(T, V)),
+                  insMetas(formElemList(Meta)))
                ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
         <tempResumes> Res:List (.List => ListItem(value(N, T))) </tempResumes>
         <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
-        <tempBlockMap> Now:Map => Now (TheCount |->
-              instNumInfo(TheCount, noAssign(instruction(resume(T,V) ,.Set
-                            ,insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>    
 
     //deal with ret, first deal with integer variable only
-    rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
-                    , Meta:InstructionMetadatas)
-          => typeCheckSingleArg(N, T, formalizeAllFloats(T, V))
-               ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
-        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+    rule <k> exprRetType(TheCount:Int, typeOperandResult(T:K, V:K),
+                  Meta:K) => .K ...</k>
         <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(instruction(ret(T,V) ,.Set
-                                        ,insMetas(formElemList(Meta)))), returnInst)) </tempBlockMap>
+                 ,Meta)), returnInst)) </tempBlockMap>
+
+    rule <k> typeCheckRet(N:SymbolicValueRef, T:KResult, V:K
+                    , Meta:InstructionMetadatas)
+          => exprRetType(TheCount,
+              typeCheckSingleArg(N, T, formalizeAllFloats(T, V)),
+                        insMetas(formElemList(Meta)))
+               ~> assignUses(N, TheCount, T, (val(V),.ElemList)) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -4511,7 +4842,7 @@ rule <k> landingpadBadState ~> K:K => .K </k>
         <currFunction> FunName:SymbolicValueRef </currFunction>
         <functionName> FunName </functionName>
          <varTypes>... name(localVar, Int2String(I)) |-> Ty:K ...</varTypes>
-        <localFunVarCounter> I:Int => I +Int 1 </localFunVarCounter>
+        <localFunVarCounter> I:Int </localFunVarCounter>
          <output>... .List => ListItem("multiple definition of local value named '"
                             +String Int2String(I) +String "'") </output>
 

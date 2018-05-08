@@ -76,7 +76,8 @@ module LLVM-DECLARATIONS
         <currModule> ModName:SymbolicValueRef </currModule>
         <nextBase> FunCount:Int => FunCount +Int
                          sizeOfFunArg(Arguments) +Int numBytesFunHeader </nextBase>
-        <instructionCounter> InstCount:Int => 0 </instructionCounter>
+        <instructionCounter> InstCount:Int => 1 </instructionCounter>
+        <localFunVarCounter> LocalI:Int => 0 </localFunVarCounter>
             <tempLabelUses> TL:Set => .Set </tempLabelUses>
             <tempExceptionUses> ETL:Set => .Set </tempExceptionUses>
         (.Bag =>
@@ -169,13 +170,17 @@ module LLVM-DECLARATIONS
                   formInstList(1, .K, Body)) ...</k>
         <currBlock> Label':K => basicBlockNum(Count, Label) </currBlock>
         <blockCount> Count:Int => Count +Int 1 </blockCount>
-         <currChoice> CurCh:Map => CurCh[Count <- Label] </currChoice>
+        <specTree> M:Map => M[Count <-
+                       runBlock(Count, Label, none,
+                     formMemList(Count, formInstList(1, .K, Body), VaLoc),
+                 getVarsFromVarOp(.K, OutDefs -Set InDefs), .Set)] </specTree>
+        <vaList> value(_:K, VaLoc:Loc) </vaList>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <functionName> FunName </functionName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
         <basicBlocks>... Label |-> blockContent(Body:Map,
-               _:Bool, _:Set, _:Set, _:Set,
-                 _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+               _:Bool, _:Set, _:Set, InDefs:Set,
+                 _:Set, OutDefs:Set, _:Set, _:Set) ...</basicBlocks>
 
 endmodule

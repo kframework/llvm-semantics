@@ -277,6 +277,518 @@ module LLVM-HELPERS
     rule formInstList(N:Int, instNumInfo(Num:K, In:K, T:K), M:Map)
         => ListItem(instNumInfo(Num, In, T)) formInstList(N +Int 1, .K, M)
 
+    //get all mem ops, partial function
+    syntax KItem ::= findFatherMenProto(K, K, Map) [function]
+    rule findFatherMenProto(none, .K, M:Map) => none
+    rule findFatherMenProto(A:Int, .K, M:Map) => none
+         requires notBool A in keys(M)
+    rule findFatherMenProto(A:Int, .K, (A |-> B:K) M:Map)
+              => findFatherMenProto(A, B, M)
+    rule findFatherMenProto(A:Int, runBlock(C:Int, N:K, F:K,
+           .List, S1:Set, S2:Set), M:Map)
+          => findFatherMenProto(F, .K, M)
+    rule findFatherMenProto(A:Int, runBlock(C:Int, N:K, F:K,
+           L:List ListItem(memProto(Inst:Int, Op:K, OM:Map)), S1:Set, S2:Set), M:Map)
+              => pairResult(A, Op)
+
+    //get mem op from a list of ops
+    syntax KItem ::= toMemElem(K, Loc) [function]
+    rule toMemElem(instNumInfo(TheCount:Int, noAssign(
+                  instruction(store(T1:K, V1:K,T2:K, V2:K, Align:K),
+                       Mods:Set, Meta:K)),storeInst), Va:Loc)
+            => pairResult(TheCount, toWrite(V2, none))
+         requires getOrdering(.K, Mods) ==K .K
+    rule toMemElem(instNumInfo(TheCount:Int, noAssign(
+                  instruction(store(T1:K, V1:K,T2:K, V2:K, Align:K),
+                       Mods:Set, Meta:K)),storeInst), Va:Loc)
+               => pairResult(TheCount, toWrite(V2, getOrdering(.K, Mods)))
+         requires getOrdering(.K, Mods) =/=K .K
+    rule toMemElem(instNumInfo(TheCount:Int,assign(X:K,
+                   instruction(load(T:K, V:K, Align:Int),
+                  Mods:Set, Meta:K)),loadInst), Va:Loc)
+           => pairResult(TheCount, toRead(V, none))
+         requires getOrdering(.K, Mods) ==K .K
+    rule toMemElem(instNumInfo(TheCount:Int,assign(X:K,
+                   instruction(load(T:K, V:K, Align:Int),
+                  Mods:Set, Meta:K)),loadInst), Va:Loc)
+               => pairResult(TheCount, toRead(V, getOrdering(.K, Mods)))
+         requires getOrdering(.K, Mods) =/=K .K
+    rule toMemElem(instNumInfo(TheCount:Int, noAssign(
+                  instruction(fence(Od:K), Mods, Meta:K)),fenceInst), Va:Loc)
+             => pairResult(TheCount, fence(Od))
+    rule toMemElem(instNumInfo(TheCount:Int, assign(X:K,
+                  instruction(theVAArg(T1:K, V:K,T2:K)
+                   ,Mods:Set, Meta)),readWriteInst), Va:Loc)
+          => pairResult(TheCount, toReadWrite(SetItem(V) SetItem(Va), none))
+    rule toMemElem(A:K, Va:Loc) => none [owise]
+
+    syntax KItem ::= getMemOps(Int, List, K, List, K, K, Loc) [function]
+            //blockid,finish, cur, toGet, pre-op
+    rule getMemOps(Bn:Int, L:K, .K, .List, Pre:K, Re:K, Loc:Loc)
+                => pairResultList(pairResult(Bn, Re), L)
+         requires Re =/=K .K
+    rule getMemOps(Bn:Int, L:K, .K, .List, Pre:K, .K, Loc:Loc)=> pairResultList(none, L)
+    rule getMemOps(Bn:Int, L:List, .K, ListItem(Op:K) S:List, Pre:K, Re:K, Loc:Loc)
+          => getMemOps(Bn:Int, L, toMemElem(Op, Loc), S, Pre, Re, Loc:Loc)
+    rule getMemOps(Bn:Int, L:List, none, S:List, Pre:K, Re:K, Loc:Loc)
+              => getMemOps(Bn:Int, L, .K, S, Pre, Re, Loc:Loc)
+    rule getMemOps(Bn:Int, L:List, pairResult(
+                      Count:Int, toRead(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+         => getMemOps(Bn:Int, L ListItem(
+                         memProto(Count, toRead(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+    rule getMemOps(Bn:Int, L:List,
+                       pairResult(Count:Int, fence(release)), S:List, Pre:K, Re:K, Loc:Loc)
+         => getMemOps(Bn:Int,
+                   L ListItem(memProto(Count, fence(release), .Map)), .K, S, Pre, Re, Loc:Loc)
+    //when fence is an acquire, then it is safe, and we must look at the next one
+    //deal with cases when a read or a read write following by a fence
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, toRead(V:K, Od:K), SM:Map)),
+              pairResult(Count':Int, fence(acquire)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, toRead(V, Od), SM))
+            ListItem(memProto(Count', acquireFence, .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                   memProto(Count:Int, toRead(V:K, Od:K), SM:Map)),
+             pairResult(Count':Int, fence(acquire)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, toRead(V:K, Od:K), SM))
+                 ListItem(memProto(Count', fence(acquire), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                        memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map)),
+           pairResult(Count':Int, fence(acquire)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                  memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map))
+               ListItem(memProto(Count', acquireFence, .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                     memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map)),
+             pairResult(Count':Int, fence(acquire)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map))
+             ListItem(memProto(Count', fence(acquire),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //if the fence op is the first in the block
+    rule getMemOps(Bn:Int, .List, pairResult(
+                Count:Int, fence(acquire)), S:List, toRead(V:K, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, acquireFence, .Map)),
+                        .K, S, toRead(V:K, Od:K), Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+               Count:Int, fence(acquire)), S:List, toRead(V:K, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, fence(acquire),.Map)),
+                        .K, S, toRead(V:K, Od:K), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+                Count:Int, fence(acquire)), S:List, toReadWrite(V:Set, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, acquireFence, .Map)),
+                        .K, S, toReadWrite(V:Set, Od:K), Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+               Count:Int, fence(acquire)), S:List, toReadWrite(V:Set, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, fence(acquire),.Map)),
+                        .K, S, toReadWrite(V:Set, Od:K), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //deal with case when fence is a acq_rel
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, toRead(V:K, Od:K), SM:Map)),
+              pairResult(Count':Int, fence(acq_rel)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, toRead(V, Od), SM))
+              ListItem(memProto(Count', readRWFence, .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                   memProto(Count:Int, toRead(V:K, Od:K), SM:Map)),
+             pairResult(Count':Int, fence(acq_rel)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, toRead(V:K, Od:K), SM))
+                 ListItem(memProto(Count', fence(acq_rel), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                        memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map)),
+           pairResult(Count':Int, fence(acq_rel)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                  memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map))
+               ListItem(memProto(Count', readRWFence, .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                     memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map)),
+             pairResult(Count':Int, fence(acq_rel)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map))
+             ListItem(memProto(Count', fence(acq_rel),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //if the acq_rel fence op is the first in the block
+    rule getMemOps(Bn:Int, .List, pairResult(
+                Count:Int, fence(acq_rel)), S:List, toRead(V:K, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, readRWFence, .Map)),
+                        .K, S, toRead(V:K, Od:K), Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+               Count:Int, fence(acq_rel)), S:List, toRead(V:K, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, fence(acq_rel),.Map)),
+                        .K, S, toRead(V:K, Od:K), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+                Count:Int, fence(acq_rel)), S:List, toReadWrite(V:Set, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, readRWFence, .Map)),
+                        .K, S, toReadWrite(V:Set, Od:K), Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+               Count:Int, fence(acq_rel)), S:List, toReadWrite(V:Set, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, fence(acq_rel),.Map)),
+                        .K, S, toReadWrite(V:Set, Od:K), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //deal with case when fence is a seq
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, toRead(V:K, Od:K), SM:Map)),
+              pairResult(Count':Int, fence(seq_cst)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, toRead(V, Od), SM))
+         ListItem(memProto(Count', readSeqFence, .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                   memProto(Count:Int, toRead(V:K, Od:K), SM:Map)),
+             pairResult(Count':Int, fence(seq_cst)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, toRead(V:K, Od:K), SM))
+          ListItem(memProto(Count', fence(seq_cst), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                        memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map)),
+           pairResult(Count':Int, fence(seq_cst)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                  memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map))
+               ListItem(memProto(Count', readSeqFence, .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, L:List ListItem(
+                     memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map)),
+             pairResult(Count':Int, fence(seq_cst)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, toReadWrite(V:Set, Od:K), SM:Map))
+             ListItem(memProto(Count', fence(seq_cst),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //if the seq_cst fence op is the first in the block
+    rule getMemOps(Bn:Int, .List, pairResult(
+                Count:Int, fence(seq_cst)), S:List, toRead(V:K, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, readSeqFence, .Map)),
+                        .K, S, toRead(V:K, Od:K), Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+               Count:Int, fence(seq_cst)), S:List, toRead(V:K, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, fence(seq_cst),.Map)),
+                        .K, S, toRead(V:K, Od:K), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+                Count:Int, fence(seq_cst)), S:List, toReadWrite(V:Set, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, readSeqFence, .Map)),
+                        .K, S, toReadWrite(V:Set, Od:K), Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(
+               Count:Int, fence(seq_cst)), S:List, toReadWrite(V:Set, Od:K), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, fence(seq_cst),.Map)),
+                        .K, S, toReadWrite(V:Set, Od:K), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //if there is a store op
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(release), SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, releaseFence, SM))
+        ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(release), SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, fence(release), SM))
+         ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(release), SM:Map)),
+           pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count:Int, releaseFence, SM:Map))
+        ListItem(memProto(Count', toReadWrite(V:Set, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(release), SM:Map)),
+             pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, fence(release), SM:Map))
+      ListItem(memProto(Count', toReadWrite(V:Set, Od:K),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    //if the store op is the first in the block
+    rule getMemOps(Bn:Int, .List, pairResult( Count:Int, toWrite(V:K, Od:K)),
+                S:List, fence(release), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K), .Map)),
+                        .K, S, fence(release), releaseFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toWrite(V:K, Od:K)),
+             S:List, fence(release), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K),.Map)),
+                        .K, S, fence(release), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                   S:List, fence(release), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K), .Map)),
+                        .K, S, fence(release), releaseFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                 S:List, fence(release), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K),.Map)),
+                        .K, S, fence(release), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //deal with case when fence is a acq_rel in the store op
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(acq_rel), SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, writeRWFence, SM))
+     ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(acq_rel), SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, fence(acq_rel), SM))
+          ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(acq_rel), SM:Map)),
+           pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count:Int, writeRWFence, SM:Map))
+               ListItem(memProto(Count', toReadWrite(V:Set, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(acq_rel), SM:Map)),
+             pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, fence(acq_rel), SM:Map))
+             ListItem(memProto(Count', toReadWrite(V:Set, Od:K),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    //if the store op is the first in the block of a acq_rel fence
+    rule getMemOps(Bn:Int, .List, pairResult( Count:Int, toWrite(V:K, Od:K)),
+                S:List, fence(acq_rel), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K), .Map)),
+                        .K, S, fence(acq_rel), writeRWFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toWrite(V:K, Od:K)),
+             S:List, fence(acq_rel), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K),.Map)),
+                        .K, S, fence(acq_rel), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                   S:List, fence(acq_rel), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K), .Map)),
+                        .K, S, fence(acq_rel), writeRWFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                 S:List, fence(acq_rel), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K),.Map)),
+                        .K, S, fence(acq_rel), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //deal with case when fence is a seq_cst in the store op
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(seq_cst), SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, writeSeqFence, SM))
+         ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(seq_cst), SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, fence(seq_cst), SM))
+        ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(seq_cst), SM:Map)),
+           pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count:Int, writeSeqFence, SM:Map))
+               ListItem(memProto(Count', toReadWrite(V:Set, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, fence(seq_cst), SM:Map)),
+             pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, fence(seq_cst), SM:Map))
+             ListItem(memProto(Count', toReadWrite(V:Set, Od:K),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    //if the store op is the first in the block of a seq_cst fence
+    rule getMemOps(Bn:Int, .List, pairResult( Count:Int, toWrite(V:K, Od:K)),
+                S:List, fence(seq_cst), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K), .Map)),
+                        .K, S, fence(seq_cst), writeSeqFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toWrite(V:K, Od:K)),
+             S:List, fence(seq_cst), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K),.Map)),
+                        .K, S, fence(seq_cst), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                   S:List, fence(seq_cst), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K), .Map)),
+                        .K, S, fence(seq_cst), writeSeqFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                 S:List, fence(seq_cst), Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K),.Map)),
+                        .K, S, fence(seq_cst), Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+
+    //deal with case when fence is a readRWFence
+    // (a acq_rel fence that has previously been detected with a pre-load op) in the store op
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readRWFence, SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, readWriteFence, SM))
+          ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readRWFence, SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, readRWFence, SM))
+      ListItem(memProto(Count', toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readRWFence, SM:Map)),
+           pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count:Int, readWriteFence, SM:Map))
+        ListItem(memProto(Count', toReadWrite(V:Set, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readRWFence, SM:Map)),
+             pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, readRWFence, SM:Map))
+      ListItem(memProto(Count', toReadWrite(V:Set, Od:K),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    //if the store op is the first in the block of a readRWFence
+    // (a acq_rel fence that has previously been detected with a pre-load op) 
+    rule getMemOps(Bn:Int, .List, pairResult( Count:Int, toWrite(V:K, Od:K)),
+                S:List, readRWFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K), .Map)),
+                        .K, S, readRWFence, readWriteFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toWrite(V:K, Od:K)),
+             S:List, readRWFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K),.Map)),
+                        .K, S, readRWFence, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                   S:List, readRWFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K), .Map)),
+                        .K, S, readRWFence, readWriteFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                 S:List, readRWFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K),.Map)),
+                        .K, S, readRWFence, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    //deal with case when fence is a readSeqFence
+    // (a seq_cst fence that has previously been detected with a pre-load op) in the store op
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readSeqFence, SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+             => getMemOps(Bn:Int, L ListItem(memProto(Count, seqFence, SM))
+                         ListItem(memProto(Count',
+                 toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readSeqFence, SM:Map)),
+              pairResult(Count':Int, toWrite(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count, readSeqFence, SM))
+                 ListItem(memProto(Count',
+                 toWrite(V:K, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readSeqFence, SM:Map)),
+           pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(memProto(Count:Int, seqFence, SM:Map))
+               ListItem(memProto(Count',
+                     toReadWrite(V:Set, Od:K), .Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K acquire
+    rule getMemOps(Bn:Int, L:List ListItem(memProto(Count:Int, readSeqFence, SM:Map)),
+             pairResult(Count':Int, toReadWrite(V:Set, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, L ListItem(
+                            memProto(Count:Int, readSeqFence, SM:Map))
+             ListItem(memProto(Count', 
+               toReadWrite(V:Set, Od:K),.Map)), .K, S, Pre, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K acquire
+    //if the store op is the first in the block of a readSeqFence
+    // (a seq_cst fence that has previously been detected with a pre-load op) 
+    rule getMemOps(Bn:Int, .List, pairResult( Count:Int, toWrite(V:K, Od:K)),
+                S:List, readSeqFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K), .Map)),
+                        .K, S, readSeqFence, seqFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toWrite(V:K, Od:K)),
+             S:List, readSeqFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toWrite(V:K, Od:K),.Map)),
+                        .K, S, readSeqFence, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                   S:List, readSeqFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K), .Map)),
+                        .K, S, readSeqFence, seqFence, Loc:Loc)
+         requires Od ==K unordered orBool Od ==K monotonic
+                     orBool Od ==K release
+    rule getMemOps(Bn:Int, .List, pairResult(Count:Int, toReadWrite(V:Set, Od:K)),
+                 S:List, readSeqFence, Re:K, Loc:Loc)
+                 => getMemOps(Bn:Int, ListItem(memProto(Count, toReadWrite(V:Set, Od:K),.Map)),
+                        .K, S, readSeqFence, Re, Loc:Loc)
+         requires Od =/=K unordered andBool Od =/=K monotonic
+                     andBool Od =/=K release
+    rule getMemOps(Bn:Int, L:List,
+                  pairResult(Count:Int, Op:K), S:List, Pre:K, Re:K, Loc:Loc)
+           => getMemOps(Bn, L ListItem(memProto(Count, Op,.Map)),
+                   .K, S, Pre, Re, Loc:Loc) [owise]
+    //end of getMemOps
+    syntax List ::= formMemList(Int, List, Loc) [function]
+                  | formMemListAux(K) [function]
+    rule formMemList(Bn:Int, Insts:List, Loc:Loc)
+          => formMemListAux(getMemOps(Bn, .List, .K, Insts, none, .K, Loc))
+    rule formMemListAux(pairResultList(A:K, R:List)) => R
+
     syntax ElemList ::= StringToList(String) [function]
     rule StringToList("") => .ElemList
     rule
@@ -782,6 +1294,37 @@ module LLVM-HELPERS
     rule sizeof(Type:KResult) => sizeofInBits(Type) /Int numBitsPerByte +Int 1
         requires notBool (numBitsPerByte dividesInt sizeofInBits(Type))
 
+    //calculate the offset of a element type in a struct
+    syntax Int ::= bitsofStruct(K, Int, Int) [function]//type, position, offset 
+    rule bitsofStruct(T:K, 0, Off:Int) => Off
+    rule bitsofStruct(structTypeValue(.TypeList), N:Int, Off:Int) => -1
+         requires N >Int 0 
+    rule bitsofStruct(structTypeValue(Type:KResult, L:TypeList), N:Int, Off:Int)
+         => bitsofStruct(structTypeValue(L), N -Int 1, Off +Int sizeofInBits(Type))
+            requires N >Int 0 andBool (numBitsPerByte *Int structAlign)
+                  dividesInt sizeofInBits(Type)
+    rule bitsofStruct(structTypeValue(Type:KResult, L:TypeList), N:Int, Off:Int)
+         => bitsofStruct(structTypeValue(L), N -Int 1, Off +Int
+            (sizeofInBits(Type) /Int (numBitsPerByte *Int structAlign)
+               +Int 1) *Int (numBitsPerByte *Int structAlign))
+         requires N >Int 0 andBool notBool ((numBitsPerByte *Int structAlign)
+                  dividesInt sizeofInBits(Type))
+
+    syntax Int ::= sizeOfStruct(K, K) [function] //type, position
+    rule sizeOfStruct(T:K, N:Int) => bitsofStruct(T, N, 0) /Int numBitsPerByte
+         requires bitsofStruct(T, N, 0) =/=K -1
+    rule sizeOfStruct(T:K, N:Int) => -1
+         requires bitsofStruct(T, N, 0) ==K -1
+    rule sizeOfStruct(T:K, N:K) => -1 [owise]
+
+    syntax KItem ::= getTypeInStruct(K, Int) [function]
+    rule getTypeInStruct(structTypeValue(.TypeList), N:Int) => none
+         requires N >Int 0
+    rule getTypeInStruct(structTypeValue(T:KResult, Ts:TypeList), 0) => T
+    rule getTypeInStruct(structTypeValue(T:KResult, Ts:TypeList), N:Int)
+          => getTypeInStruct(structTypeValue(Ts), N -Int 1)
+         requires N >Int 0
+
     syntax KItem ::= zeroOfType(K)
     rule zeroOfType(Type:KResult) => 0
         when isIntegerType(Type)
@@ -855,6 +1398,7 @@ module LLVM-HELPERS
     syntax KItem ::= getInnerType(K) [function]
     rule getInnerType(vectorTypeValue(T:K, N:Int)) => T
     rule getInnerType(arrayTypeValue(T:K, N:Int)) => T
+    rule getInnerType(pointerTypeValue(T:K, A:K)) => T
 
     syntax KItem ::= getIntType(K)    [function]
                    | getIntInIntType(K) [function]
@@ -2370,6 +2914,8 @@ module LLVM-HELPERS
     rule formOperandList(.ElemList) => .ElemList
     rule formOperandList(valValue(typeOperandResult(T:K, V:K)),Es:ElemList)
            => val(operand(T, V)),formOperandList(Es)
+    rule formOperandList(valValue(typedArg(S:Set, T:K, V:K)), Es:ElemList)
+          => val(operand(T, V)), formOperandList(Es)
 
     syntax KLabel ::= getKLabelFromOp(K) [function]
     rule getKLabelFromOp('add(.KList)) => 'theAdd
@@ -2564,6 +3110,42 @@ module LLVM-HELPERS
                 vector(copyOfElemList(B, D:K, I)))), fulfillVector(Es, I)
          requires notBool isVectorType(B)
 
+    //a series functions to combine lists of gep arg to gep vector args
+    syntax KItem ::= splitFirstInList(List, List, List) [function]
+    rule splitFirstInList(.List, L:List, R:List)
+           => splitListResult(L, R)
+    rule splitFirstInList(ListItem(.ElemList) L:List, L1:List, L2:List)
+              => none
+    rule splitFirstInList(ListItem(val(gepOperand(A:K, T:K, C:K)),Es:ElemList)
+                         L:List, L1:List, L2:List)
+           => splitFirstInList(L, L1 ListItem(gepOperand(A:K, T:K, C:K)), L2 ListItem(Es))
+    
+    syntax KItem ::= getInrangeInList(List) [function]
+    rule getInrangeInList(ListItem(gepOperand(A:K, T:K, C:K)) L:List) => A
+    rule getInrangeInList(.List) => badValue
+
+    syntax KItem ::= getTypeInList(List) [function]
+    rule getTypeInList(ListItem(gepOperand(A:K, T:K, C:K)) L:List) => T
+    rule getTypeInList(ListItem(T:KResult) L:List) => T
+    rule getTypeInList(.List) => badValue
+
+    syntax KItem ::= toGepVectorInList(List, ElemList) [function]
+    rule toGepVectorInList(.List, Es:ElemList) => vector(Es)
+    rule toGepVectorInList(ListItem(gepOperand(A:K, T:K, C:K)) L:List, Es:ElemList)
+            => toGepVectorInList(L, addElemToEnd(val(operand(T,C)), Es))
+
+    syntax ElemList ::= toVectorGep(List, Int) [function]
+                      | toVectorGepAux(K, Int) [function]
+    rule toVectorGep(L:List, VI:Int)
+              => toVectorGepAux(splitFirstInList(L, .List, .List), VI)
+    rule toVectorGepAux(none, VI:Int) => .ElemList
+    rule toVectorGepAux(splitListResult(L, R), VI:Int)
+           => val(gepOperand(getInrangeInList(L),
+                  vectorTypeValue(getTypeInList(L), VI),
+                    toGepVectorInList(L, .ElemList))),toVectorGep(R, VI)
+         requires getInrangeInList(L) =/=K badValue
+              andBool getTypeInList(L) =/=K badValue
+
     syntax ElemList ::= toGepOperand(ElemList) [function]
     rule toGepOperand(.ElemList) => .ElemList
     rule toGepOperand(valValue(typeOperandGepVal(A:K, T:K, C:K)),Es:ElemList)
@@ -2640,19 +3222,49 @@ module LLVM-HELPERS
     rule addElemToList(A:K, .List) => .List
     rule addElemToList(A:K, ListItem(blockPath(L':List)) L:List)
                  => ListItem(blockPath(L' ListItem(A))) addElemToList(A, L)
-/*
-    syntax List ::= dealWithDependList(List, K, K, Set)
-    rule dealWithDependList(L:List, I:K, Def:K, .Set) => L
-    rule dealWithDependList(L:List, I:K, Def:K, SetItem(Use:K) Uses:Set)
-          => 
-*/
+
+    syntax Map ::= addChildToKey(Map, Int, Int) [function]
+    rule addChildToKey(M:Map (A:Int |-> runBlock(Count:Int,
+              Name:K, Fa:K, L:List, S:Set, Cs:Set)), A:Int, C:Int)
+        => M (A |-> runBlock(Count, Name, Fa, L, S, SetItem(C) Cs))
+    rule addChildToKey(M:Map, A:Int, C:Int) => M [owise]
+
+    syntax Map ::= updateChoiceInMap(Map, Int, Set) [function]
+    rule updateChoiceInMap(M:Map (A:Int |-> nextSpecs(S:Set)), A:Int, C:Set)
+        => M (A |-> nextSpecs(C))
+    rule updateChoiceInMap(M:Map, A:Int, C:Set) => M [owise]
+
+
+    //selecting phi in a list of phi ops
+    syntax List ::= selectPhis(Int, K, List) [function]//label, op list
+    syntax KItem ::= selectPhi(Int, K, K) [function]
+    rule selectPhis(Fa:Int, A:K, .List) => .List
+    rule selectPhis(Fa:Int, A:K, ListItem(instNumInfo(Num:Int,
+               assign(X:K, instruction(In:K, Attrs:Set, Meta:K)), La:K)) L:List)
+         =>  ListItem(instNumInfo(Num:Int,
+               assign(X:K, instruction(In:K, Attrs:Set, Meta:K)), La:K))
+             selectPhis(Fa:Int, A, L)
+         requires La =/=K phiInst
+    rule selectPhis(Fa:Int, A:K, ListItem(instNumInfo(Num:Int,
+               assign(X:K, instruction(In:K, Attrs:Set, Meta:K)), phiInst)) L:List)
+        =>  ListItem(instNumInfo(Num:Int,
+               assign(X:K, instruction(selectPhi(Fa, A, In:K), Attrs:Set, Meta:K)), phiInst))
+                selectPhis(Fa:Int, A, L)
+    rule selectPhi(Fa:Int, L:K, phi(T:K, Es:ElemList)) => selectPhi(Fa:Int, L, Es)
+    rule selectPhi(Fa:Int, L:K, .ElemList) => badValue
+    rule selectPhi(Fa:Int, L:K, val(edge(V:K, L:K)),Es:ElemList)
+          => phiResult(Fa, V)
+    rule selectPhi(Fa:Int, L:K, val(edge(V:K, L':K)),Es:ElemList)
+          => selectPhi(Fa, L, Es)
+         requires L =/=K L'
+
     syntax KItem ::= guessNextBlock(K) [function]
     rule guessNextBlock(unconditional(A:K)) => A
     rule guessNextBlock(conditional(A:K, B:K, C:K)) => B
     rule guessNextBlock(switch(A:K, B:K, C:K,
                       ListItem(typedCase(It:K, I:K, D:K)) Es:List)) => D
     rule guessNextBlock(indirectbr(A:K, ListItem(B:K) Es:List)) => B
-    rule guessNextBlock(invoke(A:K, B:K, C:K, D:K, FL:K)) => C
+    //rule guessNextBlock(invoke(A:K, B:K, C:K, D:K, FL:K)) => C
     rule guessNextBlock(_:K) => .K [owise]
 
 /*    syntax Set ::= getAllBrBlocks(K) [function]
@@ -2667,26 +3279,18 @@ module LLVM-HELPERS
     rule getRestBlocks(unconditional(A:K), .K, (A |-> B:K) M:Map)
            => getRestBlocks(unconditional(A:K), B, M:Map)
     rule getRestBlocks(unconditional(A:K), blockContent(
-               _:Map, true, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map)
-              => SetItem(A)
-    rule getRestBlocks(unconditional(A:K), blockContent(
-               _:Map, false, _:Set, _:Set, _:Set,
+               _:Map, _:Bool, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
               => .Set
     rule getRestBlocks(conditional(A:K, B:K, C:K), .K, (B |-> D:K) M:Map)
              => getRestBlocks(conditional(A:K, B:K, C:K), D, M:Map)
     rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
-               _:Map, true, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map)
-               => SetItem(B) SetItem(C)
-    rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
-               _:Map, false, _:Set, _:Set, _:Set,
+               _:Map, _:Bool, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
                => SetItem(C)
          requires C =/=K B
         rule getRestBlocks(conditional(A:K, B:K, C:K), blockContent(
-               _:Map, false, _:Set, _:Set, _:Set,
+               _:Map, _:Bool, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
                => .Set
          requires C ==K B
@@ -2695,34 +3299,22 @@ module LLVM-HELPERS
              => getRestBlocks(switch(A:K, B:K, C:K, Es:List), E, M:Map)
     rule getRestBlocks(switch(A:K, B:K, C:K,
                ListItem(typedCase(It:K, I:K, D:K)) Es:List), blockContent(
-               _:Map, true, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map)
-             => SetItem(C) SetItem(D) switchListToSet(Es)
-    rule getRestBlocks(switch(A:K, B:K, C:K,
-               ListItem(typedCase(It:K, I:K, D:K)) Es:List), blockContent(
-               _:Map, false, _:Set, _:Set, _:Set,
+               _:Map, _:Bool, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
              => removeItemFromSet(D, .K, SetItem(C) switchListToSet(Es))
     rule getRestBlocks(indirectbr(A:K, (ListItem(B:K) Es:List)),
                .K, (B |-> C:K) M:Map)
              => getRestBlocks(indirectbr(A:K,
                        (ListItem(B:K) Es:List)), C, M:Map)
-    rule getRestBlocks(indirectbr(A:K, ListItem(B:K) Es:List)
-           , blockContent( _:Map, true, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map)
-                   => SetItem(B) indirectbrListToSet(Es)
     rule getRestBlocks(indirectbr(A:K, (ListItem(B:K) Es:List))
-           , blockContent( _:Map, false, _:Set, _:Set, _:Set,
+           , blockContent( _:Map, _:Bool, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map)
                    => removeItemFromSet(B, .K, indirectbrListToSet(Es))
     rule getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K),
                .K, (C |-> E:K) M:Map)
              => getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K), E, M:Map)
     rule getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K)
-           , blockContent( _:Map, true, _:Set, _:Set, _:Set,
-              _:Set, _:Set, _:Set, _:Set), M:Map) => SetItem(C)
-    rule getRestBlocks(invoke(A:K, B:K, C:K, D:K, FL:K)
-           , blockContent( _:Map, false, _:Set, _:Set, _:Set,
+           , blockContent( _:Map, _:Bool, _:Set, _:Set, _:Set,
               _:Set, _:Set, _:Set, _:Set), M:Map) => .Set
 
     syntax Set ::= removeItemFromSet(K, K, Set) [function]
@@ -2762,53 +3354,66 @@ module LLVM-HELPERS
     rule elemListToSet(valValue(A:K), Es:ElemList)
                         => SetItem(A) elemListToSet(Es)
 
-    syntax KItem ::= findNextBlock(K, Map, Map)  [function]
-                   | findNextBlockAux(Set, K, Set, Map, Map) [function]
-                   | findNextBlockNext(Set, K, Map, Map) [function]
+    //get the next block that has not been speculated yet.
+    syntax KItem ::= findNextBlock(K, K, K, Map, Map) [function]
+                       //b-id, runblock, rest-choice, runb-map, rest-map
+                   | findNextBlockAux(K, Set, Map, Map) [function]
+
+    rule findNextBlock(A:K, .K, .K, M:Map, M':Map) => none
+         requires (notBool A in keys(M)) orBool (notBool A in keys(M'))
+    rule findNextBlock(A:K, .K, .K, (A |-> B:K) M:Map, (A |-> C:K) M':Map)
+          => findNextBlock(A, B, C, M, M')
+    rule findNextBlock(A:K, runBlock(Count:Int, Name:K, Fa:Int,
+               L:List, S:Set, Child:Set), nextSpecs(.Set), M:Map, M':Map)
+          => findNextBlockAux(.K, Child, M, M')
+    rule findNextBlock(A:K, runBlock(Count:Int, Name:K, Fa:Int,
+               L:List, S:Set, Child:Set), nextSpecs(SetItem(Na:K) Cs:Set), M:Map, M':Map)
+          => selectSpec(A, Na, Cs)
+    rule findNextBlockAux(.K, .Set, M:Map, M':Map) => none
+    rule findNextBlockAux(.K, SetItem(A:K) S:Set, M:Map, M':Map)
+           => findNextBlockAux(findNextBlock(A, .K, .K, M, M'), S, M, M')
+    rule findNextBlockAux(none, S:Set, M:Map, M':Map)
+            => findNextBlockAux(.K, S, M, M')
+    rule findNextBlockAux(selectSpec(A:K, B:K, Cs:Set), S:Set, M:Map, M':Map)
+              => selectSpec(A:K, B:K, Cs:Set)
+
+    syntax KItem ::= getFatherName(K, Map) [function]
+    rule getFatherName(A:K, M:Map) => none
+         requires notBool A in keys(M)
+    rule getFatherName(A:K, (A |-> runBlock(Count:Int,
+                   Name:K, Fa:Int, L:List, S:Set, Child:Set)) M:Map) => Name
+    syntax KItem ::= getFatherId(K) [function]
+    rule getFatherId(runBlock(Count:Int,
+                   Name:K, Fa:K, L:List, S:Set, Child:Set)) => Fa
+    rule getFatherId(A:K) => none [owise]
+
+    //test if A is a father of B in the reverse Map
+    syntax Bool ::= isFather(K, K, Map)  [function]
+    rule isFather(A:K, A:K, M:Map) => true
+    rule isFather(A:K, B:K, M:Map) => false
+         requires notBool B in keys(M) andBool A =/=K B
+    rule isFather(A:K, B:K, (B |-> C:K) M:Map)
+           => isFather(A, getFatherId(C), M)
+         requires A =/=K B
+
+
+/*
+    syntax KItem ::= getResultBlockId(K) [function]
+    rule getResultBlockId(selectSpec(A:Int, B:K, Cs:Set)) => A
+    rule getResultBlockId(K:K) => none [owise]
+
+    syntax KItem ::= getResultChildBlock(K) [function]
+    rule getResultChildBlock(selectSpec(A:Int, B:K, Cs:Set)) => B
+    rule getResultChildBlock(K:K) => none [owise]
+
+    syntax Set ::= getResultRestSet(K) [function]
+    rule getResultRestSet(selectSpec(A:Int, B:K, Cs:Set)) => Cs
+    rule getResultRestSet(K:K) => none [owise]
+*/
 
     syntax Set ::= getSet(K) [function]
     rule getSet(nextSpecs(S:Set)) => S
     rule getSet(A:K) => .Set [owise]
-
-    syntax Int ::= getIntKey(K) [function]
-    rule getIntKey(basicBlockNum(X:Int, Y:K)) => X
-    rule getIntKey(A:K) => -1
-
-    rule findNextBlock(A:K, EX:Map, RM:Map) => emptyHOLE
-         requires notBool (A in keys(EX)) andBool notBool (A in keys(RM))
-    rule findNextBlock(A:K, EX:Map, (A |-> nextSpecs(SetItem(B:K) S':Set)) RM:Map)
-               => selectSpec(A, B, S')
-    rule findNextBlock(A:K, EX:Map, (A |-> nextSpecs(.Set)) RM:Map) => emptyHOLE
-         requires notBool (A in keys(EX))
-    rule findNextBlock(A:K, (A |-> B:K) EX:Map, RM:Map)
-          => findNextBlockAux(.Set, .K, getSet(B), EX, RM)
-         requires notBool (A in keys(RM))
-
-    rule findNextBlockAux(A:Set, .K, .Set, EX:Map, RM:Map)
-              => findNextBlockNext(A, .K, EX, RM)
-    rule findNextBlockAux(A:Set, .K, SetItem(B:K) S:Set, EX:Map, RM:Map)
-              => findNextBlockAux(A, B, S, EX, RM)
-    rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
-                   In:K), S:Set, EX:Map, RM:Map)
-         => findNextBlockAux(A, .K, S, EX, RM)
-         requires notBool Count in keys(RM)
-    rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
-                   In:K), S:Set, EX:Map, (Count |-> nextSpecs(.Set)) RM:Map)
-         => findNextBlockAux(A, .K, S, EX, (Count |-> nextSpecs(.Set)) RM)
-    rule findNextBlockAux(A:Set, basicBlockNum(Count:Int,
-                   In:K), S:Set, EX:Map,
-            (Count |-> nextSpecs(SetItem(B:K) S':Set)) RM:Map)
-         => selectSpec(Count, B, S')
-
-    rule findNextBlockNext(.Set, .K, EX:Map, RM:Map) => emptyHOLE
-    rule findNextBlockNext(SetItem(B:K) S:Set, .K, EX:Map, RM:Map)
-                 => findNextBlockNext(S, findNextBlock(
-                            getIntKey(B), EX, RM), EX, RM)
-    rule findNextBlockNext(S:Set, emptyHOLE, EX, RM)
-             => findNextBlockNext(S, .K, EX, RM)
-    rule findNextBlockNext(S:Set, selectSpec(X:K,
-                            Y:K, Z:K), EX:Map, RM:Map)
-            => selectSpec(X, Y, Z)
 
     syntax Map ::= changeBlocks(Int, K, Set, Map, Bool)  [function]
 
@@ -2916,11 +3521,36 @@ module LLVM-HELPERS
    rule removeEither(Ran:K, X:SymbolicValueRef) => Ran
    rule removeEither(Ran:K, loc(A:K, B:K, C:K, R:K, D:K, E:K)) => R 
 
+   syntax Bool ::= isValidMemProType(K) [function]
+   rule isValidMemProType(toRead(A:K, Od:K)) => true
+   rule isValidMemProType(toWrite(A:K, Od:K)) => true
+   rule isValidMemProType(toReadWrite(A:Set, Od:K)) => true
+   rule isValidMemProType(_:K) => false
+
+   //find the sequenced before var from the current block
+   syntax Int ::= findPreVarBlockNum(Int, Int, K,  K, Map) [function] 
+         //root-block, cur-block, var, cur-runblock, spec-tree
+   rule findPreVarBlockNum(Root:Int, Cur:Int, V:K, .K, M:Map) => Root
+        requires notBool Cur in keys(M) orBool Cur <=Int Root
+   rule findPreVarBlockNum(Root:Int, Cur:Int, V:K, .K, (Cur |-> B:K) M:Map)
+          => findPreVarBlockNum(Root, Cur, V:K, B, M)
+   rule findPreVarBlockNum(Root:Int, Cur:Int,V:K,
+            runBlock(Bn:Int, Name:K, none, L:List, Vars:Set, Cs:Set), M:Map) => Root
+   rule findPreVarBlockNum(Root:Int, Cur:Int, V:K,
+            runBlock(Bn:Int, Name:K, Fa:Int, L:List, Vars:Set, Cs:Set), M:Map) => Bn
+        requires V in Vars
+   rule findPreVarBlockNum(Root:Int, Cur:Int, V:K,
+            runBlock(Bn:Int, Name:K, Fa:Int, L:List, Vars:Set, Cs:Set), M:Map)
+              => findPreVarBlockNum(Root, Fa, V, .K, M)
+        requires notBool V in Vars
+
    syntax List ::= updateVarInList(Int, Int, List, Map, Map, Map) [function]
    syntax KItem ::= updateVarInTerm(Int, Int, K, Map, Map, Map) [function]
                   | updateVarInGepTerm(Int, Int, K, Map, Map, Map) [function]
                   | updateVarInTermList(Int, Int, ElemList, Map, Map, Map) [function]
                   | updateVarInVar(Int, Int, K, Map, Map, Map) [function]
+                  | updateVarInVarAux(Int, K, Int, Map, Map) [function]
+                    //root, Var, found-block-id, regs, spec-regs
 
    rule updateVarInList(Cur:Int, BN:Int, .List, M:Map, RM:Map, Rev:Map) => .List
    rule updateVarInList(Cur:Int, Pre:Int, ListItem(dynInstInfo(Bn:Int,
@@ -2936,39 +3566,55 @@ module LLVM-HELPERS
             updateVarInList(Cur, Pre, L, M, RM, Rev)
         requires Bn <Int Pre
    rule updateVarInList(Cur:Int, Pre:Int, ListItem(singleMem(TID:Int, Bn:Int,
-                     In:Int, Ran:K, X:SymbolicValueRef)) L:List, M:Map, RM:Map, Rev:Map)
+                     In:Int, Ran:K, OK:KLabel(X:SymbolicValueRef))) L:List, M:Map, RM:Map, Rev:Map)
         => ListItem(singleMem(TID:Int, Bn:Int, In:Int, removeEither(Ran:K,
                  updateVarInVar(Cur, Bn, X, M, RM, Rev)),
                 updateVarInVar(Cur, Bn, X, M, RM, Rev)))
                updateVarInList(Cur, Pre, L, M, RM, Rev)
-        requires Bn >=Int Pre
+        requires Bn >=Int Pre andBool isValidMemProType(OK(X))
+   rule updateVarInList(Cur:Int, Pre:Int, ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, OK:KLabel(X:K))) L:List, M:Map, RM:Map, Rev:Map)
+        => ListItem(singleMem(TID:Int, Bn:Int, In:Int, Ran:K, X))
+               updateVarInList(Cur, Pre, L, M, RM, Rev)
+        requires isValidMemProType(OK(X)) andBool 
+                  (Bn <Int Pre orBool notBool isValidMemProType(X))
    rule updateVarInList(Cur:Int, Pre:Int, ListItem(singleMem(TID:Int, Bn:Int,
                      In:Int, Ran:K, X:K)) L:List, M:Map, RM:Map, Rev:Map)
         => ListItem(singleMem(TID:Int, Bn:Int, In:Int, Ran:K, X))
                updateVarInList(Cur, Pre, L, M, RM, Rev)
-        requires Bn <Int Pre orBool notBool isLocalVariable(X)
+        requires notBool isValidMemProType(X)
 
    rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
-             (varInstance(Cb, X) |-> V:K) M:Map, RM:Map, Rev:Map)
-            => V
-   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
-             M:Map, RM:Map, (Cb:Int |-> CbNext:K) Rev:Map)
-        => updateVarInVar(Cur, CbNext, X, M, RM, Rev:Map)
-        requires notBool varInstance(Cb, X) in keys(M)
-                 andBool Cur <Int Cb
-   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
-             M:Map, (X |-> V:K) RM:Map, Rev:Map) => V
-        requires Cur >=Int Cb
-   rule updateVarInVar(Cur:Int, Cb:Int, X:SymbolicValueRef,
-             M:Map, RM:Map, Rev:Map) => X
-        requires Cur >=Int Cb andBool notBool X in keys(RM)
+                             M:Map, RM:Map, Rev:Map)
+            => updateVarInVarAux(Cur, X,
+                  findPreVarBlockNum(Cur, Cb, X, .K, Rev), M, RM)
+   rule updateVarInVarAux(Root:Int, X:K, Root':Int,
+              M:Map, (X |-> V:K) RM:Map) => V
+        requires Root' <=Int Root
+   rule updateVarInVarAux(Root:Int, X:K, Root':Int,
+              M:Map, RM:Map) => X
+        requires Root' <=Int Root
+            andBool notBool X in keys(RM)
+   rule updateVarInVarAux(Root:Int, X:K, Cur:Int,
+              (varInstance(Cur, X) |-> V) M:Map, RM:Map) => V
+        requires Cur >Int Root
+   rule updateVarInVarAux(Root:Int, X:K, Cur:Int, M:Map, RM:Map) => X
+        requires Cur >Int Root
+               andBool notBool varInstance(Cur, X) in keys(M)
 
    rule updateVarInTerm(Cur:Int, C:Int, name(localVar, S:String),
                 M:Map, RM:Map, Rev:Map) =>
              updateVarInVar(Cur, C, name(localVar, S:String),
                 M:Map, RM, Rev:Map)
-   rule updateVarInTerm(Cur:Int, C:Int, name(globalVar, S:String),
-                M:Map, RM:Map, Rev:Map) => name(globalVar, S:String)
+   rule updateVarInTerm(Cur:Int, C:Int, X:K, M:Map, RM:Map, Rev:Map) => X
+        requires notBool isLocalVariable(X)
+
+   rule updateVarInTerm(Cur:Int, C:Int, phiResult(F:Int,
+                    name(localVar, S:String)), M:Map, RM:Map, Rev:Map)
+          => phiResult(F, updateVarInVar(Cur, F, name(localVar, S:String), M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, phiResult(F:Int,
+                    X:K), M:Map, RM:Map, Rev:Map) => phiResult(F, X)
+        requires notBool isLocalVariable(X)
 
    rule updateVarInTerm(Cur:Int, C:Int, noAssign(In:K), M:Map, RM:Map, Rev:Map)
         => noAssign(updateVarInTerm(Cur, C, In, M, RM, Rev))
@@ -3096,6 +3742,8 @@ module LLVM-HELPERS
                    arguments(updateVarInTermList(Cur, C, Es, M, RM, Rev))), L1, L2, FL:K)
    rule updateVarInTerm(Cur:Int, C:Int, load(Ty:K, V:K, Al:Int), M:Map, RM:Map, Rev:Map)
         => load(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev), Al)
+   rule updateVarInTerm(Cur:Int, C:Int, fence(Od:K), M:Map, RM:Map, Rev:Map)
+        => fence(Od)
    rule updateVarInTerm(Cur:Int, C:Int,
              getElementPtr(Ty:K, V:K, Es:ElemList), M:Map, RM:Map, Rev:Map)
         => getElementPtr(Ty, updateVarInGepTerm(Cur, C, V, M, RM, Rev),
@@ -3106,6 +3754,8 @@ module LLVM-HELPERS
                        T1, updateVarInTerm(Cur, C, V1, M, RM, Rev), Al)
    rule updateVarInTerm(Cur:Int, C:Int, operand(Ty:K, V:K), M:Map, RM:Map, Rev:Map)
         => operand(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
+   rule updateVarInTerm(Cur:Int, C:Int, theVAArg(Ty:K, V:K, T2:K), M:Map, RM:Map, Rev:Map)
+        => theVAArg(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev), T2)
    rule updateVarInTerm(Cur:Int, C:Int, ret(Ty:K, V:K), M:Map, RM:Map, Rev:Map)
         => ret(Ty, updateVarInTerm(Cur, C, V, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, A:K, M, RM, Rev)
@@ -3145,31 +3795,71 @@ module LLVM-HELPERS
        In:Int,R:K, aLoc(A:K, B:K, RT)) <- X]
    rule updateEnv(M:Map, Y:K, X:K) => M[Y <- X] [owise]
 
-   syntax Map ::= cutOffRegs(Int, K, K, Map) [function]
-                | getOffRegs(Int, K, K, Map) [function]
-                | updateMapByMap(Map, K, K, Map) [function]
+   //determine if the current blockexecution need to stay
+   syntax KItem ::= checkToKillBlockEx(K, K, Set, Map, Map) [function]
+   rule checkToKillBlockEx(New:K, blockExecution(OldId:K, BE:List),
+               S:Set, Rev:Map, RM:Map)
+          => blockExecution(OldId:K, BE:List)
+        requires OldId in S
+   rule checkToKillBlockEx(New:Int, blockExecution(OldId:K, BE:List),
+            S:Set, Rev:Map, RM:Map)
+                  => findNewSpec(findNextBlock(New, .K, .K, Rev, RM))
+        requires notBool OldId in S
+   rule checkToKillBlockEx(New:K, blockExecution(OldId:K, BE:List),
+            S:Set, Rev:Map, RM:Map) => .K [owise]
 
-   rule cutOffRegs(A:Int, .K, .K, .Map) => .Map
-   rule cutOffRegs(A:Int, .K, .K, (X:K |-> Y:K) M:Map)
-         => cutOffRegs(A, X, Y, M)
-   rule cutOffRegs(A:Int, varInstance(A:Int, X:K), Y:K, M:Map)
-         => cutOffRegs(A, .K, .K, M)
-   rule cutOffRegs(A:Int, varInstance(B:Int, X:K), Y:K, M:Map)
-        => (varInstance(B:Int, X:K) |-> Y:K) cutOffRegs(A, .K, .K, M)
+   //get all children of a root block num including the block
+   syntax Set ::= getChildrenOfBlock(K, K, Map) [function]
+                | getChildrenOfBlockAux(K, Set, Map) [function]
+   rule getChildrenOfBlock(A:K, .K, M:Map) => SetItem(A)
+        requires notBool A in keys(M)
+   rule getChildrenOfBlock(A:K, .K, (A |-> B:K) M:Map)
+          => getChildrenOfBlock(A, B, M)
+   rule getChildrenOfBlock(A:K, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map)
+         => getChildrenOfBlockAux(.K, Cs, M)
+   rule getChildrenOfBlockAux(.K, .Set, M:Map) => .Set
+   rule getChildrenOfBlockAux(.K, SetItem(A:K) S:Set, M:Map)
+         => getChildrenOfBlockAux(A, S, M)
+   rule getChildrenOfBlockAux(A:Int, S:Set, M:Map)
+          => getChildrenOfBlock(A, S, M)
+              getChildrenOfBlockAux(.K, S, M)
+
+   //get a spec map that does not include the old root and 
+    //other spec branches that are not selected (new root exlcuding).
+   syntax Map ::= getNewSpecMap(Int, Set, K, K, Map) [function]
+   rule getNewSpecMap(A:Int,S:Set, .K, .K, .Map) => .Map
+   rule getNewSpecMap(A:Int,S:Set, .K, .K, (B:K |-> C:K) M:Map)
+       => getNewSpecMap(A,S, B, C, M)
+   rule getNewSpecMap(A:Int, S:Set, varInstance(B:Int, C:K), V:K, M:Map)
+       => (varInstance(B:Int, C:K) |-> V) getNewSpecMap(A, S, .K, .K, M)
+         requires A =/=K B andBool B in S
+   rule getNewSpecMap(A:Int, S:Set, varInstance(B:Int, C:K), V:K, M:Map)
+        => getNewSpecMap(A, S, .K, .K, M)
+        requires A ==K B orBool notBool B in S
+
+   syntax Map ::= getNewRootSpecMap(Int, K, K, Map) [function]
+   rule getNewRootSpecMap(A:Int, .K, .K, .Map) => .Map
+   rule getNewRootSpecMap(A:Int, .K, .K, (B:K |-> C:K) M:Map)
+        => getNewRootSpecMap(A, B, C, M)
+   rule getNewRootSpecMap(A:Int, varInstance(A:Int, C:K), V:K, M:Map)
+       => (varInstance(A:Int, C:K) |-> V) getNewRootSpecMap(A, .K, .K, M)
+   rule getNewRootSpecMap(A:Int, varInstance(B:Int, C:K), V:K, M:Map)
+      => getNewRootSpecMap(A, .K, .K, M)
         requires A =/=K B
 
-   rule getOffRegs(A:Int, .K, .K, .Map) => .Map
-   rule getOffRegs(A:Int, .K, .K, (X:K |-> Y:K) M:Map)
-         => getOffRegs(A, X, Y, M)
-   rule getOffRegs(A:Int, varInstance(A:Int, X:K), Y:K, M:Map)
-         => (varInstance(A:Int, X:K) |-> Y:K) getOffRegs(A, .K, .K, M)
-        requires notBool isALoc(X)
-   rule getOffRegs(A:Int, varInstance(A:Int, X:K), Y:K, M:Map)
-         => getOffRegs(A, .K, .K, M)
-        requires isALoc(X)
-   rule getOffRegs(A:Int, varInstance(B:Int, X:K), Y:K, M:Map)
-        => getOffRegs(A, .K, .K, M)
-        requires A =/=K B
+   syntax List ::= getNewSpecOps(Set, K, List) [function]
+   rule getNewSpecOps(S:Set, .K, .List) => .List
+   rule getNewSpecOps(S:Set, .K, ListItem(A:K) L:List)
+       => getNewSpecOps(S, A, L)
+   rule getNewSpecOps(S:Set, dynInstInfo(A:Int, B:Int, C:K, D:K), L:List)
+       => ListItem(dynInstInfo(A:Int, B:Int, C:K, D:K)) getNewSpecOps(S, .K, L)
+        requires A in S
+   rule getNewSpecOps(S:Set, dynInstInfo(A:Int, B:Int, C:K, D:K), L:List)
+       => getNewSpecOps(S, .K, L)
+        requires notBool A in S
+
+   syntax Map ::= updateMapByMap(Map, K, K, Map) [function]
 
    rule updateMapByMap(M:Map, .K, .K, .Map) => M
    rule updateMapByMap(M:Map, .K, .K, (A:K |-> B:K) RM:Map)
@@ -3314,44 +4004,59 @@ module LLVM-HELPERS
         requires B =/=K B'
 
    syntax Bool ::= inChoiceMap(K, K, K, Map) [function]
-                 | inChoiceMapAux(K, K, Set) [function]
-   rule inChoiceMap(Old:K, New:K, .K, (Old |-> V:K) M:Map)
-         => inChoiceMap(Old, New, V, M)
-   rule inChoiceMap(Old:K, New:K, .K, M:Map) => false
-        requires notBool Old in keys(M)
-   rule inChoiceMap(Old:K, New:K, nextSpecs(S:Set), M:Map)
-           => inChoiceMapAux(New, .K, S)
-   rule inChoiceMapAux(New:K, .K, .Set) => false
-   rule inChoiceMapAux(New:K, .K, SetItem(A:K) S:Set)
-          => inChoiceMapAux(New, A, S)
-   rule inChoiceMapAux(New:K, basicBlockNum(X:Int, New:K), S:Set)
-         => true
-   rule inChoiceMapAux(New:K, basicBlockNum(X:Int, New':K), S:Set)
-         => inChoiceMapAux(New, .K, S)
-        requires New =/=K New'
+                 | inChoiceMapAux(K, K, Set, K, Map) [function]
+   rule inChoiceMap(E:K, A:K, .K, M:Map) => false
+        requires notBool A in keys(M)
+   rule inChoiceMap(E:K, A:K, .K, (A |-> B:K) M:Map)
+        => inChoiceMap(E:K, A, B, M)
+   rule inChoiceMap(E:K, A:K, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map)
+        => inChoiceMapAux(E:K, .K, Cs, .K, M)
+   rule inChoiceMapAux(E:K, .K, .Set, .K, M:Map) => false
+   rule inChoiceMapAux(E:K, .K, SetItem(A:K) S:Set,.K, M:Map)
+         => inChoiceMapAux(E:K, A, S, .K, M)
+   rule inChoiceMapAux(E:K, A:Int, S:Set, .K, M:Map)
+         => inChoiceMapAux(E:K, .K, S,.K, M)
+        requires notBool A in keys(M)
+   rule inChoiceMapAux(E:K, A:Int, S:Set,.K, (A |-> B:K) M:Map)
+         => inChoiceMapAux(E, A, S, B, (A |-> B:K) M)
+   rule inChoiceMapAux(Name, A:Int, S:Set, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map) => true
+   rule inChoiceMapAux(Name':K, A:Int, S:Set, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map)
+      => inChoiceMapAux(Name', .K, S, .K, M)
+         requires Name =/=K Name'
 
-   syntax Int ::= getBlockNum(K, K, K, Map) [function]
-                | getBlockNumAux(K, K, Set) [function]
-   rule getBlockNum(Old:K, New:K, .K, (Old |-> B:K) S:Map)
-         => getBlockNum(Old, New, B, S)
-   rule getBlockNum(Old:K, New:K, .K, S:Map) => -1
-        requires notBool Old in keys(S)
-   rule getBlockNum(Old:K, New:K, nextSpecs(S:Set), M:Map)
-           => getBlockNumAux(New, .K, S)
-   rule getBlockNumAux(New:K, .K, .Set) => -1
-   rule getBlockNumAux(New:K, .K, SetItem(A:K) S:Set)
-          => getBlockNumAux(New, A, S)
-   rule getBlockNumAux(New:K, basicBlockNum(X:Int, New:K), S:Set)
-           => X
-   rule getBlockNumAux(New:K, basicBlockNum(X:Int, New':K), S:Set)
-         => getBlockNumAux(New, .K, S)
-        requires New =/=K New'
+   syntax KItem ::= getBlockNum(K, K, K, Map) [function]
+                | getBlockNumAux(K, K, Set, K, Map) [function]
+   rule getBlockNum(E:K, A:K, .K, M:Map) => none
+        requires notBool A in keys(M)
+   rule getBlockNum(E:K, A:K, .K, (A |-> B:K) M:Map)
+        => getBlockNum(E:K, A, B, M)
+   rule getBlockNum(E:K, A:K, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map)
+        => getBlockNumAux(E:K, .K, Cs, .K, M)
+   rule getBlockNumAux(E:K, .K, .Set, .K, M:Map) => none
+   rule getBlockNumAux(E:K, .K, SetItem(A:K) S:Set,.K, M:Map)
+         => getBlockNumAux(E:K, A, S, .K, M)
+   rule getBlockNumAux(E:K, A:Int, S:Set, .K, M:Map)
+         => getBlockNumAux(E:K, .K, S,.K, M)
+        requires notBool A in keys(M)
+   rule getBlockNumAux(E:K, A:Int, S:Set,.K, (A |-> B:K) M:Map)
+         => getBlockNumAux(E, A, S, B, (A |-> B:K) M)
+   rule getBlockNumAux(Name, A:Int, S:Set, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map) => Bn
+   rule getBlockNumAux(Name':K, A:Int, S:Set, runBlock(Bn:Int, Name:K,
+              Fa:Int, L:List, Vars:Set, Cs:Set), M:Map)
+      => getBlockNumAux(Name', .K, S, .K, M)
+         requires Name =/=K Name'
 
    syntax KItem ::= mergeBackInstQueue(K) [function]
    rule mergeBackInstQueue(splitQueue(A:List, B:List, C:List))
                  => instList(A B C)
    rule mergeBackInstQueue(A:K) => A [owise]
 
+/*
    syntax KItem ::= removeFailSpec(K, Set) [function]
    rule removeFailSpec(instList(L:List), S:Set)
           => instList(removeFailSpecAux(L, S))
@@ -3376,7 +4081,7 @@ module LLVM-HELPERS
                    Count:Int, B:K), L:List), S:Set)
          => findNewBlock
         requires (Count in S)
-
+*/
    syntax Set ::= minusSet(K, Set, Set) [function]
    rule minusSet(.K, S:Set, .Set) => S
    rule minusSet(.K, S:Set, SetItem(A) S1:Set)
@@ -3630,6 +4335,17 @@ module LLVM-HELPERS
               region(L:List, A:Int), V1:K, B:Int, I:Int, S:Int, Ad:Int) => .List
          requires I >=Int A
 
+    syntax List ::= combineList(List, List) [function]
+    rule combineList(L1:List, L2:List) => L1 L2
+
+    syntax List ::= removeMemBlock(List, Int) [function]
+    rule removeMemBlock(.List, I:Int) => .List
+    rule removeMemBlock(ListItem(value(A:Int, B:Int)) L:List, I:Int) => L
+         requires I >=Int A andBool I <=Int B
+    rule removeMemBlock(ListItem(value(A:Int, B:Int)) L:List, I:Int)
+              => ListItem(value(A:Int, B:Int)) removeMemBlock(L, I)
+         requires I <Int A orBool I >Int B
+
     syntax List ::= genReadBytes(Int, Int, Int, K, K,
                                         Int, Int, Int, Int)  [function]
           //thread, block, inst, heap/stack, type,
@@ -3653,6 +4369,7 @@ module LLVM-HELPERS
                   andBool A =/=K acquire andBool A =/=K release
                   andBool A =/=K acq_rel andBool A =/=K seq_cst
 
+/*
     syntax KItem ::= getMemVar(K) [function]
     rule getMemVar(assign(X:K, In:K)) => getMemVar(In)
     rule getMemVar(noAssign(X:K)) => getMemVar(X)
@@ -3660,7 +4377,24 @@ module LLVM-HELPERS
              => getMemVar(X)
     rule getMemVar(store(X:K, Y:K, T1:K, Z:K, A:Int)) => Z
     rule getMemVar(load(X:K, Y:K, A:Int)) => Y
+    rule getMemVar(fence(A:K)) => fence(A)
     rule getMemVar(A:K) => .K [owise]
+*/
+
+    syntax Set ::= getDefVar(K) [function]
+    rule getDefVar(assign(X:K, In:K)) => SetItem(X)
+    rule getDefVar(noAssign(X:K)) => .Set
+
+    syntax Set ::= getVarsFromVarOp(K, Set) [function]
+    rule getVarsFromVarOp(.K, .Set) => .Set
+    rule getVarsFromVarOp(.K, SetItem(A) S:Set)
+          => getVarsFromVarOp(A, S)
+    rule getVarsFromVarOp(varOp(A:K, B:K, T:K, V:K), S:Set)
+           => SetItem(V) getVarsFromVarOp(.K, S)
+
+    syntax Bool ::= isFence(K) [function]
+    rule isFence(fence(A:K)) => true
+    rule isFence(_) => false [owise]
 
     syntax Set ::= getSubTypeBase(Int, K)  [function]
                  | getSubTypeBaseArray(Int, K, Int, Int) [function]
@@ -3797,40 +4531,47 @@ module LLVM-HELPERS
 
     rule isMemAvailable(.List, singleMem(TID:Int, Bn:Int,
                     In:Int, Ran:K, X:K), SL:List, S:List) => true
-         requires notBool isALoc(X) andBool notBool isLocalVariable(X)
+         requires notBool isValidMemProType(X)
     rule isMemAvailable(L:List, singleMem(TID:Int, Bn:Int,
-                    In:Int, Ran:K, X:SymbolicValueRef),SL:List, S:List) => false
+                    In:Int, Ran:K, OK:KLabel(X:SymbolicValueRef)),SL:List, S:List) => false
+         requires isValidMemProType(OK:KLabel(X:SymbolicValueRef))
     rule isMemAvailable(L:List, singleMem(TID:Int, Bn:Int,
-                    In:Int, Ran:K, X:K),SL:List, S:List) => false
-         requires isALoc(X)
+                    In:Int, Ran:K, OK:KLabel(X:K)),SL:List, S:List) => false
+         requires isALoc(X) andBool isValidMemProType(OK(X))
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int, In:Int, Ran:K,
-                  X:SymbolicValueRef)) L:List, A:K, SL:List, S:List) => false
+                  OK:KLabel(X:SymbolicValueRef))) L:List, A:K, SL:List, S:List) => false
+         requires isValidMemProType(OK:KLabel(X:SymbolicValueRef))
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, heap, loc(Base:Int, Ty:K, Rang:K,heap,BA:K, InR:K))) L:List,
+          In:Int, heap, OK:KLabel(loc(Base:Int, Ty:K, Rang:K,heap,BA:K, InR:K)))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List) => false
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
                   andBool notBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), S)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+                  andBool isValidMemProType(
+                         OK:KLabel(loc(Base:Int, Ty:K, Rang:K,heap,BA:K, InR:K)))
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, stack, loc(Base:Int, Ty:K, Rang:K,stack,BA:K, InR:K))) L:List,
+     In:Int, stack, OK:KLabel(loc(Base:Int, Ty:K, Rang:K,stack,BA:K, InR:K)))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List) => false
          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
                   andBool notBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), SL)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+                  andBool isValidMemProType(
+                         OK:KLabel(loc(Base:Int, Ty:K, Rang:K,stack,BA:K, InR:K)))
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
-                    In:Int, heap, loc(Base:Int, Ty:K, Rang:K,heap,BA:K, InR:K))) L:List,
+      In:Int, heap, OK:KLabel(loc(Base:Int, Ty:K, Rang:K,heap,BA:K, InR:K)))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List)
            => isMemAvailable(L, singleMem(TID':Int,
                            Bn':Int,In':Int,heap,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+         requires notBool isValidMemProType(W)
                   andBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), S)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
+              
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, stack, loc(Base:Int, Ty:K, Rang:K,stack,BA:K, InR:K))) L:List,
                 singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List)
            => isMemAvailable(L, singleMem(TID':Int,
                              Bn':Int,In':Int,stack,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
+         requires notBool isValidMemProType(W)
                   andBool isMemAvailableA(Base, sizeof(Ty), getBaseAndOffset(W), SL)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
 
@@ -3839,8 +4580,8 @@ module LLVM-HELPERS
                 singleMem(TID':Int, Bn':Int,In':Int,stack,W:K),SL:List, S:List)
            => isMemAvailable(L, singleMem(TID':Int,
                            Bn':Int,In':Int,stack,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
            andBool isMemAvailableAAux(getBaseAndOffset(X), getBaseAndOffset(W), SL)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
@@ -3848,8 +4589,8 @@ module LLVM-HELPERS
                 singleMem(TID':Int, Bn':Int,In':Int,heap,W:K),SL:List, S:List)
            => isMemAvailable(L, singleMem(TID':Int,
                          Bn':Int,In':Int,heap,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
            andBool isMemAvailableAAux(getBaseAndOffset(X), getBaseAndOffset(W), S)
                   andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
@@ -3857,15 +4598,15 @@ module LLVM-HELPERS
                 Bn':Int,In':Int, Ran':K,W:K), SL:List, S:List)
                => isMemAvailable(L, singleMem(TID':Int,
                 Bn':Int,In':Int, Ran':K,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
            andBool Ran =/=K Ran'
            andBool (TID =/=K TID' orBool Bn =/=K Bn' orBool In =/=K In')
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, stack, X:K)) L:List, singleMem(TID':Int,
                 Bn':Int,In':Int, stack,W:K), SL:List, S:List) => false
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
            andBool notBool isMemAvailableAAux(
                           getBaseAndOffset(X), getBaseAndOffset(W), SL)
                 andBool notBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
@@ -3873,8 +4614,8 @@ module LLVM-HELPERS
     rule isMemAvailable(ListItem(singleMem(TID:Int, Bn:Int,
                     In:Int, heap, X:K)) L:List, singleMem(TID':Int,
                 Bn':Int,In':Int, heap,W:K), SL:List, S:List) => false
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W) 
+            andBool notBool isValidMemProType(X)
            andBool notBool isMemAvailableAAux(
                           getBaseAndOffset(X), getBaseAndOffset(W), S)
                 andBool notBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
@@ -3884,8 +4625,8 @@ module LLVM-HELPERS
                 Bn':Int,In':Int, stack,W:K), SL:List, S:List)
                => isMemAvailable(L, singleMem(TID':Int,
                 Bn':Int,In':Int, stack,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
            andBool notBool isMemAvailableAAux(
                           getBaseAndOffset(X), getBaseAndOffset(W), SL)
                 andBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
@@ -3895,8 +4636,8 @@ module LLVM-HELPERS
                 Bn':Int,In':Int, heap,W:K), SL:List, S:List)
                => isMemAvailable(L, singleMem(TID':Int,
                 Bn':Int,In':Int, heap,W:K), SL, S)
-         requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+         requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
            andBool notBool isMemAvailableAAux(
                           getBaseAndOffset(X), getBaseAndOffset(W), S)
                 andBool isMemAvailableB(getBaseAndSize(X), getBaseAndSize(W))
@@ -3906,8 +4647,8 @@ module LLVM-HELPERS
               Bn:Int,In:Int, Ran:K,W:K), SL:List, S:List)
             => isMemAvailable(L, singleMem(TID:Int,
               Bn:Int,In:Int, Ran:K,W:K), SL, S)
-          requires notBool isLocalVariable(W) andBool notBool isALoc(W)
-            andBool notBool isLocalVariable(X) andBool notBool isALoc(X)
+          requires notBool isValidMemProType(W)
+            andBool notBool isValidMemProType(X)
 
     //check if an op is a write
     syntax Bool ::= getOrderInMemOp(K) [function]
@@ -4108,15 +4849,6 @@ module LLVM-HELPERS
     rule hasSameType(Ty:K, value(Ty:K, V:K)) => true
     rule hasSameType(Ty:K, value(Ty':K, V:K)) => false
          requires Ty =/=K Ty'
-
-    //test if A is a father of B in the reverse Map
-    syntax Bool ::= isFather(K, K, Map)  [function]
-    rule isFather(A:K, A:K, M:Map) => true
-    rule isFather(A:K, B:K, M:Map) => false
-         requires notBool B in keys(M) andBool A =/=K B
-    rule isFather(A:K, B:K, (B |-> C:K) M:Map)
-           => isFather(A, C, M)
-         requires A =/=K B
 
     //delete the entries having no var as the first element
     syntax Map ::= deleteNonTargetMap(K, K, K, Map) [function]
@@ -4377,9 +5109,10 @@ module LLVM-HELPERS
     rule joinBitsToVal(integerType(N:Int), L:List)
          => normalizingInt(integerType(N:Int), binToDec(L, 0))
 
-    syntax Bool ::= isLoadVal(K) [function]
-    rule isLoadVal(loadVal(_)) => true
-    rule isLoadVal(_) => false [owise]
+    syntax Bool ::= isReadVal(K) [function]
+    rule isReadVal(loadVal(_)) => true
+    rule isReadVal(vaArgOp(_,_)) => true
+    rule isReadVal(_) => false [owise]
 
     syntax Bool ::= isGlobalValue(K) [function]
     rule isGlobalValue(globalValue(_,_,_)) => true

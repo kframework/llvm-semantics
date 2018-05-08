@@ -85,7 +85,7 @@ module LLVM-CALL-RET
          requires notBool aLoc(P, T, heap) in keys(M)
 
     rule
-        <k> call(_, calleeValue(funptr(FunName), Args:ElemList)) ~> Tail:K
+        <k> call(_, calleeValue(funptr(FunName), Args:KResult)) ~> Tail:K
             => contextSwitch(FunName, Tail)
             ~> bind(Args, Formals)
             ~> startInitBlock(IBBName)
@@ -157,45 +157,18 @@ module LLVM-CALL-RET
     rule <k> blockExecution(A:K, B:List) => .K ...</k>
          <toExecute> _:K => blockExecution(A:K, B:List) </toExecute>
 
-    //heating/cooling rules for putInMemoryOrder
-    rule constExpr(A:KResult) => constExprVal(A)
-    rule prePutInMemoryOrder(TID:Int, A:Int, B:Int, X:K, T:K) => .K
-         requires T =/=K loadInst andBool T =/=K storeInst 
-    rule prePutInMemoryOrder(TID:Int, A:Int, B:Int, X:K, T:K)
-          => putInMemoryOrder(TID, A, B, X)
-         requires T ==K loadInst orBool T ==K storeInst
-
-    rule putInMemoryOrder(TID:Int, A:Int, B:Int, X:K)
-         => constExpr(X) ~> putInMemoryOrder(TID:Int, A, B, emptyHOLE)
-         requires notBool isLocalVariable(X) andBool X =/=K emptyHOLE
-                 andBool notBool isConstExprVal(X)
-    rule constExprVal(X:K) ~> putInMemoryOrder(TID:Int, A:Int, B:Int, emptyHOLE)
-         => putInMemoryOrder(TID:Int, A, B, constExprVal(X))
-    rule putInMemoryOrder(TID:Int, A:Int, B:Int, X:K)
-           => putInMemoryOrder(TID:Int, A, B, constExprVal(X))
-         requires isLocalVariable(X)
-    rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int, constExprVal(X:K)) => .K ...</k>
-         <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
-                ML:List (.List => ListItem(
-                             singleMem(TID, A, B, either, X)))) </toCommit>
-         requires isLocalVariable(X)
-    rule <k> putInMemoryOrder(TID:Int, A:Int, B:Int,
-                  constExprVal(loc(Ba:Int, OfT:K, Rang:K, RT:K, BA:K, InR:K))) => .K ...</k>
-         <toCommit> memList(Ava:List, Ava', Avb:List, Avb':List, 
-                         ML:List (.List => ListItem(singleMem(TID, A, B,
-                     RT, loc(Ba:Int, OfT:K, Rang:K, RT:K, BA:K, InR:K))))) </toCommit>
-
     //moving instruction into instQueue if it is not full
     rule <toExecute> blockExecution(basicBlockNum(N:Int, _:K),
                (ListItem(instNumInfo(Num:Int, In:K, T:K)) L:List => L)) ...</toExecute>
-         <k> (.K => prePutInMemoryOrder(TID, N, Num, getMemVar(In), T)) ~> K:K </k>
          <instQueue> instList(InQueue:List =>
                          InQueue ListItem(dynInstInfo(N, Num,
-                               updateVarInTerm(CurN, N, In, M', M, Rev), T))) </instQueue>
+                               updateVarInTerm(CurN, N, In, M', M,
+                Rev (CurN |-> runBlock(
+                   CurId, CurL, FaId, MemL, Defs, Childs))), T))) </instQueue>
          <registers> M:Map </registers>
-        <threadId> TID:Int </threadId>
          <specRegisters> M':Map </specRegisters>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map (CurN |-> runBlock(CurId:Int,CurL:K, FaId:K, 
+            MemL:List, (Defs:Set => Defs getDefVar(In)), Childs:Set)) </specTree>
          <currBlock> basicBlockNum(CurN:Int, CurLabel:K) </currBlock>
          requires size(InQueue) <Int numOfMaxInQueue andBool T =/=K terminators
          [transition]
@@ -205,7 +178,7 @@ module LLVM-CALL-RET
                ListItem(instNumInfo(Num:Int,
                      noAssign(instruction(In:K, Attrs:Set, Meta:K)), terminators)))
             => blockExecution(basicBlockNum(Count, guessNextBlock(In)),
-               formInstList(1, .K, Body)) ...</toExecute>
+               selectPhis(N,Name,formInstList(1, .K, Body))) ...</toExecute>
          <registers> M:Map </registers>
          <specRegisters> M':Map </specRegisters>
          <instQueue> instList(InQueue:List => InQueue ListItem(dynInstInfo(N, Num,
@@ -213,14 +186,14 @@ module LLVM-CALL-RET
                Attrs:Set, Meta:K)), M', M, Rev), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-        <currChoice> CurCh:Map => CurCh[Count <- guessNextBlock(In)] </currChoice>
-         <specChoice> allowChoice(Chi:Map =>
-               Chi[N <- nextSpecs(SetItem(
-                   basicBlockNum(Count, guessNextBlock(In))))]) </specChoice>
-         <reverseChoice> Rev:Map => Rev[Count <- N] </reverseChoice>
+         <specTree> Rev:Map => addChildToKey(Rev, N, Count)
+                           [Count <- runBlock(Count,
+                guessNextBlock(In), N, formMemList(Count, formInstList(1, .K, Body), VaLoc),
+               getVarsFromVarOp(.K, OutDef -Set InDef), .Set)] </specTree>
          <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
-                   (guessNextBlock(In) |-> blockContent(Body, Flag,
-                     InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
+                  (guessNextBlock(In) |-> blockContent(Body, Flag,
+                    InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
+         <vaList> value(_:K, VaLoc:Loc) </vaList>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName:SymbolicValueRef </currFunction>
@@ -234,34 +207,31 @@ module LLVM-CALL-RET
      //rules for speculative moves by choosing a different direction because of 
      //hitting return operators.
     rule <toExecute> blockExecution(basicBlockNum(N:Int, Name:K), .List)
-              => blockExecutionAux(findNextBlock(BN, Chi, RM)) ...</toExecute>
-         <specChoice> allowChoice(Chi:Map)
-                      => holdChoice(Chi) </specChoice>
+             => findNewSpec(findNextBlock(BN, .K, .K, Rev, RM)) ...</toExecute>
+         <specTree> Rev:Map </specTree>
          <restChoice> RM:Map </restChoice>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
-         <blockCount> Count:Int </blockCount> 
-         requires hasRestBlocks(.K, RM) andBool (Count -Int maxSpecGap <Int BN)
-          [structural]
 
-    rule <toExecute> blockExecutionAux(selectSpec(PreCount:Int,
-                    Name:K, Rest:Set))
-            => blockExecution(basicBlockNum(Count, Name),
-               formInstList(1, .K, Body)) ...</toExecute>
+    rule <toExecute> findNewSpec(none) => .K ...</toExecute>
+    rule <toExecute> findNewSpec(selectSpec(Fa:Int, Name:K, Cs:Set))
+              => blockExecution(basicBlockNum(Count, Name),
+            selectPhis(Fa, getFatherName(Fa, Rev), formInstList(1, .K, Body)))
+                 ...</toExecute>
+         <specTree> Rev:Map => addChildToKey(Rev, Fa, Count)
+                           [Count <- runBlock(Count, Name, Fa,
+              formMemList(Count, formInstList(1, .K, Body), VaLoc),
+               getVarsFromVarOp(.K, OutDef -Set InDef), .Set)] </specTree>
+         <restChoice> RM:Map => updateChoiceInMap(RM,Fa,Cs) </restChoice>
+         <vaList> value(_:K, VaLoc:Loc) </vaList>
+         <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-        <currChoice> CurCh:Map => CurCh[Count <- Name] </currChoice>
-         <specChoice> holdChoice(Chi:Map) 
-              => allowChoice(updateChoiceMap(Chi, .K, PreCount,
-                           basicBlockNum(Count, Name))) </specChoice>
-         <reverseChoice> Rev:Map => Rev[Count <- PreCount] </reverseChoice>
-         <restChoice> (PreCount |-> Rest':K) RM:Map
-              => changeBlocks(PreCount, Name, Rest, RM, Flag) </restChoice>
          <currModule> ModName:SymbolicValueRef </currModule>
          <funModuleName> ModName </funModuleName>
          <currFunction> FunName:SymbolicValueRef </currFunction>
          <functionName> FunName </functionName>
-         <basicBlocks>... Name |-> blockContent(Body:Map, Flag:Bool,
-                _:Set, _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
-         [transition]
+         <basicBlocks>... Name |-> blockContent(Body:Map, _:Bool,
+                _:Set, _:Set, InDef:Set, _:Set, OutDef:Set, _:Set, _:Set) ...</basicBlocks>
+          [transition]
 
     rule <instQueue> instList(ListItem(A:K) L:List)
                       => splitQueue(.List, ListItem(A), L) </instQueue>
@@ -273,7 +243,7 @@ module LLVM-CALL-RET
                => instList(Pre L) </instQueue>
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
           requires ((T ==K terminators) orBool (T ==K returnInst)
-                   orBool (T ==K callInst))
+                   orBool (T ==K callInst) orBool (T ==K vaInst))
          [structural]
 
     rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
@@ -281,7 +251,7 @@ module LLVM-CALL-RET
                => instList(Pre L) </instQueue>
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
           requires (T =/=K terminators) andBool (T =/=K returnInst)
-                   andBool (T =/=K callInst)
+                   andBool (T =/=K callInst) andBool (T =/=K vaInst)
          [transition]
 
     rule <instQueue> splitQueue(Av:List ListItem(dynInstInfo(BN:Int,
@@ -295,7 +265,8 @@ module LLVM-CALL-RET
           => splitQueue(AV ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)),
               Pre ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)), L) </instQueue>
           requires (T =/=K terminators) andBool (T =/=K returnInst)
-                  andBool (T =/=K callInst) andBool (isAvailable(Inst))
+                  andBool (T =/=K callInst) andBool (T =/=K vaInst)
+                    andBool (isAvailable(Inst))
          [transition]
 
     rule <instQueue> splitQueue(AV:List, Pre:List,
@@ -303,7 +274,8 @@ module LLVM-CALL-RET
           => splitQueue(AV, Pre ListItem(dynInstInfo(BN:Int,
                                 IN:Int, Inst:K, T:K)), L) </instQueue>
           requires (T ==K terminators) orBool (T ==K returnInst)
-                  orBool (T ==K callInst) orBool (notBool isAvailable(Inst))
+                  orBool (T ==K callInst) orBool (T ==K vaInst)
+                    orBool (notBool isAvailable(Inst))
          [structural]
 
     rule <cpu> dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)
@@ -325,7 +297,7 @@ module LLVM-CALL-RET
                          updateEnv(M,varInstance(BN, X), V), M', Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          requires BN >Int Cur
          [transition]
 
@@ -343,7 +315,7 @@ module LLVM-CALL-RET
                ML, M, updateEnv(M', X, V), Rev), Cur, SL, S) </toCommit>
          <memoryList> S:List </memoryList>
            <stackList> SL:List </stackList>
-         <reverseChoice> Rev:Map </reverseChoice>
+         <specTree> Rev:Map </specTree>
          requires BN <=Int Cur
          [transition]
 
@@ -385,6 +357,22 @@ module LLVM-CALL-RET
     rule
         <k> bind(.ElemList, .ElemList) => .K ...</k>
 
+    rule bind((valValue(typedArg(S:Set, T:K, Arg:K)), Args:ElemList),
+               (valValue(vaListType),Formals:ElemList))
+           => vaListCal('structType(formTypeList(
+              getAllTypes(valValue(
+                 typedArg(S:Set, T:K, Arg:K)), Args:ElemList))),
+                  alloca('structType(formTypeList(
+              getAllTypes(valValue(
+                 typedArg(S:Set, T:K, Arg:K)), Args:ElemList))), 1, 0, 1, false),
+                constantStruct(formOperandList(valValue(
+                 typedArg(S:Set, T:K, Arg:K)), Args:ElemList)))
+
+    rule <k> vaListCal(T:KResult, Loc:Loc, V:KResult)
+          => staticStore(T, V, pointerTypeValue(T, 0), Loc, 1) ...</k>
+         <vaList> K:K => value(T,Loc) </vaList>
+                   
+/*
     rule
         <k> bind((valValue(typedArg(_, _, Arg:K)), L:ElemList
                   => L), val(vararg)) ...</k>
@@ -392,6 +380,7 @@ module LLVM-CALL-RET
 
     rule
         <k> bind(.ElemList, val(vararg)) => .K ...</k>
+*/
 
     // TODO this isn't great.  would be better to check type when doing the call/returning and handle appropriately
 

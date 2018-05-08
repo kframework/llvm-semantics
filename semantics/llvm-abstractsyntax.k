@@ -38,6 +38,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= "vaListType"
     rule 'vaArgs(.KList) => vaListType
 
+    syntax KItem ::= vaListCal(K, K, K) [strict]//type, loc, value
     syntax KResult ::= TypeResult
     syntax KResult ::= value(K, K) //type, value
     syntax KResult ::= flagType(K, K) //flags, type
@@ -53,8 +54,9 @@ module LLVM-ABSTRACTSYNTAX
     
 
     syntax KItem ::= "terminators" | "loadInst" | "storeInst"
+                    | "fenceInst" | "readWriteInst"
                     | "callInst" | "normalInst" | "returnInst"
-                    | "allocaInst" | "phiInst"
+                    | "allocaInst" | "phiInst" | "vaInst"
     syntax KItem ::= usedLoc(K) //location of a variable.
 
     syntax KItem ::= seqPoint(Int, Int, K)
@@ -223,13 +225,18 @@ module LLVM-ABSTRACTSYNTAX
     rule getAllTypes(T:Type _:ParamAttrs _:ValueRef, Pl:ParamList)
                    => val(T), getAllTypes(Pl)
     rule getAllTypes(.ElemList) => .ElemList
-    rule getAllTypes(valValue(typedArg(A:K, B:K, C:K)), Pl:ElemList)
+    rule getAllTypes(valValue(typedArg(A:Set, B:K, C:K)), Pl:ElemList)
                    => valValue(B), getAllTypes(Pl)
     rule getAllTypes(valValue(vaListType), Pl:ElemList)
                    => valValue(vaListType), getAllTypes(Pl)
 
     //useful function to turn a kitem into an elemList
     //here: add addNameToString to every position where it has type or valueref
+    syntax TypeList ::= formTypeList(ElemList) [function]
+    rule formTypeList(.ElemList) => .TypeList
+    rule formTypeList(valValue(A:TypeResult), Es:ElemList)
+            => A, formTypeList(Es)
+
     syntax ElemList ::= formElemList(K) [function]
 
     rule formElemList('.InstructionMetadatas(.KList)) => .ElemList
@@ -549,12 +556,13 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax KResult ::= intByte(List)
     syntax KItem ::= countByteResult(List, List)
+    syntax KItem ::= splitListResult(List, List)
 
-    syntax KItem ::= blockExecutionAux(K) 
+    //syntax KItem ::= blockExecutionAux(K) 
     syntax KItem ::= blockExecution(K, List)//prev block with num, inst list
     syntax KItem ::= "blockHOLE"
-    syntax KItem ::= "findNewBlock"
-    syntax KItem ::= setExecutionInst(Int, Set, K, K)
+    syntax KItem ::= findNewSpec(K)
+    //syntax KItem ::= setExecutionInst(Int, Set, K, K)
                 //new block, not good specs, NewEx, NewQueue
 
     //parsing string in LLVM to byte list in K
@@ -624,10 +632,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= gepOperand(K, K, K) [strict(3)]
                           //inrange?, Type, Value
     syntax KResult ::= gepOperandResult(K, K) //inrange, value
-    syntax KItem ::= singleGepTypeCheck(K, Int, K, Int, K) [strict(5)]
-              //block, assign,count, add space, type
-    syntax KItem ::= vectorGepTypeCheck(K ,Int, K, Int, K, List, List)
-              //block, count, assign, add space, type
+    syntax KItem ::= singleGepTypeCheck(K, Int, K, Int, K, K, Set, K) [strict(5)]
+              //block, assign,count, add space, type, arg-type, flags, meta
+    syntax KItem ::= vectorGepTypeCheck(K ,Int, K, Int, K, Int, List, List, K, List, Set, K)
+              //block, count, assign, add space, type, vector-num
+              //types, stores, ret-arg, store-args, flags, meta 
 
     syntax KItem ::= clause(K, K) //caluse label, value
     syntax KItem ::= typeOperand(K, K)  [strict(1)] //type, value
@@ -638,8 +647,12 @@ module LLVM-ABSTRACTSYNTAX
     rule typeOperand(T:KResult, K:K) => typeOperandResult(T, K)     [structural]
     syntax KItem ::= setArgsToBlockEnv(K, ElemList)  [strict(2)]//block name, typeoperand
 
-    syntax KItem ::= setSpecChoice(Int, Int, K, K, K)
+    //syntax KItem ::= setSpecChoice(Int, Int, K, K, K)
                //Old, New, choice map, toEx inst, queue inst
+    syntax KItem ::= memProto(Int, K, Map) //inst-id, mem-op, next mem map
+    syntax KItem ::= runBlock(Int, K, K, List, Set, Set) 
+                      //block id, block name, father block id (int or none), 
+                      //mem list, def var set, children ids
     syntax KItem ::= allowChoice(Map) //used for specChoice cell
     syntax KItem ::= holdChoice(Map) //used for specChoice cell
     syntax KItem ::= newSpecMap(Map, Set)
@@ -654,10 +667,22 @@ module LLVM-ABSTRACTSYNTAX
             //used for toCommit cell: available to commit, available to commit
             //already wire, avialable to wire, not available
     syntax KItem ::= pairResult(K, K)
+    syntax KItem ::= pairResultList(K, List)
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
+    syntax KItem ::= toRead(K, K) //var or loc, ordering
+    syntax KItem ::= toWrite(K, K) //var or loc, ordering
+    syntax KItem ::= toReadWrite(Set, K) //var or locs, ordering
+    syntax KItem ::= toClose(Int) //loc-base
+    
+    syntax KItem ::= "vaWait"
+    syntax KItem ::= vaWaitRead(K) //type
+    syntax KItem ::= "waitWrite"
+    syntax KItem ::= vaWaitWrite(K) //loc
+    syntax KResult ::= vaArgOp(K, K) //loc, read-type
+
     syntax KItem ::= writeAByte(K, K, K, Int, Int, Int, Int)
                    //type value, original value, base, offset, size, addrspace
     syntax KItem ::= readAByte(K, Int, Int, Int, Int)
@@ -672,10 +697,51 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= dynResult(K, K)
     syntax KResult ::= dynNoResult(K)
     syntax KItem ::= waitForBranch(K)
-    syntax KItem ::= exprType(K) [strict]
-    syntax KItem ::= constExprType(K) [strict]
+    //syntax KItem ::= exprType(K) [strict]
+    syntax KItem ::= constIntBinType(K, K, ElemList)   [strict(3)]//type, op, args
+    syntax KItem ::= exprGepArgType(K, K) [strict(2)] //inrange, arg-type
+    syntax KItem ::= exprSelectType(Int, K, ElemList, K) [strict(3)]
+    syntax KItem ::= exprVaArgType(Int, K, K, K, K) [strict(3)]
+              //count, var, arg-ty, ty2, meta
+    syntax KItem ::= exprAllocaType(Int, K, K, ElemList, Int, Int, Set, K) [strict(4)]
+           //count, var, type, arg-type, addspace, align, flags, meta
+    syntax KItem ::= exprLoadType(Int, K, K, Int, Set, K) [strict(3)]
+           //count, var, arg-ty, align, flags, Meta
+    syntax KItem ::= exprStoreType(Int, ElemList, Int, Set, K) [strict(2)]
+           //count, arg-types, align, flags, meta
+    syntax KItem ::= exprPhiType(K, K) [strict(1)]
+             //arg-type, label
+    syntax KItem ::= exprSwitchType(Int, ElemList, K, List, K) [strict(2)]
+    syntax KItem ::= exprIndirctBrType(Int, ElemList, List, K) [strict(2)]
+    syntax KItem ::= exprBrType(Int, ElemList, K, K, K) [strict(2)]
+    syntax KItem ::= exprShuffleType(Int, K, ElemList, K) [strict(3)]
+    syntax KItem ::= exprElemExtractType(Int, K, ElemList, K) [strict(3)]
+    syntax KItem ::= exprInsertElemType(Int, K, ElemList, K) [strict(3)]
+    syntax KItem ::= exprExtractValueType(Int, K, K, List, K) [strict(3)]
+              //count, var, arg-tys, index, meta
+    syntax KItem ::= exprInsertValueType(Int, K, ElemList, List, K) [strict(3)]
+              //count, var, arg-tys, index, meta
+    syntax KItem ::= exprInvokeType(Int, K, K, K, K, K, ElemList, ParamList, Set, K)
+                         [strict(7)] 
+                  //count, var, ret-ty, name, label1, label2, arg-tys, flags, meta
+    syntax KItem ::= exprCallType(Int, K, K, K, K, ElemList, ParamList, Set, K)
+                         [strict(6)] 
+                  //count, var, op, ret-ty, name, arg-tys, flags, meta
+    syntax KItem ::= exprResumeType(Int, K, K) [strict(2)]
+    syntax KItem ::= exprRetType(Int, K, K) [strict(2)]
+    syntax KItem ::= exprLandingpadType(K, K) [strict(2)]
+    syntax KItem ::= exprBinOpType(Int,K, K, ElemList, Set, K) [strict(4)]
+                 //count, var, op, typechecking, flags, meta
+    syntax KItem ::= exprIcmpOpType(Int,K, K, ElemList, K) [strict(4)]
+                 //count, var, op, typechecking, meta
+    syntax KItem ::= exprFcmpOpType(Int,K, K, ElemList, Set, K) [strict(4)]
+                 //count, var, op, typechecking, flags, meta
+    syntax KItem ::= exprCastOpType(Int,K, K, K, K, K) [strict(4)]
+                 //count, var, op, typechecking, meta
+
+    syntax KItem ::= constExprType(K, K) [strict(2)] 
     syntax KItem ::= prePutInMemoryOrder(Int, Int, Int, K, K)
-    syntax KItem ::= putInMemoryOrder(Int, Int, Int, K)
+    syntax KItem ::= putInMemoryOrder(Int, Int, Int, K, K)
     syntax KItem ::= constExpr(K) [strict]
     syntax KResult ::= constExprVal(K) [strict]
     syntax KItem ::= memChunck(Int, Int, Int, K, K, Bool, Set, Map)
@@ -685,11 +751,15 @@ module LLVM-ABSTRACTSYNTAX
               //== base of first + size of first + align of second.
     //instructions
     syntax KItem ::= "guessExternal"
+    syntax KItem ::= preStaticStore(K, K, K, K, Int) [strict(2)]
     syntax KItem ::= staticStore(K, K, K, K, Int) [strict(2)]
                         // Type, Value, deType, Destination, aligns
     syntax KItem ::= store(K, K, K, K, Int) [strict(1,2,3,4)]
                         // Type, Value, deType, Destination, align
-    syntax KItem ::= fence(K) [strict]
+    syntax KItem ::= fence(K)
+    syntax KItem ::= "acquireFence" | "releaseFence"
+                   | "readRWFence" | "writeRWFence" | "readWriteFence" | "seqFence"
+                   | "readSeqFence" | "writeSeqFence"
     syntax KItem ::= ret(K, K) [strict]//type value,
     syntax KItem ::= assign(K, K) [strict(2)] // Name, Instruction
     syntax KItem ::= stacticAssign(K, K) // Name, Instruction
@@ -761,13 +831,15 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= packedStructVal(ElemList) //arguments
     rule packedStruct(A:KResult) => packedStructVal(A)
 
-    syntax KItem ::= theVAArg(K, K) [strict] // result type, va_list
+    syntax KItem ::= theVAArg(K, K, K) [strict(2)]
+                 // point_type, va_list, result_type
     //syntax KItem ::= values(K) [function]
     //rule values(K:K) => K
-    syntax KItem ::= findPhi(K, ElemList) //block num, edge list
-    syntax KItem ::= findPhiAux(K, ElemList) //block, edge list
+    //syntax KItem ::= findPhi(K, ElemList) //block num, edge list
+    //syntax KItem ::= findPhiAux(K, ElemList) //block, edge list
     syntax KItem ::= phi(K, ElemList) [strict(1)] // type, edge list
     syntax KItem ::= edge(K, K) // used by PHI
+    syntax KItem ::= phiResult(Int, K) //father-block-id, var/value
     syntax KItem ::= select(K, K, K, K) [strict] //ty, condition, true val, false val
     syntax KItem ::= tailCall(K, K)
     rule tailCall(K:K, E:K) => call(K,E) [structural] //first assume that call and tailcall are the same.    
@@ -885,6 +957,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
     syntax KItem ::= varInstance(K, K)//block, inst / var, loadhold
+    syntax KItem ::= readBackHold(K, K, K) //var, loadhold, following action
     syntax KItem ::= "globalVar" | "localVar"
     syntax KItem ::= "either" | "heap" | "stack" | GlobalType
 
@@ -923,9 +996,9 @@ module LLVM-ABSTRACTSYNTAX
     //const exprs
     syntax ConstExpr ::= constCastAST(K, K, K, K) [strict(2,3,4)]
                              //op, type, val, type
-                   | constBinAST(K, K, K, K, K) [strict(2,3,4,5)]
+                   | constBinAST(K, K, K, K, K)
                              //op, type, val, type, val
-                   | constLogicAST(K, K, K, K, K) [strict(2,3,4,5)]
+                   | constLogicAST(K, K, K, K, K)
                              //op, type, val, type, val
                    | blockAddAST(K, K) //val, val
                    | constIcmpAST(K, K, K, K, K) [strict(2,3,4,5)]

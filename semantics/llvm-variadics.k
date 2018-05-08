@@ -141,5 +141,17 @@ module LLVM-VARIADICS
         requires Base >=Int Left andBool Base +Int sizeof(getInnerType(vaArgType)) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(getInnerType(vaArgType)), LocalStack)
 
+    rule <k> theVAArg(Ty:K, loc(Base:Int, Ty,
+                 value(Left:Int, Right:Int),stack, none, InR:K), T':K)
+              ~> K:K => .K </k>
+         (<tomasulo> D:Bag </tomasulo> => <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: va_arg must have a mem location that is enough to fill the va_arg pointer information.") </output>
+        <localMemory> LocalStack:Set </localMemory>
+        <stackList> SL:List </stackList>
+        requires Base <Int Left orBool
+                    Base +Int sizeof(getInnerType(vaArgType)) >Int Right
+           orBool notBool isInStackRange(SL, Base, sizeof(getInnerType(vaArgType)), LocalStack)
     
 endmodule

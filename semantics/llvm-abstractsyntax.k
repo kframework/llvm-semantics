@@ -299,6 +299,8 @@ module LLVM-ABSTRACTSYNTAX
     rule formElemList(atomic) => val(atomic)
     rule formElemList('volatileEmpty(.KList)) => .ElemList
     rule formElemList(volatile) => val(volatile)
+    rule formElemList('weakEmpty(.KList)) => .ElemList
+    rule formElemList('weakMemory(.KList)) => val('weakMemory(.KList))
     rule formElemList('scopeorderEmpty(.KList)) => .ElemList
     rule formElemList('singlethreadEmpty(.KList)) => .ElemList
     rule formElemList(syncscope(" S:SyncScopeKey "))
@@ -308,8 +310,6 @@ module LLVM-ABSTRACTSYNTAX
     rule formElemList(, N:UnsignedInt Cil:ConstantIndexList)
            => val(String2Int(#tokenToString(N))),formElemList(Cil)
     rule formElemList(X:Ordering) => val(X),.ElemList
-    rule formElemList(X:Ordering Xl:OrderingList)
-                 => val(X),formElemList(Xl)
     rule formElemList('argListUnit(.KList)) => .ElemList
     rule formElemList('vaArgs(.KList)) => val('vaArgs(.KList)),.ElemList
     rule formElemList(Ty:Type Pa:ParamAttrs)
@@ -387,8 +387,9 @@ module LLVM-ABSTRACTSYNTAX
     rule formSet('scopeorderEmpty(.KList)) => .Set
     rule formSet('singlethreadEmpty(.KList)) => .Set
     rule formSet(syncscope(" S:SyncScopeKey ")) => SetItem(S)
+    rule formSet('weakEmpty(.KList)) => .Set
+    rule formSet('weakMemory(.KList)) => SetItem('weakMemory(.KList))
     rule formSet(S:Ordering) => SetItem(S)
-    rule formSet(S:Ordering Ss:OrderingList) => SetItem(S) formSet(Ss)
     rule formSet(.FastMathFlags) => .Set
     rule formSet(F:FastMathFlag Fl:FastMathFlags) => SetItem(F) formSet(Fl)
     rule formSet(inbounds) => SetItem(inbounds)
@@ -674,9 +675,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
     syntax KItem ::= toRead(K, K) //var or loc, ordering
     syntax KItem ::= toWrite(K, K) //var or loc, ordering
-    syntax KItem ::= toReadWrite(Set, K) //var or locs, ordering
+    syntax KItem ::= toReadWrite(Set, List) //var or locs, ordering
     syntax KItem ::= toClose(Int) //loc-base
     
+    syntax KResult ::= atomicrmwWait(K, K,K, K) //type,op, value, write-loc
+    syntax KResult ::= cmpxchgWait(K, K, K, K) //t, compare result, value, write-loc
     syntax KItem ::= "vaWait"
     syntax KItem ::= vaWaitRead(K) //type
     syntax KItem ::= "waitWrite"
@@ -707,6 +710,11 @@ module LLVM-ABSTRACTSYNTAX
            //count, var, type, arg-type, addspace, align, flags, meta
     syntax KItem ::= exprLoadType(Int, K, K, Int, Set, K) [strict(3)]
            //count, var, arg-ty, align, flags, Meta
+    syntax KItem ::= exprCmpxchgType(Int, K, ElemList, ElemList, K,K, Set, K) [strict(3,4)]
+           //count, var, type, arg-type, order1, order2, flags, meta
+    syntax KItem ::= exprAtomicrmwType(Int, K,K, ElemList, ElemList, K, Set, K) [strict(4,5)]
+           //count, var, op, type, arg-type, order, flags, meta
+
     syntax KItem ::= exprStoreType(Int, ElemList, Int, Set, K) [strict(2)]
            //count, arg-types, align, flags, meta
     syntax KItem ::= exprPhiType(K, K) [strict(1)]
@@ -864,8 +872,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= shuffleVector(K, K, K) [strict]
 
     syntax KItem ::= extractValue(K, List) [strict(1)]
-    syntax KItem ::= cmpxChg(K, K, K) [strict]
-    syntax KItem ::= atomicRmw(K, K, K) [strict]
+    syntax KItem ::= cmpxchg(K, K, K, K, K) [strict(1,2,3)]
+                 //(addty, addv), (compare-ty,value), new-ty-value,
+                 // success ordering, failure ordering 
+    syntax KItem ::= atomicrmw(K, K, K, K) [strict(2,3)]
+            //op, addr-ty-v, write-ty-v, ordering
     syntax KItem ::= insertValue(K, K, K, List) [strict(2,3)]
                       //type, v1, v2, indexs
 

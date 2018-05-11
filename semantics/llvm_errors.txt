@@ -29,3 +29,11 @@
 15, the document of LLVM does not say that the index of extractvalue/insertvalue must be integer.
 
 16, cannot compile a single invoke op successfully.
+
+17, the document claims that the input point for the cmpxchg op must have enough alignment > the size of the operand, but the clang implementation never implements such check.
+
+18, the statement of claiming that cmpxchg order1 must be stronger than order2 is not clear. In addition, the clang implementation allows cmpxchg success order to be release while failure order to be acquire, which makes no sense.
+
+19, if cmpxchg requires that the alloca field has an alignment requirement, why does atomicrmw does not have such restriction.
+
+

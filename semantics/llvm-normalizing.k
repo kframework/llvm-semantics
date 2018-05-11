@@ -143,6 +143,12 @@ module LLVM-NORMALIZING
                              //block, name, type, clauses, stored clauses, instmeta
                     | typeCheckFence(K, K, Set, InstructionMetadatas)
                         //block,order, mods, instmeta
+                  | typeCheckCmpxchg(K, K, K, K, K, K, K, K, K, K, Set, InstructionMetadatas)
+                                 [strict(3,5,7)]
+                     //block, name, t1, v1, t2, v2, t3, v3, order1,order2, mods, instmeta
+                  | typeCheckAtomicrmw(K, K, K, K, K, K, K, K, Set, InstructionMetadatas)
+                                 [strict(4,6)]
+                     //block, name, bin, t1, v1, t2, v2, order1, mods, instmeta
 
     syntax ElemList ::= typeCheckIntArgs(K, K, ElemList, ElemList)
                       | typeCheckVectorArgs(K, K, ElemList, ElemList)
@@ -383,9 +389,22 @@ module LLVM-NORMALIZING
                      Ls:LandingpadFactors Meta:InstructionMetadatas)
              => typeCheckLandingpad(Name, X, T,
                  combineElemList(formElemList(L),formElemList(Ls)), .List, Meta)
-    rule typeCheckOp(N, .K, fence Ost:OptSingleThread Ord:Ordering 
+    rule typeCheckOp(N:K, .K, fence Ost:OptSingleThread Ord:Ordering 
                                             Ins:InstructionMetadatas)
           => typeCheckFence(N, Ord, formSet(Ost), Ins)
+
+    rule typeCheckOp(N:SymbolicValueRef, X:SymbolicValueRef, 
+           cmpxchg Ow:OptWeak Ov:OptVolatile T1:Type V1:ValueRef, T2:Type V2:ValueRef,
+                   T3:Type V3:ValueRef Os:OptSingleThread
+                      Sor:Ordering For:Ordering Ins:InstructionMetadatas)
+           => typeCheckCmpxchg(N, X, T1, V1, T2, V2, T3, V3, Sor, For,
+                      formSet(Ow) formSet(Ov) formSet(Os), Ins)
+
+    rule typeCheckOp(N:SymbolicValueRef, X:SymbolicValueRef, 
+           atomicrmw Ov:OptVolatile B:BinOpsForAtomicrmw
+                T1:Type V1:ValueRef, T2:Type V2:ValueRef Os:OptSingleThread
+                      Or:Ordering Ins:InstructionMetadatas)
+           => typeCheckAtomicrmw(N, X, B, T1, V1, T2, V2, Or,formSet(Ov) formSet(Os), Ins)
 
     //type check insert value
     rule typeCheckInsertValue(Name:K, X:K, T:KResult, V1:K, T2:KResult, V2:K, L:List, Meta:K)
@@ -1114,6 +1133,175 @@ module LLVM-NORMALIZING
                 _:InstructionMetadatas) ~> K:K => .K </k>
          <output>... .List => ListItem("error: alignment is not a power of two") </output>
          requires notBool isValidAlign(Align)
+
+    //typecheck atomicrmw
+    rule <k> exprAtomicrmwType(TheCount:Int, X:K,B:K,
+                 (valValue(typeOperandResult(T1:K, V1:K)),.ElemList),
+                (valValue(typeOperandResult(T2:K, V2:K)),.ElemList),
+              Or:K, Mods:Set, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,assign(X, instruction(
+             atomicrmw(B,operand(T1,V1), operand(T2,V2), Or),
+                     Mods, Meta)),readWriteInst)) </tempBlockMap>
+
+    rule <k> typeCheckAtomicrmw(Name:SymbolicValueRef, X:SymbolicValueRef, B:K,
+              pointerTypeValue(integerType(N:Int), A:K), V1:K, integerType(N:Int),
+                     V2:K, Or:K, Mods:Set, Meta:InstructionMetadatas)
+              => exprAtomicrmwType(TheCount, X, B, typeCheckPointerArgs(Name,
+             pointerTypeValue(integerType(N:Int), A:K), val(V1),.ElemList,.ElemList),
+              typeCheckIntArgs(Name,integerType(N:Int), val(V2),.ElemList, .ElemList),
+                      Or,Mods, insMetas(formElemList(Meta)))
+                 ~> (assignUses(Name, TheCount,
+                      pointerTypeValue(integerType(N:Int), A:K), (val(V1),.ElemList))
+                ~> (assignUses(Name, TheCount,
+                               integerType(N:Int), (val(V2),.ElemList))
+                 ~> assignType(Name,TheCount, X, integerType(N:Int)))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        requires isPowOfTwo(N, 8)
+
+    rule <k> typeCheckAtomicrmw(Name:SymbolicValueRef, X:SymbolicValueRef,B:K,
+              pointerTypeValue(integerType(N:Int), A:K), V1:K, integerType(N:Int),
+                     V2:K, Or:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: atomicrmw's argument position must have int type whose size is greater than or equal to 8 bits.") </output>
+         requires notBool isPowOfTwo(N, 8)
+
+    rule <k> typeCheckAtomicrmw(Name:SymbolicValueRef, X:SymbolicValueRef, B:K,
+              pointerTypeValue(T:KResult, A:K), V1:K, T:KResult,
+                     V2:K, Or:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: atomicrmw's argument position must be integer type.") </output>
+         requires notBool isIntegerType(T)
+
+    rule <k> typeCheckAtomicrmw(Name:SymbolicValueRef, X:SymbolicValueRef, B:K,
+              T1:KResult, V1:K, T2:KResult,
+                     V2:K, Or:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: atomicrmw's input address location must be a pointer.") </output>
+         requires notBool isPointerType(T1)
+
+    rule <k> typeCheckAtomicrmw(Name:SymbolicValueRef, X:SymbolicValueRef,B:K,
+              pointerTypeValue(T1:KResult, A:K), V1:K, T2:KResult,
+                     V2:K, Or:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: atomicrmw's argument type must be the same as the inner type of the input argument address location type.") </output>
+         requires T1 =/=K T2
+
+    //typecheck cmpxchg
+    rule <k> exprCmpxchgType(TheCount:Int, X:K,
+                 (valValue(typeOperandResult(T1:K, V1:K)),.ElemList),
+                (valValue(typeOperandResult(T2:K, V2:K)),
+                  valValue(typeOperandResult(T3:K, V3:K)),.ElemList),
+              Or1:K, Or2:K, Mods:Set, Meta:K) => .K ...</k>
+         <tempBlockMap> Now:Map => Now (TheCount |->
+              instNumInfo(TheCount,assign(X, instruction(
+             cmpxchg(operand(T1,V1), operand(T2,V2),
+           operand(T3,V3), Or1, Or2), Mods, Meta)),readWriteInst)) </tempBlockMap>
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              pointerTypeValue(integerType(N:Int), A:K), V1:K, integerType(N:Int),
+                     V2:K, integerType(N:Int), V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+              => exprCmpxchgType(TheCount, X, typeCheckPointerArgs(Name,
+             pointerTypeValue(integerType(N:Int), A:K), val(V1),.ElemList,.ElemList),
+              typeCheckIntArgs(Name,integerType(N:Int), val(V2),val(V3),.ElemList, .ElemList),
+                     Or1,Or2,Mods, insMetas(formElemList(Meta)))
+                 ~> (assignUses(Name, TheCount,
+                      pointerTypeValue(integerType(N:Int), A:K), (val(V1),.ElemList))
+                ~> (assignUses(Name, TheCount,
+                               integerType(N:Int), (val(V2),val(V3),.ElemList))
+                 ~> assignType(Name,TheCount, X, structTypeValue(
+                           integerType(N:Int), integerType(1), .TypeList)))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        requires Or1 =/=K unordered andBool Or2 =/=K unordered
+              andBool Or2 =/=K release andBool Or2 =/=K acq_rel
+              andBool strongerOrder(Or1, Or2)
+              andBool isPowOfTwo(N, 8)
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              pointerTypeValue(pointerTypeValue(T:KResult, A1:K), A:K), V1:K,
+           pointerTypeValue(T:KResult, A1:K), V2:K,
+                 pointerTypeValue(T:KResult, A1:K), V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+              => exprCmpxchgType(TheCount, X, typeCheckPointerArgs(Name,
+             pointerTypeValue(pointerTypeValue(T:KResult, A1:K),
+                           A:K), val(V1),.ElemList,.ElemList),
+              typeCheckPointerArgs(Name,pointerTypeValue(T:KResult, A1:K),
+                        val(V2),val(V3),.ElemList, .ElemList),
+                     Or1, Or2,Mods, insMetas(formElemList(Meta)))
+                 ~> (assignUses(Name, TheCount,pointerTypeValue(
+               pointerTypeValue(T:KResult, A1:K), A:K), (val(V1),.ElemList))
+                ~> (assignUses(Name, TheCount,
+                    pointerTypeValue(T:KResult, A1:K), (val(V2),val(V3),.ElemList))
+                 ~> assignType(Name,TheCount, X, structTypeValue(
+                  pointerTypeValue(T:KResult, A1:K), integerType(1), .TypeList)))) ...</k>
+        <instructionCounter> TheCount:Int => TheCount +Int 1 </instructionCounter>
+        requires Or1 =/=K unordered andBool Or2 =/=K unordered
+              andBool Or2 =/=K release andBool Or2 =/=K acq_rel
+              andBool strongerOrder(Or1, Or2)
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T1:KResult, V1:K, T2:KResult, V2:K, T3:KResult, V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List => ListItem("error: cmpxchg cannot have unordered ordering.") </output>
+        requires Or1 ==K unordered orBool Or2 ==K unordered
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T1:KResult, V1:K, T2:KResult, V2:K, T3:KResult, V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: cmpxchg cannot have failure ordering of release or acq_rel.") </output>
+         requires Or2 ==K release orBool Or2 ==K acq_rel
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T1:KResult, V1:K, T2:KResult, V2:K, T3:KResult, V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: cmpxchg's success ordering must be stronger than failure ordering.") </output>
+         requires notBool strongerOrder(Or1, Or2)
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              pointerTypeValue(integerType(N:Int), A:K), V1:K, integerType(N:Int),
+                     V2:K, integerType(N:Int), V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: for cpmxchg's argument position, if it is integer type, it must have type size greater than or equal to 8 bits.") </output>
+         requires notBool isPowOfTwo(N, 8)
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              pointerTypeValue(T:KResult, A:K), V1:K, T:KResult,
+                     V2:K, T:KResult, V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: cpmxchg's arguments must be pointer type or integer type.") </output>
+         requires notBool isIntegerType(T) andBool notBool isPointerType(T)
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              T1:KResult, V1:K, T2:KResult,
+                     V2:K, T3:KResult, V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: cpmxchg's input address location must be a pointer.") </output>
+         requires notBool isPointerType(T1)
+
+    rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
+              pointerTypeValue(T1:KResult, A:K), V1:K, T2:KResult,
+                     V2:K, T3:KResult, V3:K,
+                            Or1:K, Or2:K, Mods:Set, Meta:InstructionMetadatas)
+               ~> K:K => .K  </k>
+         <output>... .List
+         => ListItem("error: cpmxchg's argument types must be the same and it is also the same as the inner type of the pointer address location input.") </output>
+         requires T1 =/=K T2 orBool T2 =/=K T3 orBool T1 =/=K T3
 
     //deal with type of load
     rule <k> exprLoadType(TheCount:Int, X:K, typeOperandResult(T:K, V:K),

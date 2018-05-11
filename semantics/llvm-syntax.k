@@ -123,6 +123,15 @@ module LLVM-SYNTAX
     */
     syntax OptVolatile ::= "volatile" | "" [klabel('volatileEmpty),onlyLabel]
 
+    /*@
+      If the cmpxchg operation is marked as weak then a spurious
+          failure is permitted: the operation
+         may not write <new> even if the comparison matched.
+
+
+    */
+    syntax OptWeak ::= "weak" [klabel('weakMemory),onlyLabel]
+                         | "" [klabel('weakEmpty),onlyLabel]
 
     /*@
       If the load is marked as atomic, it takes an extra ordering and optional
@@ -1002,7 +1011,6 @@ module LLVM-SYNTAX
     /*syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
                            | "" [klabel('scopeorderEmpty),onlyLabel]
      */
-    syntax OrderingList ::= Ordering | Ordering OrderingList
     syntax OptDistinct ::= "distinct" | "" [klabel('distinctEmpty),onlyLabel]
 
     /*@
@@ -1105,8 +1113,8 @@ module LLVM-SYNTAX
                         "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal
                         InstructionMetadatas
-                     | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
-                       ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+                     | "cmpxchg" OptWeak OptVolatile ResolvedVal "," ResolvedVal ","
+                       ResolvedVal OptSingleThread Ordering Ordering InstructionMetadatas
                      //The ‘atomicrmw‘ instruction is used to atomically modify memory.
                      | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
                        "," ResolvedVal OptSingleThread Ordering InstructionMetadatas

@@ -734,6 +734,205 @@ module LLVM-MEMORY
                    sizeof(Type) *Int N, Al)) <Int maxStackSize
               andBool ('inallocaOfAlloca(.KList) in Mods)
 
+    //fence is handled by the specTree so we just need to omit it.
+    rule fence(K:K) => dynNoResult(undef)
+
+    //atomicrmw op
+    rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+            value(Left:Int, Right:Int),stack, none, InR:K), V2:KResult, Or:K)
+           => atomicrmwWait(Type, Op, V2,
+                loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), stack, none, InR:K)) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
+               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In,stack,
+                  atomicRead(Type, Base, sizeof(Type), Ad, Or)))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
+        [transition]
+
+    rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K),
+                    V2:KResult, Or:K)
+           => atomicrmwWait(Type, Op,V2,
+             loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K)) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
+              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In, heap,
+            atomicRead(Type, Base, sizeof(Type), Ad:Int, Or)))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
+        [transition]
+
+    rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K),
+                    V2:KResult, Or:K) ~> K:K
+            => .K </k>
+        <memoryList> MOL:List </memoryList>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: undefied behavior because atomicrmw to a location out of the chunck of memory.") </output>
+        requires notBool isInMemRange(MOL, Base, sizeof(Type))
+
+    rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), stack, none, InR:K),
+                    V2:KResult, Or:K) ~> K:K
+            => .K </k>
+        <stackList> MOL:List </stackList>
+        <localMemory> LocalStack:Set </localMemory>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: undefied behavior because atomicrmw to a location out of the chunck of stack.") </output>
+        requires notBool isInStackRange(MOL, Base, sizeof(Type),LocalStack)
+
+    rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                    V2:KResult, Or:K) ~> K:K
+                => .K </k>
+        <output>... (.List => ListItem("error: undefied behavior atomicrmw memory/stack location out of range or does not exist.")) </output>
+         (<tomasulo> D:Bag </tomasulo> =>
+                <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+       requires Base <Int Left orBool Base +Int sizeof(Type) >Int Right
+
+    rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type':KResult, Ad':Int),
+                value(Left:Int, Right:Int),RT:K,
+               blockAddVal(_, _), InR:K), V2:KResult, Or:K)
+                 ~> K:K => .K </k>
+        <output>... (.List => ListItem("error: undefied behavior atomicrmw memory/stack locations that are block addresses.")) </output>
+         (<tomasulo> D:Bag </tomasulo> =>
+                <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+
+    //cmpxchg op
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+                    value(Left:Int, Right:Int),stack, none, InR:K),
+               V2:KResult, V3:KResult, Or1:K, Or2:K)
+           => cmpxchgWait(Type, V2,V3, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), stack, none, InR:K)) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
+               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In,stack,
+                  atomicRead(Type, Base, sizeof(Type), Ad,
+                      getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
+                 andBool sizeof(Type) dividesInt Base
+        [transition]
+
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K),
+                    V2:KResult, V3:KResult, Or1:K, Or2:K)
+           => cmpxchgWait(Type, V2,V3, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K)) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
+              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
+                      ListItem(singleMem(TID, B, In, heap,
+            atomicRead(Type, Base, sizeof(Type), Ad:Int, Or1)))), BN, SL, MOL) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+           <stackList> SL:List </stackList>
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
+                 andBool sizeof(Type) dividesInt Base
+        [transition]
+
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                    V2:KResult, V3:KResult, Or1:K, Or2:K) ~> K:K
+            => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: undefied behavior because pointer location align is not bigger than the size of the type the cmpxchg op is writing") </output>
+         requires notBool (sizeof(Type) dividesInt Base)
+
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                    V2:KResult, V3:KResult, Or1:K, Or2:K) ~> K:K
+                => .K </k>
+        <output>... (.List => ListItem("error: undefied behavior cmpxchg memory/stack location out of range or does not exist.")) </output>
+         (<tomasulo> D:Bag </tomasulo> =>
+                <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+       requires Base <Int Left orBool Base +Int sizeof(Type) >Int Right
+
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type':KResult, Ad':Int),
+                value(Left:Int, Right:Int),RT:K,
+               blockAddVal(_, _), InR:K), V2:KResult, V3:KResult, Or1:K, Or2:K)
+                 ~> K:K => .K </k>
+        <output>... (.List => ListItem("error: undefied behavior cmpxchg memory/stack locations that are block addresses.")) </output>
+         (<tomasulo> D:Bag </tomasulo> =>
+                <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K),
+                    V2:KResult, V3:KResult, Or1:K, Or2:K) ~> K:K
+            => .K </k>
+        <memoryList> MOL:List </memoryList>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: undefied behavior because cmpxchg to a location out of the chunck of memory.") </output>
+        requires notBool isInMemRange(MOL, Base, sizeof(Type))
+
+    rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), stack, none, InR:K),
+                    V2:KResult, V3:KResult, Or1:K, Or2:K) ~> K:K
+            => .K </k>
+        <stackList> MOL:List </stackList>
+        <localMemory> LocalStack:Set </localMemory>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+        <output>... .List => ListItem("error: undefied behavior because cmpxchg to a location out of the chunck of stack.") </output>
+        requires notBool isInStackRange(MOL, Base, sizeof(Type),LocalStack)
+
     //load op to load a value from a loc
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
                loc(Base:Int, pointerTypeValue(Type':KResult, Ad':Int),
@@ -883,7 +1082,7 @@ module LLVM-MEMORY
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
-        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of memory.") </output>
+        <output>... .List => ListItem("error: undefied behavior because load to a location out of the chunck of memory.") </output>
         requires notBool isInMemRange(MOL, Base, sizeof(Type))
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
@@ -897,13 +1096,13 @@ module LLVM-MEMORY
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
-        <output>... .List => ListItem("error: undefied behavior because store to a location out of the chunck of stack.") </output>
+        <output>... .List => ListItem("error: undefied behavior because load to a location out of the chunck of stack.") </output>
         requires notBool isInStackRange(MOL, Base, sizeof(Type),LocalStack)
 
     rule <k> load(pointerTypeValue(Type:KResult, Ad:Int),
                  A:KResult, RA:Int) ~> K:K
             => .K </k>
-        <output>... .List => ListItem("error: undefined behavior because store to a non-location.") </output>
+        <output>... .List => ListItem("error: undefined behavior because load to a non-location.") </output>
         requires notBool isALoc(A)
 
     //DONE: TODO: store must save to a pointer type
@@ -1331,6 +1530,8 @@ module LLVM-MEMORY
         requires Base >=Int Left andBool Base <Int Right
 
     //non-atomic read stack
+    //dealing with cmpxchg/atomicrmw
+
     //deal with va_arg read a value and then read the actually content
     //then write back the hold to the next struct position
     rule <readBack> readMapAux(varInstance(B:Int, In:Int),

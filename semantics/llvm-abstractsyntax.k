@@ -678,6 +678,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= toReadWrite(Set, List) //var or locs, ordering
     syntax KItem ::= toClose(Int) //loc-base
     
+    syntax KResult ::= cmpxchgResult(K) //1/0 depends on if the comparison succeeds
     syntax KResult ::= atomicrmwWait(K, K,K, K) //type,op, value, write-loc
     syntax KResult ::= cmpxchgWait(K, K, K, K) //t, compare result, value, write-loc
     syntax KItem ::= "vaWait"
@@ -694,6 +695,8 @@ module LLVM-ABSTRACTSYNTAX
            //store the byte when load an item
     syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
                       //type, value, original base, size, addrspace, ordering
+    syntax KItem ::= atomicReadWrite(K, Int, Int, Int, K, K)
+                     //type,base, size, addspace ordering, next-op
     syntax KItem ::= atomicRead(K, Int, Int, Int, K)
                       //type,base, size, addspace ordering
     syntax KItem ::= runDynInst(K) [strict]

@@ -5285,8 +5285,6 @@ module LLVM-HELPERS
     syntax Bool ::= isReadVal(K) [function]
     rule isReadVal(loadVal(_)) => true
     rule isReadVal(vaArgOp(_,_)) => true
-    rule isReadVal(cmpxchgWait(_,_,_,_)) => true
-    rule isReadVal(atomicrmwWait(_,_,_,_)) => true
     rule isReadVal(_) => false [owise]
 
     syntax Bool ::= isGlobalValue(K) [function]
@@ -5946,5 +5944,54 @@ module LLVM-HELPERS
     rule strongerOrder(monotonic, A:K) => true
          requires A ==K monotonic orBool A ==K unordered
     rule strongerOrder(A:K, A:K) => false [owise]
+
+    //atomicrmw integer ops
+    syntax KItem ::= applyAtomicrmwInt(K, K, K, K) [function]//op, type, original, new
+    rule applyAtomicrmwInt(xchg, T:K, X:K, V:K) => normalizingInt(T, V)
+    rule applyAtomicrmwInt(nand, T:K, X:K, V:K)
+       => applyInt('sub(.KList), T, applyInt('sub(.KList), T,
+              0, applyInt('and(.KList),T, X, V, .Set), .Set), 1, .Set)
+    rule applyAtomicrmwInt(max, T:K, X:K, V:K)
+                            => applyIcmp(sgt, T, X, V)
+         requires applyIcmp(sgt, T, X, V) =/=K 1
+                andBool applyIcmp(sgt, T, X, V) =/=K 0
+    rule applyAtomicrmwInt(max, T:K, X:K, V:K) => X
+         requires applyIcmp(sgt, T, X, V) ==K 1
+    rule applyAtomicrmwInt(max, T:K, X:K, V:K) => V
+         requires applyIcmp(sgt, T, X, V) ==K 1
+    rule applyAtomicrmwInt(umax, T:K, X:K, V:K)
+                            => applyIcmp('ugtOfIcmp(.KList), T, X, V)
+         requires applyIcmp('ugtOfIcmp(.KList), T, X, V) =/=K 1
+                andBool applyIcmp('ugtOfIcmp(.KList), T, X, V) =/=K 0
+    rule applyAtomicrmwInt(umax, T:K, X:K, V:K) => X
+         requires applyIcmp('ugtOfIcmp(.KList), T, X, V) ==K 1
+    rule applyAtomicrmwInt(umax, T:K, X:K, V:K) => V
+         requires applyIcmp('ugtOfIcmp(.KList), T, X, V) ==K 1
+    rule applyAtomicrmwInt(umin, T:K, X:K, V:K)
+                            => applyIcmp('ultOfIcmp(.KList), T, X, V)
+         requires applyIcmp('ultOfIcmp(.KList), T, X, V) =/=K 1
+                andBool applyIcmp('ultOfIcmp(.KList), T, X, V) =/=K 0
+    rule applyAtomicrmwInt(umin, T:K, X:K, V:K) => X
+         requires applyIcmp('ultOfIcmp(.KList), T, X, V) ==K 1
+    rule applyAtomicrmwInt(umin, T:K, X:K, V:K) => V
+         requires applyIcmp('ultOfIcmp(.KList), T, X, V) ==K 1
+    rule applyAtomicrmwInt(min, T:K, X:K, V:K)
+                            => applyIcmp(slt, T, X, V)
+         requires applyIcmp(slt, T, X, V) =/=K 1
+                andBool applyIcmp(slt,T, X, V) =/=K 0
+    rule applyAtomicrmwInt(min, T:K, X:K, V:K) => X
+         requires applyIcmp(slt, T, X, V) ==K 1
+    rule applyAtomicrmwInt(min, T:K, X:K, V:K) => V
+         requires applyIcmp(slt, T, X, V) ==K 1
+    rule applyAtomicrmwInt('addOfAtomicrmw(.KList), T:K, X:K, V:K)
+                            => applyInt('add(.KList), T, X, V, .Set)
+    rule applyAtomicrmwInt('subOfAtomicrmw(.KList), T:K, X:K, V:K)
+                            => applyInt('sub(.KList), T, X, V, .Set)
+    rule applyAtomicrmwInt('andOfAtomicrmw(.KList), T:K, X:K, V:K)
+                            => applyInt('and(.KList), T, X, V, .Set)
+    rule applyAtomicrmwInt('orOfAtomicrmw(.KList), T:K, X:K, V:K)
+                            => applyInt('or(.KList), T, X, V, .Set)
+    rule applyAtomicrmwInt('xorOfAtomicrmw(.KList), T:K, X:K, V:K)
+                            => applyInt('xor(.KList), T, X, V, .Set)
 
 endmodule

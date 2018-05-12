@@ -34,22 +34,6 @@ module LLVM-REGISTERS
                        vaWaitRead(T2) ~> vaWaitWrite(Loc))]) </readBack>
         [structural]
 
-    rule <k> assign(X:SymbolicValueRef, cmpxchgWait(T:K, A:K, V:K, Loc:K))
-           => dynNoResult(undef) ...</k>
-        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
-        <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
-                      <- readBackHold(X, loadHold(T, .List),
-                       cmpxchgWait(T:K, A:K,V,Loc:K))]) </readBack>
-        [structural]
-
-    rule <k> assign(X:SymbolicValueRef, atomicrmwWait(T:K,Op:K, V:K, Loc:K))
-           => dynNoResult(undef) ...</k>
-        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
-        <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
-                      <- readBackHold(X, loadHold(T, .List),
-                       atomicrmwWait(T:K, Op, V, Loc:K))]) </readBack>
-        [structural]
-
     rule noAssign(V:KResult) => dynNoResult(V)
 
     rule [argument-bind-register]:

@@ -740,16 +740,17 @@ module LLVM-MEMORY
     //atomicrmw op
     rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
             value(Left:Int, Right:Int),stack, none, InR:K), V2:KResult, Or:K)
-           => atomicrmwWait(Type, Op, V2,
-                loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), stack, none, InR:K)) ...</k>
+           => loadVal(Type) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
             => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
                Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
                       ListItem(singleMem(TID, B, In,stack,
-                  atomicRead(Type, Base, sizeof(Type), Ad, Or)))), BN, SL, MOL) </toCommit>
+                  atomicReadWrite(Type, Base, sizeof(Type), Ad, Or,
+                   atomicrmwWait(Type, Op, V2,
+                loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), stack, none, InR:K)))))), BN, SL, MOL) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
@@ -762,16 +763,17 @@ module LLVM-MEMORY
     rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
              value(Left:Int, Right:Int), heap, none, InR:K),
                     V2:KResult, Or:K)
-           => atomicrmwWait(Type, Op,V2,
-             loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), heap, none, InR:K)) ...</k>
+           => loadVal(Type) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
          => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
                       ListItem(singleMem(TID, B, In, heap,
-            atomicRead(Type, Base, sizeof(Type), Ad:Int, Or)))), BN, SL, MOL) </toCommit>
+            atomicReadWrite(Type, Base, sizeof(Type), Ad:Int, Or,
+          atomicrmwWait(Type, Op,V2,
+             loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K)))))), BN, SL, MOL) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
@@ -832,16 +834,18 @@ module LLVM-MEMORY
     rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
                     value(Left:Int, Right:Int),stack, none, InR:K),
                V2:KResult, V3:KResult, Or1:K, Or2:K)
-           => cmpxchgWait(Type, V2,V3, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), stack, none, InR:K)) ...</k>
+           => loadVal(Type) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
             => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
                Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
                       ListItem(singleMem(TID, B, In,stack,
-                  atomicRead(Type, Base, sizeof(Type), Ad,
-                      getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+                  atomicReadWrite(Type, Base, sizeof(Type), Ad, Or1,
+         cmpxchgWait(Type, V2,V3, loc(Base:Int,
+              pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), stack,
+                         none, InR:K)))))), BN, SL, MOL) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
@@ -855,15 +859,16 @@ module LLVM-MEMORY
     rule <k> cmpxchg(loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
              value(Left:Int, Right:Int), heap, none, InR:K),
                     V2:KResult, V3:KResult, Or1:K, Or2:K)
-           => cmpxchgWait(Type, V2,V3, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), heap, none, InR:K)) ...</k>
+           => loadVal(Type) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
          => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
                       ListItem(singleMem(TID, B, In, heap,
-            atomicRead(Type, Base, sizeof(Type), Ad:Int, Or1)))), BN, SL, MOL) </toCommit>
+            atomicReadWrite(Type, Base, sizeof(Type), Ad:Int, Or1,
+         cmpxchgWait(Type, V2,V3, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
+             value(Left:Int, Right:Int), heap, none, InR:K)))))), BN, SL, MOL) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
@@ -1531,6 +1536,53 @@ module LLVM-MEMORY
 
     //non-atomic read stack
     //dealing with cmpxchg/atomicrmw
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List), cmpxchgResult(N:Int)), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map </specRegisters>
+         <registers> M':Map => updateEnv(M', X, constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)) </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M, updateEnv(M', X, constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)), Rev)) </instQueue>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
+                     Avb':List, .List), Ava Ava' Avb Avb',
+                      updateVarInList(Cur, Bn,
+               L, M, updateEnv(M', X, constStructVal(valValue(joinBytes(T, LL)),
+                         valValue(N),.ElemList)), Rev), Cur, SL, S) </toCommit>
+         <memoryList> S:List </memoryList>
+           <stackList> SL:List </stackList>
+         <specTree> Rev:Map </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              readBackHold(X:K, loadHold(T:K, LL:List), cmpxchgResult(N:Int)), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map => updateEnv(M,
+                      varInstance(Bn, X), constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)) </specRegisters>
+         <registers> M':Map </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, updateEnv(M,varInstance(Bn, X),
+                       constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)), M', Rev)) </instQueue>
+         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
+               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
+                     Avb':List, .List), Ava Ava' Avb Avb',
+                      updateVarInList(Cur, Bn, ML,
+                         updateEnv(M,varInstance(Bn, X),
+                        constStructVal(valValue(joinBytes(T, LL)),
+                    valValue(N),.ElemList)), M', Rev), Cur, SL, S) </toCommit>
+         <memoryList> S:List </memoryList>
+           <stackList> SL:List </stackList>
+         <specTree> Rev:Map </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
+         [transition]
+
 
     //deal with va_arg read a value and then read the actually content
     //then write back the hold to the next struct position
@@ -1590,7 +1642,6 @@ module LLVM-MEMORY
         <output>... .List => ListItem("error: try to read a outofrange place as a va_arg.") </output>
            requires sizeof(T) ==K size(LL)
                    andBool sizeOfStruct(VaType, joinBytes(T, LL)) ==K -1
-
 
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
              readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
@@ -2260,6 +2311,182 @@ module LLVM-MEMORY
                  andBool notBool rightHitType(CL, Base, T)
                  andBool Ad =/=K Ad'
 
+    //atomic readwrite in stack
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                      cmpxchgResult(1)), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(Type:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), stack, none, InR:K)))))
+              => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+              atomicWrite(T2, splitBytes(V, T2)
+             , storeOperand(Tid, T2, V), Base,
+              sizeof(T2), Ad', Order)))) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T2)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                   cmpxchgResult(0)), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(Type:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), stack, none, InR:K)))))
+                       => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T2)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                  cmpxchgResult(1)), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(Type:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), stack, none, InR:K)))))
+              => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+              atomicWrite(T2, splitBytes(V, T2)
+             , storeOperand(Tid, T2, V), Base,
+              sizeof(T2), Ad', Order)))) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad1:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the stack.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T2) andBool Ad =/=K Ad1
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                    cmpxchgResult(0)), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(Type:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), stack, none, InR:K)))))
+                       => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad1:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the stack.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T2) andBool Ad =/=K Ad1
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(Type:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), stack, none, InR:K)))))
+              => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+              atomicWrite(T2, splitBytes(applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)
+             , storeOperand(Tid, T2, applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
+              sizeof(T2), Ad', Order)))) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T2)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(Type:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), stack, none, InR:K)))))
+              => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+              atomicWrite(T2, splitBytes(applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)
+             , storeOperand(Tid, T2, applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
+              sizeof(T2), Ad', Order)))) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad1:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the stack.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T2) andBool Ad =/=K Ad1
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+
+    rule <k> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, Next:K)))) L:List => .List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+        <output>... .List => ListItem("undefied behavior because atomic atomicrmw/cmpxchg a stack position that has different type as original specified.") </output>
+         requires Base +Int Size <=Int Right
+                     andBool Base >=Int Left
+                 andBool notBool rightHitType(CL, Base, T)
+
     //atomic read in stack
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
                  |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
@@ -2390,6 +2617,198 @@ module LLVM-MEMORY
          <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K,V:K, V1:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) L:List => .List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <race> Races:Set </race>
+            ...</object>
+        <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op.") </output>
+         requires Base +Int Size <=Int Right
+                     andBool Base >=Int Left
+                 andBool isOverlap(Base, Size, .K, Races)
+
+    //atomic read write in heap
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                    cmpxchgResult(1)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K)))))
+                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+              atomicWrite(T2, splitBytes(V, T2), storeOperand(Tid, T2, V), Base,
+              sizeof(T2), Ad', Order)))) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T)
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                    cmpxchgResult(1)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K)))))
+                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+              atomicWrite(T2, splitBytes(V, T2), storeOperand(Tid, T2, V), Base,
+              sizeof(T2), Ad', Order)))) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <addrSpace> Ad1:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T) andBool Ad =/=K Ad1
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                        cmpxchgResult(0)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K))))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T)
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                        cmpxchgResult(0)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K))))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <addrSpace> Ad1:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T) andBool Ad =/=K Ad1
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K)))))
+                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+              atomicWrite(T2, splitBytes(applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)
+             , storeOperand(Tid, T2, applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
+              sizeof(T2), Ad', Order)))) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T)
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K)))))
+                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+              atomicWrite(T2, splitBytes(applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)
+             , storeOperand(Tid, T2, applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
+              sizeof(T2), Ad', Order)))) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck>
+         <addrSpace> Ad1:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T)
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool Ad =/=K Ad1
+
+    rule <k> A:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, Next:K))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <chunck> CL:List </chunck> <race> Races:Set </race> ...</object>
+        <output>... .List => ListItem("undefied behavior because atomic atomicrmw/cmpxchg a heap position that has different type as original specified.") </output>
+         requires Base +Int Size <=Int Right
+                     andBool Base >=Int Left
+                 andBool notBool rightHitType(CL, Base, T)
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+
+    rule <k> A:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, Next:K))) L:List => .List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <race> Races:Set </race>
             ...</object>

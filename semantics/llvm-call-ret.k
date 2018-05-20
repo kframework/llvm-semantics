@@ -186,10 +186,10 @@ module LLVM-CALL-RET
                Attrs:Set, Meta:K)), M', M, Rev), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-         <specTree> Rev:Map => addChildToKey(Rev, N, Count)
-                           [Count <- runBlock(Count,
-                guessNextBlock(In), N, formMemList(Count, formInstList(1, .K, Body), VaLoc),
-               getVarsFromVarOp(.K, OutDef -Set InDef), .Set)] </specTree>
+         <specTree> Rev:Map => formMemListWithMem(Count, guessNextBlock(In), N,
+                    formInstList(1, .K, Body), VaLoc,
+                  getVarsFromVarOp(.K, OutDef -Set InDef),
+                       addChildToKey(Rev, N, Count)) </specTree>
          <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
                   (guessNextBlock(In) |-> blockContent(Body, Flag,
                     InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
@@ -217,10 +217,9 @@ module LLVM-CALL-RET
               => blockExecution(basicBlockNum(Count, Name),
             selectPhis(Fa, getFatherName(Fa, Rev), formInstList(1, .K, Body)))
                  ...</toExecute>
-         <specTree> Rev:Map => addChildToKey(Rev, Fa, Count)
-                           [Count <- runBlock(Count, Name, Fa,
-              formMemList(Count, formInstList(1, .K, Body), VaLoc),
-               getVarsFromVarOp(.K, OutDef -Set InDef), .Set)] </specTree>
+         <specTree> Rev:Map => formMemListWithMem(Count, Name, Fa,
+             formInstList(1, .K, Body), VaLoc, getVarsFromVarOp(.K,
+            OutDef -Set InDef), addChildToKey(Rev, Fa, Count)) </specTree>
          <restChoice> RM:Map => updateChoiceInMap(RM,Fa,Cs) </restChoice>
          <vaList> value(_:K, VaLoc:Loc) </vaList>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
@@ -285,18 +284,15 @@ module LLVM-CALL-RET
 
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
-         <specRegisters> M:Map => updateEnv(M,varInstance(BN, X), V) </specRegisters>
+         <specRegisters> M:Map => M[varInstance(BN, X) <- V] </specRegisters>
          <registers> M':Map </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
-               L, updateEnv(M,varInstance(BN, X), V), M', Rev)) </instQueue>
-         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, .List), Ava Ava' Avb Avb',
-                      updateVarInList(Cur, BN, ML,
-                         updateEnv(M,varInstance(BN, X), V), M', Rev), Cur, SL, S) </toCommit>
-         <memoryList> S:List </memoryList>
-           <stackList> SL:List </stackList>
+               L, M[varInstance(BN, X) <- V], M', Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava:K, Ava':Set, Avb:List, Avb':List,.List,
+                    updateVarInList(Cur, BN, CML ML,
+                       M[varInstance(BN, X) <- V], M', Rev)) </toCommit>
          <specTree> Rev:Map </specTree>
          requires BN >Int Cur
          [transition]
@@ -304,17 +300,14 @@ module LLVM-CALL-RET
     rule <k> runDynInst(dynResult(X:SymbolicValueRef, V:KResult)) => .K ...</k>
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
          <specRegisters> M:Map </specRegisters>
-         <registers> M':Map => updateEnv(M', X, V) </registers>
+         <registers> M':Map => M'[X <- V] </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, BN,
-               L, M, updateEnv(M', X, V), Rev)) </instQueue>
-         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, .List), Ava Ava' Avb Avb',
-                      updateVarInList(Cur, BN,
-               ML, M, updateEnv(M', X, V), Rev), Cur, SL, S) </toCommit>
-         <memoryList> S:List </memoryList>
-           <stackList> SL:List </stackList>
+               L, M, M'[X <- V], Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava:K, Ava':Set, Avb:List, Avb':List, .List,
+                       updateVarInList(Cur, BN,
+                        CML ML, M, M'[X <- V], Rev)) </toCommit>
          <specTree> Rev:Map </specTree>
          requires BN <=Int Cur
          [transition]
@@ -335,12 +328,12 @@ module LLVM-CALL-RET
         ...</control>)
         (<tomasulo>
             D:Bag
-           <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
+           <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
          </tomasulo>
          =>
          <tomasulo>...
            <instQueue> instList(.List) </instQueue>
-           <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
+           <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
          ...</tomasulo>)
         <callStack> .List => ListItem(frame(Tail, C, D)) ...</callStack>
 

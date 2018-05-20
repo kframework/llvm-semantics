@@ -34,17 +34,15 @@ module LLVM-VARIADICS
              => dynNoResult(undef) ...</k>
          <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genWriteBytes(TID, B, In, stack, getInnerType(vaArgType),
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+        => memList(Ava, Ava', Avb:List, Avb':List, CML, ML genWriteBytes(TID, B, In,
+                stack, getInnerType(vaArgType),
                splitBytes(getInnerType(vaArgType), 0),
                 storeOperand(TID, getInnerType(vaArgType), 0),
                             Base, 0, sizeof(getInnerType(vaArgType)), 0)
-              ListItem(singleMem(TID, B, In, stack, vaWait))), BN, SL, MOL) </toCommit>
+              ListItem(singleMem(TID, B, In, stack, vaWait))) </toCommit>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(getInnerType(vaArgType)) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(getInnerType(vaArgType)), LocalStack)
@@ -54,14 +52,12 @@ module LLVM-VARIADICS
                  => dynNoResult(undef) ...</k>
          <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In,stack, toClose(Base)))), BN, SL, MOL) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                 ML ListItem(singleMem(TID, B, In,stack, toClose(Base)))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(getInnerType(vaArgType)) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(getInnerType(vaArgType)), LocalStack)
@@ -89,16 +85,14 @@ module LLVM-VARIADICS
              <- readBackHold(undef, loadHold(getInnerType(vaArgType), .List),
                        vaWaitWrite(loc(Base1:Int, getInnerType(vaArgType),
             value(Left1:Int, Right1:Int), stack, none, InR1:K)))]) </readBack>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genReadBytes(TID, B, In, stack, getInnerType(vaArgType),
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+        => memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List,
+                ML genReadBytes(TID, B, In, stack, getInnerType(vaArgType),
                             Base, 0, sizeof(getInnerType(vaArgType)), 0)
-              ListItem(singleMem(TID, B, In, stack, vaWait))), BN, SL, MOL) </toCommit>
+              ListItem(singleMem(TID, B, In, stack, vaWait))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(getInnerType(vaArgType)) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(getInnerType(vaArgType)), LocalStack)
@@ -127,16 +121,14 @@ module LLVM-VARIADICS
                  value(Left:Int, Right:Int),stack, none, InR:K), T') ...</k>
          <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genReadBytes(TID, B, In, stack, getInnerType(vaArgType),
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+        => memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List,
+                ML genReadBytes(TID, B, In, stack, getInnerType(vaArgType),
                             Base, 0, sizeof(getInnerType(vaArgType)), 0)
-              ListItem(singleMem(TID, B, In, stack, vaWait))), BN, SL, MOL) </toCommit>
+              ListItem(singleMem(TID, B, In, stack, vaWait))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(getInnerType(vaArgType)) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(getInnerType(vaArgType)), LocalStack)

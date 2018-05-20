@@ -624,6 +624,10 @@ module LLVM-MEMORY
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
+    rule initialMemChannels(0) => .K
+    rule <k> initialMemChannels(N:Int) => initialMemChannels(N -Int 1) ...</k>
+         (.Bag => <memory>... <channelId> N -Int 1 </channelId> ...</memory>)
+
     rule preAlloca(integerType(I:Int), N:Int)
               => normalizingInt(integerType(I:Int), N) [structural]
 
@@ -735,7 +739,15 @@ module LLVM-MEMORY
               andBool ('inallocaOfAlloca(.KList) in Mods)
 
     //fence is handled by the specTree so we just need to omit it.
-    rule fence(K:K) => dynNoResult(undef)
+    rule fence(Or:K) => dynNoResult(undef)
+         requires Or =/=K seq_cst
+
+    rule <k> fence(seq_cst) => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+        <threadId> TID:Int </threadId>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(TID, B, In, heap, fence(seq_cst)))) </toCommit>
 
     //atomicrmw op
     rule <k> atomicrmw(Op:K, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
@@ -743,18 +755,16 @@ module LLVM-MEMORY
            => loadVal(Type) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In,stack,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(TID, B, In,stack,
                   atomicReadWrite(Type, Base, sizeof(Type), Ad, Or,
                    atomicrmwWait(Type, Op, V2,
                 loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), stack, none, InR:K)))))), BN, SL, MOL) </toCommit>
+             value(Left:Int, Right:Int), stack, none, InR:K)))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
@@ -766,18 +776,16 @@ module LLVM-MEMORY
            => loadVal(Type) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In, heap,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                    ML ListItem(singleMem(TID, B, In, heap,
             atomicReadWrite(Type, Base, sizeof(Type), Ad:Int, Or,
           atomicrmwWait(Type, Op,V2,
              loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), heap, none, InR:K)))))), BN, SL, MOL) </toCommit>
+             value(Left:Int, Right:Int), heap, none, InR:K)))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
-           <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
         [transition]
@@ -837,19 +845,17 @@ module LLVM-MEMORY
            => loadVal(Type) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In,stack,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(TID, B, In,stack,
                   atomicReadWrite(Type, Base, sizeof(Type), Ad, Or1,
          cmpxchgWait(Type, V2,V3, loc(Base:Int,
               pointerTypeValue(Type:KResult, Ad:Int),
              value(Left:Int, Right:Int), stack,
-                         none, InR:K)))))), BN, SL, MOL) </toCommit>
+                         none, InR:K)))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
@@ -862,17 +868,15 @@ module LLVM-MEMORY
            => loadVal(Type) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In, heap,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                    ML ListItem(singleMem(TID, B, In, heap,
             atomicReadWrite(Type, Base, sizeof(Type), Ad:Int, Or1,
          cmpxchgWait(Type, V2,V3, loc(Base:Int, pointerTypeValue(Type:KResult, Ad:Int),
-             value(Left:Int, Right:Int), heap, none, InR:K)))))), BN, SL, MOL) </toCommit>
+             value(Left:Int, Right:Int), heap, none, InR:K)))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
-           <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool sizeof(Type) dividesInt Base
@@ -968,13 +972,11 @@ module LLVM-MEMORY
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-                 Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genReadBytes(TID, B, In, heap, Type,
-                            Base, 0, sizeof(Type), Ad:Int)), BN, SL, MOL) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                      ML genReadBytes(TID, B, In, heap, Type,
+                            Base, 0, sizeof(Type), Ad:Int)) </toCommit>
         <memoryList> MOL:List </memoryList>
-        <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool notBool atomic in Mods
@@ -1007,15 +1009,13 @@ module LLVM-MEMORY
            => loadVal(Type:KResult) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genReadBytes(TID, B, In, stack, Type,
-                            Base, 0, sizeof(Type), Ad:Int)), BN, SL, MOL) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+        => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                      ML genReadBytes(TID, B, In, stack, Type,
+                            Base, 0, sizeof(Type), Ad:Int)) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
@@ -1028,16 +1028,14 @@ module LLVM-MEMORY
            => loadVal(Type:KResult) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In, heap,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                   ML ListItem(singleMem(TID, B, In, heap,
             atomicRead(Type, Base, sizeof(Type), Ad:Int, 
-                       getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+                       getOrdering(.K, Mods))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
-           <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool atomic in Mods
@@ -1049,16 +1047,14 @@ module LLVM-MEMORY
            => loadVal(Type:KResult) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In,stack,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                   ML ListItem(singleMem(TID, B, In,stack,
                   atomicRead(Type, Base, sizeof(Type), Ad,
-                      getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+                      getOrdering(.K, Mods))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
@@ -1140,16 +1136,14 @@ module LLVM-MEMORY
         <instructionCounter> Static:Int => Static +Int 1 </instructionCounter>
         <registers> RM:Map => RM[aLoc(Base, pointerTypeValue(Type,
                                   Ad:Int), stack) <-  value(Type, V)] </registers>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => memList(Ava:List, Ava' genWriteBytes(TID, staticBlockNum, Static, 
-                    stack, Type, splitBytes(V, Type),
-                         storeOperand(TID, Type, V),
-                            Base, 0, sizeof(Type), Ad), Avb, Avb', ML) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava' listToSet(genWriteBytes(TID, staticBlockNum, Static, 
+                    stack, Type, splitBytes(V, Type), storeOperand(TID, Type, V),
+                            Base, 0, sizeof(Type), Ad)), Avb, Avb', CML, ML) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
            <stackList> SL:List </stackList>
-        <memoryList> MOL:List </memoryList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
                  andBool notBool atomic in Mods
@@ -1161,11 +1155,10 @@ module LLVM-MEMORY
         <instructionCounter> Static:Int => Static +Int 1 </instructionCounter>
         <cbd> RM:Map => RM[aLoc(Base, pointerTypeValue(Type,
                                    Ad:Int), heap) <-  value(Type, V)] </cbd>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => memList(Ava:List, Ava' genWriteBytes(TID, staticBlockNum, Static, 
-                    heap, Type, splitBytes(V, Type),
-                         storeOperand(TID, Type, V),
-                            Base, 0, sizeof(Type), Ad), Avb, Avb', ML) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava' listToSet(genWriteBytes(TID, staticBlockNum, Static, 
+                    heap, Type, splitBytes(V, Type), storeOperand(TID, Type, V),
+                            Base, 0, sizeof(Type), Ad)), Avb, Avb', CML, ML) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
@@ -1180,16 +1173,14 @@ module LLVM-MEMORY
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-                 Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genWriteBytes(TID, B, In, heap, Type, splitBytes(V, Type),
-                         storeOperand(TID, Type, V),
-                            Base, 0, sizeof(Type), Ad)), BN, SL, MOL) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                     ML genWriteBytes(TID, B, In,
+                   heap, Type, splitBytes(V, Type), storeOperand(TID, Type, V),
+                            Base, 0, sizeof(Type), Ad)) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
-           <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool notBool atomic in Mods
@@ -1201,16 +1192,14 @@ module LLVM-MEMORY
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-        => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      genWriteBytes(TID, B, In, stack, Type, splitBytes(V, Type),
-                         storeOperand(TID, Type, V),
-                            Base, 0, sizeof(Type), Ad)), BN, SL, MOL) </toCommit>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+        => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                      ML genWriteBytes(TID, B, In,
+                    stack, Type, splitBytes(V, Type), storeOperand(TID, Type, V),
+                            Base, 0, sizeof(Type), Ad)) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
@@ -1222,17 +1211,14 @@ module LLVM-MEMORY
                   value(Left:Int, Right:Int), heap, none, InR:K), RA:Int)
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
-        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-         => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-              Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In, heap, atomicWrite(Type,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(TID, B, In, heap, atomicWrite(Type,
                      splitBytes(V, Type), storeOperand(TID, Type, V), Base,
-              sizeof(Type), Ad:Int, getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+              sizeof(Type), Ad:Int, getOrdering(.K, Mods))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <memoryList> MOL:List </memoryList>
-           <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool atomic in Mods
@@ -1244,16 +1230,14 @@ module LLVM-MEMORY
             => dynNoResult(undef) ...</k>
         <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-            => splitMemList(memList(Ava:List, Ava':List, Avb:List, Avb':List, .List),
-               Ava Ava' Avb Avb', subPrototypeWithActual(ML, TID, B, In,
-                      ListItem(singleMem(TID, B, In,stack, atomicWrite(Type,
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                   ML ListItem(singleMem(TID, B, In,stack, atomicWrite(Type,
                      splitBytes(V, Type), storeOperand(TID, Type, V), Base,
-              sizeof(Type), Ad, getOrdering(.K, Mods))))), BN, SL, MOL) </toCommit>
+              sizeof(Type), Ad, getOrdering(.K, Mods))))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
-        <memoryList> MOL:List </memoryList>
            <stackList> SL:List </stackList>
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
@@ -1310,6 +1294,164 @@ module LLVM-MEMORY
         requires notBool isALoc(A)
 
     //commit cell to memory cell
+    rule memList(.K, SetItem(A:K) Ave:Set,
+                            Avb:List, Avb':List, CML:List, ML:List)
+          => memList(A, Ave, Avb:List, Avb':List, CML, ML)
+
+    rule <toCommit> memList(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K), Ave:Set,
+                            Avb:List, Avb':List, CML:List, ML:List)
+                   => memList(.K, Ave, Avb:List, Avb':List, CML, ML) </toCommit>
+          <specTree> M:Map => markMemOp(Bn, In,.K, M) </specTree>
+          <memOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K))) </memOpList>
+
+    rule <toCommit> memList(singleMem(TID:Int,
+                     Bn:Int, In:Int, stack, Op:K),
+                          Ave:Set, Avb:List, Avb':List, CML:List, ML:List)
+                  => memList(.K, Ave, Avb:List, Avb':List, CML, ML) </toCommit>
+          <specTree> M:Map => markMemOp(Bn, In,.K, M) </specTree>
+          <stackOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K))) </stackOpList>
+
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, stack, Op:K)) S:List,Check:List, Not:List)
+             => memList(Ava, Ava', Avb:List
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, stack, Op:K)), S, Check, Not) </toCommit>
+         [transition]
+
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)) S:List,Check:List, Not:List)
+             => memList(Ava, Ava', Avb:List
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)), S, Check, Not) </toCommit>
+         requires getOrderInMemOp(Op) =/=K unordered
+         [transition]
+
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 S:List,Check:List, ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)) Not:List)
+             => memList(Ava , Ava' SetItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)), Avb:List, S, Check, Not) </toCommit>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+          <specTree> M:Map </specTree>
+         requires isMemAvailable(Cur, Bn, In, Ran, getOrderInMemOp(Op), M)
+                  andBool Bn <=Int Cur
+         [transition]
+
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 S:List,Check:List, ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)) Not:List)
+             => memList(Ava , Ava', Avb:List, S ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)), Check, Not) </toCommit>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+          <specTree> M:Map </specTree>
+         requires isMemAvailable(Cur, Bn, In, Ran, getOrderInMemOp(Op), M)
+                  andBool Bn >Int Cur
+         [transition]
+
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 S:List,Check:List, ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)) Not:List)
+             => memList(Ava , Ava', Avb:List, S,
+                   Check ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, Ran:K, Op:K)), Not) </toCommit>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+          <specTree> M:Map </specTree>
+         requires notBool isMemAvailable(Cur, Bn, In, Ran, getOrderInMemOp(Op), M)
+         [transition]
+
+    //deal with speculative write/read with mem op being unordered
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, heap, Op:K)) S:List,Check:List, Not:List)
+             => memList(Ava, Ava', Avb:List
+                 ListItem(singleMem(TID:Int, Bn:Int, In:Int,heap,
+                   Op:K)), S, Check,Not:List) </toCommit>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <memRegisters> M:Map => M[varInstance(Bn,In)
+                           <- pairResult(getTheLoc(heap, Op),
+                                   getBytesInAtomicWrite(Op))] </memRegisters>
+         <cbd> M':Map => M'[getTheLoc(heap, Op) <- getBytesInAtomicWrite(Op)] </cbd>
+         requires isAWrite(Op) andBool getOrderInMemOp(Op) ==K unordered
+         [transition]
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getBytesFromRegion(Base, Size,
+                  getInstanceInMemReg(getFatherStore(Bn, In, aLoc(Base,
+                  pointerTypeValue(Ty, Ad), heap), Rev), M))), Fl), RM) </readBack>
+         <specTree> Rev:Map </specTree>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, heap, atomicRead(Ty:K, Base:Int,
+              Size:Int, Ad:Int, unordered))) S:List,Check:List, Not:List)
+             => memList(Ava, Ava', Avb:List, S, Check,Not:List) </toCommit>
+         <memRegisters> M:Map </memRegisters>
+         requires getFatherStore(Bn, In, aLoc(Base,
+                  pointerTypeValue(Ty, Ad), heap), Rev) =/=K none
+                andBool hasInstanceInMemReg(
+                         getFatherStore(Bn, In, aLoc(Base,
+                  pointerTypeValue(Ty, Ad), heap), Rev), M)
+         [transition]
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getBytesFromRegion(Base, Size,
+                  getInstanceInCBD(Base, Size, .K, .K, M))), Fl), RM) </readBack>
+         <specTree> Rev:Map </specTree>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, heap, atomicRead(Ty:K, Base:Int,
+              Size:Int, Ad:Int, unordered))) S:List,Check:List, Not:List)
+             => memList(Ava, Ava', Avb:List, S, Check,Not:List) </toCommit>
+         <cbd> M:Map </cbd>
+         requires getFatherStore(Bn, In, aLoc(Base,
+                  pointerTypeValue(Ty, Ad), heap), Rev) ==K none
+            andBool getInstanceInCBD(Base, Size, .K, .K, M) =/=K none
+         [transition]
+
+    rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
+                 ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, heap, atomicRead(Ty:K, Base:Int,
+              Size:Int, Ad:Int, unordered))) S:List,Check:List, Not:List)
+             => memList(Ava, Ava', Avb:List ListItem(singleMem(TID:Int, Bn:Int,
+                     In:Int, heap, atomicRead(Ty:K, Base:Int,
+              Size:Int, Ad:Int, unordered))), S, Check,Not:List) </toCommit>
+         <specTree> Rev:Map </specTree>
+         <cbd> M:Map </cbd>
+         requires getFatherStore(Bn, In, aLoc(Base,
+                  pointerTypeValue(Ty, Ad), heap), Rev) ==K none
+            andBool getInstanceInCBD(Base, Size, .K, .K, M) ==K none
+         [transition]
+
+
+
+/*
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicRead(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+         <stackChunck> CL:List </stackChunck> ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right
+                     andBool Base >=Int Left
+                 andBool rightHitType(CL, Base, T)
+*/
+
+/*
     rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
                      Bn:Int, In:Int, heap, Op:K)) S:List, Not:List)
@@ -1323,6 +1465,7 @@ module LLVM-MEMORY
                              , getTypeValueInWrite(Op)) </cbd>
          requires isAWrite(Op)
          [transition]
+
 
     rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
@@ -1346,7 +1489,7 @@ module LLVM-MEMORY
                   notBool hasValidSpecRead(Bn, .K, .K, deleteNonTargetMap(
                      getTheLoc(Ran, Op),.K, .K, M), Rev)
          [transition]
-
+*/
 /*
     rule <readBack> readMap((RM:Map (varInstance(Bn, In)
                              |-> readBackHold(X:K, V:K, Fl:K))) => RM) </readBack>
@@ -1424,6 +1567,8 @@ module LLVM-MEMORY
                      aLoc(Base, pointerTypeValue(Type, Ad), heap),.K, .K, M), Rev)
          [transition]
 */
+
+/*need to change
     rule <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <memoryList> MOL:List </memoryList>
         <stackList> SL:List </stackList>
@@ -1435,7 +1580,8 @@ module LLVM-MEMORY
          <stackOpList> Ops:List (.List => ListItem(singleMem(TID:Int,
                      Bn:Int, In:Int, stack, Op:K))) </stackOpList>
          [transition]
-
+*/
+/*
     rule <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <memoryList> MOL:List </memoryList>
         <stackList> SL:List </stackList>
@@ -1450,10 +1596,10 @@ module LLVM-MEMORY
 
     rule <toCommit> memList(Ava:List, ListItem(X:K) Ava':List,
                      Avb:List, S:List, Not:List)
-             => memList(Ava:List ListItem(X:K), Ava':List,
+             => memList(Ava:List, ListItem(X:K), Ava':List,
                      Avb:List, S:List, Not:List) </toCommit>
          [transition]
-
+*/
     //non-atomic write stack
     rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
@@ -1540,20 +1686,17 @@ module LLVM-MEMORY
              readBackHold(X:K, loadHold(T:K, LL:List), cmpxchgResult(N:Int)), RM:Map)
                   => readMap(RM) </readBack>
          <specRegisters> M:Map </specRegisters>
-         <registers> M':Map => updateEnv(M', X, constStructVal(
-                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)) </registers>
+         <registers> M':Map => M'[X <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)] </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, Bn,
-               L, M, updateEnv(M', X, constStructVal(
-                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)), Rev)) </instQueue>
-         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, .List), Ava Ava' Avb Avb',
-                      updateVarInList(Cur, Bn,
-               L, M, updateEnv(M', X, constStructVal(valValue(joinBytes(T, LL)),
-                         valValue(N),.ElemList)), Rev), Cur, SL, S) </toCommit>
-         <memoryList> S:List </memoryList>
-           <stackList> SL:List </stackList>
+               L, M, M'[X <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn,
+               L, M, M'[X <- constStructVal(valValue(joinBytes(T, LL)),
+                         valValue(N),.ElemList)], Rev)) </toCommit>
          <specTree> Rev:Map </specTree>
          requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
          [transition]
@@ -1561,24 +1704,19 @@ module LLVM-MEMORY
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
               readBackHold(X:K, loadHold(T:K, LL:List), cmpxchgResult(N:Int)), RM:Map)
                   => readMap(RM) </readBack>
-         <specRegisters> M:Map => updateEnv(M,
-                      varInstance(Bn, X), constStructVal(
-                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)) </specRegisters>
+         <specRegisters> M:Map => M[varInstance(Bn, X) <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)] </specRegisters>
          <registers> M':Map </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, Bn,
-               L, updateEnv(M,varInstance(Bn, X),
-                       constStructVal(
-                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)), M', Rev)) </instQueue>
-         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, .List), Ava Ava' Avb Avb',
-                      updateVarInList(Cur, Bn, ML,
-                         updateEnv(M,varInstance(Bn, X),
+               L, M[varInstance(Bn, X) <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], M', Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set,Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn, ML,
+                        M[varInstance(Bn, X) <-
                         constStructVal(valValue(joinBytes(T, LL)),
-                    valValue(N),.ElemList)), M', Rev), Cur, SL, S) </toCommit>
-         <memoryList> S:List </memoryList>
-           <stackList> SL:List </stackList>
+                    valValue(N),.ElemList)], M', Rev)) </toCommit>
          <specTree> Rev:Map </specTree>
          requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
          [transition]
@@ -1603,6 +1741,17 @@ module LLVM-MEMORY
                     andBool sizeOfStruct(VaType, joinBytes(T, LL)) =/=K -1
               andBool sizeof(T1) <=Int sizeof(getTypeInStruct(VaType, joinBytes(T, LL)))
          [transition]
+
+    rule <readBack> readMapAux(varInstance(B:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),
+                    vaWaitWrite(Loc:Loc)), RM:Map) </readBack>
+         <stackOpList> ListItem(singleMem(TID:Int, B:Int, In:Int, stack, vaWait))
+                  ListItem(singleMem(TID:Int, B':K, In':Int, stack, Op:K))
+                     L:List
+             => ListItem(singleMem(TID:Int, B':K, In':Int, stack, Op:K))
+                ListItem(singleMem(TID:Int, B:Int, In:Int, stack, vaWait)) L
+               </stackOpList>
+           requires sizeof(T) =/=K size(LL)
 
     rule <readBack> readMapAux(varInstance(B:Int, In:Int),
              readBackHold(X:K, loadHold(T:K, LL:List),
@@ -1647,17 +1796,14 @@ module LLVM-MEMORY
              readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
                   => readMap(RM) </readBack>
          <specRegisters> M:Map </specRegisters>
-         <registers> M':Map => updateEnv(M', X, joinBytes(T, LL)) </registers>
+         <registers> M':Map => M'[X <- joinBytes(T, LL)] </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, Bn,
-               L, M, updateEnv(M', X, joinBytes(T, LL)), Rev)) </instQueue>
-         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, .List), Ava Ava' Avb Avb',
-                      updateVarInList(Cur, Bn,
-               L, M, updateEnv(M', X, joinBytes(T, LL)), Rev), Cur, SL, S) </toCommit>
-         <memoryList> S:List </memoryList>
-           <stackList> SL:List </stackList>
+               L, M, M'[X <- joinBytes(T, LL)], Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn,
+               L, M, M'[X <- joinBytes(T, LL)], Rev)) </toCommit>
          <specTree> Rev:Map </specTree>
          requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
                andBool Fl ==K .K
@@ -1666,21 +1812,15 @@ module LLVM-MEMORY
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
               readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
                   => readMap(RM) </readBack>
-         <specRegisters> M:Map => updateEnv(M,
-                      varInstance(Bn, X), joinBytes(T, LL)) </specRegisters>
+         <specRegisters> M:Map => M[varInstance(Bn, X) <- joinBytes(T, LL)] </specRegisters>
          <registers> M':Map </registers>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <instQueue> instList(L:List => updateVarInList(Cur, Bn,
-               L, updateEnv(M,varInstance(Bn, X),
-                       joinBytes(T, LL)), M', Rev)) </instQueue>
-         <toCommit> memList(Ava:List, Ava':List, Avb:List, Avb':List, ML:List)
-               => splitMemList(memList(Ava:List, Ava':List, Avb:List,
-                     Avb':List, .List), Ava Ava' Avb Avb',
-                      updateVarInList(Cur, Bn, ML,
-                         updateEnv(M,varInstance(Bn, X),
-                        joinBytes(T, LL)), M', Rev), Cur, SL, S) </toCommit>
-         <memoryList> S:List </memoryList>
-           <stackList> SL:List </stackList>
+               L, M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn, ML,
+                         M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </toCommit>
          <specTree> Rev:Map </specTree>
          requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
                   andBool Fl ==K .K

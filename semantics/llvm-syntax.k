@@ -716,7 +716,7 @@ module LLVM-SYNTAX
       The two arguments to the these instructions must be integer or vector
       of integer values. Both arguments must have identical types.
     */
-    syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
+    syntax IntConstructors ::= "add" [onlyLabel] | "sub" | "mul" | "shl"
 
 
     /*@

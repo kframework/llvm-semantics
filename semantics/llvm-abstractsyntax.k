@@ -524,6 +524,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= mapEntry(K, K) //key, value
     syntax KItem ::= vector(ElemList)           [strict]
     rule vector(E:KResult) => vectorValue(E)
+    syntax KItem ::= initialMemChannels(Int)
 
 /*
     syntax List ::= list(KList) [function]
@@ -650,7 +651,8 @@ module LLVM-ABSTRACTSYNTAX
 
     //syntax KItem ::= setSpecChoice(Int, Int, K, K, K)
                //Old, New, choice map, toEx inst, queue inst
-    syntax KItem ::= memProto(Int, K, Map) //inst-id, mem-op, next mem map
+    syntax KItem ::= memProto(Int, K, Map, Bool)
+           //inst-id, mem-op, next mem map, done-yet?
     syntax KItem ::= runBlock(Int, K, K, List, Set, Set) 
                       //block id, block name, father block id (int or none), 
                       //mem list, def var set, children ids
@@ -664,9 +666,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= readMap(Map)
     syntax KItem ::= readMapAux(K, K, Map) //(block, inst), (var, V), map 
     syntax KItem ::= instList(List) //used for instQueue cell
-    syntax KItem ::= memList(List, List, List, List, List)
-            //used for toCommit cell: available to commit, available to commit
-            //already wire, avialable to wire, not available
+    syntax KItem ::= memList(K, Set, List, List, List, List)
+            //ava to commit: available to commits,partial-ava to commits done
+            //partial-ava not done, already check not available, not check
     syntax KItem ::= pairResult(K, K)
     syntax KItem ::= pairResultList(K, List)
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
@@ -971,6 +973,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
     syntax KItem ::= varInstance(K, K)//block, inst / var, loadhold
+    syntax KItem ::= memInstance(K, K, K)//block, inst-id, loc, 
     syntax KItem ::= readBackHold(K, K, K) //var, loadhold, following action
     syntax KItem ::= "globalVar" | "localVar"
     syntax KItem ::= "either" | "heap" | "stack" | GlobalType

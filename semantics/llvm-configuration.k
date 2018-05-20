@@ -34,14 +34,17 @@ module LLVM-CONFIGURATION
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
             <thread multiplicity="*"> //thread cell
                 <threadId> 0 </threadId> //thread id
+                <memChannelId> 0 </memChannelId> //associated mem channel id
+                                             //a thread only talks to one chanel
                 <buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
-                <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+                <k color="LightGreen"> initialMemChannels(maxMemChannel) ~> 
+                               ($PGM:Module ~> (initGlobals ~> callMain)) </k>
                 //main cell containing program code
                 <tomasulo>
                     <toExecute> .K </toExecute>
                     <instQueue> instList(.List) </instQueue> //instruction queue
                     <cpu> .K </cpu> //central execution unit
-                    <toCommit> memList(.List, .List, .List, .List, .List) </toCommit>
+                    <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
                     <readBack> readMap(.Map) </readBack>
                     <specTree> .Map </specTree> //speculative tree
                     <restChoice> .Map </restChoice>
@@ -66,9 +69,10 @@ module LLVM-CONFIGURATION
                     <vaList> .K </vaList>//a cell storing variable argument list info
                     <expResume> .K </expResume>
                     <registers color="teal"> .Map </registers>
-                    <specRegisters color="teal"> .Map </specRegisters>
                     //registers (infinite) for a thread
-                    // TODO: this should eventually be a Set
+                    <specRegisters color="teal"> .Map </specRegisters>
+                    <memRegisters color="teal"> .Map </memRegisters>
+                    //registers to hold unordered speculative values.
                     <currentProgPoint> 0 </currentProgPoint>
                     //current program point (inst num), may not need
                     <currentModifiers color="Orchid"> .Set </currentModifiers>
@@ -90,7 +94,9 @@ module LLVM-CONFIGURATION
                      <stackRange> .K </stackRange>
                    </stackObject>
             </stackObjects>
-            <memory color="teal" type="Map"> //main memory, heap
+            <memorys>
+              <memory multiplicity="*" color="teal" type="Map"> //main memory, heap
+                <channelId> 0 </channelId>
                 <object multiplicity="*" color="LightSkyBlue">
                   <chunckRange> .K </chunckRange>
                   <chunck> .List </chunck>
@@ -103,14 +109,15 @@ module LLVM-CONFIGURATION
                   <race> .Set </race> //use to store the inst nums when a non-atomic load/store
                     //is accessing this field. 
                 </object>
-                <nextBase color="gray"> startMemoryLoc </nextBase>
-                //this is a cell to calculate the next memory start location.
                 <memOpList> .List </memOpList>
-                <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
-                <memoryList> .List </memoryList>
                 //a cell to hold the current all memory locations
                 <byteMap> .Map </byteMap>
-            </memory>
+              </memory>
+                <memoryList> .List </memoryList> //all allocaed mem ranges
+                <nextBase color="gray"> startMemoryLoc </nextBase>
+                //this is a cell to calculate the next memory start location.
+                <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
+            </memorys>
             // auxiliary cells:
             <output stream="stdout" color="DodgerBlue"> .List </output>
              //output channel, like standard output

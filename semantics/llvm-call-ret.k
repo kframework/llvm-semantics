@@ -212,7 +212,44 @@ module LLVM-CALL-RET
          <restChoice> RM:Map </restChoice>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
 
+    //after branching jump we need to maintain the specTree
+    rule <toExecute> blockHold(findNewSpec(none)) => blockHold(.K) ...</toExecute>
+
+    rule <k> adjustMemList(OldCount:Int, NewCount:Int)
+                   => adjustMemList(NewCount) ...</k>
+         <toExecute> blockHold(.K) => .K ...</toExecute>
+         <specTree> SPT:Map => cutOffWrongBranches(OldCount, NewCount, SPT) </specTree>
+
+    rule <k> adjustMemList(OldCount:Int, NewCount:Int)
+                   => adjustMemList(NewCount) ...</k>
+         <toExecute> blockHold(blockExecution(OldId:K, BE:List))
+                       => blockExecution(OldId:K, BE:List) ...</toExecute>
+         <specTree> SPT:Map => cutOffWrongBranches(OldCount, NewCount, SPT) </specTree>
+
+    rule <k> adjustMemList(OldCount:Int, NewCount:Int) => adjustMemList(NewCount) ...</k>
+         <toExecute> blockHold(findNewSpec(selectSpec(Fa:Int, Name:K, Cs:Set)))
+              => blockExecution(basicBlockNum(Count, Name),
+            selectPhis(Fa, getFatherName(Fa, Rev), formInstList(1, .K, Body)))
+                 ...</toExecute>
+         <specTree> Rev:Map => cutOffWrongBranches(OldCount, NewCount,
+                    formMemListWithMem(Count, Name, Fa,
+             formInstList(1, .K, Body), VaLoc, getVarsFromVarOp(.K,
+            OutDef -Set InDef), addChildToKey(Rev, Fa, Count))) </specTree>
+         <restChoice> RM:Map => updateChoiceInMap(RM,Fa,Cs) </restChoice>
+         <vaList> value(_:K, VaLoc:Loc) </vaList>
+         <currBlock> blockHold(basicBlockNum(BN:Int, CurLabel:K)) </currBlock>
+         <blockCount> Count:Int => Count +Int 1 </blockCount> 
+         <currModule> ModName:SymbolicValueRef </currModule>
+         <funModuleName> ModName </funModuleName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+         <functionName> FunName </functionName>
+         <basicBlocks>... Name |-> blockContent(Body:Map, _:Bool,
+                _:Set, _:Set, InDef:Set, _:Set, OutDef:Set, _:Set, _:Set) ...</basicBlocks>
+          [transition]
+
+    //if we finishes inputing a block to input queue, and then we need to find new spec block
     rule <toExecute> findNewSpec(none) => .K ...</toExecute>
+
     rule <toExecute> findNewSpec(selectSpec(Fa:Int, Name:K, Cs:Set))
               => blockExecution(basicBlockNum(Count, Name),
             selectPhis(Fa, getFatherName(Fa, Rev), formInstList(1, .K, Body)))

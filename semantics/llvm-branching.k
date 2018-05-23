@@ -19,15 +19,33 @@ module LLVM-BRANCHING
     //dealing with unconditional branch
     //need to take care the case when we need to clean up speculative 
     //opeartors. 
+    rule <k> adjustMemList(NewCount:Int) => .K ...</k>
+         <specTree> M:Map </specTree>
+         <currBlock> blockHold(A:K) => A </currBlock>
+         <toCommit> memList(A:K, Ready:Set, PA:List,
+             PA':List, Che:List, Not:List)
+            => dealWithToCommit(A:K, Ready:Set,
+            divideParList(NewCount, getRidWrongSepcOps(keys(M), PA:List)),
+           divideParList(NewCount, getRidWrongSepcOps(keys(M), PA':List)),
+          getRidWrongSepcOps(keys(M), Che:List),
+          getRidWrongSepcOps(keys(M), Not:List)) </toCommit>
+         <memRegisters> MM:Map => getRidWrongSepcMems(keys(M), .K, .K, MM) </memRegisters>
+         <cbd> M':Map => getRidWrongCBD(.K, 
+                         getWrongSpecLocs(keys(M), .K, .K, MM), M') </cbd>
+
     rule <k> unconditional(name(Label:K, S:String)) =>
-            blockExecution(basicBlockNum(Count,name(Label:K, S:String)),
+            adjustMemList(Count) ~>
+            (blockExecution(basicBlockNum(Count,name(Label:K, S:String)),
           selectPhis(OldCount,Name,formInstList(1, .K, Body)))
-              ~> dynNoResult(undef) ...</k>
+              ~> dynNoResult(undef)) ...</k>
         <toExecute> Ex:K => .K </toExecute>
         <instQueue> AnyQueue:K => instList(.List) </instQueue>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
-            => basicBlockNum(Count,name(Label:K, S:String)) </currBlock>
-        <specTree> Cho:Map </specTree>
+            => blockHold(basicBlockNum(Count,name(Label:K, S:String))) </currBlock>
+        <specTree> Cho:Map => cutOffWrongBranches(OldCount, Count,
+               formMemListWithMem(Count, Name, OldCount,
+           selectPhis(OldCount,Name,formInstList(1, .K, Body)), VaLoc, getVarsFromVarOp(.K,
+            OutDef -Set InDef), addChildToKey(Cho, OldCount, Count))) </specTree>
         <specRegisters> SRM:Map => .Map </specRegisters>
         <registers> RM:Map => updateMapByMap(RM, .K, .K,
                             getNewRootSpecMap(OldCount, .K, .K, SRM)) </registers>
@@ -36,24 +54,27 @@ module LLVM-BRANCHING
         <funModuleName> ModName </funModuleName>
         <currFunction> FunName </currFunction>
         <functionName> FunName </functionName>
+         <vaList> value(_:K, VaLoc:Loc) </vaList>
         <basicBlocks>... name(Label:K, S:String)
                  |-> blockContent(Body:Map, _:Bool, _:Set,
-                  _:Set, _:Set, _:Set, _:Set, _:Set, _:Set) ...</basicBlocks>
+                  _:Set, InDef:Set, _:Set, OutDef:Set, _:Set, _:Set) ...</basicBlocks>
         requires notBool inChoiceMap(name(Label:K, S:String),OldCount, .K, Cho)
 
     rule <k> unconditional(name(Label:K, S:String)) =>
-                   dynNoResult(undef) ...</k>
-        <toExecute> BlockEx:K => checkToKillBlockEx(getBlockNum(
+               adjustMemList(OldCount, getBlockNum(
+               name(Label:K, S:String),OldCount, .K, Cho))
+                  ~> dynNoResult(undef) ...</k>
+        <toExecute> BlockEx:K => blockHold(checkToKillBlockEx(getBlockNum(
                name(Label:K, S:String),OldCount, .K, Cho), BlockEx,
             getChildrenOfBlock(getBlockNum(
-               name(Label:K, S:String),OldCount, .K, Cho),.K,Cho),Cho, RestM) </toExecute>
+               name(Label:K, S:String),OldCount, .K, Cho),.K,Cho),Cho, RestM)) </toExecute>
         <instQueue> instList(Insts:List)
                => instList(getNewSpecOps(getChildrenOfBlock(getBlockNum(
                name(Label:K, S:String),OldCount, .K, Cho)
                     ,.K,Cho),.K,Insts)) </instQueue>
         <currBlock> basicBlockNum(OldCount:Int, Name:K)
-            => basicBlockNum(getBlockNum(name(Label:K, S:String),OldCount, .K, Cho)
-                         ,name(Label:K, S:String)) </currBlock>
+            => blockHold(basicBlockNum(getBlockNum(name(Label:K, S:String),
+               OldCount, .K, Cho), name(Label:K, S:String))) </currBlock>
         <specTree> Cho:Map </specTree>
         <restChoice> RestM:Map </restChoice>
         <specRegisters> SRM:Map => getNewSpecMap(OldCount,

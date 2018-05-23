@@ -62,6 +62,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= seqPoint(Int, Int, K)
                         //block_id, static id, inst
     syntax KItem ::= basicBlockNum(Int, K)
+    syntax KItem ::= blockHold(K)
     syntax KItem ::= guessBlockPath(List)
 
     //syntax KItem ::= ElemList
@@ -512,8 +513,7 @@ module LLVM-ABSTRACTSYNTAX
 
     syntax Loc ::= loc(K, K, K, K, K, K)
              //base, type, range, rangetype, blockaddr?, inrange?
-    //syntax Loc ::= stackLoc(K, K, K, K) 
-             // TODO [semantic] base, type, range, inrange?
+
     syntax Loc ::= aLoc(K, K, K) //base, type, rangeType
     syntax Loc ::= intLoc(K, K, K,K, K) //base(int), type, range, rangetype, blockaddr?
     syntax Loc ::= floatLoc(K, K, K,K, K) //base(float), type, range, rangetype, blockaddr?
@@ -532,8 +532,8 @@ module LLVM-ABSTRACTSYNTAX
     rule list(.KList) => .List
     rule list(A:K,, KL:KList) => ListItem(A) list(KL)
 */
-    syntax Int ::= ptrByte(K, K) // address, byteNumber; part of a pointer, as a byte
-    syntax KItem ::= floatByte(K, K, K) // float, type, byte number
+    syntax KResult ::= ptrByte(K, K) // address, byteNumber; part of a pointer, as a byte
+    syntax KItem ::= floatByte(List, List) // float, type, byte number
     //rule isNat(ptrByte(_, _)) => true
     //rule isNat(floatByte(_, _, _)) => true
 
@@ -559,6 +559,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= intByte(List)
     syntax KItem ::= countByteResult(List, List)
     syntax KItem ::= splitListResult(List, List)
+    syntax KItem ::= pairList(List, List)
 
     //syntax KItem ::= blockExecutionAux(K) 
     syntax KItem ::= blockExecution(K, List)//prev block with num, inst list
@@ -674,6 +675,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= dynInstInfo(Int, Int, K, K)
                       //block num, inst num, inst, inst type
     syntax KItem ::= dynInstHold(Int, Int, K) //block, inst num, inst type
+    syntax KItem ::= adjustMemList(Int) //father, new-count, 
+    syntax KItem ::= adjustMemList(Int, K) //father, child, 
+
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
     syntax KItem ::= toRead(K, K) //var or loc, ordering
     syntax KItem ::= toWrite(K, K) //var or loc, ordering
@@ -767,6 +771,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= preStaticStore(K, K, K, K, Int) [strict(2)]
     syntax KItem ::= staticStore(K, K, K, K, Int) [strict(2)]
                         // Type, Value, deType, Destination, aligns
+    syntax KItem ::= "staticSeqFence"
     syntax KItem ::= store(K, K, K, K, Int) [strict(1,2,3,4)]
                         // Type, Value, deType, Destination, align
     syntax KItem ::= fence(K)

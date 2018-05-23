@@ -230,7 +230,7 @@ module LLVM-GLOBALS
               { i(32), i(32), i(8) ('addrEmpty(.KList))*,
                  i(8) ('addrEmpty(.KList))*, .TypeList } ('addrEmpty(.KList))* .ParamAttrs),
                 name(globalVar, "vprintf"))),.ElemList)
-                  ~> (K ~> dealWithUnnamed(TL)) ...</k>
+                  ~> (K ~> staticSeqFence ~> dealWithUnnamed(TL)) ...</k>
         <savedGlobals> K:K => .K </savedGlobals>
         <tempGlobalVars> TL:List => .List </tempGlobalVars>
 

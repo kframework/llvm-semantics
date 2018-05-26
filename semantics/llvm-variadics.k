@@ -21,7 +21,7 @@ module LLVM-VARIADICS
          (<tomasulo> D:Bag </tomasulo> => <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
-        <output>... .List => ListItem("error: va_start must have correct mem location in the stack.") </output>
+        <output>... .List => ListItem("error: va_start must have correct mem location with enough space in the stack.") </output>
         <localMemory> LocalStack:Set </localMemory>
            <stackList> SL:List </stackList>
         requires Ran =/=K stack orBool 
@@ -35,12 +35,12 @@ module LLVM-VARIADICS
          <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
-        => memList(Ava, Ava', Avb:List, Avb':List, CML, ML genWriteBytes(TID, B, In,
-                stack, getInnerType(vaArgType),
-               splitBytes(getInnerType(vaArgType), 0),
-                storeOperand(TID, getInnerType(vaArgType), 0),
-                            Base, 0, sizeof(getInnerType(vaArgType)), 0)
-              ListItem(singleMem(TID, B, In, stack, vaWait))) </toCommit>
+        => memList(Ava, Ava', Avb:List, Avb':List, CML, ML
+               ListItem(singleMem(TID, B, In,stack,
+                 atomicWrite(getInnerType(vaArgType),
+                     splitBytes(0, getInnerType(vaArgType)),
+              storeOperand(TID, getInnerType(vaArgType), 0), Base,
+              sizeof(getInnerType(vaArgType)), 0, monotonic)))) </toCommit>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
            <stackList> SL:List </stackList>
@@ -67,7 +67,7 @@ module LLVM-VARIADICS
          (<tomasulo> D:Bag </tomasulo> => <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
-        <output>... .List => ListItem("error: va_close location has been deleted.") </output>
+        <output>... .List => ListItem("error: va_close location has been deleted or the input loc is not a va_start location.") </output>
         <localMemory> LocalStack:Set </localMemory>
            <stackList> SL:List </stackList>
         requires Base <Int Left orBool Base +Int sizeof(getInnerType(vaArgType)) >Int Right
@@ -82,14 +82,14 @@ module LLVM-VARIADICS
          <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
-             <- readBackHold(undef, loadHold(getInnerType(vaArgType), .List),
+             <- readBackHold(undef, loadHold(getInnerType(vaArgType), .List), .K,
                        vaWaitWrite(loc(Base1:Int, getInnerType(vaArgType),
             value(Left1:Int, Right1:Int), stack, none, InR1:K)))]) </readBack>
         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
         => memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List,
-                ML genReadBytes(TID, B, In, stack, getInnerType(vaArgType),
-                            Base, 0, sizeof(getInnerType(vaArgType)), 0)
-              ListItem(singleMem(TID, B, In, stack, vaWait))) </toCommit>
+                ML ListItem(singleMem(TID, B, In, stack,
+            atomicRead(getInnerType(vaArgType), Base,
+                   sizeof(getInnerType(vaArgType)), 0, monotonic)))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>
@@ -123,9 +123,9 @@ module LLVM-VARIADICS
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
         => memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List,
-                ML genReadBytes(TID, B, In, stack, getInnerType(vaArgType),
-                            Base, 0, sizeof(getInnerType(vaArgType)), 0)
-              ListItem(singleMem(TID, B, In, stack, vaWait))) </toCommit>
+                ML ListItem(singleMem(TID, B, In, stack,
+            atomicRead(getInnerType(vaArgType), Base,
+                   sizeof(getInnerType(vaArgType)), 0, monotonic)))) </toCommit>
         <currentModifiers> Mods:Set </currentModifiers>
         <threadId> TID:Int </threadId>
         <localMemory> LocalStack:Set </localMemory>

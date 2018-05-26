@@ -1144,10 +1144,18 @@ module LLVM-HELPERS
                      //type, result, current, remain bits, bound, bits, store-loc-info
                    | joinPointerByte(List, Int, Int) [function]
                    | joinPointerByteAux(List, K, Int, Int) [function]
+                   | joinFloatByte(List, List,K, K) [function]
+                   | joinFloatByteAuxA(List, K) [function]
+                   | joinFloatByteAuxB(Int, K, K) [function]
+                   | joinFloatByteAuxC(Int, List, List, K) [function]
                    | joinArrayByte(List, List, Int, Int, K) [function]
                    | joinArrayByteAux(K, List, Int, Int, K) [function]
                    | joinVectorByte(List, List, Int, Int, K) [function]
                    | joinVectorByteAux(K, List, Int, Int, K) [function]
+                   | joinPackedStructByte(List, List, TypeList) [function]
+                   | joinPackedStructByteAux(K, List, K, TypeList) [function]
+                   | joinStructByte(List, List, TypeList) [function]
+                   | joinStructByteAux(K, List, K, TypeList) [function]
 
     rule joinBytes(integerType(N:Int), L:List)
              => joinIntBytes(integerType(N), 0, 0, N, numBitsPerByte
@@ -1159,7 +1167,180 @@ module LLVM-HELPERS
              => joinArrayByte(getRidOfReadPiece(L:List), .List, 0, B, A)
     rule joinBytes(vectorTypeValue(A:K, B:Int), L:List)
              => joinVectorByte(getRidOfReadPiece(L:List), .List, 0, B, A)
+    rule joinBytes(T:FPType, L:List) => joinFloatByte(
+                              getRidOfReadPiece(L),.List, none, T)
+    rule joinBytes(packedStructTypeValue(Ts:TypeList), L:List)
+               => joinPackedStructByte(getRidOfReadPiece(L),.List, Ts)
+    rule joinBytes(structTypeValue(Ts:TypeList), L:List)
+               => joinStructByte(getRidOfReadPiece(L),.List, Ts)
 
+    //joining struct bytes
+    rule joinStructByte(.List, L:List, .TypeList) => 
+             packedStructVal(listToElemList(L))
+         requires notBool isAllPoison(L) andBool notBool isAllUndef(L)
+    rule joinStructByte(.List, L:List, .TypeList) => poisonVal
+         requires isAllPoison(L)
+    rule joinStructByte(.List, L:List, .TypeList) => undef
+         requires isAllUndef(L)
+    rule joinStructByte(.List, L:List, (T:KResult, Ts:TypeList)) => undef
+    rule joinStructByte(Re:List, L:List, .TypeList) => undef
+         requires size(Re) >Int 0
+    rule joinStructByte(Re:List, L:List, (T:KResult, Ts:TypeList))
+             => joinStructByteAux(countByte(Re, .List, sizeof(T)), L, T, Ts)
+    rule joinStructByteAux(countByteResult(Now:List, Rest:List),
+               L:List, T:K, Ts:TypeList)
+           => joinStructByte(Rest, L ListItem(joinBytes(T, Now)), Ts)
+         requires structAlign dividesInt sizeof(T)
+    rule joinStructByteAux(countByteResult(Now:List, Rest:List),
+               L:List, T:K, Ts:TypeList)
+           => joinStructByte(getRightCountResult(countByte(Rest, .List,
+             (((sizeof(T) /Int structAlign) +Int 1)
+                     *Int structAlign) -Int sizeof(T))),
+                   L ListItem(joinBytes(T, Now)), Ts)
+         requires notBool structAlign dividesInt sizeof(T)
+
+    //joining packed struct bytes
+    rule joinPackedStructByte(.List, L:List, .TypeList) => 
+             packedStructVal(listToElemList(L))
+         requires notBool isAllPoison(L) andBool notBool isAllUndef(L)
+    rule joinPackedStructByte(.List, L:List, .TypeList) => poisonVal
+         requires isAllPoison(L)
+    rule joinPackedStructByte(.List, L:List, .TypeList) => undef
+         requires isAllUndef(L)
+    rule joinPackedStructByte(.List, L:List, (T:KResult, Ts:TypeList)) => undef
+    rule joinPackedStructByte(Re:List, L:List, .TypeList) => undef
+         requires size(Re) >Int 0
+    rule joinPackedStructByte(Re:List, L:List, (T:KResult, Ts:TypeList))
+             => joinPackedStructByteAux(countByte(Re, .List, sizeof(T)), L, T, Ts)
+    rule joinPackedStructByteAux(countByteResult(
+                          L:List, R:List), Re:List, T:K, Ts:TypeList)
+           => joinPackedStructByte(R, Re ListItem(joinBytes(T, L)), Ts)
+
+    //deal with joining float bytes
+    rule joinFloatByte(.List, L:List,A:K, T:K)
+            => joinFloatByteAuxA(L, T)
+         requires A ==K none orBool A ==K undef
+    rule joinFloatByte(.List, L:List,floatLoc(A:K, B:K, C:K, D:K, E:K), T:K)
+            => makeFloatLoc(joinFloatByteAuxA(L, T), B, C, D, E)
+    rule joinFloatByte(ListItem(intByte(BL:List)) L:List, R:List,A:K, T:K)
+           => joinFloatByte(L, R ListItem(BL), A, T)
+    rule joinFloatByte(ListItem(loc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K, InR:K)) L:List, R:List, none, T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(none, Ty, Ra, Ran, Ba), T)
+    rule joinFloatByte(ListItem(intLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, none, T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(none, Ty, Ra, Ran, Ba), T)
+    rule joinFloatByte(ListItem(floatLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, none, T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(none, Ty, Ra, Ran, Ba), T)
+    rule joinFloatByte(ListItem(loc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K, InR:K)) L:List, R:List, undef, T:K)
+           => joinFloatByte(L, R ListItem(BL), undef, T)
+    rule joinFloatByte(ListItem(intLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, undef, T:K)
+           => joinFloatByte(L, R ListItem(BL), undef, T)
+    rule joinFloatByte(ListItem(floatLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, undef, T:K)
+           => joinFloatByte(L, R ListItem(BL), undef, T)
+    rule joinFloatByte(ListItem(loc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K, InR:K)) L:List, R:List, floatLoc(A:K,
+                      Ty:K, Ra:K, Ran:K, Ba:K), T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(A, Ty, Ra, Ran, Ba), T)
+    rule joinFloatByte(ListItem(intLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, floatLoc(A:K,
+                      Ty:K, Ra:K, Ran:K, Ba:K), T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(A, Ty, Ra, Ran, Ba), T)
+    rule joinFloatByte(ListItem(floatLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, floatLoc(A:K,
+                      Ty:K, Ra:K, Ran:K, Ba:K), T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(A, Ty, Ra, Ran, Ba), T)
+    rule joinFloatByte(ListItem(loc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K, InR:K)) L:List, R:List, floatLoc(A:K,
+                      Ty':K, Ra':K, Ran':K, Ba':K), T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(A, Ty, Ra, Ran, Ba), T)
+         requires (Ty =/=K Ty' orBool Ra =/=K Ra' orBool Ran =/=K Ran'
+                     orBool Ba =/=K Ba')
+    rule joinFloatByte(ListItem(intLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, floatLoc(A:K,
+                      Ty':K, Ra':K, Ran':K, Ba':K), T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(A, Ty, Ra, Ran, Ba), T)
+         requires (Ty =/=K Ty' orBool Ra =/=K Ra' orBool Ran =/=K Ran'
+                     orBool Ba =/=K Ba')
+    rule joinFloatByte(ListItem(floatLoc(intByte(BL:List), Ty:K, Ra:K,
+                  Ran:K, Ba:K)) L:List, R:List, floatLoc(A:K,
+                      Ty':K, Ra':K, Ran':K, Ba':K), T:K)
+           => joinFloatByte(L, R ListItem(BL),
+                      floatLoc(A, Ty, Ra, Ran, Ba), T)
+         requires (Ty =/=K Ty' orBool Ra =/=K Ra' orBool Ran =/=K Ran'
+                     orBool Ba =/=K Ba')
+
+    syntax Bool ::= isAllInt(List) [function]
+    rule isAllInt(.List) => true
+    rule isAllInt(ListItem(A:Int) L:List) => isAllInt(L)
+    rule isAllInt(ListItem(A:K) L:List) => false
+         requires notBool isAInt(A)
+
+    syntax Bool ::= isAllZero(List) [function]
+    rule isAllZero(.List) => true
+    rule isAllZero(ListItem(0) L:List) => isAllZero(L)
+    rule isAllZero(ListItem(A:K) L:List) => false
+         requires A =/=K 0
+
+    syntax Bool ::= isAllOne(List) [function]
+    rule isAllOne(.List) => true
+    rule isAllOne(ListItem(1) L:List) => isAllOne(L)
+    rule isAllOne(ListItem(A:K) L:List) => false
+         requires A =/=K 1
+
+    syntax Bool ::= getBadValueInBits(List, K) [function]
+    rule getBadValueInBits(.List, A:K) => A
+    rule getBadValueInBits(ListItem(poisonVal) L:List, A:K) => poisonVal
+    rule getBadValueInBits(ListItem(A:Int) L:List, B:K)
+        => getBadValueInBits(L, B)
+    rule getBadValueInBits(ListItem(A:K) L:List, B:K)
+             => getBadValueInBits(L, A)
+         requires A =/=K poisonVal andBool B =/=K poisonVal
+
+    rule joinFloatByteAuxA(ListItem(A:Int) L:List, T:K)
+          => joinFloatByteAuxB(A, countByte(L, .List, exponentOf(T)), T)
+    rule joinFloatByteAuxA(ListItem(A:K) L:List, T:K) => A
+         requires notBool isAInt(A)
+    rule joinFloatByteAuxB(A:Int, countByteResult(Now:List, Rest:List), T:K)
+           => joinFloatByteAuxC(A, Now, Rest, T)
+         requires T =/=K ppc_fp128 andBool isAllInt(Rest) andBool isAllInt(Now)
+    rule joinFloatByteAuxB(A:Int, countByteResult(Now:List, Rest:List), ppc_fp128)
+           => joinFloatByteAuxC(A, Now,
+                 getRightCountResult(countByte(Rest, .List, sizeofInBits(ppc_fp128)
+                   -Int mantissaOf(ppc_fp128)
+                       -Int exponentOf(ppc_fp128) -Int 1)), ppc_fp128)
+         requires isAllInt(Rest) andBool isAllInt(Now)
+    rule joinFloatByteAuxB(A:Int, countByteResult(Now:List, Rest:List), T:K)
+              => getBadValueInBits(Now Rest, none)
+         requires notBool isAllInt(Now Rest)
+
+    rule joinFloatByteAuxC(0, E:List, R:List, T:K) => posZero
+         requires isAllZero(R) andBool isAllZero(E)
+    rule joinFloatByteAuxC(1, E:List, R:List, T:K) => negZero
+         requires isAllZero(R) andBool isAllZero(E)
+    rule joinFloatByteAuxC(0, E:List, R:List, T:K) => posInf
+         requires isAllZero(R) andBool isAllOne(E)
+    rule joinFloatByteAuxC(1, E:List, R:List, T:K) => negInf
+         requires isAllZero(R) andBool isAllOne(E)
+    rule joinFloatByteAuxC(A:Int, E:List, R:List, T:K) => nan
+         requires isAllOne(E) andBool isAllInt(R)
+                   andBool notBool isAllZero(R)
+    rule joinFloatByteAuxC(A:Int, E:List, R:List, T:K)
+                => float(A, binToDec(E,exponentOf(T)),R)
+
+    //deal with joining array bytes
     rule joinArrayByte(L:List, Re:List, N:Int, Size:Int, InTy:K)
            => joinArrayByteAux(countByte(L, .List, sizeof(InTy)),
                  Re, N, Size, InTy)
@@ -1309,11 +1490,11 @@ module LLVM-HELPERS
 
     //join integer bytes
     rule joinIntBytes(T:K, R:Int, Size, Rem:Int,
-                 Size:Int, L:List, none) => normalizingInt(T, R)
+                 Size:Int, L:List, A:K) => normalizingInt(T, R)
+         requires A ==K none orBool A ==K undef
     rule joinIntBytes(T:K, R:Int, Size, Rem:Int,
                  Size:Int, L:List, intLoc(A:K, B:K, C:K, D:K, E:K))
                => intLoc(normalizingInt(T, R), B, C, D, E)
-
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(intByte(BL:List)), A:K)
               => joinIntBits(BL, 0, 0, Rem)
@@ -1410,6 +1591,36 @@ module LLVM-HELPERS
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(loc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K, InR:K)), undef)
+               => joinIntBytes(T, (2 ^Int N)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte, Rem -Int numBitsPerByte,
+                Size, L, undef)
+         requires N <Int Size andBool Rem >=Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(floatLoc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K)), undef)
+               => joinIntBytes(T, (2 ^Int N)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte, Rem -Int numBitsPerByte,
+                Size, L, undef)
+         requires N <Int Size andBool Rem >=Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(intLoc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K)), undef)
+               => joinIntBytes(T, (2 ^Int N)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte, Rem -Int numBitsPerByte,
+                Size, L, undef)
+         requires N <Int Size andBool Rem >=Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
+             andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(loc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K, InR:K)),
                         intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
                => joinIntBytes(T, (2 ^Int N)
@@ -1422,7 +1633,11 @@ module LLVM-HELPERS
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(loc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K, InR:K)),
-                        intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K)) => undef
+                        intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K))
+           => joinIntBytes(T, (2 ^Int N)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte, Rem -Int numBitsPerByte,
+                Size, L, undef)
          requires N <Int Size andBool Rem >=Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
@@ -1442,7 +1657,11 @@ module LLVM-HELPERS
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(floatLoc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K)),
-                        intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K)) => undef
+                        intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K))
+           => joinIntBytes(T, (2 ^Int N)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte, Rem -Int numBitsPerByte,
+                Size, L, undef)
          requires N <Int Size andBool Rem >=Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
@@ -1462,7 +1681,11 @@ module LLVM-HELPERS
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(intLoc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K)),
-                        intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K)) => undef
+                        intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K))
+               => joinIntBytes(T, (2 ^Int N)
+                      *Int joinIntBits(BL, 0, 0, numBitsPerByte) +Int R,
+                   N +Int numBitsPerByte, Rem -Int numBitsPerByte,
+                Size, L, undef)
          requires N <Int Size andBool Rem >=Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K undef
              andBool joinIntBits(BL, 0, 0, numBitsPerByte) =/=K poisonVal
@@ -1476,6 +1699,7 @@ module LLVM-HELPERS
                   andBool Rem <Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
              andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(loc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K, InR:K)), none)
@@ -1508,8 +1732,53 @@ module LLVM-HELPERS
              andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(loc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K, InR:K)), undef)
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                          L, undef)
+         requires N <Int Size andBool Rem >Int 0
+                  andBool Rem <Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(floatLoc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K)), undef)
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                          L, undef)
+         requires N <Int Size andBool Rem >Int 0
+                  andBool Rem <Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(intLoc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K)), undef)
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                          L, undef)
+         requires N <Int Size andBool Rem >Int 0
+                  andBool Rem <Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(loc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K, InR:K)),
-                      intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K)) => undef
+                        intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                        L, intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
+         requires N <Int Size andBool Rem >Int 0
+                  andBool Rem <Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(loc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K, InR:K)),
+                      intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K))
+            => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                        L, undef)
          requires N <Int Size andBool Rem >Int 0
                   andBool Rem <Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
@@ -1519,7 +1788,21 @@ module LLVM-HELPERS
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(floatLoc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K)),
-                      intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K)) => undef
+                        intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                        L, intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
+         requires N <Int Size andBool Rem >Int 0
+                  andBool Rem <Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(floatLoc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K)),
+                      intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K))
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                        L, undef)
          requires N <Int Size andBool Rem >Int 0
                   andBool Rem <Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
@@ -1529,7 +1812,21 @@ module LLVM-HELPERS
     rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
                  Size:Int, L:List ListItem(intLoc(intByte(BL:List),
                          Ty:K, Rv:K, Ran:K, Bn:K)),
-                      intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K)) => undef
+                        intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
+               => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                        L, intLoc(A:K, Ty:K, Rv:K, Ran:K, Bn:K))
+         requires N <Int Size andBool Rem >Int 0
+                  andBool Rem <Int numBitsPerByte
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
+             andBool joinIntBits(BL, 0, 0, Rem) =/=K poisonVal
+    rule joinIntBytes(T:K, R:Int, N:Int, Rem:Int,
+                 Size:Int, L:List ListItem(intLoc(intByte(BL:List),
+                         Ty:K, Rv:K, Ran:K, Bn:K)),
+                      intLoc(A:K, Ty':K, Rv':K, Ran':K, Bn':K))
+      => joinIntBytes(T, normalizingInt(T, (2 ^Int N) *Int
+                      joinIntBits(BL, 0, 0, Rem) +Int R), Size, 0, Size,
+                        L, undef)
          requires N <Int Size andBool Rem >Int 0
                   andBool Rem <Int numBitsPerByte
              andBool joinIntBits(BL, 0, 0, Rem) =/=K undef
@@ -1600,6 +1897,15 @@ module LLVM-HELPERS
         => ListItem(floatLoc(Loc, A, B, C, D))
             insertFloatLocInfo(L, A, B, C, D)
 
+    //useful for joining float bytes 
+    syntax KItem ::= makeFloatLoc(K, K, K, K, K) [function]
+    rule makeFloatLoc(float(A:Int, B:Int, C:List), Ty:K, Ra:K, Ran:K, Ba:K)
+            => floatLoc(float(A:Int, B:Int, C:List), Ty, Ra, Ran, Ba)
+    rule makeFloatLoc(A:K, Ty:K, Ra:K, Ran:K, Ba:K)
+            => floatLoc(A, Ty, Ra, Ran, Ba)
+         requires A ==K nan orBool A ==K posZero orBool A ==K negZero
+              orBool A ==K posInf orBool A ==K negInf
+
     syntax List ::= splitFloatByte(K, K) [function]
                   | splitFloatByteAux(List, Int, Int) [function]
                   | splitFloatByteAuxA(K, Int, Int) [function]
@@ -1614,7 +1920,7 @@ module LLVM-HELPERS
                integerType(1), N)) decToBin(E, exponentOf(T)), M), T)
     rule splitFloatByte(floatByte(L:List, R:List), ppc_fp128)
             => splitFloatByteAux(L:List copyOfK(0,sizeofInBits(ppc_fp128)
-                   -Int mantissaOf(ppc_fp128) -Int exponentOf(ppc_fp128))
+                   -Int mantissaOf(ppc_fp128) -Int exponentOf(ppc_fp128) -Int 1)
                           R:List, 0, sizeof(ppc_fp128))
     rule splitFloatByte(floatByte(L:List, R:List), T:K)
               => splitFloatByteAux(L R, 0, sizeof(T))
@@ -1737,14 +2043,13 @@ module LLVM-HELPERS
     rule splitStructByte(constStructVal(valValue(V:K),Es:ElemList),
             (T:KResult, Ts:TypeList))
            => splitBytesAux(V, T) splitStructByte(constStructVal(Es), Ts)
-         requires (numBitsPerByte *Int structAlign)
-                  dividesInt size(splitBytesAux(V, T))
+         requires structAlign dividesInt sizeof(T)
     rule splitStructByte(constStructVal(valValue(V:K),Es:ElemList),
             (T:KResult, Ts:TypeList))
-           => splitBytesAux(V, T) fillUndefBits(0, (size(splitBytesAux(V, T))
+           => splitBytesAux(V, T) fillUndefBits(0, (sizeof(T)
                 /Int structAlign +Int 1) *Int structAlign)
               splitStructByte(constStructVal(Es), Ts)
-         requires notBool structAlign dividesInt size(splitBytesAux(V, T))
+         requires notBool structAlign dividesInt sizeof(T)
 
     syntax Int ::= wvalist(List, K)
     //rule isNat(wvalist(_, _)) => true
@@ -4042,6 +4347,28 @@ module LLVM-HELPERS
            => isFather(A, getFatherId(C), M)
          requires A =/=K B
 
+    //check if a mem list/set has a specific op labeled with tid,b-id,in-id
+    syntax Bool ::= hasMemOpInSet(Int, Int, Int, K, Set) [function]
+    rule hasMemOpInSet(Tid:Int, Bn:Int, In:Int, .K, .Set) => false
+    rule hasMemOpInSet(Tid:Int, Bn:Int, In:Int, .K, SetItem(B:K) S:Set) 
+          => hasMemOpInSet(Tid:Int, Bn:Int, In:Int, B, S)
+    rule hasMemOpInSet(TID, Bn:Int, In:Int, singleMem(TID:Int,
+                     Bn:Int, In:Int, Ran:K, Op:K), S:Set) => true
+    rule hasMemOpInSet(TID, Bn:Int, In:Int, singleMem(TID':Int,
+                     Bn':Int, In':Int, Ran:K, Op:K), S:Set)
+           => hasMemOpInSet(TID, Bn, In, .K, S)
+         requires (TID =/=K TID') orBool (Bn =/=K Bn') orBool (In =/=K In')
+
+    syntax Bool ::= hasMemOpInList(Int, Int, Int, List) [function]
+    rule hasMemOpInList(Tid:Int, Bn:Int, In:Int, .List) => false
+    rule hasMemOpInList(Tid:Int, Bn:Int, In:Int,
+          ListItem(singleMem(Tid:Int, Bn:Int,
+             In:Int, Ran:K, Op:K)) L:List) => true
+    rule hasMemOpInList(Tid:Int, Bn:Int, In:Int,
+          ListItem(singleMem(Tid':Int, Bn':Int,
+             In':Int, Ran:K, Op:K)) L:List) => hasMemOpInList(Tid, Bn, In, L)
+         requires (Tid =/=K Tid') orBool (Bn =/=K Bn') orBool (In =/=K In')
+
     //cut off tree branches that is a not a child of the spectree
     syntax Set ::= getAllChildrenAux(Int, K, Map) [function]
                  | getAllChildren(Set, Map) [function]
@@ -4251,6 +4578,7 @@ module LLVM-HELPERS
               => findPreVarBlockNum(Root, Fa, V, .K, M)
         requires notBool V in Vars
 
+   syntax Map ::= updateVarInSpecTree(Map, Int, K, K, Map, Map, Map) [function]
    syntax List ::= updateVarInList(Int, Int, List, Map, Map, Map) [function]
    syntax KItem ::= updateVarInTerm(Int, Int, K, Map, Map, Map) [function]
                   | updateVarInGepTerm(Int, Int, K, Map, Map, Map) [function]
@@ -4259,7 +4587,24 @@ module LLVM-HELPERS
                   | updateVarInVarAux(Int, K, Int, Map, Map) [function]
                     //root, Var, found-block-id, regs, spec-regs
 
+   rule updateVarInSpecTree(.Map, Cur:Int, .K,
+            .K, M:Map, RM:Map, Rev:Map) => .Map
+   rule updateVarInSpecTree((A:K |-> B:K) SM:Map,
+                   Cur:Int, .K, .K, M:Map, RM:Map, Rev:Map)
+             => updateVarInSpecTree(SM, Cur, A, B, M, RM, Rev)
+   rule updateVarInSpecTree(SM:Map, Cur:Int, Bn:Int, runBlock(
+                  Bn':Int, Name':K, Fa':Int, L':List, Vars':Set, Cs':Set),
+             M:Map, RM:Map, Rev:Map)
+         => (Bn |-> runBlock(Bn', Name', Fa',
+               updateVarInList(Cur, Bn, L', M, RM, Rev), Vars', Cs'))
+             updateVarInSpecTree(SM, Cur, .K, .K, M, RM, Rev)
+
+
    rule updateVarInList(Cur:Int, BN:Int, .List, M:Map, RM:Map, Rev:Map) => .List
+   rule updateVarInList(Cur:Int, Bn:Int, ListItem(
+           memProto(In:Int, Inst:K, X:Map, Y:Bool)) L:List, M:Map, RM:Map, Rev:Map)
+        => ListItem(memProto(In, updateVarInTerm(Cur, Bn, Inst, M, RM, Rev), X, Y))
+               updateVarInList(Cur, Bn, L, M, RM, Rev)
    rule updateVarInList(Cur:Int, Pre:Int, ListItem(dynInstInfo(Bn:Int,
                      In:Int, Inst:K, T:K)) L:List, M:Map, RM:Map, Rev:Map)
         => ListItem(dynInstInfo(Bn:Int, In:Int,
@@ -4323,6 +4668,12 @@ module LLVM-HELPERS
                     X:K), M:Map, RM:Map, Rev:Map) => phiResult(F, X)
         requires notBool isLocalVariable(X)
 
+   rule updateVarInTerm(Cur:Int, C:Int, toRead(V:K, T:K), M:Map, RM:Map, Rev:Map)
+           => toRead(updateVarInTerm(Cur, C, V, M, RM, Rev), T)
+   rule updateVarInTerm(Cur:Int, C:Int, toWrite(V:K, T:K), M:Map, RM:Map, Rev:Map)
+           => toWrite(updateVarInTerm(Cur, C, V, M, RM, Rev), T)
+   rule updateVarInTerm(Cur:Int, C:Int, toReadWrite(V:K, T:K), M:Map, RM:Map, Rev:Map)
+           => toReadWrite(updateVarInTerm(Cur, C, V, M, RM, Rev), T)
    rule updateVarInTerm(Cur:Int, C:Int, noAssign(In:K), M:Map, RM:Map, Rev:Map)
         => noAssign(updateVarInTerm(Cur, C, In, M, RM, Rev))
    rule updateVarInTerm(Cur:Int, C:Int, assign(X:K, Inst:K), M:Map, RM:Map, Rev:Map)
@@ -4989,13 +5340,6 @@ module LLVM-HELPERS
                                         Int, Int, Int, Int)  [function]
           //thread, block, inst, heap/stack, type, Value, ori,
           // Base, offset count, limit, addrspace
-    rule genWriteBytes(TID:Int, BN:Int, IN:Int, Ran:K,
-                  Ty:K, region(.List, A:Int), V1:K, B:Int, I:Int, S:Int, Ad:Int)
-            => genWriteBytes(TID, BN, IN, Ran, Ty:K, region(.List, A), V1,
-                    B, I +Int 1, S:Int, Ad)
-                    ListItem(singleMem(TID, BN, IN, Ran:K,
-                         writeAByte(Ty:K, undef, V1, B, I, S, Ad:Int)))
-         requires I <Int A
     rule genWriteBytes(TID, BN:Int, IN:Int, Ran:K, Ty:K,
                  region(ListItem(V:K) L:List, A:Int), V1:K,
                B:Int, I:Int, S:Int, Ad:Int)
@@ -5243,7 +5587,7 @@ module LLVM-HELPERS
     rule getOrderInMemOp(writeAByte(T:K, A:K, B:K, C:Int, E:Int, F:Int, Ad:Int)) => none
     rule getOrderInMemOp(atomicWrite(T:K, A:K, B:K, C:Int, E:Int,Ad:Int,  F:K)) => F
     rule getOrderInMemOp(atomicReadWrite(T:K, C:Int, E:Int, Ad:Int, F:K, Ne:K)) => F
-    rule getOrderInMemOp(vaWait) => none
+    //rule getOrderInMemOp(vaWait) => none
     rule getOrderInMemOp(toClose(_)) => none
     rule getOrderInMemOp(A:K) => badValue [owise]
 
@@ -5320,20 +5664,19 @@ module LLVM-HELPERS
          requires isOverlapAux(Base, Last,
                     singleMem(Tid:Int, Bn:Int, In:Int, Ran:K, X:K))
 
-    syntax Bool ::= hasInstance(Int, Int, Int, K, Set) [function]
-    rule hasInstance(Tid:Int, Bn:Int, In:Int, .K, .Set) => false
-    rule hasInstance(Tid:Int, Bn:Int, In:Int, .K, SetItem(A:K) S:Set)
-           => hasInstance(Tid, Bn, In, A, S)
-    rule hasInstance(Tid, Bn, In, singleMem(Tid, Bn, In, Ran:K, X:K), S:Set)
-           => true
-    rule hasInstance(Tid, Bn, In, singleMem(Tid', Bn', In', Ran:K, X:K), S:Set)
-            => hasInstance(Tid, Bn, In, .K, S)
-         requires Tid =/=K Tid' orBool Bn =/=K Bn' orBool In =/=K In'
-
     syntax Map ::= updateMemWithAtomic(Map, Int, K) [function]
     rule updateMemWithAtomic(M:Map, B:Int, region(.List, A:K)) => M
     rule updateMemWithAtomic(M:Map, B:Int, region(ListItem(X:K) L:List, A:K))
            => updateMemWithAtomic(M[B <- X], B +Int 1, region(L, A))
+
+    syntax Bool ::= isChunckWritten(Map, Int, Int) [function]
+    rule isChunckWritten(M:Map, Size:Int, Size:Int) => false
+    rule isChunckWritten((I |-> A:K) M:Map, I:Int, Size:Int)
+           => isChunckWritten(M, I +Int 1, Size)
+         requires I <Int Size
+    rule isChunckWritten(M:Map, I:Int, Size:Int) => true
+         requires I <Int Size
+         [owise]
 
     syntax List ::= getMemWithAtomic(Map, Int, Int, Int) [function]
     rule getMemWithAtomic(M:Map, B:Int, Size:Int, Size:Int) => .List
@@ -5755,6 +6098,8 @@ module LLVM-HELPERS
 
     syntax List ::= getLeftCountResult(K) [function]
     rule getLeftCountResult(countByteResult(L:List, A:List)) => L
+    syntax List ::= getRightCountResult(K) [function]
+    rule getRightCountResult(countByteResult(L:List, A:List)) => A
 
     //dealing with input like 1.0 or x.yeq
 
@@ -6953,9 +7298,9 @@ module LLVM-HELPERS
     rule isMemAvailableAux(Ran:K, toClose(A:Int), .List) => true
     rule isMemAvailableAux(Ran:K, toClose(A:Int), L:List) => false
          requires size(L) =/=Int 0
-    rule isMemAvailableAux(Ran:K, vaWait, .List) => true
-    rule isMemAvailableAux(Ran:K, vaWait, L:List) => false
-         requires size(L) =/=Int 0
+    //rule isMemAvailableAux(Ran:K, vaWait, .List) => true
+    //rule isMemAvailableAux(Ran:K, vaWait, L:List) => false
+        // requires size(L) =/=Int 0
 
     rule isMemAvailableAux(Ran:K, Op:K, L:List) => isMemAvailableRead(
              getTheLocInSize(Ran, Op), getOrderInMemOp(Op), L)
@@ -6966,6 +7311,14 @@ module LLVM-HELPERS
     rule isMemAvailableAux(Ran:K, atomicReadWrite(T:K, Base:Int, 
            Size:Int, Ad:Int, Order:K, Next:K), L:List)
          => isMemAvailableReadWrite(aLoc(Base, Size, Ran), Order, L)
+
+
+    syntax Map ::= updateCompleteCell(Map, Int, K) [function]
+    rule updateCompleteCell(M:Map, Size:Int, A:K) => M
+         requires Size ==Int 1
+    rule updateCompleteCell(M:Map, Size:Int, A:K)
+                 => M[A <- 1]
+         requires Size =/=Int 1
 
 
 endmodule

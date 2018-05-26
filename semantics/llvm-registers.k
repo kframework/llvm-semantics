@@ -23,14 +23,14 @@ module LLVM-REGISTERS
            => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
-                      <- readBackHold(X, loadHold(Type, .List), .K)]) </readBack>
+                      <- readBackHold(X, loadHold(Type, .List),.K, .K)]) </readBack>
         [structural]
 
     rule <k> assign(X:SymbolicValueRef, vaArgOp(Loc:K, T2:K))
            => dynNoResult(undef) ...</k>
         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
         <readBack> readMap(RM:Map) => readMap(RM[varInstance(B, In)
-                      <- readBackHold(X, loadHold(getInnerType(vaArgType), .List),
+                      <- readBackHold(X, loadHold(getInnerType(vaArgType), .List), .K,
                        vaWaitRead(T2) ~> vaWaitWrite(Loc))]) </readBack>
         [structural]
 

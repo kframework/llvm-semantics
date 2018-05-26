@@ -87,7 +87,7 @@ module LLVM-CONFIGURATION
                    <stackObject multiplicity="*" color="LightSkyBlue">
                      <stackThreadId> 0 </stackThreadId> 
                      <stackChunckRange> .K </stackChunckRange>
-                     <stackChunck> .List </stackChunck>
+                     //<stackChunck> .List </stackChunck>
                      <stackSize> -1 </stackSize>
                      <stackAlign> 0 </stackAlign>
                      <stackAddrSpace> 0 </stackAddrSpace>

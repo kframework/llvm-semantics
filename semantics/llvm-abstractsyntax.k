@@ -687,7 +687,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KResult ::= cmpxchgResult(K) //1/0 depends on if the comparison succeeds
     syntax KResult ::= atomicrmwWait(K, K,K, K) //type,op, value, write-loc
     syntax KResult ::= cmpxchgWait(K, K, K, K) //t, compare result, value, write-loc
-    syntax KItem ::= "vaWait"
+    //syntax KItem ::= "vaWait"
     syntax KItem ::= vaWaitRead(K) //type
     syntax KItem ::= "waitWrite"
     syntax KItem ::= vaWaitWrite(K) //loc
@@ -979,7 +979,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax SymbolicValueRef ::= name(K, String)   [klabel('name)]//label, name
     syntax KItem ::= varInstance(K, K)//block, inst / var, loadhold
     syntax KItem ::= memInstance(K, K, K)//block, inst-id, loc, 
-    syntax KItem ::= readBackHold(K, K, K) //var, loadhold, following action
+    syntax KItem ::= readBackHold(K, K,K, K) //var, loadhold, undef?, following action
     syntax KItem ::= "globalVar" | "localVar"
     syntax KItem ::= "either" | "heap" | "stack" | GlobalType
 

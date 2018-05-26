@@ -186,10 +186,11 @@ module LLVM-CALL-RET
                Attrs:Set, Meta:K)), M', M, Rev), terminators))) </instQueue>
          <currBlock> basicBlockNum(BN:Int, CurLabel:K) </currBlock>
          <blockCount> Count:Int => Count +Int 1 </blockCount> 
-         <specTree> Rev:Map => formMemListWithMem(Count, guessNextBlock(In), N,
+         <specTree> Rev:Map => 
+             updateVarInSpecTree(formMemListWithMem(Count, guessNextBlock(In), N,
                     formInstList(1, .K, Body), VaLoc,
                   getVarsFromVarOp(.K, OutDef -Set InDef),
-                       addChildToKey(Rev, N, Count)) </specTree>
+                       addChildToKey(Rev, N, Count)), BN, .K,.K, M',M, Rev) </specTree>
          <restChoice> RM:Map => RM[N:Int <- nextSpecs(getRestBlocks(In, .K,
                   (guessNextBlock(In) |-> blockContent(Body, Flag,
                     InEg, OutEgs, InDef, InUse, OutDef, OutUse, Use)) BM))] </restChoice>
@@ -330,7 +331,8 @@ module LLVM-CALL-RET
                => memList(Ava:K, Ava':Set, Avb:List, Avb':List,.List,
                     updateVarInList(Cur, BN, CML ML,
                        M[varInstance(BN, X) <- V], M', Rev)) </toCommit>
-         <specTree> Rev:Map </specTree>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+                         M[varInstance(BN, X) <- V], M', Rev) </specTree>
          requires BN >Int Cur
          [transition]
 
@@ -345,7 +347,8 @@ module LLVM-CALL-RET
                => memList(Ava:K, Ava':Set, Avb:List, Avb':List, .List,
                        updateVarInList(Cur, BN,
                         CML ML, M, M'[X <- V], Rev)) </toCommit>
-         <specTree> Rev:Map </specTree>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+                         M, M'[X <- V], Rev) </specTree>
          requires BN <=Int Cur
          [transition]
 

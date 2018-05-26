@@ -634,9 +634,6 @@ module LLVM-MEMORY
         <channelId> Chan </channelId>
         (.Bag =>
             <object>...
-           <chunck> getTopMemList(curBase(Base, Al),
-                       0, N, sizeof(Type), Type,
-                        getRangeFromFlagInHeap(Con)) </chunck>
              <chunckRange> value(curBase(Base, Al),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </chunckRange>
              <size> N </size>
@@ -691,8 +688,6 @@ module LLVM-MEMORY
         (.Bag =>
             <stackObject>...
             <stackThreadId> Tid </stackThreadId>
-           <stackChunck> getTopMemList(curBase(Base, Al),
-                       0, N, sizeof(Type), Type, getRangeFromFlagInStack(Con)) </stackChunck>
              <stackChunckRange> value(curBase(Base, Al),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </stackChunckRange>
              <stackSize> N </stackSize>
@@ -717,9 +712,6 @@ module LLVM-MEMORY
         (.Bag =>
             <stackObject>...
             <stackThreadId> Tid </stackThreadId>
-          <stackChunck> getTopMemList(curBase(Base, Al),
-                       0, N, sizeof(Type), Type,
-                            getRangeFromFlagInStack(Con)) </stackChunck>
              <stackChunckRange> value(curBase(Base, Al),
                     nextBase(Base, sizeof(Type) *Int N, Al)) </stackChunckRange>
              <stackSize> N </stackSize>
@@ -1291,6 +1283,21 @@ module LLVM-MEMORY
                      Bn:Int, In:Int, heap, Op:K))) </memOpList>
          requires notBool isAWrite(Op) orBool
                   getOrderInMemOp(Op) =/=K unordered
+                  andBool notBool hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
+                  andBool notBool hasMemOpInSet(TID, Bn, In, .K, Ave)
+         [transition]
+
+    rule <toCommit> memList(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K), Ave:Set,
+                            Avb:List, Avb':List, CML:List, ML:List)
+                   => memList(.K, Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+          <memOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K))) </memOpList>
+         requires notBool isAWrite(Op) orBool
+                  getOrderInMemOp(Op) =/=K unordered
+                  andBool (hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
+                  orBool hasMemOpInSet(TID, Bn, In, .K, Ave))
+         [transition]
 
     rule <toCommit> memList(singleMem(TID:Int,
                      Bn:Int, In:Int, heap, Op:K), Ave:Set,
@@ -1303,6 +1310,23 @@ module LLVM-MEMORY
                      Bn:Int, In:Int, heap, Op:K))) </memOpList>
          requires isAWrite(Op) andBool
                   getOrderInMemOp(Op) ==K unordered
+                  andBool notBool hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
+                  andBool notBool hasMemOpInSet(TID, Bn, In, .K, Ave)
+         [transition]
+
+    rule <toCommit> memList(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K), Ave:Set,
+                            Avb:List, Avb':List, CML:List, ML:List)
+                   => memList(.K, Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+          <currBlock> basicBlockNum(OldCount:Int, Name:K) </currBlock>
+          <memRegisters> M:Map ((varInstance(Bn, In) |-> Val:K) => .Map) </memRegisters>
+          <memOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K))) </memOpList>
+         requires isAWrite(Op) andBool
+                  getOrderInMemOp(Op) ==K unordered
+                  andBool (hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
+                  orBool hasMemOpInSet(TID, Bn, In, .K, Ave))
+         [transition]
 
     rule <toCommit> memList(singleMem(TID:Int,
                      Bn:Int, In:Int, stack, Op:K),
@@ -1311,6 +1335,19 @@ module LLVM-MEMORY
           <specTree> M:Map => markMemOp(Bn, In,.K, M) </specTree>
           <stackOpList> L:List (.List => ListItem(singleMem(TID:Int,
                      Bn:Int, In:Int, heap, Op:K))) </stackOpList>
+          requires notBool hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
+                  andBool notBool hasMemOpInSet(TID, Bn, In, .K, Ave)
+          [transition]
+
+    rule <toCommit> memList(singleMem(TID:Int,
+                     Bn:Int, In:Int, stack, Op:K),
+                          Ave:Set, Avb:List, Avb':List, CML:List, ML:List)
+                  => memList(.K, Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+          <stackOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     Bn:Int, In:Int, heap, Op:K))) </stackOpList>
+          requires (hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
+                  orBool hasMemOpInSet(TID, Bn, In, .K, Ave))
+          [transition]
 
     rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
                  ListItem(singleMem(TID:Int, Bn:Int,
@@ -1378,11 +1415,11 @@ module LLVM-MEMORY
          [transition]
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
                 loadHold(T':K, getBytesFromRegion(Base, Size,
                   getInstanceInMemReg(getFatherStore(Bn, In, aLoc(Base,
-                  pointerTypeValue(Ty, Ad), heap), Rev), M))), Fl), RM) </readBack>
+                  pointerTypeValue(Ty, Ad), heap), Rev), M))), Unf:K, Fl), RM) </readBack>
          <specTree> Rev:Map </specTree>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <toCommit> memList(Ava:K, Ava':Set, Avb:List,
@@ -1399,10 +1436,10 @@ module LLVM-MEMORY
          [transition]
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
                 loadHold(T':K, getBytesFromRegion(Base, Size,
-                  getInstanceInCBD(Base, Size, .K, .K, M))), Fl), RM) </readBack>
+                  getInstanceInCBD(Base, Size, .K, .K, M))),Unf:K, Fl), RM) </readBack>
          <specTree> Rev:Map </specTree>
          <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
          <toCommit> memList(Ava:K, Ava':Set, Avb:List,
@@ -1439,12 +1476,11 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
            <stackAddrSpace> Ad </stackAddrSpace>
            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck>
+           <stackRange> constant </stackRange>
             ...</stackObject>
          <stackMap> BM:Map => BM[Base +Int Other <- V] </stackMap>
-         requires Base +Int Size <=Int Right
-                        andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                   andBool notBool Base +Int Other in keys(BM)
 
     rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
@@ -1453,15 +1489,53 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
            <stackAddrSpace> Ad':Int </stackAddrSpace>
            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck>
+           <stackRange> constant </stackRange>
             ...</stackObject>
-         <stackMap> BM:Map => BM[Base +Int Other <- V] </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
+         <stackMap> BM:Map => BM[Base +Int Other <- V] </stackMap>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool Ad =/=K Ad'
+                   andBool notBool Base +Int Other in keys(BM)
+                    andBool Ad =/=Int Ad'
+
+    rule <k> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) L:List => .List) </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackAddrSpace> Ad </stackAddrSpace>
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+           <stackRange> constant </stackRange>
+            ...</stackObject>
+         <output>... .List =>
+            ListItem("write a byte in a statck constant field that has been initialized.")
+         </output>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                   andBool Base +Int Other in keys(BM)
+
+    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackAddrSpace> Ad':Int </stackAddrSpace>
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+           <stackRange> stack </stackRange>
+            ...</stackObject>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the stack.")
+         </output>
+         <stackMap> BM:Map => BM[Base +Int Other <- V] </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                   andBool Ad =/=K Ad'
 
     rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
@@ -1470,33 +1544,184 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
            <stackAddrSpace> Ad </stackAddrSpace>
            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </stackChunck>
-         <stackRange> Rg:K </stackRange>
+           <stackRange> stack </stackRange>
             ...</stackObject>
          <stackMap> BM:Map => BM[Base +Int Other <- V] </stackMap>
-         requires Base +Int Size <=Int Right
-                        andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
 
-    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
+    //read values from read back cell
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              readBackHold(X:K, loadHold(T:K, LL:List),.K,
+                        cmpxchgResult(N:Int)), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map => M[varInstance(Bn, X) <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)] </specRegisters>
+         <registers> M':Map </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M[varInstance(Bn, X) <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], M', Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn, ML,
+                         M[varInstance(Bn, X) <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], M', Rev)) </toCommit>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+              M[varInstance(Bn, X) <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], M', Rev) </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              readBackHold(X:K, loadHold(T:K, LL:List),.K, .K), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map => M[varInstance(Bn, X) <- joinBytes(T, LL)] </specRegisters>
+         <registers> M':Map </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn, ML,
+                         M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </toCommit>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+              M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev) </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              readBackHold(X:K, loadHold(T:K, LL:List), undef, Fl:K), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map => M[varInstance(Bn, X) <- undef] </specRegisters>
+         <registers> M':Map </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn, ML,
+                         M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </toCommit>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+              M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev) </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),.K, cmpxchgResult(N:Int)), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map </specRegisters>
+         <registers> M':Map => M'[X <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)] </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M, M'[X <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn,
+               L, M, M'[X <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], Rev)) </toCommit>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+              M, M'[X <- constStructVal(
+                 valValue(joinBytes(T, LL)),valValue(N),.ElemList)], Rev) </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List),.K, .K), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map </specRegisters>
+         <registers> M':Map => M'[X <- joinBytes(T, LL)] </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M, M'[X <- joinBytes(T, LL)], Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn,
+               L, M, M'[X <- joinBytes(T, LL)], Rev)) </toCommit>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+              M, M'[X <- joinBytes(T, LL)], Rev) </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+             readBackHold(X:K, loadHold(T:K, LL:List), undef, Fl:K), RM:Map)
+                  => readMap(RM) </readBack>
+         <specRegisters> M:Map </specRegisters>
+         <registers> M':Map => M'[X <- undef] </registers>
+         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
+         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
+               L, M, M'[X <- joinBytes(T, LL)], Rev)) </instQueue>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+               => memList(Ava, Ava', Avb:List, Avb':List,
+                     CML, updateVarInList(Cur, Bn,
+               L, M, M'[X <- joinBytes(T, LL)], Rev)) </toCommit>
+         <specTree> Rev:Map => updateVarInSpecTree(Rev, Cur, .K, .K,
+              M, M'[X <- joinBytes(T, LL)], Rev) </specTree>
+         requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
+         [transition]
+
+    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
+              readBackHold(X:K, loadHold(T:K, LL:List),Unf:K, Fl:K), RM:Map)
+                  => readMap(RM (varInstance(Bn:Int, In:Int)
+                |-> readBackHold(X:K, loadHold(T:K, LL:List),Unf, Fl))) </readBack>
+         requires sizeof(T) =/=K size(LL)
+         [structural]
+
+    //non-atomic read in stack
+    rule <readBack> readMap(M:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Unf:K, Fl), M) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackAddrSpace> Ad </stackAddrSpace>
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+            ...</stackObject>
+         <stackMap>... (Base +Int Other) |-> V:K ...</stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+         [transition]
+
+    rule <readBack> readMap(M:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Unf:K, Fl), M) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
          <stackObject>...
            <stackThreadId> Tid </stackThreadId>
            <stackAddrSpace> Ad':Int </stackAddrSpace>
            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </stackChunck>
-         <stackRange> Rg:K </stackRange>
             ...</stackObject>
-         <stackMap> BM:Map => BM[Base +Int Other <- V] </stackMap>
+         <stackMap>... (Base +Int Other) |-> V:K ...</stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                  andBool Ad =/=K Ad'
+                 andBool Ad =/=K Ad'
+         [transition]
+
+    rule <k> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int)))) L:List => .List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+            ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+        <output>... .List => ListItem("error: undefied behavior because read a field that has not initialized yet.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+               andBool notBool (Base +Int Other) in keys(BM)
 
     //stack close memory location
     rule <stackOpList> (ListItem(singleMem(TID:Int, B, In,
@@ -1511,10 +1736,9 @@ module LLVM-MEMORY
          <stackList> SL:List => removeMemBlock(SL, Base) </stackList>
         requires Base >=Int Left andBool Base <Int Right
 
-    //non-atomic read stack
     //dealing with cmpxchg/atomicrmw
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List), cmpxchgResult(N:Int)), RM:Map)
+             readBackHold(X:K, loadHold(T:K, LL:List), Unf:K, cmpxchgResult(N:Int)), RM:Map)
                   => readMap(RM) </readBack>
          <specRegisters> M:Map </specRegisters>
          <registers> M':Map => M'[X <- constStructVal(
@@ -1533,7 +1757,7 @@ module LLVM-MEMORY
          [transition]
 
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-              readBackHold(X:K, loadHold(T:K, LL:List), cmpxchgResult(N:Int)), RM:Map)
+              readBackHold(X:K, loadHold(T:K, LL:List), Unf:K, cmpxchgResult(N:Int)), RM:Map)
                   => readMap(RM) </readBack>
          <specRegisters> M:Map => M[varInstance(Bn, X) <- constStructVal(
                  valValue(joinBytes(T, LL)),valValue(N),.ElemList)] </specRegisters>
@@ -1552,200 +1776,169 @@ module LLVM-MEMORY
          requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
          [transition]
 
-
     //deal with va_arg read a value and then read the actually content
     //then write back the hold to the next struct position
-    rule <readBack> readMapAux(varInstance(B:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List),
-                    (vaWaitRead(T1:K) ~> vaWaitWrite(Loc:Loc))), RM:Map)
-                  => readMap((varInstance(B:Int, In:Int)
-                         |-> readBackHold(X, loadHold(T1, .List), .K)) RM) </readBack>
-         <stackOpList> (ListItem(singleMem(TID:Int, B, In, stack, vaWait))
-                => genReadBytes(TID, B, In, stack, T1,
-             base(VaLoc) +Int sizeOfStruct(VaType, joinBytes(T, LL)), 0, sizeof(T1), 0)
-               genWriteBytes(TID, B, In, stack, getInnerType(vaArgType),
-              splitBytes(joinBytes(T, LL) +Int 1, getInnerType(vaArgType)),
-              storeOperand(TID, getInnerType(vaArgType), joinBytes(T, LL) +Int 1),
-                  base(Loc), 0, sizeof(getInnerType(vaArgType)), 0)) L:List </stackOpList>
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K,
+                  (vaWaitRead(T1:K) ~> vaWaitWrite(Loc:Loc)))))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf, .K), RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicRead(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) =>
+            ListItem(singleMem(Tid, Bn, In, stack, atomicRead(T1,
+                  base(VaLoc) +Int sizeOfStruct(VaType, joinBytes(T,
+                         getMemWithAtomic(BM, Base, 0, Size))),
+                 sizeof(T1), 0, Order:K)))
+            ListItem(singleMem(Tid, Bn, In,stack,
+              atomicWrite(getInnerType(vaArgType),
+                      splitBytes(joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))
+                               +Int 1, getInnerType(vaArgType)),
+                      storeOperand(Tid, getInnerType(vaArgType),
+                  splitBytes(joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))
+                               +Int 1, getInnerType(vaArgType))), base(Loc),
+              sizeof(getInnerType(vaArgType)), 0, monotonic)))) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+                 ...</stackObject>
+         <stackMap> BM:Map </stackMap>
          <vaList> value(VaType:K, VaLoc:Loc) </vaList>
-           requires sizeof(T) ==K size(LL)
-                    andBool sizeOfStruct(VaType, joinBytes(T, LL)) =/=K -1
-              andBool sizeof(T1) <=Int sizeof(getTypeInStruct(VaType, joinBytes(T, LL)))
-         [transition]
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
+              andBool sizeOfStruct(VaType, joinBytes(T,
+                             getMemWithAtomic(BM, Base, 0, Size))) =/=K -1
+              andBool sizeof(T1) <=Int sizeof(getTypeInStruct(VaType,
+                               joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))))
 
-    rule <readBack> readMapAux(varInstance(B:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List),
-                    vaWaitWrite(Loc:Loc)), RM:Map) </readBack>
-         <stackOpList> ListItem(singleMem(TID:Int, B:Int, In:Int, stack, vaWait))
-                  ListItem(singleMem(TID:Int, B':K, In':Int, stack, Op:K))
-                     L:List
-             => ListItem(singleMem(TID:Int, B':K, In':Int, stack, Op:K))
-                ListItem(singleMem(TID:Int, B:Int, In:Int, stack, vaWait)) L
-               </stackOpList>
-           requires sizeof(T) =/=K size(LL)
-
-    rule <readBack> readMapAux(varInstance(B:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List),
-                    vaWaitWrite(Loc:Loc)), RM:Map) => readMap(RM) </readBack>
-         <stackOpList> (ListItem(singleMem(TID:Int, B, In, stack, vaWait))
-                => genWriteBytes(TID, B, In, stack, getInnerType(vaArgType),
-              splitBytes(joinBytes(T, LL), getInnerType(vaArgType)),
-              storeOperand(TID, getInnerType(vaArgType), joinBytes(T, LL)),
-                  base(Loc), 0, sizeof(getInnerType(vaArgType)), 0)) L:List </stackOpList>
-           requires sizeof(T) ==K size(LL)
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K,
+                  vaWaitWrite(Loc:Loc))))
+                  => readMap(RM) </readBack>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicRead(T:K, Base:Int, Size:Int, Ad:Int, Order:K)))
+                => ListItem(singleMem(Tid, Bn, In,stack,
+              atomicWrite(getInnerType(vaArgType),
+                      splitBytes(joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))
+                              , getInnerType(vaArgType)),
+                      storeOperand(Tid, getInnerType(vaArgType),
+                  splitBytes(joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))
+                              , getInnerType(vaArgType))), base(Loc),
+              sizeof(getInnerType(vaArgType)), 0, monotonic)))) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+                 ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         <vaList> value(VaType:K, VaLoc:Loc) </vaList>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
          [transition]
 
     rule (<tomasulo> D:Bag
-            <readBack> readMapAux(varInstance(B:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List),
-                    vaWaitRead(T1:K) ~> vaWaitWrite(Loc:K)), RM:Map) </readBack>
+            <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K,
+                  (vaWaitRead(T1:K) ~> vaWaitWrite(Loc:Loc))))) </readBack>
           </tomasulo> => <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicRead(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) L:List => .List) </stackOpList>
          <vaList> value(VaType:K, VaLoc:K) </vaList>
          <k> K:K => .K </k>
+         <stackMap> BM:Map </stackMap>
         <output>... .List => ListItem("error: input arg va_arg type mismatch.") </output>
-           requires sizeof(T) ==K size(LL)
-                   andBool sizeOfStruct(VaType, joinBytes(T, LL)) =/=K -1
-                  andBool sizeof(T1) >Int sizeof(getTypeInStruct(VaType, joinBytes(T, LL)))
-
+           requires sizeOfStruct(VaType, joinBytes(T,
+                          getMemWithAtomic(BM, Base, 0, Size))) =/=K -1
+                  andBool sizeof(T1) >Int sizeof(getTypeInStruct(
+                   VaType, joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))))
 
     rule (<tomasulo> D:Bag
-           <readBack> readMapAux(varInstance(B:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List),
-                    vaWaitRead(T1:K) ~> vaWaitWrite(Loc:K)), RM:Map) </readBack>
+           <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K,
+                  (vaWaitRead(T1:K) ~> vaWaitWrite(Loc:Loc))))) </readBack>
               </tomasulo> <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
          <k> K:K => .K </k>
+         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicRead(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) L:List => .List) </stackOpList>
          <vaList> value(VaType:K, VaLoc:Loc) </vaList>
+         <stackMap> BM:Map </stackMap>
         <output>... .List => ListItem("error: try to read a outofrange place as a va_arg.") </output>
-           requires sizeof(T) ==K size(LL)
-                   andBool sizeOfStruct(VaType, joinBytes(T, LL)) ==K -1
+           requires sizeof(T1) <=Int sizeof(getTypeInStruct(
+                   VaType, joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))))
+                   andBool sizeOfStruct(VaType, 
+               joinBytes(T, getMemWithAtomic(BM, Base, 0, Size))) ==K -1
 
-    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-             readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
-                  => readMap(RM) </readBack>
-         <specRegisters> M:Map </specRegisters>
-         <registers> M':Map => M'[X <- joinBytes(T, LL)] </registers>
-         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
-         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
-               L, M, M'[X <- joinBytes(T, LL)], Rev)) </instQueue>
-         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
-               => memList(Ava, Ava', Avb:List, Avb':List,
-                     CML, updateVarInList(Cur, Bn,
-               L, M, M'[X <- joinBytes(T, LL)], Rev)) </toCommit>
-         <specTree> Rev:Map </specTree>
-         requires sizeof(T) ==K size(LL) andBool Bn <=Int Cur
-               andBool Fl ==K .K
-         [transition]
+    //non-atomic write in heap
+    //first case, when the write is a single byte
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <race> Races:Set </race>
+         <addrSpace> Ad </addrSpace>
+         <range> constant </range>
+         <complete> CM:Map </complete>
+          ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int 1 <=Int Right andBool Base  >=Int Left
+                 andBool notBool isOverlap(Base, 1, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
+                 andBool notBool (Base +Int Other) in keys(BM)
 
-    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-              readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
-                  => readMap(RM) </readBack>
-         <specRegisters> M:Map => M[varInstance(Bn, X) <- joinBytes(T, LL)] </specRegisters>
-         <registers> M':Map </registers>
-         <currBlock> basicBlockNum(Cur:Int, _:K) </currBlock>
-         <instQueue> instList(L:List => updateVarInList(Cur, Bn,
-               L, M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </instQueue>
-         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
-               => memList(Ava, Ava', Avb:List, Avb':List,
-                     CML, updateVarInList(Cur, Bn, ML,
-                         M[varInstance(Bn, X) <- joinBytes(T, LL)], M', Rev)) </toCommit>
-         <specTree> Rev:Map </specTree>
-         requires sizeof(T) ==K size(LL) andBool Bn >Int Cur
-                  andBool Fl ==K .K
-         [transition]
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <race> Races:Set </race>
+         <addrSpace> Ad </addrSpace>
+         <range> heap </range>
+         <complete> CM:Map </complete>
+          ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int 1 <=Int Right andBool Base  >=Int Left
+                 andBool notBool isOverlap(Base, 1, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
 
-    rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
-              readBackHold(X:K, loadHold(T:K, LL:List), Fl:K), RM:Map)
-                  => readMap(RM (varInstance(Bn:Int, In:Int)
-                |-> readBackHold(X:K, loadHold(T:K, LL:List), Fl))) </readBack>
-         requires sizeof(T) =/=K size(LL)
-         [transition]
-
-    rule <readBack> readMap(M:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), M) </readBack>
-         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-                        readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
-         <stackObject>...
-           <stackThreadId> Tid </stackThreadId>
-           <stackAddrSpace> Ad </stackAddrSpace>
-           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck>
-            ...</stackObject>
-         <stackMap>... (Base +Int Other) |-> V:K ...</stackMap>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-         [transition]
-
-    rule <readBack> readMap(M:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), M) </readBack>
-         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-                        readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </stackOpList>
-         <stackObject>...
-           <stackThreadId> Tid </stackThreadId>
-           <stackAddrSpace> Ad':Int </stackAddrSpace>
-           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck>
-            ...</stackObject>
-         <stackMap>... (Base +Int Other) |-> V:K ...</stackMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the stack.")
-         </output>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool Ad =/=K Ad'
-         [transition]
-
-    rule <k> K:K => .K </k>
+    rule <k> A:K => .K </k>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) L:List => .List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <race> Races:Set </race>
+         <range> constant </range>
+            ...</object>
+         <byteMap> BM:Map </byteMap>
          (<tomasulo>
             D:Bag
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
-         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-                        readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int)))) L:List => .List </stackOpList>
-         <stackObject>...
-           <stackThreadId> Tid </stackThreadId>
-           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck>
-            ...</stackObject>
-         <stackMap> BM:Map </stackMap>
-        <output>... .List => ListItem("error: undefied behavior because load a field that is not previously store at the same type.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
+        <output>... .List => ListItem("error: undefied behavior because trying to write to a constant field that has been initialized.") </output>
+         requires Base +Int Size <Int Right andBool Base >=Int Left
+                andBool (Base +Int Other) in keys(BM)
 
-    //non-atomic write in heap
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
                   Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
+         <range> heap </range>
          <race> Races:Set </race>
-         <addrSpace> Ad </addrSpace>
-          ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         requires Base +Int 1 <=Int Right
-                     andBool Base  >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, 1, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <race> Races:Set </race>
+         <complete> CM:Map </complete>
          <addrSpace> Ad':Int </addrSpace>
           ...</object>
          <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
@@ -1753,17 +1946,41 @@ module LLVM-MEMORY
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
          requires Base +Int 1 <=Int Right andBool Base  >=Int Left
-                 andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, 1, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
                  andBool Ad =/=K Ad'
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> constant </range>
+         <race> Races:Set </race>
+         <complete> CM:Map </complete>
+         <addrSpace> Ad':Int </addrSpace>
+          ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int 1 <=Int Right andBool Base  >=Int Left
+                 andBool notBool isOverlap(Base, 1, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
+                 andBool Ad =/=K Ad'
+                 andBool notBool (Base +Int Other) in keys(BM)
+
+    //non-atomic write: when the byte number is not one
+     //and this is the first time the non-atomic write is touching the mem
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
+         <range> constant </range>
          <race> Races:Set (.Set => SetItem(
                    singleMem(Tid, Bn, In, heap, value(Base,
                  Base +Int Size)))) </race>
@@ -1772,16 +1989,38 @@ module LLVM-MEMORY
          <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
          requires Base +Int Size <=Int Right
                      andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
                  andBool Size =/=Int 1
+                 andBool notBool (Base +Int Other) in keys(BM)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <range> heap </range>
+         <race> Races:Set (.Set => SetItem(
+                   singleMem(Tid, Bn, In, heap, value(Base,
+                 Base +Int Size)))) </race>
+         <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int Size <=Int Right
+                     andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
+                 andBool Size =/=Int 1
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> constant </range>
          <addrSpace> Ad':Int </addrSpace>
          <race> Races:Set (.Set => SetItem(
                    singleMem(Tid, Bn, In, heap, value(Base,
@@ -1793,153 +2032,21 @@ module LLVM-MEMORY
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
                  andBool Size =/=Int 1 andBool Ad =/=K Ad'
+                 andBool notBool (Base +Int Other) in keys(BM)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad:Int </addrSpace>
-         <complete>... memId(Tid, Bn, In)
-                          |-> (Count:Int => Count +Int 1) ...</complete>
-         <race> Races:Set </race>
-            ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Count +Int 1 <Int Size
-                 andBool Size =/=Int 1
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad':Int </addrSpace>
-         <complete>... memId(Tid, Bn, In)
-                          |-> (Count:Int => Count +Int 1) ...</complete>
-         <race> Races:Set </race>
-            ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the memory.")
-         </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Count +Int 1 <Int Size
-                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad:Int </addrSpace>
-         <complete> CM:Map ((memId(Tid, Bn, In)
-                          |-> Count:K) => .Map) </complete>
-         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
-            ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Count +Int 1 >=Int Size
-                 andBool Size =/=Int 1
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad':Int </addrSpace>
-         <complete> CM:Map ((memId(Tid, Bn, In)
-                          |-> Count:K) => .Map) </complete>
-         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
-            ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the memory.")
-         </output>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Count +Int 1 >=Int Size
-                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List => getTopMemList(Base,
-                       0, 1, sizeof(T), T, Rg) </chunck>
-         <race> Races:Set </race>
-         <addrSpace> Ad:Int </addrSpace>
-         <range> Rg:K </range> ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         requires Base +Int 1 <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, 1, .K, Races)
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List => getTopMemList(Base,
-                       0, 1, sizeof(T), T, Rg) </chunck>
-         <race> Races:Set </race>
-         <addrSpace> Ad':Int </addrSpace>
-         <range> Rg:K </range> ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the memory.")
-         </output>
-         requires Base +Int 1 <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, 1, .K, Races)
-                 andBool Ad =/=K Ad'
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </chunck>
-         <range> Rg:K </range>
-         <addrSpace> Ad:Int </addrSpace>
-         <race> Races:Set (.Set => SetItem(
-                 singleMem(Tid, Bn, In,heap, value(Base,
-                 Base +Int Size)))) </race>
-         <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
-            ...</object>
-         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Size =/=Int 1
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </chunck>
-         <range> Rg:K </range>
+         <range> heap </range>
          <addrSpace> Ad':Int </addrSpace>
          <race> Races:Set (.Set => SetItem(
-                 singleMem(Tid, Bn, In,heap, value(Base,
+                   singleMem(Tid, Bn, In, heap, value(Base,
                  Base +Int Size)))) </race>
          <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
             ...</object>
@@ -1948,36 +2055,173 @@ module LLVM-MEMORY
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
                  andBool Size =/=Int 1 andBool Ad =/=K Ad'
 
-    rule <k> A:K => .K </k>
-         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    //non-atomic write: when the byte number is not one
+     //and this is for the rest of the write to touch the mem
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) L:List => .List </memOpList>
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
          <race> Races:Set </race>
+         <range> constant </range>
             ...</object>
-         (<tomasulo>
-            D:Bag
-         </tomasulo> =>  <tomasulo>...
-                        <instQueue> instList(.List) </instQueue>
-                          ...</tomasulo>)
-        <output>... .List => ListItem("error: undefied behavior because two mem ops messing around the types in the location") </output>
-         requires Base +Int Size <Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size
+                 andBool Size =/=Int 1
+                 andBool notBool (Base +Int Other) in keys(BM)
 
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId> 
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race>
+         <range> heap </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size
+                 andBool Size =/=Int 1
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad':Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race>
+         <range> constant </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
+                 andBool notBool (Base +Int Other) in keys(BM)
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId> 
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad':Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race>
+         <range> heap </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
+
+    //when the write byte op is the last one 
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete> CM:Map ((memId(Tid, Bn, In)
+                          |-> Count:K) => .Map) </complete>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
+         <range> constant </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 >=Int Size
+                 andBool Size =/=Int 1
+                 andBool notBool (Base +Int Other) in keys(BM)
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete> CM:Map ((memId(Tid, Bn, In)
+                          |-> Count:K) => .Map) </complete>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
+         <range> heap </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 >=Int Size
+                 andBool Size =/=Int 1
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad':Int </addrSpace>
+         <complete> CM:Map ((memId(Tid, Bn, In)
+                          |-> Count:K) => .Map) </complete>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
+         <range> constant </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 >=Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
+                 andBool notBool (Base +Int Other) in keys(BM)
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        writeAByte(T:K, V:K, V1:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad':Int </addrSpace>
+         <complete> CM:Map ((memId(Tid, Bn, In)
+                          |-> Count:K) => .Map) </complete>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race>
+         <range> heap </range>
+            ...</object>
+         <byteMap> BM:Map => BM[Base +Int Other <- V] </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 >=Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
+
+    //if there is a race condition
     rule <k> A:K => .K </k>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         writeAByte(T:K, V:K, V1:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) L:List => .List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <race> Races:Set </race> ...</object>
          (<tomasulo>
             D:Bag
@@ -1989,39 +2233,60 @@ module LLVM-MEMORY
          requires Base +Int Size <=Int Right
                      andBool Base >=Int Left
                  andBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
 
     //non-atomic read in heap
+    //if there is only one byte
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
+                loadHold(T':K, insertToOrderList(Other, V, LL)), undef, Fl), RM) </readBack>
          <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
-                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-          <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
-          <race> Races:Set </race> ...</object>
+         <race> Races:Set </race>
+         <complete> CM:Map => updateCompleteCell(CM,
+                     Size, memId(Tid, Bn, In))  </complete>
+                  ...</object>
          <byteMap>... Base +Int Other |-> V:K ...</byteMap>
-         requires Base +Int 1 <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, 1, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool isOverlap(Base, Size, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
           [transition]
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Unf:K, Fl), RM) </readBack>
          <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
                   Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-          <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         requires Base +Int 1 <=Int Right andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, 1, .K, Races)
+          [transition]
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)),Unf, Fl), RM) </readBack>
+         <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, 1, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <addrSpace> Ad':Int </addrSpace>
           <race> Races:Set </race> ...</object>
          <byteMap>... Base +Int Other |-> V:K ...</byteMap>
@@ -2029,22 +2294,22 @@ module LLVM-MEMORY
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
          requires Base +Int 1 <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, 1, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
                    andBool Ad =/=K Ad'
           [transition]
 
+    //when the bytes are not one
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
+                loadHold(T':K, insertToOrderList(Other, V, LL)), Unf, Fl), RM) </readBack>
          <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
          <race> Races:Set (.Set => SetItem(
                    singleMem(Tid, Bn, In, heap, value(Base,
@@ -2052,121 +2317,181 @@ module LLVM-MEMORY
          <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
             ...</object>
          <byteMap>... Base +Int Other |-> V:K ...</byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
                  andBool Size =/=Int 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
+                loadHold(T':K, insertToOrderList(Other, V, LL)),Unf, Fl), RM) </readBack>
          <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad':Int </addrSpace>
          <race> Races:Set (.Set => SetItem(
                    singleMem(Tid, Bn, In, heap, value(Base,
                  Base +Int Size)))) </race>
          <complete> CM:Map => CM[memId(Tid,Bn,In) <- 1] </complete>
-            ...</object>
-         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the memory.")
-         </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Size =/=Int 1
-                 andBool Ad =/=K Ad'
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
-         <threadId> Tid </threadId>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
-                        readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad:Int </addrSpace>
-         <complete>... memId(Tid, Bn, In)
-                          |-> (Count:Int => Count +Int 1) ...</complete>
-         <race> Races:Set </race>
-            ...</object>
-         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Count +Int 1 <Int Size
-                 andBool Size =/=Int 1
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
-         <threadId> Tid </threadId>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
-                        readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad':Int </addrSpace>
-         <complete>... memId(Tid, Bn, In)
-                          |-> (Count:Int => Count +Int 1) ...</complete>
-         <race> Races:Set </race>
             ...</object>
          <byteMap>... Base +Int Other |-> V:K ...</byteMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
-                 andBool Count +Int 1 <Int Size
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool notBool memId(Tid, Bn, In) in keys(CM)
                  andBool Size =/=Int 1 andBool Ad =/=K Ad'
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
+                loadHold(T':K, insertToOrderList(Other, V, LL)),Unf:K, Fl), RM) </readBack>
          <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race>
+            ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size andBool Size =/=Int 1
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)), undef, Fl), RM) </readBack>
+         <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race>
+            ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size andBool Size =/=Int 1
+                 andBool isOverlap(Base, Size, .K, Races)
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)),Unf, Fl), RM) </readBack>
+         <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad':Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race> ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)),undef, Fl), RM) </readBack>
+         <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int, heap,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <addrSpace> Ad':Int </addrSpace>
+         <complete>... memId(Tid, Bn, In)
+                          |-> (Count:Int => Count +Int 1) ...</complete>
+         <race> Races:Set </race> ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 <Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
+                 andBool isOverlap(Base, Size, .K, Races)
+
+    //when finishing reading all bytes
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)),Unf, Fl), RM) </readBack>
+         <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
          <complete> (CM:Map (memId(Tid, Bn, In)
                           |-> Count:K)) => CM </complete>
          <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race> ...</object>
          <byteMap>... Base +Int Other |-> V:K ...</byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool Count +Int 1 >=Int Size
                  andBool Size =/=Int 1
+                 andBool notBool isOverlap(Base, Size, .K, Races)
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, LL:List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, insertToOrderList(Other, V, LL)), Fl), RM) </readBack>
+                loadHold(T':K, insertToOrderList(Other, V, LL)),undef, Fl), RM) </readBack>
          <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
                   Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <complete> (CM:Map (memId(Tid, Bn, In)
+                          |-> Count:K)) => CM </complete>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race> ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 >=Int Size
+                 andBool Size =/=Int 1
+                 andBool isOverlap(Base, Size, .K, Races)
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)),Unf, Fl), RM) </readBack>
+         <threadId> Tid </threadId>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        readAByte(T:K, Base:Int,
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <addrSpace> Ad':Int </addrSpace>
          <complete> CM:Map ((memId(Tid, Bn, In)
                           |-> Count:K) => .Map) </complete>
@@ -2175,51 +2500,34 @@ module LLVM-MEMORY
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool hasInstance(Tid, Bn, In, .K, Races)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool Count +Int 1 >=Int Size
                  andBool Size =/=Int 1 andBool Ad =/=K Ad'
-
-    rule <k> K:K => .K </k>
-         (<tomasulo>
-            D:Bag
-         </tomasulo> =>  <tomasulo>...
-                        <instQueue> instList(.List) </instQueue>
-                          ...</tomasulo>)
-         <threadId> Tid </threadId>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int)))) L:List => .List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-          <chunck> CL:List </chunck>
-          <race> Races:Set </race> ...</object>
-        <output>... .List => ListItem("error: undefied behavior because loading a position that has different type as original specified.") </output>
-         requires Base+Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, Size, .K, Races)
 
-    rule <k> A:K => .K </k>
-         (<tomasulo>
-            D:Bag
-         </tomasulo> =>  <tomasulo>...
-                        <instQueue> instList(.List) </instQueue>
-                          ...</tomasulo>)
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, LL:List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, insertToOrderList(Other, V, LL)),undef, Fl), RM) </readBack>
          <threadId> Tid </threadId>
-         <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         readAByte(T:K, Base:Int,
-                  Other:Int, Size:Int, Ad:Int))) L:List => .List </memOpList>
+                  Other:Int, Size:Int, Ad:Int))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <race> Races:Set </race>
-            ...</object>
-        <output>... .List => ListItem("error: undefied behavior because two mem op races on the same location") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
+         <addrSpace> Ad':Int </addrSpace>
+         <complete> CM:Map ((memId(Tid, Bn, In)
+                          |-> Count:K) => .Map) </complete>
+         <race> Races:Set => removeRaceInSet(Races,.K, Tid, Bn, In) </race> ...</object>
+         <byteMap>... Base +Int Other |-> V:K ...</byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Count +Int 1 >=Int Size
+                 andBool Size =/=Int 1 andBool Ad =/=K Ad'
                  andBool isOverlap(Base, Size, .K, Races)
-                 andBool notBool hasInstance(Tid, Bn, In, .K, Races)
 
     //atomic write in stack
     rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
@@ -2229,10 +2537,44 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+          <stackRange> constant </stackRange>
+                ...</stackObject>
          <stackMap> BM:Map => updateMemWithAtomic(BM, Base, V) </stackMap>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+              andBool notBool isChunckWritten(BM, Base, Base +Int Size)
+
+    rule <k> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicWrite(T:K, V:K, V1:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) L:List => .List) </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+           <stackRange> constant </stackRange>
+            ...</stackObject>
+         <output>... .List =>
+            ListItem("atomic write a byte in a statck constant field that has been initialized.")
+         </output>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                   andBool isChunckWritten(BM, Base, Base +Int Size)
+
+    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
+                        atomicWrite(T:K, V:K, V1:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+          <stackRange> stack </stackRange>
+                ...</stackObject>
+         <stackMap> BM:Map => updateMemWithAtomic(BM, Base, V) </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
 
     rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicWrite(T:K, V:K, V1:K, Base:Int,
@@ -2241,52 +2583,37 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad':Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+          <stackRange> constant </stackRange>
+              ...</stackObject>
          <stackMap> BM:Map => updateMemWithAtomic(BM, Base, V) </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T) andBool Ad =/=K Ad'
+                  andBool Ad =/=K Ad'
+                   andBool notBool isChunckWritten(BM, Base, Base +Int Size)
 
     rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicWrite(T:K, V:K, V1:K, Base:Int,
-                  Size:Int,Ad:Int, Order:K))) => .List) L:List </stackOpList>
-         <stackObject>...
-           <stackThreadId> Tid </stackThreadId>
-         <stackAddrSpace> Ad:Int </stackAddrSpace>
-             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </stackChunck>
-          <stackRange> Rg:K </stackRange> ...</stackObject>
-         <stackMap> BM:Map => updateMemWithAtomic(BM, Base, V) </stackMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-
-    rule <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-                        atomicWrite(T:K, V:K, V1:K, Base:Int,
-                  Size:Int,Ad:Int, Order:K))) => .List) L:List </stackOpList>
+                  Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
          <stackObject>...
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad':Int </stackAddrSpace>
-             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </stackChunck>
-          <stackRange> Rg:K </stackRange> ...</stackObject>
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+          <stackRange> stack </stackRange>
+              ...</stackObject>
          <stackMap> BM:Map => updateMemWithAtomic(BM, Base, V) </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                 andBool Ad =/=K Ad'
+                  andBool Ad =/=K Ad'
 
     //atomic readwrite in stack
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Unf,
                       cmpxchgResult(1)), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(Type:K, Base:Int,
@@ -2294,25 +2621,24 @@ module LLVM-MEMORY
             V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
                       value(Left:Int, Right:Int), stack, none, InR:K)))))
               => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-              atomicWrite(T2, splitBytes(V, T2)
-             , storeOperand(Tid, T2, V), Base,
+              atomicWrite(T2, splitBytes(V, T2), storeOperand(Tid, T2, V), Base,
               sizeof(T2), Ad', Order)))) L:List </stackOpList>
          <stackObject>...
+           <stackRange> stack </stackRange>
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                     ...</stackObject>
          <stackMap> BM:Map </stackMap>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T2)
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
                  andBool applyIcmp(eq, T2,
                 joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,
                    cmpxchgResult(0)), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(Type:K, Base:Int,
@@ -2321,21 +2647,21 @@ module LLVM-MEMORY
                       value(Left:Int, Right:Int), stack, none, InR:K)))))
                        => .List) L:List </stackOpList>
          <stackObject>...
+           <stackRange> stack </stackRange>
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+              ...</stackObject>
          <stackMap> BM:Map </stackMap>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T2)
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
                  andBool applyIcmp(eq, T2,
                 joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,
                   cmpxchgResult(1)), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(Type:K, Base:Int,
@@ -2347,24 +2673,25 @@ module LLVM-MEMORY
              , storeOperand(Tid, T2, V), Base,
               sizeof(T2), Ad', Order)))) L:List </stackOpList>
          <stackObject>...
+           <stackRange> stack </stackRange>
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad1:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                     ...</stackObject>
          <stackMap> BM:Map </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T2) andBool Ad =/=K Ad1
+                  andBool Ad =/=K Ad1
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
                  andBool applyIcmp(eq, T2,
                 joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,
                     cmpxchgResult(0)), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(Type:K, Base:Int,
@@ -2373,24 +2700,25 @@ module LLVM-MEMORY
                       value(Left:Int, Right:Int), stack, none, InR:K)))))
                        => .List) L:List </stackOpList>
          <stackObject>...
+           <stackRange> stack </stackRange>
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad1:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                 ...</stackObject>
          <stackMap> BM:Map </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T2) andBool Ad =/=K Ad1
+                  andBool Ad =/=K Ad1
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
                  andBool applyIcmp(eq, T2,
                 joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf, Fl), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(Type:K, Base:Int,
                   Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
@@ -2403,19 +2731,19 @@ module LLVM-MEMORY
                    joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
               sizeof(T2), Ad', Order)))) L:List </stackOpList>
          <stackObject>...
+           <stackRange> stack </stackRange>
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                ...</stackObject>
          <stackMap> BM:Map </stackMap>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T2)
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf:K, Fl), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(Type:K, Base:Int,
                   Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
@@ -2428,19 +2756,20 @@ module LLVM-MEMORY
                    joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
               sizeof(T2), Ad', Order)))) L:List </stackOpList>
          <stackObject>...
+           <stackRange> stack </stackRange>
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad1:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                 ...</stackObject>
          <stackMap> BM:Map </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T2) andBool Ad =/=K Ad1
+                  andBool Ad =/=K Ad1
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
 
-    rule <k> K:K => .K </k>
+    rule <k> A:K => .K </k>
          (<tomasulo>
             D:Bag
          </tomasulo> =>  <tomasulo>...
@@ -2448,35 +2777,14 @@ module LLVM-MEMORY
                           ...</tomasulo>)
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, Next:K)))) L:List => .List </stackOpList>
+                  Size:Int, Ad:Int, Order:K, Next:K))) L:List => .List) </stackOpList>
          <stackObject>...
-           <stackThreadId> Tid </stackThreadId>
-             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
-        <output>... .List => ListItem("undefied behavior because atomic atomicrmw/cmpxchg a stack position that has different type as original specified.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-
-/*
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
-         <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
-                        atomicRead(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
-         <stackObject>...
-           <stackThreadId> Tid </stackThreadId>
-         <stackAddrSpace> Ad:Int </stackAddrSpace>
+            <stackThreadId> Tid </stackThreadId>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
-         <stackMap> BM:Map </stackMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-*/
-
+         <stackRange> constant </stackRange> ...</stackObject>
+        <output>... .List
+            => ListItem("error: atomicrmw or cmpxchg op cannot work on constant stack location.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
 /*
     rule <toCommit> memList(Ava:List, Ava':List, Avb:List,
                  ListItem(singleMem(TID:Int,
@@ -2629,9 +2937,9 @@ module LLVM-MEMORY
 
     //atomic read in stack
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, .K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf, .K), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
@@ -2639,16 +2947,15 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad:Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                 ...</stackObject>
          <stackMap> BM:Map </stackMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, .K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf, .K), RM) </readBack>
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
@@ -2656,15 +2963,16 @@ module LLVM-MEMORY
            <stackThreadId> Tid </stackThreadId>
          <stackAddrSpace> Ad':Int </stackAddrSpace>
             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
+                      ...</stackObject>
          <stackMap> BM:Map </stackMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the stack.")
          </output>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T) andBool Ad =/=K Ad'
+                  andBool Ad =/=K Ad'
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
 
-    rule <k> K:K => .K </k>
+    rule <k> A:K => .K </k>
          (<tomasulo>
             D:Bag
          </tomasulo> =>  <tomasulo>...
@@ -2672,37 +2980,74 @@ module LLVM-MEMORY
                           ...</tomasulo>)
          <stackOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,stack,
                         atomicRead(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K)))) L:List => .List </stackOpList>
+                  Size:Int, Ad:Int, Order:K))) => .List) L:List </stackOpList>
          <stackObject>...
            <stackThreadId> Tid </stackThreadId>
-             <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
-         <stackChunck> CL:List </stackChunck> ...</stackObject>
-        <output>... .List => ListItem("undefied behavior because atomic loading a stack position that has different type as original specified.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
+            <stackChunckRange> value(Left:Int, Right:Int) </stackChunckRange>
+                      ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+        <output>... .List => ListItem("undefied behavior because atomic loading a stack that has not been initialized fully.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool notBool isChunckWritten(BM, Base, Base +Int Size)
 
-    //atomic write with unordered/monotonic in heap
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    //atomic write in heap
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K, V:K, V1:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
+         <range> constant </range>
          <race> Races:Set </race> ...</object>
          <byteMap> BM:Map => updateMemWithAtomic(BM, Base, V) </byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool (Order ==K monotonic orBool Order ==K unordered)
+                 andBool notBool isChunckWritten(BM, Base, Base +Int Size)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K, V:K, V1:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
+         <addrSpace> Ad:Int </addrSpace>
+         <range> heap </range>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map => updateMemWithAtomic(BM, Base, V) </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+
+    rule <k> A:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicWrite(T:K, V:K, V1:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) L:List => .List) </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> constant </range>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         <output>... .List =>
+            ListItem("atomic write a byte in a heap constant field that has been initialized.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
+
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicWrite(T:K, V:K, V1:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <addrSpace> Ad':Int </addrSpace>
+         <range> constant </range>
          <race> Races:Set </race> ...</object>
          <byteMap> BM:Map => updateMemWithAtomic(BM, Base, V) </byteMap>
          <output>... .List =>
@@ -2710,43 +3055,28 @@ module LLVM-MEMORY
          </output>
          requires Base +Int Size <=Int Right
                      andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, Size, .K, Races)
                  andBool (Order ==K monotonic orBool Order ==K unordered)
                  andBool Ad =/=K Ad'
+                 andBool notBool isChunckWritten(BM, Base, Base +Int Size)
 
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+    rule <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicWrite(T:K, V:K, V1:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </chunck>
-         <addrSpace> Ad:Int </addrSpace>
-          <range> Rg:K </range> <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map => updateMemWithAtomic(BM, Base, V) </byteMap>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool (Order ==K monotonic orBool Order ==K unordered)
-
-    rule <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        atomicWrite(T:K, V:K, V1:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List => getTopMemList(Base,
-                       0, Size, sizeof(T), T, Rg) </chunck>
          <addrSpace> Ad':Int </addrSpace>
-          <range> Rg:K </range> <race> Races:Set </race> ...</object>
+         <range> heap </range>
+         <race> Races:Set </race> ...</object>
          <byteMap> BM:Map => updateMemWithAtomic(BM, Base, V) </byteMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right
+                     andBool Base >=Int Left
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool (Order ==K monotonic orBool Order ==K unordered)
                  andBool Ad =/=K Ad'
-
 
     rule <k> A:K => .K </k>
          (<tomasulo>
@@ -2761,167 +3091,35 @@ module LLVM-MEMORY
          <race> Races:Set </race>
             ...</object>
         <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool isOverlap(Base, Size, .K, Races)
 
     //atomic read write in heap
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, Fl:K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,
                     cmpxchgResult(1)), RM) </readBack>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicReadWrite(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
             V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
                       value(Left:Int, Right:Int),
-                      heap, none, InR:K)))))
-                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-              atomicWrite(T2, splitBytes(V, T2), storeOperand(Tid, T2, V), Base,
-              sizeof(T2), Ad', Order)))) L:List </memOpList>
+                      heap, none, InR:K))))) => .List ) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
+         <range> heap </range>
          <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map </byteMap>
+         <byteMap> BM:Map => updateMemWithAtomic(BM, Base,
+                           region(getMemWithAtomic(BM, Base, 0, Size), T')) </byteMap>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
                  andBool notBool isOverlap(Base, Size, .K, Races)
                  andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
                  andBool applyIcmp(eq, T2,
                 joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
-                    cmpxchgResult(1)), RM) </readBack>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
-            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
-                      value(Left:Int, Right:Int),
-                      heap, none, InR:K)))))
-                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-              atomicWrite(T2, splitBytes(V, T2), storeOperand(Tid, T2, V), Base,
-              sizeof(T2), Ad', Order)))) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad1:Int </addrSpace>
-         <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map </byteMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the memory.")
-         </output>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T) andBool Ad =/=K Ad1
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
-                 andBool applyIcmp(eq, T2,
-                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
-                        cmpxchgResult(0)), RM) </readBack>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
-            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
-                      value(Left:Int, Right:Int),
-                      heap, none, InR:K))))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad:Int </addrSpace>
-         <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map </byteMap>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
-                 andBool applyIcmp(eq, T2,
-                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),
-                        cmpxchgResult(0)), RM) </readBack>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
-            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
-                      value(Left:Int, Right:Int),
-                      heap, none, InR:K))))) => .List) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad1:Int </addrSpace>
-         <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map </byteMap>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T) andBool Ad =/=K Ad1
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
-                 andBool applyIcmp(eq, T2,
-                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
-            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
-                      value(Left:Int, Right:Int),
-                      heap, none, InR:K)))))
-                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-              atomicWrite(T2, splitBytes(applyAtomicrmwInt(Op, T2,
-                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)
-             , storeOperand(Tid, T2, applyAtomicrmwInt(Op, T2,
-                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
-              sizeof(T2), Ad', Order)))) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad:Int </addrSpace>
-         <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map </byteMap>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
-
-    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
-             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
-         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-                        atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
-            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
-                      value(Left:Int, Right:Int),
-                      heap, none, InR:K)))))
-                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
-              atomicWrite(T2, splitBytes(applyAtomicrmwInt(Op, T2,
-                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)
-             , storeOperand(Tid, T2, applyAtomicrmwInt(Op, T2,
-                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V)), Base,
-              sizeof(T2), Ad', Order)))) L:List </memOpList>
-         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
-         <addrSpace> Ad1:Int </addrSpace>
-         <race> Races:Set </race> ...</object>
-         <byteMap> BM:Map </byteMap>
-         <output>... .List =>
-            ListItem("warning: input address space does not match with the address space of the memory.")
-         </output>
-         requires Base +Int Size <=Int Right andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
-                 andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
-                 andBool Ad =/=K Ad1
+                 andBool Order =/=K seq_cst
 
     rule <k> A:K => .K </k>
          (<tomasulo>
@@ -2929,16 +3127,147 @@ module LLVM-MEMORY
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicReadWrite(T:K, Base:Int,
-                  Size:Int, Ad:Int, Order:K, Next:K))) => .List) L:List </memOpList>
+                  Size:Int, Ad:Int, Order:K, Next:K))) L:List => .List) </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck> <race> Races:Set </race> ...</object>
-        <output>... .List => ListItem("undefied behavior because atomic atomicrmw/cmpxchg a heap position that has different type as original specified.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
+         <range> constant </range> ...</object>
+        <output>... .List
+            => ListItem("error: atomicrmw or cmpxchg op cannot work on constant heap location.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,
+                    cmpxchgResult(1)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K)))))
+                => ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+              atomicWrite(T2, splitBytes(V, T2), storeOperand(Tid, T2, V), Base,
+              sizeof(T2), Ad', Order)))) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> heap </range>
+         <addrSpace> Ad1:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map => updateMemWithAtomic(BM, Base,
+                           region(getMemWithAtomic(BM, Base, 0, Size), T')) </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Ad =/=K Ad1
                  andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) ==K 1
+                 andBool Order =/=K seq_cst
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List),Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,
+                        cmpxchgResult(0)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K))))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> heap </range>
+         <addrSpace> Ad:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
+                 andBool Order =/=K seq_cst
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Unf,
+                        cmpxchgResult(0)), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, cmpxchgWait(T2:K, CV:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K))))) => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> heap </range>
+         <addrSpace> Ad1:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool Ad =/=K Ad1
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool applyIcmp(eq, T2,
+                joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), CV) =/=K 1
+                 andBool Order =/=K seq_cst
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Unf, Fl), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int), heap, none, InR:K)))))
+                => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> heap </range>
+         <addrSpace> Ad:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map => updateMemWithAtomic(BM, Base,
+                           region(applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)) </byteMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool Order =/=K seq_cst
+
+    rule <readBack> readMap(RM:Map (varInstance(Bn, In)
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, Fl:K)))
+             => readMapAux(varInstance(Bn, In), readBackHold(X:K,
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Unf, Fl), RM) </readBack>
+         <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
+                        atomicReadWrite(T:K, Base:Int,
+                  Size:Int, Ad:Int, Order:K, atomicrmwWait(T2:K, Op:K,
+            V:K, loc(Base:Int, pointerTypeValue(Type, Ad':Int),
+                      value(Left:Int, Right:Int),
+                      heap, none, InR:K)))))
+                => .List) L:List </memOpList>
+         <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
+         <range> heap </range>
+         <addrSpace> Ad1:Int </addrSpace>
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map => updateMemWithAtomic(BM, Base,
+                           region(applyAtomicrmwInt(Op, T2,
+                   joinBytes(T',getMemWithAtomic(BM, Base, 0, Size)), V), T2)) </byteMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the memory.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                 andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool sizeof(T') ==K size(getMemWithAtomic(BM, Base, 0, Size))
+                 andBool Ad =/=K Ad1
+                 andBool Order =/=K seq_cst
 
     rule <k> A:K => .K </k>
          (<tomasulo>
@@ -2951,52 +3280,50 @@ module LLVM-MEMORY
                   Size:Int, Ad:Int, Order:K, Next:K))) L:List => .List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <race> Races:Set </race>
+         <range> heap </range>
             ...</object>
-        <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
+        <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op -- race condition.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool isOverlap(Base, Size, .K, Races)
 
-    //atomic read with unordered/monotonic in heap
+    //atomic read in heap
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, .K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)),Unf,.K), RM) </readBack>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad:Int </addrSpace>
          <race> Races:Set </race> ...</object>
          <byteMap> BM:Map </byteMap>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool (Order ==K monotonic orBool Order ==K unordered)
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
 
     rule <readBack> readMap(RM:Map (varInstance(Bn, In)
-                 |-> readBackHold(X:K, loadHold(T':K, .List), Fl:K)))
+                 |-> readBackHold(X:K, loadHold(T':K, .List), Unf:K, .K)))
              => readMapAux(varInstance(Bn, In), readBackHold(X:K,
-                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Fl), RM) </readBack>
+                loadHold(T':K, getMemWithAtomic(BM, Base, 0, Size)), Unf, .K), RM) </readBack>
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck>
          <addrSpace> Ad':Int </addrSpace>
          <race> Races:Set </race> ...</object>
          <byteMap> BM:Map </byteMap>
          <output>... .List =>
             ListItem("warning: input address space does not match with the address space of the memory.")
          </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool rightHitType(CL, Base, T)
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool notBool isOverlap(Base, Size, .K, Races)
-                 andBool (Order ==K monotonic orBool Order ==K unordered)
                  andBool Ad =/=K Ad'
+                 andBool isChunckWritten(BM, Base, Base +Int Size)
 
     rule <k> A:K => .K </k>
          (<tomasulo>
@@ -3004,16 +3331,18 @@ module LLVM-MEMORY
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> (ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) => .List) L:List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
-         <chunck> CL:List </chunck> <race> Races:Set </race> ...</object>
-        <output>... .List => ListItem("undefied behavior because atomic loading a heap position that has different type as original specified.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
-                 andBool notBool rightHitType(CL, Base, T)
+         <race> Races:Set </race> ...</object>
+         <byteMap> BM:Map </byteMap>
+        <output>... .List => ListItem("undefied behavior because atomic loading a heap that has not been initialized fully.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool notBool isOverlap(Base, Size, .K, Races)
+                 andBool notBool isChunckWritten(BM, Base, Base +Int Size)
 
     rule <k> A:K => .K </k>
          (<tomasulo>
@@ -3021,15 +3350,16 @@ module LLVM-MEMORY
          </tomasulo> =>  <tomasulo>...
                         <instQueue> instList(.List) </instQueue>
                           ...</tomasulo>)
+         <memChannelId> CId:K </memChannelId>
+         <channelId> CId </channelId>
          <memOpList> ListItem(singleMem(Tid:Int, Bn:Int, In:Int,heap,
                         atomicRead(T:K, Base:Int,
                   Size:Int, Ad:Int, Order:K))) L:List => .List </memOpList>
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <race> Races:Set </race>
             ...</object>
-        <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op.") </output>
-         requires Base +Int Size <=Int Right
-                     andBool Base >=Int Left
+        <output>... .List => ListItem("error: undefied behavior because an atomic mem op happens at the middle of an non-atomic mem op -- race condition.") </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool isOverlap(Base, Size, .K, Races)
 
 endmodule

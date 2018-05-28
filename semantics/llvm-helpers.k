@@ -7312,13 +7312,60 @@ module LLVM-HELPERS
            Size:Int, Ad:Int, Order:K, Next:K), L:List)
          => isMemAvailableReadWrite(aLoc(Base, Size, Ran), Order, L)
 
-
+    //update information in the complete cell
     syntax Map ::= updateCompleteCell(Map, Int, K) [function]
     rule updateCompleteCell(M:Map, Size:Int, A:K) => M
          requires Size ==Int 1
     rule updateCompleteCell(M:Map, Size:Int, A:K)
                  => M[A <- 1]
          requires Size =/=Int 1
+
+    //initialize vector timestamp in each channel
+    syntax Map ::= initTimeStamp(Int, Int) [function]
+    rule initTimeStamp(Size:Int, Size:Int) => .Map
+    rule initTimeStamp(N:Int, Size:Int) =>
+                (N |-> 0) initTimeStamp(N +Int 1, Size)
+         requires N <Int Size
+
+    syntax Map ::= addOneInTimeStamp(Int, Map) [function]
+    rule addOneInTimeStamp(A:Int, (A |-> X:Int) M:Map)
+          => (A |-> X +Int 1) M
+
+    syntax Map ::= updateTimeStamp(Int, Int, K, K,  Map, Map) [function]
+    rule updateTimeStamp(Size:Int, Size:Int, .K, .K, M:Map, M':Map) => .Map
+    rule updateTimeStamp(N:Int, Size:Int, .K,.K,
+               (N |-> A:K) M:Map, (N |-> B:K) M':Map)
+           => updateTimeStamp(N, Size, A, B, M, M')
+         requires N <Int Size
+    rule updateTimeStamp(N:Int, Size:Int, X:Int, Y:Int, M:Map, M':Map)
+            => (N |-> X) updateTimeStamp(N +Int 1, Size, .K, .K, M, M')
+         requires X >=Int Y
+    rule updateTimeStamp(N:Int, Size:Int, X:Int, Y:Int, M:Map, M':Map)
+            => (N |-> Y) updateTimeStamp(N +Int 1, Size, .K, .K, M, M')
+         requires X <Int Y
+
+    syntax Map ::= checkAcks(K, K) [function]
+    rule checkAcks(A:Int, B:Int) => .Map
+         requires B ==Int maxMemChannel -Int 1
+    rule checkAcks(A:K, B:K) => (A |-> B) [owise]
+
+    syntax Bool ::= timeStampGreater(Int, Int, K, K, Map, Map) [function]
+    rule timeStampGreater(Size:Int, Size, .K, .K, M1:Map, M2:Map) => true
+    rule timeStampGreater(N:Int, Size:Int, .K, .K, (N |-> A:K) M1:Map,
+                (N |-> B:K) M2:Map) 
+           => timeStampGreater(N, Size, A, B, M1, M2)
+         requires N <Int Size
+    rule timeStampGreater(N:Int, Size:Int, A:Int, B:Int, M1:Map, M2:Map)
+           => timeStampGreater(N, Size, .K, .K, M1, M2)
+         requires A >=Int B
+    rule timeStampGreater(N:Int, Size:Int,
+              A:Int, B:Int, M1:Map, M2:Map) => false [owise]
+
+    syntax KItem ::= getOrderInMsg(K) [function]
+    rule getOrderInMsg(startMem(_,_,_,_,_)) => seq_cst
+    rule getOrderInMsg(msgByteWrite(_,_, _, _, _, _, _)) => none
+    rule getOrderInMsg(msgWrite(_,_, _, _, _, _,Or:K)) => Or
+    rule getOrderInMsg(msgSeqFence) => seq_cst
 
 
 endmodule

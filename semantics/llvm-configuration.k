@@ -32,7 +32,8 @@ module LLVM-CONFIGURATION
             <tempResumes> .List </tempResumes>
             <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
-            <thread multiplicity="*"> //thread cell
+            <threads>
+              <thread multiplicity="*"> //thread cell
                 <threadId> 0 </threadId> //thread id
                 <memChannelId> 0 </memChannelId> //associated mem channel id
                                              //a thread only talks to one chanel
@@ -82,7 +83,8 @@ module LLVM-CONFIGURATION
                     <localMemory> .Set </localMemory>
                     //local memory (stack) 
                 </control> //control panel for function and basic blocks
-            </thread>
+              </thread>
+            </threads>
             <stackObjects>
                    <stackObject multiplicity="*" color="LightSkyBlue">
                      <stackThreadId> 0 </stackThreadId> 
@@ -99,7 +101,6 @@ module LLVM-CONFIGURATION
                 <channelId> 0 </channelId>
                 <object multiplicity="*" color="LightSkyBlue">
                   <chunckRange> .K </chunckRange>
-                  <chunck> .List </chunck>
                   <size> -1 </size>
                   <align> 0 </align>
                   <range> .K </range>
@@ -109,6 +110,9 @@ module LLVM-CONFIGURATION
                   <race> .Set </race> //use to store the inst nums when a non-atomic load/store
                     //is accessing this field. 
                 </object>
+                <timeStamps> .Map </timeStamps> //vector time stamps for each channel
+                <channelOps> .List </channelOps>
+                <ackMap> .Map </ackMap>
                 <memOpList> .List </memOpList>
                 //a cell to hold the current all memory locations
                 <byteMap> .Map </byteMap>

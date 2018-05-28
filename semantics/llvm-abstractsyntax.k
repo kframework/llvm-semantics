@@ -525,6 +525,18 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= vector(ElemList)           [strict]
     rule vector(E:KResult) => vectorValue(E)
     syntax KItem ::= initialMemChannels(Int)
+    syntax KItem ::= sendToAll(Int, Int, Int, Int, Map, K)
+            //cur-chan, sent-to, chan-size, msg-num, time-stamp, content
+    syntax KItem ::= startMem(K, Int, Int, K, Int)
+                 //from (left, right), size, addspace,  range, align, 
+    syntax KItem ::= msgByteWrite(Int, Int, Int, Int, Int, Int, K)
+             //Tid, block-id, inst-id, base, offset, size, byte
+    syntax KItem ::= msgWrite(Int, Int, Int, Int, Int, K, K)
+             //Tid, block-id, inst-id, base, size, byte, ordering
+    syntax KItem ::= msgWait(Int) //wait for all message to come back
+    syntax KItem ::= "msgSeqFence"
+    syntax KItem ::= globalAllocaWait(Int, K) //wait msg, loc,
+    syntax KItem ::= rec(Int, Int,Map, K)//from-chan, msg-num,timestamp, Msg
 
 /*
     syntax List ::= list(KList) [function]

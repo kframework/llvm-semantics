@@ -210,11 +210,23 @@ module LLVM-GLOBALS
          val(typeOperand('functionType(void,, 'argTypeTwo(i(32),, .ParamAttrs))
                        , name(globalVar, "exit"))),
          val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
-           i(8) ('addrEmpty(.KList)) * .ParamAttrs, i(64) .ParamAttrs,
-              i(32) .ParamAttrs, i(1) .ParamAttrs), name(globalVar, "llvm.memcpy."))),
+           i(8) ('addrEmpty(.KList)) * .ParamAttrs,
+              i(32) .ParamAttrs, i(1) .ParamAttrs), name(globalVar, "llvm.memcpy.p0i8.p0i8.i32"))),
+         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+           i(8) ('addrEmpty(.KList)) * .ParamAttrs,
+              i(64) .ParamAttrs, i(1) .ParamAttrs), name(globalVar, "llvm.memcpy.p0i8.p0i8.i64"))),
+         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+           i(8) ('addrEmpty(.KList)) * .ParamAttrs,
+              i(32) .ParamAttrs, i(1) .ParamAttrs), name(globalVar, "llvm.memmove.p0i8.p0i8.i32"))),
+         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+           i(8) ('addrEmpty(.KList)) * .ParamAttrs,
+              i(64) .ParamAttrs, i(1) .ParamAttrs), name(globalVar, "llvm.memmove.p0i8.p0i8.i64"))),
         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
-             i(8) .ParamAttrs, i(64) .ParamAttrs, i(32) .ParamAttrs, i(1) .ParamAttrs)
-                ,name(globalVar, "llvm.memset."))),
+             i(8) .ParamAttrs, i(32) .ParamAttrs, i(1) .ParamAttrs)
+                ,name(globalVar, "llvm.memset.p0i8.i32"))),
+        val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs,
+             i(8) .ParamAttrs, i(64) .ParamAttrs, i(1) .ParamAttrs)
+                ,name(globalVar, "llvm.memset.p0i8.i64"))),
       val(typeOperand('functionType(void,, i(64) .ParamAttrs, i(8) ('addrEmpty(.KList))* .ParamAttrs),
                       name(globalVar, "llvm.lifetime.start"))),
       val(typeOperand('functionType(void,, i(64) .ParamAttrs, i(8) ('addrEmpty(.KList))* .ParamAttrs),
@@ -229,7 +241,17 @@ module LLVM-GLOBALS
             val(typeOperand('functionType(i(32),, i(8) ('addrEmpty(.KList))* .ParamAttrs,
               { i(32), i(32), i(8) ('addrEmpty(.KList))*,
                  i(8) ('addrEmpty(.KList))*, .TypeList } ('addrEmpty(.KList))* .ParamAttrs),
-                name(globalVar, "vprintf"))),.ElemList)
+                name(globalVar, "vprintf"))),
+                val(typeOperand('functionType(i(8) ('addrEmpty(.KList))*,,
+               'argTypeTwo(i(64),, .ParamAttrs)), name(globalVar, "malloc"))),
+                val(typeOperand('functionType(i(8) ('addrEmpty(.KList))*,,
+                i(64) .ParamAttrs, i(64) .ParamAttrs), name(globalVar, "calloc"))),
+                val(typeOperand('functionType(void,,
+               'argTypeTwo(i(8) ('addrEmpty(.KList))*,, .ParamAttrs)), name(globalVar, "free"))),
+                val(typeOperand('functionType(i(8) ('addrEmpty(.KList))*,,
+                 i(8) ('addrEmpty(.KList))* .ParamAttrs, i(64) .ParamAttrs),
+                        name(globalVar, "realloc"))),
+                .ElemList)
                   ~> (K ~> staticSeqFence ~> dealWithUnnamed(TL)) ...</k>
         <savedGlobals> K:K => .K </savedGlobals>
         <tempGlobalVars> TL:List => .List </tempGlobalVars>

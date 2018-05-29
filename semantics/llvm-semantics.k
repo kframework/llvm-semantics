@@ -635,6 +635,30 @@ module LLVM-MEMORY
          Size, Size:Int, MsgN:Int,TMN:Map, Msg:K)) => .List) L:List </channelOps> ...</memory>
 
     //create new mems message exchange
+    //create or realloc new memory in heap in every channel
+    rule <memory>...
+           <channelId> Chan':Int </channelId>
+          (<object>... <chunckRange> value(Base:Int, Right:Int) </chunckRange>
+             ...</object> =>
+              <object>...
+               <chunckRange> V </chunckRange>
+               <size> N </size>
+              <addrSpace> Ad </addrSpace>
+               <range> Ran </range> 
+               <align> Al </align>
+                       ...</object>)
+                  <timeStamps> TMN:Map => addOneInTimeStamp(Chan', updateTimeStamp(
+                               0, maxMemChannel, .K, .K, TMN, TMN')) </timeStamps>
+                <channelOps> (ListItem(rec(Chan:Int, MsgN:Int, TMN':Map,
+              toCloseAndNext(Base:Int, startMem(V:K,
+               N:Int, Ad:Int, Ran:K, Al:Int)))) => .List) RL:List </channelOps>
+           ...</memory>
+           <memory>... <channelId> Chan </channelId>
+                       <ackMap>... MsgN |->
+                    (AcK:Int => AcK +Int 1) ...</ackMap> ...</memory>
+         requires notBool timeStampGreater(0, maxMemChannel, .K, .K, TMN, TMN')
+         [transition]
+
     rule <memory>...
            <channelId> Chan':Int </channelId>
           (.Bag =>
@@ -706,6 +730,7 @@ module LLVM-MEMORY
          requires N ==Int maxMemChannel -Int 1
          [structural]
 
+    //non-atomic memory write in other channel
     rule <memory>...
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <race> Races:Set </race>
@@ -818,6 +843,24 @@ module LLVM-MEMORY
                  andBool isOverlap(Base, Size, .K, Races)
         [transition]
 
+    //close the memory heap in all channels
+    rule <memory>...
+          (<object>... <chunckRange> value(Base:Int, Right:Int) </chunckRange>
+             ...</object> => .Bag)
+         <channelId> Chan':Int </channelId>
+          <timeStamps> TMN:Map => addOneInTimeStamp(Chan', updateTimeStamp(
+                               0, maxMemChannel, .K, .K, TMN, TMN')) </timeStamps>
+          <channelOps> (ListItem(rec(Chan:Int, MsgN:Int, TMN':Map,
+                            toClose(Base:Int))) => .List) RL:List </channelOps>
+           ...</memory>
+           <memory>... <channelId> Chan </channelId>
+                       <ackMap> ACM:Map ((MsgN |-> AcK)
+                          => checkAcks(MsgN, AcK +Int 1)) </ackMap> ...</memory>
+         requires notBool timeStampGreater(0, maxMemChannel, .K, .K, TMN, TMN')
+         [transition]
+
+
+    //atomic memory write in other channel
     rule <memory>...
          <object>... <chunckRange> value(Left:Int, Right:Int) </chunckRange>
          <complete> CM:Map </complete>
@@ -887,6 +930,78 @@ module LLVM-MEMORY
          (.Bag => <memory>... <channelId> N -Int 1 </channelId>
                         <timeStamps> initTimeStamp(0,maxMemChannel) </timeStamps> ...</memory>)
 
+    //free a memory in heap
+    rule <k> free(loc(Base:Int, Ty,
+                 value(Left:Int, Right:Int), heap, none, InR:K))
+                 => dynNoResult(undef) ...</k>
+         <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+         <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+            => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                 ML ListItem(singleMem(TID, B, In,heap, toClose(Base)))) </toCommit>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        requires Base >=Int Left andBool Base <=Int Right
+        [transition]
+
+    //realloc a memory in heap --> close current one and create a new one
+    rule <k> realloc(loc(Base1:Int, Ty,
+                 value(Left:Int, Right:Int), heap, none, InR:K), Size:Int)
+                          => globalAllocaWait(TN +Int 1, nextMemSym(Base, 0, 1,
+               llvmVoidPointerType, value(Base, nextBase(Base, Size, 1))))  ...</k>
+         <memChannelId> Chan:Int </memChannelId>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <memory>...
+        <channelId> Chan </channelId>
+          (<object> D:Bag
+           <chunckRange> value(Base1:Int, Right1:Int) </chunckRange>
+            </object> =>
+            <object>...
+             <chunckRange> value(Base, nextBase(Base, Size, 1)) </chunckRange>
+             <size> 1 </size>
+             <addrSpace> 0 </addrSpace>
+             <range> heap </range> 
+             <align> newPacking(Base, 1) </align>
+                       ...</object> )
+        <ackMap> AckM:Map => AckM[TN +Int 1 <- 0] </ackMap>
+        <channelOps> ChanL:List (.List => ListItem(sendToAll(Chan, 0, maxMemChannel,
+               TN +Int 1, TMN (Chan |-> TN +Int 1),
+                   toCloseAndNext(Base1, startMem(value(Base, nextBase(Base, Size, 1)), 1,
+              0, heap, newPacking(Base, 1)))))) </channelOps>
+        <timeStamps> TMN:Map (Chan |-> (TN:Int => TN +Int 1)) </timeStamps>
+        ...</memory>
+        <memoryList> MRL:List (.List => ListItem(value(Base,
+                     nextBase(Base, Size, 1)))) </memoryList>
+        <nextBase> Base:Int => nextBase(Base, Size, 1) </nextBase>
+        <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
+                            Size, 1)) </memoryRange>
+        requires Size >Int 0 andBool Base1 >=Int Left andBool Base1 <=Int Right
+        [transition]
+
+    rule <threads> 
+           (<thread>...
+             <k> realloc(loc(Base1:Int, Ty,
+                 value(Left:Int, Right:Int), heap, none, InR:K), Size:Int) </k>
+             <memChannelId> Chan:Int </memChannelId>
+             <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+           ...</thread> TD:Bag => .Bag) </threads>
+        <memory>...
+        <channelId> Chan </channelId>
+         <memOpList> ML:List => .List </memOpList>
+        ...</memory>
+         <memoryList> SL:List </memoryList>
+         <output>... .List => ListItem("error: undefied behavior because trying to realloc a memory location but the input pointer is not the original one created by a malloc/calloc/realloc function.") </output>
+         requires notBool isAStartBase(Base1, SL)
+
+    rule <k> realloc(Loc:Loc, Size:Int) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <output>... .List => ListItem("error: undefined behavior due to malloc zero bype.") </output>
+        requires Size <=Int 0
+
     //alloca in heap
     rule preAlloca(integerType(I:Int), N:Int)
               => normalizingInt(integerType(I:Int), N) [structural]
@@ -900,11 +1015,56 @@ module LLVM-MEMORY
         requires N ==Int maxMemChannel -Int 1
         [structural]
 
+    //malloc/calloc in heap
+    rule <k> globalMalloc(Size:Int, N:Int)
+                          => globalAllocaWait(TN +Int 1, nextMemSym(Base, 0, 1,
+               llvmVoidPointerType, value(Base,
+                       nextBase(Base, Size *Int N, 1))))  ...</k>
+         <memChannelId> Chan:Int </memChannelId>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <memory>...
+        <channelId> Chan </channelId>
+        (.Bag =>
+            <object>...
+             <chunckRange> value(Base,
+                    nextBase(Base, Size *Int N, 1)) </chunckRange>
+             <size> N </size>
+             <addrSpace> 0 </addrSpace>
+             <range> heap </range> 
+             <align> newPacking(Base, 1) </align>
+                       ...</object> )
+        <ackMap> AckM:Map => AckM[TN +Int 1 <- 0] </ackMap>
+        <channelOps> ChanL:List (.List => ListItem(sendToAll(Chan, 0, maxMemChannel,
+               TN +Int 1, TMN (Chan |-> TN +Int 1),
+                   startMem(value(Base,
+                    nextBase(Base, Size *Int N, 1)), N,
+              0, heap, newPacking(Base, 1))))) </channelOps>
+        <timeStamps> TMN:Map (Chan |-> (TN:Int => TN +Int 1)) </timeStamps>
+        ...</memory>
+        <memoryList> MRL:List (.List => ListItem(value(Base,
+                     nextBase(Base, Size *Int N, 1)))) </memoryList>
+        <nextBase> Base:Int => nextBase(Base, Size *Int N, 1) </nextBase>
+        <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
+                            Size *Int N, 1)) </memoryRange>
+        requires (Size *Int N) >Int 0
+        [transition]
+
+    rule <k> globalMalloc(Size:Int, N:Int) ~> K:K => .K </k>
+         (<tomasulo>
+            D:Bag
+         </tomasulo> =>  <tomasulo>...
+                        <instQueue> instList(.List) </instQueue>
+                          ...</tomasulo>)
+         <output>... .List => ListItem("error: undefined behavior due to malloc zero bype.") </output>
+        requires (Size *Int N) <=Int 0
+
+    //static global init values in heap
     rule <k> globalAlloca(Type:KResult, N:Int, Ad:Int, Al:Int, Con:Bool)
                           => globalAllocaWait(TN +Int 1, nextMemSym(Base, Ad, Al, Type,
                        value(curBase(Base, Al),
                        nextBase(Base, sizeof(Type) *Int N, Al))))  ...</k>
          <memChannelId> Chan:Int </memChannelId>
+         <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
         <memory>...
         <channelId> Chan </channelId>
         (.Bag =>
@@ -930,7 +1090,7 @@ module LLVM-MEMORY
         <memoryRange> value(I:Int, F:Int) => value(I, nextBase(Base,
                             sizeof(Type) *Int N, Al)) </memoryRange>
         requires (sizeof(Type) *Int N) >Int 0
-
+       
     rule <k> globalAlloca(Type:KResult, N:Int, Ad:Int, Al:Int, Con:Bool) ~> K:K
               => .K </k>
          (<tomasulo>
@@ -2041,6 +2201,28 @@ module LLVM-MEMORY
          <stackList> SL:List </stackList>
          <output>... .List => ListItem("error: undefied behavior because trying to end a va_arg loc that is not initialized or has already deleted.") </output>
          requires notBool Base in Local
+
+    //heap close memory location
+    rule <memOpList> (ListItem(singleMem(TID:Int, B, In,
+                stack, toClose(Base:Int)))
+                => ListItem(singleMem(TID:Int, B:Int, In:Int,heap,
+                        msgWait(MsgN +Int 1)))) L:List </memOpList>
+          (<object> D:Bag
+           <chunckRange> value(Base:Int, Right:Int) </chunckRange>
+            </object> => .Bag)
+         <memoryList> SL:List => removeMemBlock(SL, Base) </memoryList>
+         <timeStamps> TM:Map (CId |-> (MsgN:Int => MsgN +Int 1)) </timeStamps>
+         <channelOps> ChanOps:List (.List => ListItem(
+               sendToAll(CId, 0, maxMemChannel, MsgN +Int 1,
+                   TM (CId |-> MsgN +Int 1), toClose(Base:Int)))) </channelOps>
+         <ackMap> AckM:Map => AckM[MsgN +Int 1 <- 0] </ackMap>
+
+    rule (<threads> TD:Bag => .Bag </threads>)
+         <memOpList> (ListItem(singleMem(TID:Int, B, In,
+                stack, toClose(Base:Int))) L:List => .List) </memOpList>
+         <memoryList> SL:List </memoryList>
+         <output>... .List => ListItem("error: undefied behavior because trying to free a memory location but the input pointer is not the original one created by a malloc/calloc/realloc function.") </output>
+         requires notBool isAStartBase(Base, SL)
 
     //dealing with cmpxchg/atomicrmw
     rule <readBack> readMapAux(varInstance(Bn:Int, In:Int),
@@ -4289,22 +4471,42 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
 
-    rule
-        // TODO why doesn't this work?
-        // <k> Call(_, Callee(funptr(Name(globalVar, S:String)), listK(L:KList)))
-            // => 'memcpy`(_`,_`,_`,_`,_`)(L)
-        <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(V1:KResult),
-                   valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
-            => memcpy(V1, V2, V3, V4, V5)
-        ...</k>
-        when substrString(S, 0, 12) ==String "llvm.memcpy."
+    //volitile will be taken care by the release order after each function
+    rule call(_, calleeValue(funptr(name(globalVar, "llvm.memcpy.p0i8.p0i8.i32")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => memcpy(V1, V2, normalizingInt(integerType(32), V3))
 
-    rule
-        <k> call(_, calleeValue(funptr(name(globalVar, S:String)), (valValue(V1:KResult),
-                  valValue(V2:KResult), valValue(V3:KResult), valValue(V4:KResult), valValue(V5:KResult))))
-            => memset(V1, V2, V3, V4, V5)
-        ...</k>
-        when substrString(S, 0, 12) ==String "llvm.memset."
+    rule call(_, calleeValue(funptr(name(globalVar, "llvm.memcpy.p0i8.p0i8.i64")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => memcpy(V1, V2, normalizingInt(integerType(64), V3))
+
+    rule call(_, calleeValue(funptr(name(globalVar, "llvm.memmove.p0i8.p0i8.i32")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => memmove(V1, V2, normalizingInt(integerType(32), V3))
+
+    rule call(_, calleeValue(funptr(name(globalVar, "llvm.memmove.p0i8.p0i8.i64")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => memmove(V1, V2, normalizingInt(integerType(64), V3))
+
+    rule call(_, calleeValue(funptr(name(globalVar, "llvm.memset.p0i8.i32")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => memset(V1, V2, normalizingInt(integerType(32), V3))
+
+    rule call(_, calleeValue(funptr(name(globalVar, "llvm.memset.p0i8.i64")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => memset(V1, V2, normalizingInt(integerType(64), V3))
 
     rule
         <k> call(_, calleeValue(funptr(name(globalVar, "llvm.lifetime.start")), (valValue(V1:KResult),
@@ -4346,10 +4548,24 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
             => vaClose(V1)
         ...</k>
 
-    rule
-        <k> call(_, calleeValue(funptr(name(globalVar, "exit")), V:K))
+    rule <k> call(_, calleeValue(funptr(name(globalVar, "exit")), V:K))
             => .K ...</k>
         (.Bag => <result><returnValue> V </returnValue></result>)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "malloc")),
+                 (valValue(V1:KResult), .ElemList)))
+             => globalMalloc(V1, 1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "calloc")),
+                 (valValue(V1:KResult),valValue(V2:KResult), .ElemList)))
+             => globalMalloc(V2, V1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "free")),
+                 (valValue(V1:KResult), .ElemList))) => free(V1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "realloc")),
+                 (valValue(V1:KResult),valValue(V2:KResult), .ElemList)))
+                  => realloc(V1,V2)
 
 endmodule
 
@@ -4362,26 +4578,339 @@ module LLVM-STANDARD-LIBRARY
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    // memcpy
-    rule
-        <k> memcpy(Dest:Loc, Src:Loc, Len:Int, K1:K, K2:K)
-            => store(byteType, load('pointerType(byteType,, 0), Src, 1),
-                           'pointerType(byteType,, 0), Dest, 1)
-            ~> memcpy(Dest + 1, Src + 1, Len -Int 1, K1, K2)
-        ...</k>
-        when Len >Int 0
-    rule
-        <k> memcpy(_, _, 0, _, _) => .K ...</k>
+    //memcpy is bascially a restricted form of memmove
+    //what we need to do is to transform memcpy to memmove by checking if two overlaps
+    rule memcpy(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), Size:Int)
+        => memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), Size:Int)
+         requires (Ran ==K stack andBool Ran1 ==K heap)
+                  orBool (Ran ==K heap andBool Ran1 ==K stack)
+
+    rule memcpy(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), Size:Int)
+        => memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), Size:Int)
+         requires ((Ran ==K stack andBool Ran1 ==K stack)
+                  orBool (Ran ==K heap andBool Ran1 ==K heap))
+                andBool notBool isOverlapMeaning(Base,
+                             Base +Int Size, Base1, Base1 +Int Size)
+
+    rule <threads> <thread>...
+                 <k> memcpy(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), Size:Int)
+            ~> K:K </k>
+         </thread> TD:Bag => .Bag </threads>
+         <output>... .List =>
+            ListItem("memcpy error when the two input pointers overlap.")
+         </output>
+         requires ((Ran ==K stack andBool Ran1 ==K stack)
+                  orBool (Ran ==K heap andBool Ran1 ==K heap))
+                andBool isOverlapMeaning(Base,
+                             Base +Int Size, Base1, Base1 +Int Size)
+
+    // memmove -- basically an atomic read write
+    rule <threads> <thread>...
+                 <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), stack, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+             ~> K:K </k>
+         </thread> TD:Bag => .Bag </threads>
+         <output>... .List =>
+            ListItem("memcpy/memmove error when trying to read/write values outside the bound of the input pointers restricted.")
+         </output>
+         requires Base +Int Size >Int Right orBool Base <Int Left
+                orBool Base1 +Int Size >Int Right1 orBool Base1 <Int Left1
+
+    rule <threads> (<thread>...
+                 <threadId> Tid </threadId>
+                 <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), stack, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            ~> K:K </k>
+          <stackList> SL:List </stackList>
+          <localMemory> LocalStack:Set </localMemory>
+         ...</thread> TD:Bag) => .Bag </threads>
+         <output>... .List =>
+            ListItem("memcpy/memmove error when trying to read from some places that are out of the memory bound.")
+         </output>
+         requires notBool isInStackRange(SL, Base, Size, LocalStack)
+
+    rule <threads> (<thread>...
+                 <threadId> Tid </threadId>
+                 <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), stack, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            ~> K:K </k>
+          <stackList> SL:List </stackList>
+          <localMemory> LocalStack:Set </localMemory>
+         ...</thread> TD:Bag) => .Bag </threads>
+         <output>... .List =>
+            ListItem("memcpy/memmove error when trying to read from some places that are out of the memory bound.")
+         </output>
+        <memoryList> MOL:List </memoryList>
+        requires notBool isInMemRange(MOL, Base, Size)
+
+    rule <threads> (<thread>...
+                 <threadId> Tid </threadId>
+                 <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), stack, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            ~> K:K </k>
+         <stackMap> BM:Map </stackMap>
+         </thread> TD:Bag) => .Bag </threads>
+         <output>... .List =>
+            ListItem("memcpy/memmove error when trying to read in a stack place that has not been initialized.")
+         </output>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackAddrSpace> Ad:Int </stackAddrSpace>
+           <stackChunckRange> value(Left2:Int, Right2:Int) </stackChunckRange>
+            ...</stackObject>
+         requires Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                  andBool notBool isChunckWritten(BM, Base, Base +Int Size)
+
+    rule <threads> (<thread>...
+                    <memChannelId> Chan:Int </memChannelId>
+                 <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), heap, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            ~> K:K </k>
+         </thread> TD:Bag) => .Bag </threads>
+         <output>... .List =>
+            ListItem("memcpy/memmove error when trying to read in a heap place that has not been initialized.")
+         </output>
+         <memory>...
+           <channelId> Chan </channelId>
+           <object>...
+           <addrSpace> Ad:Int </addrSpace>
+           <chunckRange> value(Left2:Int, Right2:Int) </chunckRange>
+           <race> Races:Set </race>
+           ...</object>
+           <byteMap> BM:Map </byteMap>
+            ...</memory>
+         requires Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                  andBool notBool isChunckWritten(BM, Base, Base +Int Size)
+
+    rule <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), stack, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(Tid, B, In, Ran, atomicWrite(
+                    arrayTypeValue(llvmVoidPointerType, Size),
+                   region(getMemWithAtomic(BM, Base, 0, Size), Size),
+                storeOperand(Tid, Type, none), Base1,
+               Size, Ad1, monotonic)))) </toCommit>
+         <threadId> Tid </threadId>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackAddrSpace> Ad:Int </stackAddrSpace>
+           <stackChunckRange> value(Left2:Int, Right2:Int) </stackChunckRange>
+            ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                andBool Base1 +Int Size <=Int Right1 andBool Base1 >=Int Left1
+                andBool Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                andBool isChunckWritten(BM, Base, Base +Int Size)
+         [transition]
+
+    rule <k> memcpy(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), stack, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(Tid, B, In, Ran, atomicWrite(
+                    arrayTypeValue(llvmVoidPointerType, Size),
+                   region(getMemWithAtomic(BM, Base, 0, Size), Size),
+                storeOperand(Tid, Type, none), Base1,
+               Size, Ad1, monotonic)))) </toCommit>
+         <threadId> Tid </threadId>
+         <stackObject>...
+           <stackThreadId> Tid </stackThreadId>
+           <stackAddrSpace> Ad2:Int </stackAddrSpace>
+           <stackChunckRange> value(Left2:Int, Right2:Int) </stackChunckRange>
+            ...</stackObject>
+         <stackMap> BM:Map </stackMap>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the stack.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                andBool Base1 +Int Size <Int Right1 andBool Base1 >Int Left1
+                andBool Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                andBool isChunckWritten(BM, Base, Base +Int Size)
+                andBool Ad =/=Int Ad2
+         [transition]
+
+    rule <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), heap, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <threadId> Tid:Int </threadId>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(Tid, B, In, Ran, atomicWrite(
+                    arrayTypeValue(llvmVoidPointerType, Size),
+                   region(getMemWithAtomic(BM, Base, 0, Size), Size),
+                storeOperand(Tid, Type, none), Base1,
+               Size, Ad1, monotonic)))) </toCommit>
+         <memChannelId> Chan:Int </memChannelId>
+         <memory>...
+           <channelId> Chan </channelId>
+           <object>...
+           <addrSpace> Ad:Int </addrSpace>
+           <chunckRange> value(Left2:Int, Right2:Int) </chunckRange>
+           <race> Races:Set </race>
+           ...</object>
+           <byteMap> BM:Map </byteMap>
+            ...</memory>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                andBool Base1 +Int Size <=Int Right1 andBool Base1 >=Int Left1
+                andBool Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                andBool isChunckWritten(BM, Base, Base +Int Size)
+                andBool notBool isOverlap(Base, Size, .K, Races)
+         [transition]
+
+    //if it is a race condition, then write the defined length of undef
+    rule <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), heap, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <threadId> Tid:Int </threadId>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(Tid, B, In, Ran, atomicWrite(
+                    arrayTypeValue(llvmVoidPointerType, Size),
+                   region(copyOfK(undef, Size), Size),
+                storeOperand(Tid, Type, none), Base1,
+               Size, Ad1, monotonic)))) </toCommit>
+         <memChannelId> Chan:Int </memChannelId>
+         <memory>...
+           <channelId> Chan </channelId>
+           <object>...
+           <addrSpace> Ad:Int </addrSpace>
+           <chunckRange> value(Left2:Int, Right2:Int) </chunckRange>
+           <race> Races:Set </race>
+           ...</object>
+           <byteMap> BM:Map </byteMap>
+            ...</memory>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                andBool Base1 +Int Size <=Int Right1 andBool Base1 >=Int Left1
+                andBool Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                andBool isChunckWritten(BM, Base, Base +Int Size)
+                andBool notBool isOverlap(Base, Size, .K, Races)
+         [transition]
+
+    rule <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), heap, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <threadId> Tid:Int </threadId>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(Tid, B, In, Ran, atomicWrite(
+                    arrayTypeValue(llvmVoidPointerType, Size),
+                   region(getMemWithAtomic(BM, Base, 0, Size), Size),
+                storeOperand(Tid, Type, none), Base1,
+               Size, Ad1, monotonic)))) </toCommit>
+         <memChannelId> Chan:Int </memChannelId>
+         <memory>...
+           <channelId> Chan </channelId>
+           <object>...
+           <addrSpace> Ad2:Int </addrSpace>
+           <chunckRange> value(Left2:Int, Right2:Int) </chunckRange>
+           <race> Races:Set </race>
+           ...</object>
+           <byteMap> BM:Map </byteMap>
+            ...</memory>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the heap.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                andBool Base1 +Int Size <=Int Right1 andBool Base1 >=Int Left1
+                andBool Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                andBool isChunckWritten(BM, Base, Base +Int Size)
+                andBool notBool isOverlap(Base, Size, .K, Races)
+                andBool Ad =/=Int Ad2
+         [transition]
+
+    //if it is a race condition, then write the defined length of undef
+    rule <k> memmove(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), heap, none, InR:K),
+                 loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran:K, none, InR1:K), Size:Int)
+            => dynNoResult(undef) ...</k>
+        <cpu> dynInstHold (B:Int , In:Int, Label:K) </cpu>
+        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
+        <threadId> Tid:Int </threadId>
+        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
+         => memList(Ava, Ava', Avb:List, Avb':List, CML,
+                  ML ListItem(singleMem(Tid, B, In, Ran, atomicWrite(
+                    arrayTypeValue(llvmVoidPointerType, Size),
+                   region(copyOfK(undef, Size), Size),
+                storeOperand(Tid, Type, none), Base1,
+               Size, Ad1, monotonic)))) </toCommit>
+         <memChannelId> Chan:Int </memChannelId>
+         <memory>...
+           <channelId> Chan </channelId>
+           <object>...
+           <addrSpace> Ad2:Int </addrSpace>
+           <chunckRange> value(Left2:Int, Right2:Int) </chunckRange>
+           <race> Races:Set </race>
+           ...</object>
+           <byteMap> BM:Map </byteMap>
+            ...</memory>
+         <output>... .List =>
+            ListItem("warning: input address space does not match with the address space of the heap.")
+         </output>
+         requires Base +Int Size <=Int Right andBool Base >=Int Left
+                andBool Base1 +Int Size <=Int Right1 andBool Base1 >=Int Left1
+                andBool Base >=Int Left2 andBool Base +Int Size <=Int Right2
+                andBool isChunckWritten(BM, Base, Base +Int Size)
+                andBool isOverlap(Base, Size, .K, Races)
+                andBool Ad =/=Int Ad2
+         [transition]
 
     // memset
-    rule
-        <k> memset(Dest:Loc, N:Int, Len:Int, K1:K, K2:K)
-            => store(byteType, N,'pointerType(byteType,, 0), Dest, 1)
-            ~> memset(Dest + 1, N, Len -Int 1, K1, K2)
-        ...</k>
-        when Len >Int 0
-    rule
-        <k> memset(_, _, 0, _, _) => .K ...</k>
+    rule memset(loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                  V:KResult, Len:Int)
+          => store(arrayTypeValue(llvmVoidPointerType, Len), V,
+                    pointerTypeValue(arrayTypeValue(llvmVoidPointerType, Len), Ad),
+                loc(Base, pointerTypeValue(arrayTypeValue(llvmVoidPointerType, Len),
+                     Ad), value(Left, Right), Ran, none, InR), 1)
 
     // lifetimeStart
     // don't need to do anything for positive semantics

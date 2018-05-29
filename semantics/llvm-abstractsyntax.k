@@ -632,6 +632,11 @@ module LLVM-ABSTRACTSYNTAX
                     // Type, NumElements,addrspace,align, isConstant?
     syntax KItem ::= globalAlloca(K, K, Int,Int, Bool)
                            // Type, NumElements,addrspace,align, isConstant?
+    syntax KItem ::= globalMalloc(K, K)
+                           // Size of, NumElements
+    syntax KItem ::= free(K) //loc
+    syntax KItem ::= realloc(K, K) //loc, size
+
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
     syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
     syntax KResult ::= loadVal(K)//type
@@ -695,7 +700,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= toWrite(K, K) //var or loc, ordering
     syntax KItem ::= toReadWrite(Set, List) //var or locs, ordering
     syntax KItem ::= toClose(Int) //loc-base
-    
+        syntax KItem ::= toCloseAndNext(Int, K) //loc-base, next-op
     syntax KResult ::= cmpxchgResult(K) //1/0 depends on if the comparison succeeds
     syntax KResult ::= atomicrmwWait(K, K,K, K) //type,op, value, write-loc
     syntax KResult ::= cmpxchgWait(K, K, K, K) //t, compare result, value, write-loc

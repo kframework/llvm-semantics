@@ -54,4 +54,7 @@ module LLVM-SETTINGS
     syntax Int ::= "maxMemChannel" [function]
     rule maxMemChannel => 2
 
+    syntax KItem ::= "llvmVoidPointerType" [function]
+    rule llvmVoidPointerType => integerType(8)
+
 endmodule

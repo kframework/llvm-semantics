@@ -328,6 +328,8 @@ module LLVM-HELPERS
                   instruction(atomicrmw(B:K, operand(T1:K, V1:K), TV2:K, Or:K)
                    ,Mods:Set, Meta)),readWriteInst), Va:Loc)
           => pairResult(TheCount, toReadWrite(SetItem(V1), ListItem(Or)))
+    rule toMemElem(instNumInfo(TheCount:Int, Op:K,callInst), Va:Loc)
+          => pairResult(TheCount, acquireFence)
     rule toMemElem(A:K, Va:Loc) => none [owise]
 
     syntax KItem ::= getMemOps(Int, List, K, List, K, K, Loc) [function]
@@ -345,6 +347,10 @@ module LLVM-HELPERS
                       Count:Int, toRead(V:K, Od:K)), S:List, Pre:K, Re:K, Loc:Loc)
          => getMemOps(Bn:Int, L ListItem(memProto(
            Count, toRead(V:K, Od:K), .Map, false)), .K, S, Pre, Re, Loc:Loc)
+    rule getMemOps(Bn:Int, L:List, pairResult(
+                      Count:Int, acquireFence), S:List, Pre:K, Re:K, Loc:Loc)
+         => getMemOps(Bn:Int, L ListItem(memProto(
+           Count, acquireFence, .Map, true)), .K, S, Pre, Re, Loc:Loc)
     rule getMemOps(Bn:Int, L:List,
                        pairResult(Count:Int, fence(release)), S:List, Pre:K, Re:K, Loc:Loc)
          => getMemOps(Bn:Int, L ListItem(memProto(
@@ -5645,12 +5651,16 @@ module LLVM-HELPERS
         requires Base' +Int sizeof(T') >Int Base +Int X
                  orBool Base' <Int Base
 
+    syntax Bool ::= isOverlapMeaning(Int, Int, Int, Int) [function]
+    rule isOverlapMeaning(Base:Int, Last:Int, Base':Int, Last':Int)
+           => (Base >=Int Base' andBool Base <Int Last')
+              orBool (Base <=Int Base' andBool Base' <Int Last)
+
     syntax Bool ::= isOverlapAux(Int, Int, K) [function]
                   | isOverlap(Int, Int, K, Set) [function]
     rule isOverlapAux(Base:Int, Last:Int, singleMem(Tid, Bn, In, Ran:K,
                         value(Base':Int, Last':Int)))
-           => (Base >=Int Base' andBool Base <Int Last')
-              orBool (Base <=Int Base' andBool Base' <Int Last)
+           => isOverlapMeaning(Base, Last, Base', Last')
     rule isOverlap(Base:Int, Last:Int, .K, .Set) => false
     rule isOverlap(Base:Int, Last:Int, .K, SetItem(A:K) S:Set) => 
            isOverlap(Base:Int, Last:Int, A, S:Set)
@@ -7366,6 +7376,14 @@ module LLVM-HELPERS
     rule getOrderInMsg(msgByteWrite(_,_, _, _, _, _, _)) => none
     rule getOrderInMsg(msgWrite(_,_, _, _, _, _,Or:K)) => Or
     rule getOrderInMsg(msgSeqFence) => seq_cst
+    rule getOrderInMsg(toClose(_)) => seq_cst
+    rule getOrderInMsg(toCloseAndNext(_,_)) => seq_cst
 
+    syntax Bool ::= isAStartBase(Int, List) [function]
+    rule isAStartBase(A:Int, .List) => false
+    rule isAStartBase(A:Int, ListItem(value(A:Int, B:Int)) L:List) => true
+    rule isAStartBase(A:Int, ListItem(value(A':Int, B:Int)) L:List)
+               => isAStartBase(A, L)
+         requires A =/=K A'
 
 endmodule

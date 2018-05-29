@@ -2,8 +2,9 @@
 
 module LLVM-STANDARD-LIBRARY-SYNTAX
 
-    syntax KItem ::= memcpy(K, K, K, K, K)
-    syntax KItem ::= memset(K, K, K, K, K)
+    syntax KItem ::= memcpy(K, K, K)
+    syntax KItem ::= memmove(K, K, K)
+    syntax KItem ::= memset(K, K, K)
 
     syntax KItem ::= lifetimeStart(K, K)
     syntax KItem ::= lifetimeEnd(K, K)

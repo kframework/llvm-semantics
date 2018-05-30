@@ -275,12 +275,13 @@ module LLVM-CALL-RET
          <cpu> .K </cpu>
          [structural]
 
-    rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
+    rule <instQueue> splitQueue(.List, ListItem(dynInstInfo(BN:Int,
                         IN:Int, Inst:K, T:K)) Pre:List, L:List)
                => instList(Pre L) </instQueue>
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
-          requires ((T ==K terminators) orBool (T ==K returnInst)
-                   orBool (T ==K callInst) orBool (T ==K vaInst))
+          requires (T ==K terminators) orBool (T ==K returnInst)
+                   orBool (T ==K callInst) orBool (T ==K vaInst)
+                    orBool (T ==K fenceInst)
          [structural]
 
     rule <instQueue> splitQueue(AV:List, ListItem(dynInstInfo(BN:Int,
@@ -289,6 +290,7 @@ module LLVM-CALL-RET
          <cpu> .K => dynInstInfo(BN, IN, Inst, T) </cpu>
           requires (T =/=K terminators) andBool (T =/=K returnInst)
                    andBool (T =/=K callInst) andBool (T =/=K vaInst)
+                   andBool (T =/=K fenceInst)
          [transition]
 
     rule <instQueue> splitQueue(Av:List ListItem(dynInstInfo(BN:Int,
@@ -303,6 +305,7 @@ module LLVM-CALL-RET
               Pre ListItem(dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)), L) </instQueue>
           requires (T =/=K terminators) andBool (T =/=K returnInst)
                   andBool (T =/=K callInst) andBool (T =/=K vaInst)
+                    andBool (T =/=K fenceInst)
                     andBool (isAvailable(Inst))
          [transition]
 
@@ -312,8 +315,9 @@ module LLVM-CALL-RET
                                 IN:Int, Inst:K, T:K)), L) </instQueue>
           requires (T ==K terminators) orBool (T ==K returnInst)
                   orBool (T ==K callInst) orBool (T ==K vaInst)
+                   orBool (T ==K fenceInst)
                     orBool (notBool isAvailable(Inst))
-         [structural]
+         [transition]
 
     rule <cpu> dynInstInfo(BN:Int, IN:Int, Inst:K, T:K)
                  => dynInstHold(BN, IN, T) </cpu>

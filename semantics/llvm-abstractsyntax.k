@@ -638,7 +638,7 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= realloc(K, K) //loc, size
 
     syntax KItem ::= preAlloca(K, K) [strict(2)] // IntType, NumElements
-    syntax KItem ::= load(K, K, Int) [strict(1,2)]//type value, align
+    syntax KItem ::= load(K, K, Int, Bool) [strict(1,2)]//type value, align, volitile or not
     syntax KResult ::= loadVal(K)//type
     syntax KItem ::= loadHold(K, List)//type, List
     syntax KItem ::= assignUses(K, K, K, ElemList)//blockname, inst num, type, list of names
@@ -696,9 +696,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= adjustMemList(Int, K) //father, child, 
 
     syntax KItem ::= singleMem(Int, Int, Int, K, K) //block, inst num, stack/heap, inst
-    syntax KItem ::= toRead(K, K) //var or loc, ordering
-    syntax KItem ::= toWrite(K, K) //var or loc, ordering
-    syntax KItem ::= toReadWrite(Set, List) //var or locs, ordering
+    syntax KItem ::= toRead(K, K, Bool) //var or loc, ordering, vol or not
+    syntax KItem ::= toWrite(K, K, Bool) //var or loc, ordering, vol or not
+    syntax KItem ::= toReadWrite(Set, List, Bool) //var or locs, ordering, vol or not
     syntax KItem ::= toClose(Int) //loc-base
         syntax KItem ::= toCloseAndNext(Int, K) //loc-base, next-op
     syntax KResult ::= cmpxchgResult(K) //1/0 depends on if the comparison succeeds
@@ -716,6 +716,11 @@ module LLVM-ABSTRACTSYNTAX
                    //type, base, input offset, offset, size, addrspace
     syntax KItem ::= readPiece(Int, K)
            //store the byte when load an item
+
+    syntax KItem ::= memmoveWait(K, K, K)//base, ordering, addressspace
+    syntax KItem ::= memmoveNext(K, K, K, K, K) //base, size,ran, ad, ordering
+    syntax KItem ::= memmoveRead(Int, Int, Int, K)//nase, size, ad, order
+
     syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
                       //type, value, original base, size, addrspace, ordering
     syntax KItem ::= atomicReadWrite(K, Int, Int, Int, K, K)
@@ -789,8 +794,8 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= staticStore(K, K, K, K, Int) [strict(2)]
                         // Type, Value, deType, Destination, aligns
     syntax KItem ::= "staticSeqFence"
-    syntax KItem ::= store(K, K, K, K, Int) [strict(1,2,3,4)]
-                        // Type, Value, deType, Destination, align
+    syntax KItem ::= store(K, K, K, K, Int, Bool) [strict(1,2,3,4)]
+                        // Type, Value, deType, Destination, align, volitile or not
     syntax KItem ::= fence(K)
     syntax KItem ::= "acquireFence" | "releaseFence"
                    | "readRWFence" | "writeRWFence" | "readWriteFence" | "seqFence"
@@ -899,11 +904,11 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= shuffleVector(K, K, K) [strict]
 
     syntax KItem ::= extractValue(K, List) [strict(1)]
-    syntax KItem ::= cmpxchg(K, K, K, K, K) [strict(1,2,3)]
+    syntax KItem ::= cmpxchg(K, K, K, K, K, Bool) [strict(1,2,3)]
                  //(addty, addv), (compare-ty,value), new-ty-value,
-                 // success ordering, failure ordering 
-    syntax KItem ::= atomicrmw(K, K, K, K) [strict(2,3)]
-            //op, addr-ty-v, write-ty-v, ordering
+                 // success ordering, failure ordering, volatile or not
+    syntax KItem ::= atomicrmw(K, K, K, K, Bool) [strict(2,3)]
+            //op, addr-ty-v, write-ty-v, ordering, volatile or not
     syntax KItem ::= insertValue(K, K, K, List) [strict(2,3)]
                       //type, v1, v2, indexs
 

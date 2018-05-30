@@ -1141,7 +1141,7 @@ module LLVM-NORMALIZING
               Or:K, Mods:Set, Meta:K) => .K ...</k>
          <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount,assign(X, instruction(
-             atomicrmw(B,operand(T1,V1), operand(T2,V2), Or),
+             atomicrmw(B,operand(T1,V1), operand(T2,V2), Or, isVolatileInSet(Mods)),
                      Mods, Meta)),readWriteInst)) </tempBlockMap>
 
     rule <k> typeCheckAtomicrmw(Name:SymbolicValueRef, X:SymbolicValueRef, B:K,
@@ -1200,7 +1200,8 @@ module LLVM-NORMALIZING
          <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount,assign(X, instruction(
              cmpxchg(operand(T1,V1), operand(T2,V2),
-           operand(T3,V3), Or1, Or2), Mods, Meta)),readWriteInst)) </tempBlockMap>
+           operand(T3,V3), Or1, Or2, isVolatileInSet(Mods)),
+                     Mods, Meta)),readWriteInst)) </tempBlockMap>
 
     rule <k> typeCheckCmpxchg(Name:SymbolicValueRef, X:SymbolicValueRef,
               pointerTypeValue(integerType(N:Int), A:K), V1:K, integerType(N:Int),
@@ -1308,7 +1309,8 @@ module LLVM-NORMALIZING
                 Align:Int, Mods:Set, Meta:K) => .K ...</k>
          <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount,assign(X,
-                   instruction(load(T, V, Align), Mods, Meta)),loadInst)) </tempBlockMap>
+                   instruction(load(T, V, Align, isVolatileInSet(Mods)),
+                               Mods, Meta)),loadInst)) </tempBlockMap>
 
     rule <k> typeCheckLoad(Name:SymbolicValueRef, X:SymbolicValueRef, T:KResult,
                      pointerTypeValue(T:KResult, A:K), V2:K,
@@ -1440,7 +1442,7 @@ module LLVM-NORMALIZING
                Align:Int, Mods:Set, Meta:K) => .K ...</k>
          <tempBlockMap> Now:Map => Now (TheCount |->
               instNumInfo(TheCount, noAssign(
-                  instruction(store(T1, V1 ,T2, V2, Align),
+                  instruction(store(T1, V1 ,T2, V2, Align, isVolatileInSet(Mods)),
                        Mods, Meta)),storeInst)) </tempBlockMap>
 
     rule <k> typeCheckStore(Name:SymbolicValueRef, T:KResult, V1:K,

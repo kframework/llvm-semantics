@@ -57,24 +57,6 @@ module LLVM-START-AND-STOP
         <formalParameters> arguments(L:ElemList) </formalParameters>
         when lengthOfList(L) ==Int 2
 
-/*
-    syntax KItem ::= initEnvStructures(K) [strict]
-    syntax KItem ::= "initEnvStructures'" "(" K ")"
-
-    rule // argv & envp
-        <k> initEnvStructures(Loc:Loc)
-            => store(arrayTypeValue(pointerTypeValue(
-                         i(8), 0), 3), zeroinitializer, Loc, 1)
-            ~> initEnvStructures'(Loc + sizeof(
-                     arrayTypeValue(pointerTypeValue(i(8), 'alignEmpty(.KList)), 3)))
-            ~> Loc
-        ...</k>
-
-    rule
-        <k> initEnvStructures'(Loc:Loc)
-            => memset(Loc, 0, 37, .K, .K) // auxv
-        ...</k>
-*/
     rule [terminate-exit]:
         <T>...
             <k> I:KResult => call(void, callee(name(globalVar, "exit"), arguments(val(I)))) </k>

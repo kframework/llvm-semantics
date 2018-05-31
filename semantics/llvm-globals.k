@@ -237,7 +237,8 @@ module LLVM-GLOBALS
                  i(8) ('addrEmpty(.KList))* .ParamAttrs), name(globalVar, "llvm.va_copy"))),
         val(typeOperand('functionType(void,, i(8) ('addrEmpty(.KList))* .ParamAttrs),
                 name(globalVar, "llvm.va_end"))),
-           val(typeOperand('functionType(i(64),, i(64) .ParamAttrs, vaListType), name(globalVar, "__syscall"))),
+           val(typeOperand('functionType(i(64),,
+                     i(64) .ParamAttrs, vaListType), name(globalVar, "__syscall"))),
             val(typeOperand('functionType(i(32),, i(8) ('addrEmpty(.KList))* .ParamAttrs,
               { i(32), i(32), i(8) ('addrEmpty(.KList))*,
                  i(8) ('addrEmpty(.KList))*, .TypeList } ('addrEmpty(.KList))* .ParamAttrs),
@@ -251,7 +252,41 @@ module LLVM-GLOBALS
                 val(typeOperand('functionType(i(8) ('addrEmpty(.KList))*,,
                  i(8) ('addrEmpty(.KList))* .ParamAttrs, i(64) .ParamAttrs),
                         name(globalVar, "realloc"))),
-                .ElemList)
+                val(typeOperand('functionType(i(8) ('addrEmpty(.KList))*,,
+                 i(8) ('addrEmpty(.KList))* .ParamAttrs, i(64) .ParamAttrs),
+                        name(globalVar, "realloc"))),
+                val(typeOperand('functionType(i(32),,
+                 i(64) ('addrEmpty(.KList))* .ParamAttrs,
+                  { i(64), arrayType(48, i(8)), .TypeList } ('addrEmpty(.KList))* .ParamAttrs,
+                 'functionType(i(8) ('addrEmpty(.KList))*,,
+                       i(8) ('addrEmpty(.KList))*) ('addrEmpty(.KList))* .ParamAttrs,
+                   i(8) ('addrEmpty(.KList))* .ParamAttrs), name(globalVar, "pthread_create"))),
+                val(typeOperand('functionType(i(32),, i(64) .ParamAttrs,
+                  i(8) ('addrEmpty(.KList))* ('addrEmpty(.KList))* .ParamAttrs),
+                    name(globalVar, "pthread_join"))),
+                val(typeOperand('functionType(i(32),, 'argTypeTwo(i(64),, .ParamAttrs)),
+                    name(globalVar, "pthread_detach"))),
+                val(typeOperand('functionType(void,,
+                      'argTypeTwo(i(8) ('addrEmpty(.KList))* ('addrEmpty(.KList))* .ParamAttrs)),
+                    name(globalVar, "pthread_exit"))),
+                val(typeOperand('functionType(i(32),, 'argTypeTwo(i(64),, .ParamAttrs)),
+                    name(globalVar, "pthread_cancel"))),
+                val(typeOperand('functionType(i(32),,
+                     { arrayType(40, i(8)) } ('addrEmpty(.KList))* .ParamAttrs,
+                     { arrayType(4, i(8)) } ('addrEmpty(.KList))* .ParamAttrs),
+                    name(globalVar, "pthread_mutex_init"))),
+                val(typeOperand('functionType(i(32),, 'argTypeTwo(
+                        { arrayType(40, i(8)) } ('addrEmpty(.KList))*,, .ParamAttrs)),
+                    name(globalVar, "pthread_mutex_destroy"))),
+                val(typeOperand('functionType(i(32),, 'argTypeTwo(
+                        { arrayType(40, i(8)) } ('addrEmpty(.KList))*,, .ParamAttrs)),
+                    name(globalVar, "pthread_mutex_lock"))),
+                val(typeOperand('functionType(i(32),, 'argTypeTwo(
+                        { arrayType(40, i(8)) } ('addrEmpty(.KList))*,, .ParamAttrs)),
+                    name(globalVar, "pthread_mutex_trylock"))),
+                val(typeOperand('functionType(i(32),, 'argTypeTwo(
+                        { arrayType(40, i(8)) } ('addrEmpty(.KList))*,, .ParamAttrs)),
+                    name(globalVar, "pthread_mutex_unlock"))), .ElemList)
                   ~> (K ~> staticSeqFence ~> dealWithUnnamed(TL)) ...</k>
         <savedGlobals> K:K => .K </savedGlobals>
         <tempGlobalVars> TL:List => .List </tempGlobalVars>

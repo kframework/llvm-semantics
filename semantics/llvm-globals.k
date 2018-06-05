@@ -92,34 +92,6 @@ module LLVM-GLOBALS
          <globalRegisters> GM => GM[X <- Loc] </globalRegisters>
          requires isExternal(L)
 
-/*
-    //for the array type of global variable.
-    rule
-        <k> globalVariable(X:SymbolicValueRef, L:Set
-                , arrayTypeValue(TyK:KResult,Size:Int), Init:K)
-            => preInit(X, alloca(TyK, Size, getAlign(L, .K))
-                                  , initializer(arrayTypeValue(TyK,Size),Init))
-        ...</k>
-        <currentModifiers> _ => L </currentModifiers>
-
-    //for the struct type of global variable.
-    rule
-        <k> globalVariable(X:SymbolicValueRef, L:Set
-                , structTypeValue(TyK:KResult), Init:K)
-            => preInit(X, alloca(TyK, 1, getAlign(L, .K))
-                                  , initializer(structTypeValue(TyK),Init))
-        ...</k>
-        <currentModifiers> _ => L </currentModifiers>
-
-    //for the function type of global variable - an error.
-    rule
-        <k> globalVariable(X:SymbolicValueRef, L:Set
-                , functionTypeValue(TyK:K, K':K), Init:K) ~> K
-            => .K
-        </k>
-        <output>... .List => ListItem("error: invalid type for global variable") </output>
-*/
-
     //if unname not exist similar content item
     rule postInitAux(Mods:Set, .List, Ty:KResult, X:K, Init:KResult, Ad:Int, Al:Int)
            => preInit(Mods, Ty, X, alloca(Ty, sizeof(Ty), Ad, Al, true), Init, Ad, Al)
@@ -267,7 +239,7 @@ module LLVM-GLOBALS
                 val(typeOperand('functionType(i(32),, 'argTypeTwo(i(64),, .ParamAttrs)),
                     name(globalVar, "pthread_detach"))),
                 val(typeOperand('functionType(void,,
-                      'argTypeTwo(i(8) ('addrEmpty(.KList))* ('addrEmpty(.KList))* .ParamAttrs)),
+                      'argTypeTwo(i(8) ('addrEmpty(.KList))*,, .ParamAttrs)),
                     name(globalVar, "pthread_exit"))),
                 val(typeOperand('functionType(i(32),, 'argTypeTwo(i(64),, .ParamAttrs)),
                     name(globalVar, "pthread_cancel"))),

@@ -16,6 +16,9 @@ module LLVM-CONFIGURATION
               value(nullMemoryLoc,nullMemoryLoc),heap, none, none) </brk>
             //this is a cell holding brk pointer
             <cbd> .Map </cbd> //common data bus
+            <threadStatus> .Map </threadStatus> //use for storing pthread status joinable info
+            <waitJoinThreads> .Map </waitJoinThreads>
+                //for detaching deadlock or see if two are joining with the same threads.
             <exBuffer> .List </exBuffer>
             //a cell to hold all to commit memory ops, simulating computer north bridge
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
@@ -32,12 +35,21 @@ module LLVM-CONFIGURATION
             <tempResumes> .List </tempResumes>
             <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
+            <mutexes>
+              <mutexCount> 0 </mutexCount>
+              <avaMutex> .Set </avaMutex> //all alive mutexes
+              <mutex multiplicity="*">
+                 <mutexId> 0 </mutexId>
+                 <holdThread> .K </holdThread> //holding lock thread
+              </mutex>
+            </mutexes>
             <threads>
+              <threadCount> 1 </threadCount>
               <thread multiplicity="*"> //thread cell
                 <threadId> 0 </threadId> //thread id
                 <memChannelId> 0 </memChannelId> //associated mem channel id
                                              //a thread only talks to one chanel
-                <buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
+                //<buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
                 <k color="LightGreen"> initialMemChannels(maxMemChannel) ~> 
                                ($PGM:Module ~> (initGlobals ~> callMain)) </k>
                 //main cell containing program code
@@ -55,9 +67,9 @@ module LLVM-CONFIGURATION
                    <stackOpList> .List </stackOpList>
                    <nextStack> startMemoryLoc </nextStack>
                     <stackList> .List </stackList>
-                   <callStack color="Goldenrod"> .List </callStack>
                    <stackMap> .Map </stackMap>
                 </stack>
+                <callStack color="Goldenrod"> .List </callStack>
                 //stack for function calls
                 <control color="LightGoldenrod">
                     <prevBlock color="Orchid"> .K </prevBlock>

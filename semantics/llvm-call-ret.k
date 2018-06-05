@@ -16,9 +16,6 @@ module LLVM-CALL-RET
     imports LLVM-SYSCALLS-SYNTAX
     imports LLVM-CONFIGURATION
 
-    syntax KItem ::= frame(K, Bag, Bag)
-    syntax KItem ::= bind(ElemList, ElemList)
-
     rule arguments(L:ElemList) => L
 
     //rule typedArg(A:K, T:K, V:K) => V
@@ -360,8 +357,6 @@ module LLVM-CALL-RET
          <cpu> dynInstHold(BN:Int, IN:Int, T:K) => .K </cpu>
         [transition]
 
-    syntax KItem ::= contextSwitch(K, K)
-
     rule
         <k> contextSwitch(FunName, Tail) => .K ...</k>
         (<control>
@@ -372,14 +367,18 @@ module LLVM-CALL-RET
         ...</control>)
         (<tomasulo>
             D:Bag
-           <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
+           <toCommit> memList(.K, .Set, .List, .List, Not:List, Not':List) </toCommit>
          </tomasulo>
          =>
          <tomasulo>...
            <instQueue> instList(.List) </instQueue>
            <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
          ...</tomasulo>)
-        <callStack> .List => ListItem(frame(Tail, C, D)) ...</callStack>
+        (<stack> S:Bag </stack>
+            => <stack>... <stackOpList> .List </stackOpList> ...</stack>)
+        <callStack> .List => ListItem(frame(Tail, C, D
+           <toCommit> memList(.K, .Set, .List, .List,
+                        Not:List, Not':List) </toCommit>, S)) ...</callStack>
 
 
     // TODO perhaps a pattern: turning a list of pairs into a map
@@ -427,9 +426,11 @@ module LLVM-CALL-RET
             ~> (clearResume
             ~> Tail))
         </k>
-        <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag)) => .List ...</callStack>
+        <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag, S:Bag)) => .List ...</callStack>
         <control> <localMemory> Locals:Set </localMemory> _ => C </control>
-        <tomasulo> _:Bag => D </tomasulo>
+        <stack> _:Bag => S </stack>
+        <tomasulo> <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
+                    TB:Bag => D </tomasulo>
 
     // TODO rename Tail
     rule
@@ -439,9 +440,11 @@ module LLVM-CALL-RET
             ~> (clearVoid
             ~> Tail))
         </k>
-        <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag)) => .List ...</callStack>
+        <callStack> ListItem(frame(Tail:K, C:Bag, D:Bag, S:Bag)) => .List ...</callStack>
         <control> <localMemory> Locals:Set </localMemory> _ => C </control>
-        <tomasulo> _:Bag => D </tomasulo>
+        <stack> _:Bag => S </stack>
+        <tomasulo> <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
+                    TB:Bag => D </tomasulo>
 
     rule clearLocalMemory(.K, .Set) => .K
     rule clearLocalMemory(.K, SetItem(A:K) S:Set) => clearLocalMemory(A, S)

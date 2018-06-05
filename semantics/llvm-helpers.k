@@ -7471,14 +7471,21 @@ module LLVM-HELPERS
                => isAStartBase(A, L)
          requires A =/=K A'
 
-    syntax Bool ::= isMemmoveOp(K) [function]
-    rule isMemmoveOp(atomicReadWrite(A:K, B:Int, C:Int,
-                   D:Int, E:K, memmoveWait(F:K, H:K, X:K))) => true
-    rule isMemmoveOp(_) => false [owise]
-
     syntax Bool ::= isVolatileInSet(Set) [function]
     rule isVolatileInSet(SetItem(volatile) S:Set) => true
     rule isVolatileInSet(S:Set) => false [owise]
 
+    //pthread helper function
+    syntax KItem ::= selectStatus(K, K) [function]
+    rule selectStatus(A:K, B:K) => A
+         requires PTHREAD_CANCELED ==K A
+    rule selectStatus(A:K, B:K) => B [owise]
+
+    syntax Bool ::= hasChainWait(Map, Int, Int) [function]
+    rule hasChainWait(M:Map, A:Int, A:Int) => true
+    rule hasChainWait(M:Map, A:Int, B:Int) => false
+         requires notBool A in keys(M) andBool A =/=K B
+    rule hasChainWait((A |-> C:Int) M:Map, A:Int, B:Int)
+             => hasChainWait(M, C, B)
 
 endmodule

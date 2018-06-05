@@ -717,9 +717,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= readPiece(Int, K)
            //store the byte when load an item
 
-    syntax KItem ::= memmoveWait(K, K, K)//base, ordering, addressspace
-    syntax KItem ::= memmoveNext(K, K, K, K, K) //base, size,ran, ad, ordering
-    syntax KItem ::= memmoveRead(Int, Int, Int, K)//nase, size, ad, order
+    syntax KItem ::= memmoveRead(Int, Int, Int, K)//base, size, ad, order
+    syntax KItem ::= staticLoad(K, K, K) //type, loc, order
+    syntax KItem ::= staticLoadHold(K)
 
     syntax KItem ::= atomicWrite(K, K, K, Int, Int, Int, K)
                       //type, value, original base, size, addrspace, ordering
@@ -793,6 +793,9 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= preStaticStore(K, K, K, K, Int) [strict(2)]
     syntax KItem ::= staticStore(K, K, K, K, Int) [strict(2)]
                         // Type, Value, deType, Destination, aligns
+    syntax KItem ::= staticAtomicStore(K, K, K, K, Int) [strict(2)]
+                        // Type, Value, deType, Destination, aligns
+
     syntax KItem ::= "staticSeqFence"
     syntax KItem ::= store(K, K, K, K, Int, Bool) [strict(1,2,3,4)]
                         // Type, Value, deType, Destination, align, volitile or not
@@ -883,6 +886,15 @@ module LLVM-ABSTRACTSYNTAX
     syntax KItem ::= select(K, K, K, K) [strict] //ty, condition, true val, false val
     syntax KItem ::= tailCall(K, K)
     rule tailCall(K:K, E:K) => call(K,E) [structural] //first assume that call and tailcall are the same.    
+
+    //constructors for switching context
+    syntax KItem ::= contextSwitch(K, K)
+    syntax KItem ::= switchBack(K)
+    syntax KItem ::= frame(K, Bag, Bag, Bag)
+    syntax KItem ::= bind(ElemList, ElemList)
+    syntax KItem ::= pthreadGlobal(Bool, K, K) //joinable, running/term/canneled,
+                                            //K, user input finished status,  
+    syntax KItem ::= pthreadJoinWait(Int, K)
 
     syntax KItem ::= call(K, K) [strict] // Type, Callee
     syntax KItem ::= callee(K, K) [strict] // Value/Name, Arguments

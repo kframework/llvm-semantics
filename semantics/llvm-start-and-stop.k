@@ -29,6 +29,9 @@ module LLVM-START-AND-STOP
                 )))))
             ))
         </k>
+        <threadId> Tid:Int </threadId>
+        <threadStatus> M:Map => M[Tid <-
+                   pthreadGlobal(true, PTHREAD_RUNNING, .K)] </threadStatus>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <functionName> name(globalVar, "main") </functionName>
@@ -51,6 +54,9 @@ module LLVM-START-AND-STOP
                 ))
             ))
         </k>
+        <threadId> Tid:Int </threadId>
+        <threadStatus> M:Map => M[Tid <-
+                   pthreadGlobal(true, PTHREAD_RUNNING, .K)] </threadStatus>
         <currModule> ModName:SymbolicValueRef </currModule>
         <funModuleName> ModName </funModuleName>
         <functionName> name(globalVar, "main") </functionName>

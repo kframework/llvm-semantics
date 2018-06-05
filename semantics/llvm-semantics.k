@@ -1539,6 +1539,69 @@ module LLVM-MEMORY
         <output>... .List => ListItem("error: undefined behavior because load to a non-location.") </output>
         requires notBool isALoc(A)
 
+    //static load function is a single load in a function, 
+     //so it does not need to go through tocommit cell/readback-cell
+    rule <k> staticLoad(Type:KResult, loc(Base:Int, pointerTypeValue(T2:K, Ad:Int),
+               value(Left:Int, Right:Int), heap, none, InR:K), Or:K)
+                   => staticLoadHold(Type) ...</k>
+        <instructionCounter> Static:Int => Static +Int 1 </instructionCounter>
+        <memChannelId> Chan:Int </memChannelId>
+        <channelId> Chan </channelId>
+        <memOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     staticBlockNum, Static, heap,
+                     memmoveRead(Base, sizeof(Type), Ad, Or)))) </memOpList>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
+
+    rule <k> staticLoad(Type:KResult, loc(Base:Int, pointerTypeValue(T2:K, Ad:Int),
+               value(Left:Int, Right:Int), stack, none, InR:K), Or:K)
+                   => staticLoadHold(Type) ...</k>
+        <instructionCounter> Static:Int => Static +Int 1 </instructionCounter>
+        <stackOpList> L:List (.List => ListItem(singleMem(TID:Int,
+                     staticBlockNum, Static, stack,
+                     memmoveRead(Base, sizeof(Type), Ad, Or)))) </stackOpList>
+        <currentModifiers> Mods:Set </currentModifiers>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+           <stackList> SL:List </stackList>
+         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
+
+    rule <threads> (TD:Bag
+           <thread>...
+             <stackList> SL:List </stackList>
+             <localMemory> LocalStack:Set </localMemory>
+             <k> staticLoad(Type:KResult, loc(Base:Int, T2:K, value(Left:Int, Right:Int), heap,
+             none, InR:K), Or:K) ~> K:K </k>
+           ...</thread>) => .Bag </threads>
+        <output>... (.List => ListItem("error: undefied behavior trying to load values from a memory that is not allocated.")) </output>
+        <channelId> Chan </channelId>
+        <memoryList> MOL:List </memoryList>
+         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool notBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
+
+    rule <threads> (TD:Bag
+           <thread>...
+             <memChannelId> Chan:Int </memChannelId>
+             <k> staticLoad(Type:KResult, loc(Base:Int, T2:K, value(Left:Int, Right:Int), heap,
+             none, InR:K), Or:K) ~> K:K </k>
+           ...</thread>) => .Bag </threads>
+        <output>... (.List => ListItem("error: undefied behavior trying to load values from a memory that is not allocated.")) </output>
+        <channelId> Chan </channelId>
+        <memoryList> MOL:List </memoryList>
+         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool notBool isInMemRange(MOL, Base, sizeof(Type))
+
+    rule <threads> (TD:Bag
+           <thread>...
+             <k> staticLoad(Type:KResult, loc(Base:Int, T2:K, value(Left:Int, Right:Int), RT:K,
+             none, InR:K), Or:K) ~> K:K </k>
+           ...</thread>) => .Bag </threads>
+        <output>... (.List => ListItem("error: undefied behavior trying to load values out of bound of the input pointer.")) </output>
+         requires Base <Int Left andBool Base +Int sizeof(Type) >Int Right
+
     //DONE: TODO: store must save to a pointer type
     rule <k> store(Type:KResult, V:KResult, T2:K,
                    loc(Base:Int, T2, value(Left:Int, Right:Int), RT:K,
@@ -1594,6 +1657,37 @@ module LLVM-MEMORY
         requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
                  andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool notBool atomic in Mods
+                 andBool RA dividesInt Base
+
+    rule <k> staticAtomicStore(Type:KResult, V:KResult, T2:K,
+                   loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+               value(Left:Int, Right:Int), stack, none, InR:K), RA:Int) => .K ...</k>
+        <instructionCounter> Static:Int => Static +Int 1 </instructionCounter>
+        <stackOpList> L:List (.List => ListItem(singleMem(TID,
+                 staticBlockNum, Static, stack, atomicWrite(Type,
+                     V:KResult, none, Base,
+              sizeof(Type), Ad:Int, monotonic)))) </stackOpList>
+        <threadId> TID:Int </threadId>
+        <localMemory> LocalStack:Set </localMemory>
+           <stackList> SL:List </stackList>
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInStackRange(SL, Base, sizeof(Type), LocalStack)
+                 andBool RA dividesInt Base
+
+    rule <k> staticAtomicStore(Type:KResult, V:KResult, T2:K,
+                   loc(Base:Int, pointerTypeValue(Type, Ad:Int),
+              value(Left:Int, Right:Int), heap, none, InR:K), RA:Int) => .K ...</k>
+        <instructionCounter> Static:Int => Static +Int 1 </instructionCounter>
+         <memChannelId> Chan:Int </memChannelId>
+        <channelId> Chan </channelId>
+        <memOpList> L:List (.List => ListItem(singleMem(TID,
+                 staticBlockNum, Static, stack, atomicWrite(Type,
+                     V:KResult, none, Base,
+              sizeof(Type), Ad:Int, monotonic)))) </memOpList>
+        <threadId> TID:Int </threadId>
+        <memoryList> MOL:List </memoryList>
+        requires Base >=Int Left andBool Base +Int sizeof(Type) <=Int Right
+                 andBool isInMemRange(MOL, Base, sizeof(Type))
                  andBool RA dividesInt Base
 
     rule <k> store(Type:KResult, V:KResult, T2:K,
@@ -1739,24 +1833,9 @@ module LLVM-MEMORY
                   getOrderInMemOp(Op) =/=K unordered)
                   andBool notBool hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
                   andBool notBool hasMemOpInSet(TID, Bn, In, .K, Ave)
-                  andBool notBool isMemmoveOp(Op)
          [transition]
 
     //dealing with memmove
-    rule <toCommit> memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, atomicReadWrite(
-                    Ty:K, Base:Int, Size:Int, Ad:Int, Order:K,
-                                memmoveWait(Base1:K, Ran:K, Ad1))), Ave:Set,
-                            Avb:List, Avb':List, CML:List, ML:List)
-                   => memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, Ran, memmoveNext(
-                    Base1, Size, Ran, Ad1:Int, Order:K)),
-                  Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
-          <memOpList> L:List (.List => ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, memmoveRead(
-                    Base:Int, Size:Int, Ad:Int, Order:K)))) </memOpList>
-         [transition]
-
     rule <toCommit> memList(singleMem(TID:Int,
                      Bn:Int, In:Int, heap, Op:K), Ave:Set,
                             Avb:List, Avb':List, CML:List, ML:List)
@@ -1767,7 +1846,6 @@ module LLVM-MEMORY
                   getOrderInMemOp(Op) =/=K unordered)
                   andBool (hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
                   orBool hasMemOpInSet(TID, Bn, In, .K, Ave))
-                  andBool notBool isMemmoveOp(Op)
          [transition]
 
     rule <toCommit> memList(singleMem(TID:Int,
@@ -1808,7 +1886,6 @@ module LLVM-MEMORY
                      Bn:Int, In:Int, heap, Op:K))) </stackOpList>
           requires notBool hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
                   andBool notBool hasMemOpInSet(TID, Bn, In, .K, Ave)
-                  andBool notBool isMemmoveOp(Op)
           [transition]
 
     rule <toCommit> memList(singleMem(TID:Int,
@@ -1819,22 +1896,7 @@ module LLVM-MEMORY
                      Bn:Int, In:Int, heap, Op:K))) </stackOpList>
           requires (hasMemOpInList(TID, Bn, In, Avb Avb' CML ML)
                   orBool hasMemOpInSet(TID, Bn, In, .K, Ave))
-                  andBool notBool isMemmoveOp(Op)
           [transition]
-
-    rule <toCommit> memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, stack, atomicReadWrite(
-                    Ty:K, Base:Int, Size:Int, Ad:Int, Order:K,
-                                memmoveWait(Base1:K, Ran:K, Ad1:K))), Ave:Set,
-                            Avb:List, Avb':List, CML:List, ML:List)
-                   => memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, Ran, memmoveNext(
-                    Base1, Size, Ran, Ad1, Order:K)),
-                  Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
-          <stackOpList> L:List (.List => ListItem(singleMem(TID:Int,
-                     Bn:Int, In:Int, stack, memmoveRead(
-                    Base:Int, Size:Int, Ad:Int, Order:K)))) </stackOpList>
-         [transition]
 
     rule <toCommit> memList(Ava:K, Ava':Set, Avb:List,
                  ListItem(singleMem(TID:Int, Bn:Int,
@@ -3530,15 +3592,8 @@ module LLVM-MEMORY
          requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool notBool isChunckWritten(BM, Base, Base +Int Size)
 
-    rule <toCommit> memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, memmoveNext(Base1:Int,
-                       Size:Int, heap, Ad1:Int, Or:K)), Ave:Set,
-                            Avb:List, Avb':List, CML:List, ML:List)
-                   => memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, atomicWrite(llvmVoidPointerType,
-                    region(getMemWithAtomic(BM, Base, 0, Size), Size), none,
-                            Base1, Size, Ad1:Int, Or:K)),
-                  Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+    rule <k> staticLoadHold(T:K)
+               => region(getMemWithAtomic(BM, Base, 0, Size), Size) ...</k>
          <threadId> TID </threadId>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <stackOpList> (ListItem(singleMem(TID:Int, Bn:Int, In:Int,stack,
@@ -3553,15 +3608,8 @@ module LLVM-MEMORY
          requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool isChunckWritten(BM, Base, Base +Int Size)
 
-    rule <toCommit> memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, memmoveNext(Base1:Int,
-                       Size:Int, heap, Ad1:Int, Or:K)), Ave:Set,
-                            Avb:List, Avb':List, CML:List, ML:List)
-                   => memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, atomicWrite(llvmVoidPointerType,
-                    region(getMemWithAtomic(BM, Base, 0, Size), Size),none,
-                            Base1, Size, Ad1:Int, Or:K)),
-                  Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+    rule <k> staticLoadHold(T:K)
+               => region(getMemWithAtomic(BM, Base, 0, Size), Size) ...</k>
          <threadId> TID </threadId>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <stackOpList> (ListItem(singleMem(TID:Int, Bn:Int, In:Int,stack,
@@ -4320,15 +4368,8 @@ module LLVM-MEMORY
          requires Base +Int Size <=Int Right andBool Base >=Int Left
                  andBool isOverlap(Base, Size, .K, Races)
 
-    rule <toCommit> memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, memmoveNext(Base1:Int,
-                       Size:Int, Ran:K, Ad1:Int, Or:K)), Ave:Set,
-                            Avb:List, Avb':List, CML:List, ML:List)
-                   => memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, atomicWrite(llvmVoidPointerType,
-                    region(getMemWithAtomic(BM, Base, 0, Size), Size),none,
-                            Base1, Size, Ad1:Int, Or:K)),
-                  Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+    rule <k> staticLoadHold(T:K)
+               => region(getMemWithAtomic(BM, Base, 0, Size), Size) ...</k>
          <threadId> TID </threadId>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <memChannelId> CId:K </memChannelId>
@@ -4344,15 +4385,8 @@ module LLVM-MEMORY
                  andBool isChunckWritten(BM, Base, Base +Int Size)
                  andBool notBool isOverlap(Base, Size, .K, Races)
 
-    rule <toCommit> memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, memmoveNext(Base1:Int,
-                       Size:Int, Ran:K, Ad1:Int, Or:K)), Ave:Set,
-                            Avb:List, Avb':List, CML:List, ML:List)
-                   => memList(singleMem(TID:Int,
-                     Bn:Int, In:Int, heap, atomicWrite(llvmVoidPointerType,
-                    region(getMemWithAtomic(BM, Base, 0, Size), Size),none,
-                            Base1, Size, Ad1:Int, Or:K)),
-                  Ave, Avb:List, Avb':List, .List, CML ML) </toCommit>
+    rule <k> staticLoadHold(T:K)
+               => region(getMemWithAtomic(BM, Base, 0, Size), Size) ...</k>
          <threadId> TID </threadId>
          <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
          <memChannelId> CId:K </memChannelId>
@@ -4631,6 +4665,52 @@ module LLVM-STANDARD-LIBRARY-PREPROCESS
     // perhaps this kind of stuff could be generalized, or done away with
     // its purpose is to make the actual function definitions nice
 
+    //mutex lib functions
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_mutex_init")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult))))
+            => mutexInit(V1, V2)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_mutex_destroy")),
+                         (valValue(V1:KResult))))
+            => mutexDestroy(V1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_mutex_lock")),
+                         (valValue(V1:KResult))))
+            => mutexLock(V1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_mutex_trylock")),
+                         (valValue(V1:KResult))))
+            => mutexTryLock(V1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_mutex_unlock")),
+                         (valValue(V1:KResult))))
+            => mutexUnLock(V1)
+
+    //pthread lib, pthread create function
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_create")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult), valValue(V3:KResult),
+                     valValue(V4:KResult))))
+            => pthreadCreate(V1, V2, V3, V4)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_detach")),
+                         (valValue(V1:KResult))))
+            => pthreadDetach(normalizingInt(integerType(64), V1))
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_exit")),
+                         (valValue(V1:KResult))))
+            => pthreadExit(V1)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_join")),
+                         (valValue(V1:KResult),
+                   valValue(V2:KResult))))
+            => pthreadJoin(normalizingInt(integerType(64), V1), V2)
+
+    rule call(_, calleeValue(funptr(name(globalVar, "pthread_cancel")),
+                         (valValue(V1:KResult))))
+            => pthreadCancel(normalizingInt(integerType(64), V1))
+
     //volitile will be taken care by the release order after each function
     rule call(_, calleeValue(funptr(name(globalVar, "llvm.memcpy.p0i8.p0i8.i32")),
                          (valValue(V1:KResult),
@@ -4797,15 +4877,20 @@ module LLVM-STANDARD-LIBRARY
                      value(Left:Int, Right:Int), Ran:K, none, InR:K),
                  loc(Base1:Int, pointerTypeValue(Type1, Ad1:Int),
                      value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), Size:Int)
-            => dynNoResult(undef) ...</k>
-        <cpu> dynInstHold(B:Int , In:Int, Label:K) </cpu>
-        <currBlock> basicBlockNum(BN:Int, _:K) </currBlock>
-        <toCommit> memList(Ava:K, Ava':Set, Avb:List, Avb':List, CML:List, ML:List)
-         => memList(Ava, Ava', Avb:List, Avb':List, CML,
-                  ML ListItem(singleMem(Tid, B, In, Ran, atomicReadWrite(
-                    llvmVoidPointerType, Base,
-               Size, Ad, monotonic, memmoveWait(Base1, Ran1, Ad1))))) </toCommit>
-         <threadId> Tid </threadId>
+               ~> Tail:K
+            => contextSwitch(name(globalVar, "llvm.memmove."),
+                        dynNoResult(undef) ~> Tail)
+                 ~> staticAtomicStore(arrayTypeValue(llvmVoidPointerType, Size),
+                      staticLoad(arrayTypeValue(
+                            llvmVoidPointerType, Size),
+                   loc(Base:Int, pointerTypeValue(arrayTypeValue(
+                            llvmVoidPointerType, Size), Ad:Int),
+                     value(Left:Int, Right:Int), Ran:K, none, InR:K), monotonic),
+                       pointerTypeValue(arrayTypeValue(llvmVoidPointerType, Size), Ad),
+                       loc(Base1:Int, pointerTypeValue(
+                        arrayTypeValue(llvmVoidPointerType, Size), Ad1:Int),
+                     value(Left1:Int, Right1:Int), Ran1:K, none, InR1:K), 1)
+                 ~> ret(void, undef) </k>
          requires Base +Int Size <=Int Right andBool Base >=Int Left
                 andBool Base1 +Int Size <=Int Right1 andBool Base1 >=Int Left1
          [transition]
@@ -4828,6 +4913,479 @@ module LLVM-STANDARD-LIBRARY
     // don't need to do anything for positive semantics
     rule
         <k> lifetimeEnd(_, _) => .K ...</k>
+
+    //pthread create, first context switch, and then
+    rule <k> pthreadCreateCore(Tid:Int, loc(P:Int,pointerTypeValue(T:K, Ad:Int),
+                        value(P:Int,P:Int), RT:K, BA:K, D:K), Arg:KResult)
+             => pthreadCreateCore(Tid, value(T, V), Arg) ...</k>
+            <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T, V:K) ...</cbd>
+
+    rule <threads> (TD:Bag
+          <thread>... <k> pthreadCreateCore(Tid:Int, loc(P:Int,pointerTypeValue(T:K, Ad:Int),
+                        value(P1:Int,P2:Int), RT:K, BA:K, D:K), Arg:KResult) ~> K:K </k>
+          ...</thread>) => .Bag
+         </threads>
+         <output>... .List
+                => ListItem("error: function pointer pointing to bad place in pthread create.") </output>
+         requires P <Int P1 orBool P >Int P2
+
+    rule  <cbd>... aLoc(P, pointerTypeValue(T, Ad:Int), heap) |-> value(T':K, V:K) ...</cbd>
+          <threads> (TD:Bag
+          <thread>... <k> pthreadCreateCore(Tid:Int, loc(P:Int,pointerTypeValue(T:K, Ad:Int),
+                        value(P:Int,P:Int), RT:K, BA:K, D:K), Arg:KResult) ~> K:K </k>
+          ...</thread>) => .Bag
+         </threads>
+         <output>... .List => ListItem("error: function pointer pointing to wrong function type in pthread function.") </output>
+         requires T =/=K T'
+
+    rule  <cbd> M:Map </cbd>
+          <threads> (TD:Bag
+          <thread>... <k> pthreadCreateCore(Tid:Int, loc(P:Int,T:K,
+                        value(P:Int,P:Int), RT:K, BA:K, D:K), Arg:KResult) ~> K:K </k>
+          ...</thread>) => .Bag
+         </threads>
+         <output>... .List
+                => ListItem("error: no such function for the place or function has wrong type in pthread function.") </output>
+         requires notBool aLoc(P, T, heap) in keys(M)
+
+    rule <k> pthreadCreateCore(Tid:Int, value(T, funptr(FunName)), Arg:KResult)
+                => .K ...</k>
+         <threadStatus> M:Map => M[Tid <- pthreadGlobal(true, PTHREAD_RUNNING, .K)] </threadStatus>
+         <currModule> Label:K </currModule>
+         (.Bag => <thread>...
+                   <k> call(T, calleeValue(
+                      funptr(FunName), valValue(Arg),.ElemList)) </k>
+                   <threadId> Tid </threadId>
+                   <memChannelId> Tid %Int maxMemChannel </memChannelId>
+                   <control>... <currModule> Label </currModule> ...</control>
+                    ...</thread>)
+
+    rule <k> pthreadCreate(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                  V2:K, V3:K, V4:K) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_create"), Tail)
+                 ~> staticStore(integerType(64), ThreadId, pointerTypeValue(integerType(64), Ad),
+                       loc(Base:Int, pointerTypeValue(integerType(64), Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), 1)
+                 ~> (pthreadCreateCore(ThreadId, V3, V4)
+                 ~> ret(integerType(32), 0)) </k>
+         <threadCount> ThreadId:Int => ThreadId +Int 1 </threadCount>
+         requires Base >=Int Left andBool Base +Int sizeof(integerType(64)) <=Int Right
+                   andBool ThreadId <Int (2 ^Int 64) andBool ThreadId >=Int 0
+                   andBool ThreadId <Int maxThreads
+
+    rule (<threads> Td:Bag
+         <thread>...
+            <k> pthreadCreate(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                  V2:K, V3:K, V4:K) ~> K:K </k>
+         ...</thread> </threads> => .Bag)
+         <output>... .List =>
+            ListItem("input thread id pointer for the pthread create function points to illegal place.")
+         </output>
+         requires Base <Int Left andBool Base +Int sizeof(integerType(64)) >Int Right
+
+    rule <threadCount> ThreadId:Int </threadCount>
+         <k> pthreadCreate(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                  V2:K, V3:K, V4:K) => EAGAIN ...</k>
+         <output>... .List =>
+            ListItem("Insufficient resources to create another thread.")
+         </output>
+         requires ThreadId >=Int (2 ^Int 64) orBool ThreadId <Int 0
+
+    rule <threadCount> ThreadId:Int </threadCount>
+         <k> pthreadCreate(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K),
+                  V2:K, V3:K, V4:K) => EAGAIN ...</k>
+         <output>... .List =>
+            ListItem("A system-imposed limit on the number of threads was encountered.")
+         </output>
+         requires ThreadId >=Int maxThreads
+    
+    //pthread exit function
+    rule (<thread>... <k> pthreadExit(V:KResult) ~> K:K </k>
+                       <threadId> Tid:Int </threadId> ...</thread> => .Bag)
+         <threadStatus>... Tid |-> pthreadGlobal(A:Bool, (B:K => PTHREAD_TERMINATED),
+                                      (C:K => V)) ...</threadStatus>
+
+    //pthread detach function
+    rule <k> pthreadDetach(Tid:Int) => 0 ...</k>
+         <threadStatus>... Tid |-> pthreadGlobal((true => false), B:K, C:K) ...</threadStatus>
+
+    rule <k> pthreadDetach(Tid:Int) => EINVAL ...</k>
+         <output>... .List =>
+            ListItem("Thread detach function: the thread is not a joinable thread.")
+         </output>
+         <threadStatus>... Tid |-> pthreadGlobal(false, B:K, C:K) ...</threadStatus>
+
+    rule <k> pthreadDetach(Tid:Int) => ESRCH ...</k>
+         <output>... .List =>
+            ListItem("Thread detach function: the thread does not exist.")
+         </output>
+         <threadStatus> M:Map </threadStatus>
+         requires notBool Tid in keys(M)
+
+    //pthread cancel function
+    rule <k> pthreadCancel(Tid:Int) => 0 ...</k>
+         <threadStatus>... Tid |-> pthreadGlobal(true,
+                 (B:K => PTHREAD_CANCELED), C:K) ...</threadStatus>
+         (<thread>... <threadId> Tid </threadId> ...</thread> => .Bag)
+         requires B ==K PTHREAD_RUNNING
+
+    rule <k> pthreadCancel(Tid:Int) => 0 ...</k>
+         <threadStatus>... Tid |-> pthreadGlobal(true,
+                 (B:K => PTHREAD_CANCELED), C:K) ...</threadStatus>
+         requires B ==K PTHREAD_TERMINATED orBool B ==K PTHREAD_CANCELED
+
+    rule <k> pthreadCancel(Tid:Int) => ESRCH ...</k>
+         <output>... .List =>
+            ListItem("Thread cancel function: the thread does not exist.")
+         </output>
+         <threadStatus> M:Map </threadStatus>
+         requires notBool Tid in keys(M)
+
+    rule <threads> (TD:Bag
+              <thread>... <k> pthreadCancel(Tid:Int) ~> K:K </k> ...</thread>)
+                 => .Bag
+         </threads>
+         <output>... .List =>
+            ListItem("Thread cancel function is not safe when the thread is not joinable.")
+         </output>
+         <threadStatus>... Tid |-> pthreadGlobal(false, B:K, C:K) ...</threadStatus>
+
+    //pthread join function
+    rule <k> pthreadJoin(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+               => EINVAL ...</k>
+         <output>... .List =>
+            ListItem("Thread join: thread is not a joinable thread.")
+         </output>
+         <threadStatus>... Tid |-> pthreadGlobal(false, B:K, C:K) ...</threadStatus>
+
+    rule <k> pthreadJoin(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+               => ESRCH ...</k>
+         <threadStatus> M:Map </threadStatus>
+         <threadCount> TidCount:Int </threadCount>
+         <output>... .List =>
+            ListItem("Thread join: No thread with the ID thread could be found.")
+         </output>
+         requires Tid >Int TidCount andBool notBool Tid in keys(M)
+
+    rule <threads> (Td:Bag 
+             <thread>...
+                    <k> pthreadJoin(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+                ~> K:K </k> ...</thread>
+         <threadCount> TidCount:Int </threadCount> => .Bag)
+         </threads>
+         <threadStatus> M:Map </threadStatus>
+         <output>... .List =>
+            ListItem("Thread join: trying to join with a thread that has been joined results in undefined behavior.")
+         </output>
+         requires Tid >=Int 0 andBool Tid <=Int TidCount andBool notBool Tid in keys(M)
+
+    rule <k> pthreadJoin(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+               => EINVAL ...</k>
+         <threadId> Tid':Int </threadId>
+         <threadStatus>... Tid |-> pthreadGlobal(true, B:K, C:K) ...</threadStatus>
+         <waitJoinThreads>... Tid |-> Tid2:K ...</waitJoinThreads>
+         <output>... .List =>
+            ListItem("Thread join: Another thread is already waiting to join with this thread.")
+         </output>
+
+    rule <k> pthreadJoin(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+               => EDEADLK ...</k>
+         <threadId> Tid':Int </threadId>
+         <threadStatus>... Tid |-> pthreadGlobal(true, B:K, C:K) ...</threadStatus>
+         <waitJoinThreads> M:Map </waitJoinThreads>
+         <output>... .List =>
+            ListItem("Thread join:  A deadlock was detected (e.g., two threads tried to join with each other); or thread specifies the calling thread.")
+         </output>
+         requires notBool Tid in keys(M) andBool hasChainWait(M, Tid', Tid)
+
+    rule <k> pthreadJoin(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K)) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_join"), Tail)
+                 ~> (pthreadJoinWait(Tid, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+                 ~> ret(integerType(32), 0)) </k>
+         <threadId> Tid':Int </threadId>
+         <threadStatus>... Tid |-> pthreadGlobal(true, B:K, C:K) ...</threadStatus>
+         <waitJoinThreads> M:Map => M[Tid <- Tid'] </waitJoinThreads>
+         requires notBool Tid in keys(M) andBool notBool hasChainWait(M, Tid', Tid)
+
+    rule <k> pthreadJoinWait(Tid:Int, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+           => staticStore(T, selectStatus(B, C), pointerTypeValue(T, Ad),
+                       loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), 1) ...</k>
+         <threadStatus> M:Map ((Tid |-> pthreadGlobal(A:Bool, B:K, C:K)) => .Map) </threadStatus>
+         <waitJoinThreads> M':Map ((Tid |-> Tid':K) => .Map) </waitJoinThreads>
+         requires B ==K PTHREAD_CANCELED orBool B ==K PTHREAD_TERMINATED
+
+    //mutex init function
+    rule <threads> TD:Bag
+          <thread>... <k> mutexInit(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), V2:K)
+                 ~> K:K </k> ...</thread> => .Bag
+           </threads>
+         <mutexCount> MutexId:Int </mutexCount>
+         <output>... .List =>
+            ListItem("Mutex init function error: input pointer is not a valid pointer or tries to access memory out of bound of the pointer.")
+         </output>
+         requires Base <Int Left orBool Base +Int sizeof(mutexIdType) >Int Right
+
+    rule <k> mutexInit(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), V2:K)
+               => EAGAIN ...</k>
+         <mutexCount> MutexId:Int </mutexCount>
+         <output>... .List =>
+            ListItem("Mutex init: The system lacked the necessary resources (other than memory) to initialize another mutex.")
+         </output>
+         requires Base >=Int Left andBool Base +Int sizeof(mutexIdType) <=Int Right
+                   andBool (MutexId >Int (2 ^Int 64) orBool MutexId <Int 0)
+
+    rule mutexInitCore(region(L:List, Size:Int))
+               => mutexInitNext(joinBytes(mutexIdType ,L))
+
+    rule <k> mutexInitNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EBUSY) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <output>... .List =>
+            ListItem("Mutex init: The implementation has detected an attempt to reinitialize the object referenced by mutex, a previously initialized, but not yet destroyed, mutex.")
+         </output>
+         requires X in S
+
+    rule <k> mutexInitNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), 0) ...</k>
+         <avaMutex> S:Set (.Set => SetItem(MutexId)) </avaMutex>
+         <mutexCount> MutexId:Int => MutexId +Int 1 </mutexCount>
+         (.Bag => <mutex> <mutexId> MutexId </mutexId>
+                           <holdThread> .K </holdThread>
+                             </mutex>)
+         requires notBool X in S
+
+    rule <k> mutexInit(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), V2:K) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_mutex_init"), Tail)
+                 ~> mutexInitCore(
+                     staticLoad(mutexIdType, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), monotonic)) </k>
+         <mutexCount> MutexId:Int </mutexCount>
+         requires Base >=Int Left andBool Base +Int sizeof(mutexIdType) <=Int Right
+                   andBool MutexId <Int (2 ^Int 64) andBool MutexId >=Int 0
+
+    //mutex destroy function
+    rule <threads> TD:Bag
+          <thread>... <k> mutexDestroy(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+                 ~> K:K </k> ...</thread> => .Bag
+           </threads>
+         <mutexCount> MutexId:Int </mutexCount>
+         <output>... .List =>
+            ListItem("Mutex init function error: input pointer is not a valid pointer or tries to access memory out of bound of the pointer.")
+         </output>
+         requires Base <Int Left orBool Base +Int sizeof(mutexIdType) >Int Right
+
+    rule <k> mutexDestroy(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K)) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_mutex_destroy"), Tail)
+                 ~> mutexDestroyCore(
+                     staticLoad(mutexIdType, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), monotonic)) </k>
+         <mutexCount> MutexId:Int </mutexCount>
+         requires Base >=Int Left andBool Base +Int sizeof(mutexIdType) <=Int Right
+
+    rule mutexDestroyCore(region(L:List, Size:Int))
+               => mutexDestroyNext(joinBytes(mutexIdType ,L))
+
+    rule <k> mutexDestroyNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EINVAL) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <output>... .List =>
+            ListItem("Mutex destroy function: The value specified by mutex is invalid.")
+         </output>
+         requires notBool X in S
+
+    rule <k> mutexDestroyNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EBUSY) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> A:K </holdThread>
+         </mutex>
+         <output>... .List =>
+            ListItem("Mutex destroy function: The implementation has detected an attempt to destroy the object referenced by mutex while it is locked or referenced (for example, while being used in a pthread_cond_timedwait() or pthread_cond_wait()) by another thread.")
+         </output>
+         requires X in S andBool A =/=K .K
+
+    rule <k> mutexDestroyNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), 0) ...</k>
+         <avaMutex> (S:Set SetItem(X) => S) </avaMutex>
+         (<mutex> <mutexId> X </mutexId>
+                 <holdThread> .K </holdThread>
+         </mutex> => .Bag)
+
+    //pthread_mutex_lock
+    rule <threads> TD:Bag
+          <thread>... <k> mutexLock(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+                 ~> K:K </k> ...</thread> => .Bag
+           </threads>
+         <mutexCount> MutexId:Int </mutexCount>
+         <output>... .List =>
+            ListItem("Mutex lock function error: input pointer is not a valid pointer or tries to access memory out of bound of the pointer.")
+         </output>
+         requires Base <Int Left orBool Base +Int sizeof(mutexIdType) >Int Right
+
+    rule <k> mutexLock(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K)) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_mutex_lock"), Tail)
+                 ~> mutexLockCore(
+                     staticLoad(mutexIdType, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), monotonic)) </k>
+         <mutexCount> MutexId:Int </mutexCount>
+         requires Base >=Int Left andBool Base +Int sizeof(mutexIdType) <=Int Right
+
+    rule mutexLockCore(region(L:List, Size:Int))
+               => mutexLockNext(joinBytes(mutexIdType ,L))
+
+    rule <k> mutexLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EINVAL) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <output>... .List =>
+            ListItem("Mutex lock function: The value specified by mutex does not refer to an initialized mutex object.")
+         </output>
+         requires notBool X in S
+
+    rule <k> mutexLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EDEADLK) ...</k>
+         <threadId> Tid:Int </threadId>
+         <avaMutex> S:Set </avaMutex>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> Tid </holdThread>
+         </mutex>
+         <output>... .List =>
+            ListItem("Mutex lock function: The current thread already owns the mutex.")
+         </output>
+         requires X in S
+
+    rule <k> mutexLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), 0) ...</k>
+         <threadId> Tid:Int </threadId>
+         <avaMutex> S:Set </avaMutex>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> .K => Tid </holdThread>
+         </mutex>
+         requires X in S
+
+    //pthread mutex try lock
+    rule <threads> TD:Bag
+          <thread>... <k> mutexTryLock(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+                 ~> K:K </k> ...</thread> => .Bag
+           </threads>
+         <mutexCount> MutexId:Int </mutexCount>
+         <output>... .List =>
+            ListItem("Mutex try lock function error: input pointer is not a valid pointer or tries to access memory out of bound of the pointer.")
+         </output>
+         requires Base <Int Left orBool Base +Int sizeof(mutexIdType) >Int Right
+
+    rule <k> mutexTryLock(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K)) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_mutex_trylock"), Tail)
+                 ~> mutexTryLockCore(
+                     staticLoad(mutexIdType, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), monotonic)) </k>
+         <mutexCount> MutexId:Int </mutexCount>
+         requires Base >=Int Left andBool Base +Int sizeof(mutexIdType) <=Int Right
+
+    rule mutexTryLockCore(region(L:List, Size:Int))
+               => mutexTryLockNext(joinBytes(mutexIdType ,L))
+
+    rule <k> mutexTryLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EINVAL) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <output>... .List =>
+            ListItem("Mutex try lock function: The value specified by mutex does not refer to an initialized mutex object.")
+         </output>
+         requires notBool X in S
+
+    rule <k> mutexTryLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EBUSY) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> A:K </holdThread>
+         </mutex>
+         <output>... .List =>
+            ListItem("Mutex try lock function: The mutex could not be acquired because it was already locked.")
+         </output>
+         requires X in S andBool A =/=K .K
+
+    rule <k> mutexTryLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), 0) ...</k>
+         <threadId> Tid:Int </threadId>
+         <avaMutex> S:Set </avaMutex>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> .K => Tid </holdThread>
+         </mutex>
+         requires X in S
+
+    //pthread mutex unlock
+    rule <threads> TD:Bag
+          <thread>... <k> mutexUnLock(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K))
+                 ~> K:K </k> ...</thread> => .Bag
+           </threads>
+         <mutexCount> MutexId:Int </mutexCount>
+         <output>... .List =>
+            ListItem("Mutex unlock function error: input pointer is not a valid pointer or tries to access memory out of bound of the pointer.")
+         </output>
+         requires Base <Int Left orBool Base +Int sizeof(mutexIdType) >Int Right
+
+    rule <k> mutexUnLock(loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K)) ~> Tail:K
+                   => contextSwitch(name(globalVar, "pthread_mutex_unlock"), Tail)
+                 ~> mutexUnLockCore(
+                     staticLoad(mutexIdType, loc(Base:Int, pointerTypeValue(T:K, Ad:Int),
+                  value(Left:Int, Right:Int), Ran:K, none, InR:K), monotonic)) </k>
+         <mutexCount> MutexId:Int </mutexCount>
+         requires Base >=Int Left andBool Base +Int sizeof(mutexIdType) <=Int Right
+
+    rule mutexUnLockCore(region(L:List, Size:Int))
+               => mutexUnLockNext(joinBytes(mutexIdType ,L))
+
+    rule <k> mutexUnLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EINVAL) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <output>... .List =>
+            ListItem("Mutex unlock function: The value specified by mutex does not refer to an initialized mutex object.")
+         </output>
+         requires notBool X in S
+
+    rule <k> mutexUnLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), EPERM) ...</k>
+         <avaMutex> S:Set </avaMutex>
+         <threadId> Tid:Int </threadId>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> A:K </holdThread>
+         </mutex>
+         <output>... .List =>
+            ListItem("Mutex unlock function: The current thread does not own the mutex.")
+         </output>
+         requires X in S andBool A =/=K Tid
+
+    rule <k> mutexUnLockNext(constStructVal(valValue(X:Int),Es:ElemList))
+                  => ret(integerType(32), 0) ...</k>
+         <threadId> Tid:Int </threadId>
+         <avaMutex> S:Set </avaMutex>
+         <mutex> <mutexId> X </mutexId>
+                 <holdThread> Tid => .K </holdThread>
+         </mutex>
+         requires X in S
 
 endmodule
 

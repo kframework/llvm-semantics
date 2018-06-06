@@ -1,4 +1,4 @@
-; This testcase caused the combiner to go into an infinite loop, moving the
+; This testcase caused the combiner to go into an infinite loop, moving the 
 ; cast back and forth, changing the seteq to operate on int vs uint and back.
 
 ; RUN: opt < %s -instcombine -disable-output

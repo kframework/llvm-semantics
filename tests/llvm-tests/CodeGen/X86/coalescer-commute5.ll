@@ -18,4 +18,4 @@ bb5310:		; preds = %bb4743, %bb1664
 	ret i32 0
 }
 
-declare <16 x i8> @llvm.x86.sse2.pcmpeq.b(<16 x i8>, <16 x i8>) nounwind readnone
+declare <16 x i8> @llvm.x86.sse2.pcmpeq.b(<16 x i8>, <16 x i8>) nounwind readnone 

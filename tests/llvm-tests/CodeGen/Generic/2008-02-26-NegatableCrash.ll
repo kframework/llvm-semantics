@@ -47,4 +47,4 @@ bb627:		; preds = %bb429
 	ret i32 0
 }
 
-declare double @floor(double) nounwind readnone
+declare double @floor(double) nounwind readnone 

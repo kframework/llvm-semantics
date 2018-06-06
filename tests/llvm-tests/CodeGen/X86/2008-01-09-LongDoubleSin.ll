@@ -1,4 +1,6 @@
-; RUN: llc < %s -o - | grep sinl
+; RUN: llc < %s -o - | FileCheck %s
+
+; CHECK: sinl
 
 target triple = "i686-pc-linux-gnu"
 
@@ -8,4 +10,4 @@ entry:
 	ret x86_fp80 %tmp2
 }
 
-declare x86_fp80 @sinl(x86_fp80) nounwind readonly
+declare x86_fp80 @sinl(x86_fp80) nounwind readonly 

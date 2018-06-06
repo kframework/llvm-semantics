@@ -1,8 +1,8 @@
-; RUN: not llvm-as < %s >& /dev/null
+; RUN: not llvm-as < %s > /dev/null 2>&1
 
 
 
-int %main() {
+int %main() {  
 start1:
   switch uint 0, label %brt0 [int 3, label %brt1  ]
 brt0:

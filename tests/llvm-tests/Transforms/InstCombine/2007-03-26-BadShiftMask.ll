@@ -1,12 +1,12 @@
 ; PR1271
 ; RUN: opt < %s -instcombine -S | \
-; RUN:    grep {ashr exact i32 %.mp137, 2}
+; RUN:    grep "ashr exact i32 %.mp137, 2"
 
 target datalayout = "e-p:32:32:32-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:32:64-f32:32:32-f64:32:64-v64:64:64-v128:128:128-a0:0:64"
 target triple = "i686-pc-linux-gnu"
 
 
-define i1 @test(i32* %tmp141, i32* %tmp145,
+define i1 @test(i32* %tmp141, i32* %tmp145, 
             i32 %b8, i32 %iftmp.430.0, i32* %tmp134.out, i32* %tmp137.out)
 {
 newFuncRoot:

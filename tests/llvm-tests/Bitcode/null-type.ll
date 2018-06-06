@@ -1,2 +1,4 @@
-; RUN: not llvm-dis < %s.bc > /dev/null |& grep "Invalid MODULE_CODE_FUNCTION record"
+; RUN: not llvm-dis < %s.bc 2>&1 | FileCheck %s
 ; PR8494
+
+; CHECK: Malformed block

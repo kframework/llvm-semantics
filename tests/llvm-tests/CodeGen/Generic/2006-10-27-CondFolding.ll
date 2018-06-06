@@ -1,4 +1,4 @@
-; RUN: llc < %s
+; RUN: llc < %s 
 
 define void @start_pass_huff(i32 %gather_statistics) {
 entry:

@@ -1,8 +1,8 @@
 ; All of these ands and shifts should be folded into rlwimi's
-; RUN: llc < %s -march=ppc32 -o %t
+; RUN: llc -verify-machineinstrs < %s -mtriple=ppc32-- -o %t
 ; RUN: not grep mulhwu %t
-; RUN: not grep srawi %t
-; RUN: not grep add %t
+; RUN: not grep srawi %t 
+; RUN: not grep add %t 
 ; RUN: grep mulhw %t | count 1
 
 define i32 @mulhs(i32 %a, i32 %b) nounwind {

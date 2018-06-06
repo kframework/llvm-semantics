@@ -1,15 +1,16 @@
-; RUN: llc < %s -O0 -fast-isel-abort -relocation-model=dynamic-no-pic -mtriple=armv7-apple-darwin | FileCheck %s --check-prefix=ARM
-; RUN: llc < %s -O0 -fast-isel-abort -relocation-model=dynamic-no-pic -mtriple=thumbv7-apple-darwin | FileCheck %s --check-prefix=THUMB
+; RUN: llc < %s -O0 -fast-isel-abort=1 -relocation-model=dynamic-no-pic -mtriple=armv7-apple-ios -verify-machineinstrs | FileCheck %s --check-prefix=ARM --check-prefix=ARM-MACHO
+; RUN: llc < %s -O0 -fast-isel-abort=1 -relocation-model=dynamic-no-pic -mtriple=armv7-linux-gnueabi -verify-machineinstrs | FileCheck %s --check-prefix=ARM --check-prefix=ARM-ELF
+; RUN: llc < %s -O0 -fast-isel-abort=1 -relocation-model=dynamic-no-pic -mtriple=thumbv7-apple-ios -verify-machineinstrs | FileCheck %s --check-prefix=THUMB
 
 ; Very basic fast-isel functionality.
-define i32 @add(i32 %a, i32 %b) nounwind {
+define i32 @test0(i32 %a, i32 %b) nounwind {
 entry:
   %a.addr = alloca i32, align 4
   %b.addr = alloca i32, align 4
   store i32 %a, i32* %a.addr
   store i32 %b, i32* %b.addr
-  %tmp = load i32* %a.addr
-  %tmp1 = load i32* %b.addr
+  %tmp = load i32, i32* %a.addr
+  %tmp1 = load i32, i32* %b.addr
   %add = add nsw i32 %tmp, %tmp1
   ret i32 %add
 }
@@ -26,16 +27,16 @@ br label %if.end
 
 if.end:                                           ; preds = %if.then, %entry
 ret void
-; ARM: test1:
+; ARM-LABEL: test1:
 ; ARM: tst r0, #1
-; THUMB: test1:
+; THUMB-LABEL: test1:
 ; THUMB: tst.w r0, #1
 }
 
 ; Check some simple operations with immediates
 define void @test2(i32 %tmp, i32* %ptr) nounwind {
-; THUMB: test2:
-; ARM: test2:
+; THUMB-LABEL: test2:
+; ARM-LABEL: test2:
 
 b1:
   %a = add i32 %tmp, 4096
@@ -63,8 +64,8 @@ b3:
 }
 
 define void @test3(i32 %tmp, i32* %ptr1, i16* %ptr2, i8* %ptr3) nounwind {
-; THUMB: test3:
-; ARM: test3:
+; THUMB-LABEL: test3:
+; ARM-LABEL: test3:
 
 bb1:
   %a1 = trunc i32 %tmp to i16
@@ -80,12 +81,12 @@ bb1:
 
 ; THUMB: and
 ; THUMB: strb
-; THUMB: uxtb
+; THUMB: and{{.*}}, #255
 ; THUMB: strh
 ; THUMB: uxth
 ; ARM: and
 ; ARM: strb
-; ARM: uxtb
+; ARM: and{{.*}}, #255
 ; ARM: strh
 ; ARM: uxth
 
@@ -109,9 +110,9 @@ bb2:
 ; ARM: sxth
 
 bb3:
-  %c1 = load i8* %ptr3
-  %c2 = load i16* %ptr2
-  %c3 = load i32* %ptr1
+  %c1 = load i8, i8* %ptr3
+  %c2 = load i16, i16* %ptr2
+  %c3 = load i32, i32* %ptr1
   %c4 = zext i8 %c1 to i32
   %c5 = sext i16 %c2 to i32
   %c6 = add i32 %c4, %c5
@@ -121,13 +122,13 @@ bb3:
 
 ; THUMB: ldrb
 ; THUMB: ldrh
-; THUMB: uxtb
+; THUMB: and{{.*}}, #255
 ; THUMB: sxth
 ; THUMB: add
 ; THUMB: sub
 ; ARM: ldrb
 ; ARM: ldrh
-; ARM: uxtb
+; ARM: and{{.*}}, #255
 ; ARM: sxth
 ; ARM: add
 ; ARM: sub
@@ -137,24 +138,51 @@ bb3:
 @test4g = external global i32
 
 define void @test4() {
-  %a = load i32* @test4g
+  %a = load i32, i32* @test4g
   %b = add i32 %a, 1
   store i32 %b, i32* @test4g
   ret void
 
-; THUMB: ldr.n r0, LCPI4_1
-; THUMB: ldr r0, [r0]
-; THUMB: ldr r0, [r0]
-; THUMB: adds r0, #1
-; THUMB: ldr.n r1, LCPI4_0
-; THUMB: ldr r1, [r1]
-; THUMB: str r0, [r1]
 
-; ARM: ldr r0, LCPI4_1
-; ARM: ldr r0, [r0]
-; ARM: ldr r0, [r0]
-; ARM: add r0, r0, #1
-; ARM: ldr r1, LCPI4_0
-; ARM: ldr r1, [r1]
-; ARM: str r0, [r1]
+; Note that relocations are either movw/movt or constant pool
+; loads. Different platforms will select different approaches.
+
+; THUMB: {{(movw r0, :lower16:L_test4g\$non_lazy_ptr)|(ldr.n r0, .LCPI)}}
+; THUMB: {{(movt r0, :upper16:L_test4g\$non_lazy_ptr)?}}
+; THUMB: ldr r0, [r0]
+; THUMB: ldr r1, [r0]
+; THUMB: adds r1, #1
+; THUMB: str r1, [r0]
+
+; ARM-MACHO: {{(movw r0, :lower16:L_test4g\$non_lazy_ptr)|(ldr r0, .LCPI)}}
+; ARM-MACHO: {{(movt r0, :upper16:L_test4g\$non_lazy_ptr)?}}
+; ARM-MACHO: ldr r0, [r0]
+
+; ARM-ELF: movw r0, :lower16:test4g
+; ARM-ELF: movt r0, :upper16:test4g
+
+; ARM: ldr r1, [r0]
+; ARM: add r1, r1, #1
+; ARM: str r1, [r0]
 }
+
+; ARM: @urem_fold
+; THUMB: @urem_fold
+; ARM: and r0, r0, #31
+; THUMB: and r0, r0, #31
+define i32 @urem_fold(i32 %a) nounwind {
+  %rem = urem i32 %a, 32
+  ret i32 %rem
+}
+
+define i32 @trap_intrinsic() noreturn nounwind  {
+entry:
+; ARM: @trap_intrinsic
+; THUMB: @trap_intrinsic
+; ARM: trap
+; THUMB: trap
+  tail call void @llvm.trap( )
+  unreachable
+}
+
+declare void @llvm.trap() nounwind

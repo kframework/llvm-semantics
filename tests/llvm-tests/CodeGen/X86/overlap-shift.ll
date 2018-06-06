@@ -6,14 +6,14 @@
 
 ; Check that the shift gets turned into an LEA.
 
-; RUN: llc < %s -march=x86 -x86-asm-syntax=intel | \
-; RUN:   not grep {mov E.X, E.X}
+; RUN: llc < %s -mtriple=i686-- -x86-asm-syntax=intel | \
+; RUN:   not grep "mov E.X, E.X"
 
 @G = external global i32                ; <i32*> [#uses=1]
 
 define i32 @test1(i32 %X) {
         %Z = shl i32 %X, 2              ; <i32> [#uses=1]
-        volatile store i32 %Z, i32* @G
+        store volatile i32 %Z, i32* @G
         ret i32 %X
 }
 

@@ -3,9 +3,9 @@
 ; REQUIRES: loadable_module
 
 ; Test to make sure that arguments are removed from the function if they are
-; unnecessary. And clean up any types that that frees up too.
+; unnecessary. And clean up any types that frees up too.
 
-; CHECK: target triple
+; CHECK: ModuleID
 ; CHECK-NOT: struct.anon
 %struct.anon = type { i32 }
 

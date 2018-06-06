@@ -5,5 +5,5 @@ entry:
 	unreachable
 }
 
-declare void @llvm.trap() nounwind
+declare void @llvm.trap() nounwind 
 

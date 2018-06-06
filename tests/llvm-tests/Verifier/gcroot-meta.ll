@@ -1,4 +1,4 @@
-; RUN: not llvm-as < %s >& /dev/null
+; RUN: not llvm-as < %s > /dev/null 2>&1
 ; PR1633
 
 %meta = type { i8* }
@@ -11,6 +11,6 @@ entry:
 	%local.obj = alloca %obj*
 	%local.meta = alloca %meta
 	call void @llvm.gcroot(%obj** %local.obj, %meta* %local.meta)
-
+	
 	ret void
 }

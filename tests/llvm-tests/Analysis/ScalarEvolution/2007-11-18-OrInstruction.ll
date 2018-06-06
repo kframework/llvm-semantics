@@ -13,7 +13,7 @@ body:
         %b = or i32 %a, 1
         %i.next = add i32 %i, 1
         br label %header
-exit:
+exit:        
         ret void
 }
 

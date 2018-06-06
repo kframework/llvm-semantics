@@ -1,9 +1,9 @@
 ; All of these ands and shifts should be folded into rlw[i]nm instructions
-; RUN: llc < %s -march=ppc32 -o %t
+; RUN: llc -verify-machineinstrs < %s -mtriple=ppc32-- -o %t
 ; RUN: not grep and %t
-; RUN: not grep srawi %t
-; RUN: not grep srwi %t
-; RUN: not grep slwi %t
+; RUN: not grep srawi %t 
+; RUN: not grep srwi %t 
+; RUN: not grep slwi %t 
 ; RUN: grep rlwnm %t | count 1
 ; RUN: grep rlwinm %t | count 1
 

@@ -10,7 +10,7 @@ define i32 @g(i32* %b, i32* %c) nounwind {
 entry:
         store i32 1, i32* %b
         store i32 2, i32* %c
-
+        
 	%t1 = icmp eq i32* %b, null		; <i1> [#uses=1]
 	br i1 %t1, label %bb, label %bb2
 
@@ -19,10 +19,10 @@ bb:		; preds = %entry
 
 bb2:		; preds = %bb1, %bb
 	%c_addr.0 = phi i32* [ %b, %entry ], [ %c, %bb ]		; <i32*> [#uses=1]
-	%cv = load i32* %c_addr.0, align 4		; <i32> [#uses=1]
+	%cv = load i32, i32* %c_addr.0, align 4		; <i32> [#uses=1]
 	ret i32 %cv
 ; CHECK: bb2:
 ; CHECK-NOT: load i32
-; CHECK: ret i32
+; CHECK: ret i32 
 }
 

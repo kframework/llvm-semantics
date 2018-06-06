@@ -1,4 +1,4 @@
-; RUN: llc < %s
+; RUN: llc < %s 
 target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128"
 target triple = "x86_64-apple-darwin10.0"
 
@@ -22,12 +22,12 @@ define void @test2(i32 %i) nounwind ssp {
 entry:
   %i.addr = alloca i32                            ; <i32*> [#uses=2]
   store i32 %i, i32* %i.addr
-  %tmp = load i32* %i.addr                        ; <i32> [#uses=1]
+  %tmp = load i32, i32* %i.addr                        ; <i32> [#uses=1]
   %idxprom = sext i32 %tmp to i64                 ; <i64> [#uses=1]
-  %arrayidx = getelementptr inbounds i32* getelementptr inbounds ([3 x i32]* @test.array, i32 0, i32 0), i64 %idxprom ; <i32*> [#uses=1]
-  %tmp1 = load i32* %arrayidx                     ; <i32> [#uses=1]
+  %arrayidx = getelementptr inbounds i32, i32* getelementptr inbounds ([3 x i32], [3 x i32]* @test.array, i32 0, i32 0), i64 %idxprom ; <i32*> [#uses=1]
+  %tmp1 = load i32, i32* %arrayidx                     ; <i32> [#uses=1]
   %idx.ext = sext i32 %tmp1 to i64                ; <i64> [#uses=1]
-  %add.ptr = getelementptr i8* blockaddress(@test2, %foo), i64 %idx.ext ; <i8*> [#uses=1]
+  %add.ptr = getelementptr i8, i8* blockaddress(@test2, %foo), i64 %idx.ext ; <i8*> [#uses=1]
   br label %indirectgoto
 
 foo:                                              ; preds = %indirectgoto, %indirectgoto, %indirectgoto, %indirectgoto, %indirectgoto

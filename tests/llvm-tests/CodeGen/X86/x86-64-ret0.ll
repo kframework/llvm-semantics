@@ -1,7 +1,7 @@
-; RUN: llc < %s -march=x86-64 | grep mov | count 1
+; RUN: llc < %s -mtriple=x86_64-- | grep mov | count 1
 
 define i32 @f() nounwind  {
-	tail call void @t( i32 1 ) nounwind
+	tail call void @t( i32 1 ) nounwind 
 	ret i32 0
 }
 

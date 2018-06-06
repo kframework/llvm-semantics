@@ -12,8 +12,8 @@ entry:
 define internal fastcc void @a() nounwind ssp {
 entry:
   %al = alloca [3 x i32], align 4
-  %0 = getelementptr inbounds [3 x i32]* %al, i32 0, i32 2
-
+  %0 = getelementptr inbounds [3 x i32], [3 x i32]* %al, i32 0, i32 2 
+  
   call fastcc void @c() nounwind
   unreachable
 }

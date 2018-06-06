@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | grep {store i8} | count 2
+; RUN: opt < %s -instcombine -S | grep "store i8" | count 2
 
 define i32 @a(i8* %s) nounwind  {
 entry:
@@ -15,5 +15,5 @@ bb8:
 	ret i32 %tmp3
 }
 
-declare i32 @strlen(i8*) nounwind readonly
+declare i32 @strlen(i8*) nounwind readonly 
 

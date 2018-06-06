@@ -15,4 +15,4 @@ entry:
 	ret float %0
 }
 
-declare float @copysignf(float, float) nounwind readnone
+declare float @copysignf(float, float) nounwind readnone 

@@ -1,4 +1,4 @@
-; This fails because the linker renames the non-opaque type not the opaque
+; This fails because the linker renames the non-opaque type not the opaque 
 ; one...
 
 ; RUN: echo "@X = linkonce global i32 8" | llvm-as > %t.2.bc

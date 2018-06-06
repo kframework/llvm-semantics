@@ -2,7 +2,7 @@
 
 ; MachineLICM should hoist the LDWCP out of the loop.
 
-; CHECK: f:
+; CHECK-LABEL: f:
 ; CHECK-NEXT: ldw [[REG:r[0-9]+]], cp[.LCPI0_0]
 ; CHECK-NEXT: .LBB0_1:
 ; CHECK-NEXT: stw [[REG]], r0[0]
@@ -13,6 +13,6 @@ entry:
   br label %bb
 
 bb:                                               ; preds = %bb, %entry
-  volatile store i32 525509670, i32* %p, align 4
+  store volatile i32 525509670, i32* %p, align 4
   br label %bb
 }

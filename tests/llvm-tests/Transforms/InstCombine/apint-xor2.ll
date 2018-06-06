@@ -1,7 +1,7 @@
 ; This test makes sure that xor instructions are properly eliminated.
 ; This test is for Integer BitWidth > 64 && BitWidth <= 1024.
 
-; RUN: opt < %s -instcombine -S | not grep {xor }
+; RUN: opt < %s -instcombine -S | not grep "xor "
 ; END.
 
 
@@ -32,8 +32,8 @@ define i737 @test4(i737 %x) {
 
 define i700 @test5(i700 %A) {
         ;; (A|B)^B == A & (~B)
-        %t1 = or i700 %A, 288230376151711743
-        %r = xor i700 %t1, 288230376151711743
+        %t1 = or i700 %A, 288230376151711743 
+        %r = xor i700 %t1, 288230376151711743 
         ret i700 %r
 }
 

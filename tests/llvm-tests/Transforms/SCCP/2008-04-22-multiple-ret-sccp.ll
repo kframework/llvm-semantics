@@ -1,7 +1,7 @@
-; RUN: opt < %s -sccp -S | grep {ret i32 %Z}
+; RUN: opt < %s -sccp -S | grep "ret i32 %Z"
 ; rdar://5778210
 
-declare {i32, i32} @bar(i32 %A)
+declare {i32, i32} @bar(i32 %A) 
 
 define i32 @foo() {
 	%X = call {i32, i32} @bar(i32 17)

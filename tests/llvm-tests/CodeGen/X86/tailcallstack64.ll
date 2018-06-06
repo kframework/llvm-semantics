@@ -1,5 +1,5 @@
-; RUN: llc < %s -tailcallopt -mtriple=x86_64-linux -post-RA-scheduler=true | FileCheck %s
-; RUN: llc < %s -tailcallopt -mtriple=x86_64-win32 -post-RA-scheduler=true | FileCheck %s
+; RUN: llc < %s -tailcallopt -mcpu=generic -mtriple=x86_64-linux -post-RA-scheduler=true | FileCheck %s
+; RUN: llc < %s -tailcallopt -mcpu=generic -mtriple=x86_64-win32 -post-RA-scheduler=true | FileCheck %s
 
 ; FIXME: Redundant unused stack allocation could be eliminated.
 ; CHECK: subq  ${{24|72|80}}, %rsp
@@ -12,9 +12,9 @@
 ; Add %in1 %p1 to a different temporary register (%eax).
 ; CHECK: addl {{%edi|%ecx}}, [[R1]]
 ; Move param %in2 to stack.
-; CHECK: movl  [[R2]], [[A1]](%rsp)
+; CHECK-DAG: movl  [[R2]], [[A1]](%rsp)
 ; Move result of addition to stack.
-; CHECK: movl  [[R1]], [[A2]](%rsp)
+; CHECK-DAG: movl  [[R1]], [[A2]](%rsp)
 ; Eventually, do a TAILCALL
 ; CHECK: TAILCALL
 

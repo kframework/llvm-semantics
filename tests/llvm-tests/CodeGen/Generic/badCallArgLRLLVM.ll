@@ -4,9 +4,9 @@
 ; the return value of another call that appears later in the code.
 ; When processing the first call, the second call has not yet been processed
 ; so no LiveRange has been created for its return value.
-;
+; 
 ; llc dies in UltraSparcRegInfo::suggestRegs4CallArgs() with:
-;     ERROR: In call instr, no LR for arg: 0x1009e0740
+;     ERROR: In call instr, no LR for arg: 0x1009e0740 
 ;
 
 declare i32 @getInt(i32)

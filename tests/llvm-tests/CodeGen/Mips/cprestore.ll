@@ -1,11 +1,11 @@
-; DISABLED: llc -march=mipsel < %s | FileCheck %s
+; DISABLE: llc -march=mipsel < %s | FileCheck %s
 ; RUN: false
-
-; byval is currently unsupported.
 ; XFAIL: *
 
 ; CHECK: .set macro
+; CHECK: .set at
 ; CHECK-NEXT: .cprestore
+; CHECK: .set noat
 ; CHECK-NEXT: .set nomacro
 
 %struct.S = type { [16384 x i32] }

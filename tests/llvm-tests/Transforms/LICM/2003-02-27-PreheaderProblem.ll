@@ -1,10 +1,10 @@
-; Here we have a case where there are two loops and LICM is hoisting an
-; instruction from one loop into the other loop!  This is obviously bad and
+; Here we have a case where there are two loops and LICM is hoisting an 
+; instruction from one loop into the other loop!  This is obviously bad and 
 ; happens because preheader insertion doesn't insert a preheader for this
 ; case... bad.
 
 ; RUN: opt < %s -licm -loop-deletion -simplifycfg -S | \
-; RUN:   not grep {br }
+; RUN:   not grep "br "
 
 define i32 @main(i32 %argc) {
 ; <label>:0

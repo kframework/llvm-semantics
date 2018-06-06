@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | grep {fadd double .sx, .sy}
+; RUN: opt < %s -instcombine -S | grep "fadd double .sx, .sy"
 ; The 'or' has multiple uses, make sure that this doesn't prevent instcombine
 ; from propagating the extends to the truncs.
 
@@ -10,8 +10,8 @@ entry:
         %sy2223 = zext i64 %sy22 to i192                ; <i192> [#uses=1]
         %sy222324 = shl i192 %sy2223, 128               ; <i192> [#uses=1]
         %sy222324.ins = or i192 %sx3435, %sy222324              ; <i192> [#uses=1]
-
-
+        
+        
         %a = trunc i192 %sy222324.ins to i64            ; <i64> [#uses=1]
         %b = bitcast i64 %a to double           ; <double> [#uses=1]
         %c = lshr i192 %sy222324.ins, 128               ; <i192> [#uses=1]

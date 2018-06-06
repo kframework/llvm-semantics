@@ -1,6 +1,6 @@
-; RUN: opt -S -indvars %s | FileCheck %s
+; RUN: opt -S -indvars < %s | FileCheck %s
 
-; The indvar simplification code should ensure that the first PHI in the block
+; The indvar simplification code should ensure that the first PHI in the block 
 ; is the canonical one!
 
 define i32 @test() {

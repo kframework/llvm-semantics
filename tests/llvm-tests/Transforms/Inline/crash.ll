@@ -20,7 +20,7 @@ entry:
 
 define void @list_DeleteDuplicates(i32 (i8*, i8*)* nocapture %Test) nounwind ssp {
 foo:
-  call void @list_DeleteElement(i32 (i8*, i8*)* %Test) nounwind ssp
+  call void @list_DeleteElement(i32 (i8*, i8*)* %Test) nounwind ssp 
   call fastcc void @list_Rplacd1284() nounwind ssp
   unreachable
 
@@ -34,7 +34,7 @@ entry:
 
 define internal fastcc void @inf_GetBackwardPartnerLits(i32* nocapture %Flags) nounwind ssp {
 test:
-  call void @list_DeleteDuplicates(i32 (i8*, i8*)* bitcast (i32 (i32*, i32*)* @inf_LiteralsHaveSameSubtermAndAreFromSameClause to i32 (i8*, i8*)*)) nounwind
+  call void @list_DeleteDuplicates(i32 (i8*, i8*)* bitcast (i32 (i32*, i32*)* @inf_LiteralsHaveSameSubtermAndAreFromSameClause to i32 (i8*, i8*)*)) nounwind 
   ret void
 }
 
@@ -59,17 +59,17 @@ declare fastcc void @list_Rplacd1284() nounwind ssp
 ;============================
 ; PR5208
 
-define void @AAA() {
+define void @AAA() personality i32 (...)* @__gxx_personality_v0 {
 entry:
   %A = alloca i8, i32 undef, align 1
   invoke fastcc void @XXX()
-          to label %invcont98 unwind label %lpad156
+          to label %invcont98 unwind label %lpad156 
 
-invcont98:
+invcont98:                          
   unreachable
 
-lpad156:
-  %exn = landingpad {i8*, i32} personality i32 (...)* @__gxx_personality_v0
+lpad156:                            
+  %exn = landingpad {i8*, i32}
             cleanup
   unreachable
 }
@@ -78,17 +78,17 @@ declare i32 @__gxx_personality_v0(...)
 
 declare fastcc void @YYY()
 
-define internal fastcc void @XXX() {
+define internal fastcc void @XXX() personality i32 (...)* @__gxx_personality_v0 {
 entry:
   %B = alloca i8, i32 undef, align 1
   invoke fastcc void @YYY()
           to label %bb260 unwind label %lpad
 
-bb260:
+bb260:                              
   ret void
 
-lpad:
-  %exn = landingpad {i8*, i32} personality i32 (...)* @__gxx_personality_v0
+lpad:                               
+  %exn = landingpad {i8*, i32}
             cleanup
   resume { i8*, i32 } %exn
 }
@@ -102,7 +102,7 @@ entry:
   ret void
 }
 
-define void @f4(i32 %size) ssp {
+define void @f4(i32 %size) ssp personality i32 (...)* @__gxx_personality_v0 {
 entry:
   invoke void @f1(void ()* @f3)
           to label %invcont3 unwind label %lpad18
@@ -111,7 +111,7 @@ invcont3:                                         ; preds = %bb1
   ret void
 
 lpad18:                                           ; preds = %invcont3, %bb1
-  %exn = landingpad {i8*, i32} personality i32 (...)* @__gxx_personality_v0
+  %exn = landingpad {i8*, i32}
             cleanup
   unreachable
 }

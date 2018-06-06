@@ -1,4 +1,4 @@
-; RUN: not llvm-as < %s >& /dev/null
+; RUN: not llvm-as < %s > /dev/null 2>&1
 ; PR1633
 
 %meta = type { i8* }
@@ -9,6 +9,6 @@ declare void @llvm.gcroot(%obj**, %meta*)
 define void @f() {
 entry:
 	call void @llvm.gcroot(%obj** null, %meta* null)
-
+	
 	ret void
 }

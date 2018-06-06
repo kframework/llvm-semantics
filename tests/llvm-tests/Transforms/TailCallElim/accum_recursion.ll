@@ -1,4 +1,5 @@
 ; RUN: opt < %s -tailcallelim -S | FileCheck %s
+; RUN: opt < %s -passes=tailcallelim -S | FileCheck %s
 
 define i32 @test1_factorial(i32 %x) {
 entry:
@@ -13,12 +14,12 @@ else:		; preds = %entry
 	ret i32 1
 }
 
-; CHECK: define i32 @test1_factorial
+; CHECK-LABEL: define i32 @test1_factorial(
 ; CHECK: phi i32
 ; CHECK-NOT: call i32
 ; CHECK: else:
 
-; This is a more aggressive form of accumulator recursion insertion, which
+; This is a more aggressive form of accumulator recursion insertion, which 
 ; requires noticing that X doesn't change as we perform the tailcall.
 
 define i32 @test2_mul(i32 %x, i32 %y) {
@@ -34,14 +35,14 @@ return:		; preds = %entry
 	ret i32 %x
 }
 
-; CHECK: define i32 @test2_mul
+; CHECK-LABEL: define i32 @test2_mul(
 ; CHECK: phi i32
 ; CHECK-NOT: call i32
 ; CHECK: return:
 
 
 define i64 @test3_fib(i64 %n) nounwind readnone {
-; CHECK: @test3_fib
+; CHECK-LABEL: @test3_fib(
 entry:
 ; CHECK: tailrecurse:
 ; CHECK: %accumulator.tr = phi i64 [ %n, %entry ], [ %3, %bb1 ]

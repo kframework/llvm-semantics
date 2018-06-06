@@ -4,7 +4,7 @@
 @AConst = constant i32 123              ; <i32*> [#uses=1]
 
 ; Test setting values of different constants in registers.
-;
+; 
 define void @testConsts(i32 %N, float %X) {
         %a = add i32 %N, 1              ; <i32> [#uses=0]
         %i = add i32 %N, 12345678               ; <i32> [#uses=0]
@@ -23,7 +23,7 @@ define void @testConsts(i32 %N, float %X) {
 ; compute the boolean value in a register.  One whose result
 ; is unused will only generate the condition code but not
 ; the boolean result.
-;
+; 
 define void @unusedBool(i32* %x, i32* %y) {
         icmp eq i32* %x, %y             ; <i1>:1 [#uses=1]
         xor i1 %1, true         ; <i1>:2 [#uses=0]
@@ -38,7 +38,7 @@ define void @unusedBool(i32* %x, i32* %y) {
 ; -- code generation for casts of various types
 ; -- use of immediate fields for integral constants of different sizes
 ; -- branch on a constant condition
-;
+; 
 define void @mergeConstants(i32* %x, i32* %y) {
 ; <label>:0
         br label %Top
@@ -46,7 +46,7 @@ define void @mergeConstants(i32* %x, i32* %y) {
 Top:            ; preds = %Next, %Top, %0
         phi i32 [ 0, %0 ], [ 1, %Top ], [ 524288, %Next ]               ; <i32>:1 [#uses=0]
         phi float [ 0.000000e+00, %0 ], [ 1.000000e+00, %Top ], [ 2.000000e+00, %Next ]         ; <float>:2 [#uses=0]
-        phi double [ 5.000000e-01, %0 ], [ 1.500000e+00, %Top ], [ 2.500000e+00, %Next ]
+        phi double [ 5.000000e-01, %0 ], [ 1.500000e+00, %Top ], [ 2.500000e+00, %Next ]         
         phi i1 [ true, %0 ], [ false, %Top ], [ true, %Next ]           ; <i1>:4 [#uses=0]
         br i1 true, label %Top, label %Next
 
@@ -64,13 +64,13 @@ Next:           ; preds = %Top
 ; -- User of cast uses it as a call arg. or return value so it is an implicit
 ;    use but has to be loaded into a virtual register so that the reg.
 ;    allocator can allocate the appropriate phys. reg. for it
-;
+;  
 define i32* @castconst(float) {
         %castbig = trunc i64 99999999 to i32            ; <i32> [#uses=1]
         %castsmall = trunc i64 1 to i32         ; <i32> [#uses=1]
         %usebig = add i32 %castbig, %castsmall          ; <i32> [#uses=0]
         %castglob = bitcast i32* @AConst to i64*                ; <i64*> [#uses=1]
-        %dummyl = load i64* %castglob           ; <i64> [#uses=0]
+        %dummyl = load i64, i64* %castglob           ; <i64> [#uses=0]
         %castnull = inttoptr i64 0 to i32*              ; <i32*> [#uses=1]
         ret i32* %castnull
 }
@@ -102,7 +102,7 @@ retlbl:         ; preds = %Top
 
 ;; Test use of a boolean result in cast operations.
 ;; Requires converting a condition code result into a 0/1 value in a reg.
-;;
+;; 
 define i32 @castbool(i32 %A, i32 %B) {
 bb0:
         %cond213 = icmp slt i32 %A, %B          ; <i1> [#uses=1]
@@ -113,7 +113,7 @@ bb0:
 
 ;; Test use of a boolean result in arithmetic and logical operations.
 ;; Requires converting a condition code result into a 0/1 value in a reg.
-;;
+;; 
 define i1 @boolexpr(i1 %b, i32 %N) {
         %b2 = icmp sge i32 %N, 0                ; <i1> [#uses=1]
         %b3 = and i1 %b, %b2            ; <i1> [#uses=1]
@@ -155,7 +155,7 @@ bb2:
         %cast116 = ptrtoint i32* %A to i64              ; <i64> [#uses=1]
         %reg116 = add i64 %cast116, %cast115            ; <i64> [#uses=1]
         %castPtr = inttoptr i64 %reg116 to i32*         ; <i32*> [#uses=1]
-        %reg118 = load i32* %castPtr            ; <i32> [#uses=1]
+        %reg118 = load i32, i32* %castPtr            ; <i32> [#uses=1]
         %cast117 = sext i32 %reg118 to i64              ; <i64> [#uses=2]
         %reg159 = add i64 1234567, %cast117             ; <i64> [#uses=0]
         %reg160 = add i64 7654321, %cast117             ; <i64> [#uses=0]
@@ -164,7 +164,7 @@ bb2:
 
 
 ; Test case for unary NOT operation constructed from XOR.
-;
+; 
 define void @checkNot(i1 %b, i32 %i) {
         %notB = xor i1 %b, true         ; <i1> [#uses=1]
         %notI = xor i32 %i, -1          ; <i32> [#uses=2]
@@ -180,8 +180,15 @@ define void @checkNot(i1 %b, i32 %i) {
 ; Test case for folding getelementptr into a load/store
 ;
 define i32 @checkFoldGEP(%Domain* %D, i64 %idx) {
-        %reg841 = getelementptr %Domain* %D, i64 0, i32 1               ; <i32*> [#uses=1]
-        %reg820 = load i32* %reg841             ; <i32> [#uses=1]
+        %reg841 = getelementptr %Domain, %Domain* %D, i64 0, i32 1               ; <i32*> [#uses=1]
+        %reg820 = load i32, i32* %reg841             ; <i32> [#uses=1]
         ret i32 %reg820
 }
 
+; Test case for scalarising a 1 element vselect
+;
+define <1 x i32> @checkScalariseVSELECT(<1 x i32> %a, <1 x i32> %b) {
+        %cond = icmp uge <1 x i32> %a, %b
+        %s = select <1 x i1> %cond, <1 x i32> %a, <1 x i32> %b
+        ret <1 x i32> %s
+}

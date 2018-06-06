@@ -6,7 +6,7 @@
 
 ; This function has a live return value, it is used by @alive.
 define internal i32 @test5() {
-  ret i32 123
+  ret i32 123 
 }
 
 ; This function doesn't use the return value @test5 and tries to lure DAE into

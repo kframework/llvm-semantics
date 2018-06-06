@@ -9,7 +9,7 @@ define void @"NewCasts" (i17 %x) {
   %d = uitofp i17 %x to float
   %e = sitofp i17 %x to double
   %f = fptoui float %d to i17
-  %g = fptosi double %e to i17
+  %g = fptosi double %e to i17 
   %i = fpext float %d to double
   %j = fptrunc double %i to float
   %k = bitcast i32 %a to float

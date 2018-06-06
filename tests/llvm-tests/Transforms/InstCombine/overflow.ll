@@ -3,7 +3,7 @@
 
 declare void @throwAnExceptionOrWhatever()
 
-; CHECK: @test1
+; CHECK-LABEL: @test1(
 define i32 @test1(i32 %a, i32 %b) nounwind ssp {
 entry:
 ; CHECK-NOT: sext
@@ -26,7 +26,7 @@ if.end:
   ret i32 %conv9
 }
 
-; CHECK: @test2
+; CHECK-LABEL: @test2(
 ; This form should not be promoted for two reasons: 1) it is unprofitable to
 ; promote it since the add.off instruction has another use, and 2) it is unsafe
 ; because the add-with-off makes the high bits of the original add live.
@@ -36,9 +36,9 @@ entry:
   %conv2 = sext i32 %b to i64
   %add = add nsw i64 %conv2, %conv
   %add.off = add i64 %add, 2147483648
-
+  
   store i64 %add.off, i64* %P
-
+  
 ; CHECK-NOT: llvm.sadd.with.overflow
   %0 = icmp ugt i64 %add.off, 4294967295
   br i1 %0, label %if.then, label %if.end
@@ -76,7 +76,7 @@ if.end:
 ; CHECK: ret i64
 }
 
-; CHECK: @test4
+; CHECK-LABEL: @test4(
 ; Should be able to form an i8 sadd computed in an i32.
 define zeroext i8 @test4(i8 signext %a, i8 signext %b) nounwind ssp {
 entry:
@@ -97,37 +97,26 @@ if.end:                                           ; preds = %entry
 ; CHECK: ret i8
 }
 
-; CHECK: @test5
-; CHECK: llvm.uadd.with.overflow
-; CHECK: ret i64
-define i64 @test5(i64 %a, i64 %b) nounwind ssp {
+; CHECK-LABEL: @test8(
+; PR11438
+; This is @test1, but the operands are not sign-extended.  Make sure
+; we don't transform this case.
+define i32 @test8(i64 %a, i64 %b) nounwind ssp {
 entry:
-  %add = add i64 %b, %a
-  %cmp = icmp ult i64 %add, %a
-  %Q = select i1 %cmp, i64 %b, i64 42
-  ret i64 %Q
+; CHECK-NOT: llvm.sadd
+; CHECK: add i64 %a, %b
+; CHECK-NOT: llvm.sadd
+; CHECK: ret
+  %add = add i64 %a, %b
+  %add.off = add i64 %add, 2147483648
+  %0 = icmp ugt i64 %add.off, 4294967295
+  br i1 %0, label %if.then, label %if.end
+
+if.then:
+  tail call void @throwAnExceptionOrWhatever() nounwind
+  br label %if.end
+
+if.end:
+  %conv9 = trunc i64 %add to i32
+  ret i32 %conv9
 }
-
-; CHECK: @test6
-; CHECK: llvm.uadd.with.overflow
-; CHECK: ret i64
-define i64 @test6(i64 %a, i64 %b) nounwind ssp {
-entry:
-  %add = add i64 %b, %a
-  %cmp = icmp ult i64 %add, %b
-  %Q = select i1 %cmp, i64 %b, i64 42
-  ret i64 %Q
-}
-
-; CHECK: @test7
-; CHECK: llvm.uadd.with.overflow
-; CHECK: ret i64
-define i64 @test7(i64 %a, i64 %b) nounwind ssp {
-entry:
-  %add = add i64 %b, %a
-  %cmp = icmp ugt i64 %b, %add
-  %Q = select i1 %cmp, i64 %b, i64 42
-  ret i64 %Q
-}
-
-

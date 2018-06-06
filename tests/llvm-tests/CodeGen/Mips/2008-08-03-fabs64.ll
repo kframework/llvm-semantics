@@ -15,4 +15,4 @@ entry:
   ret double %2
 }
 
-declare double @fabs(double) nounwind readnone
+declare double @fabs(double) nounwind readnone 

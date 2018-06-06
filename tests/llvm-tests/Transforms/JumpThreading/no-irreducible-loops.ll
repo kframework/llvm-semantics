@@ -1,6 +1,6 @@
 ; RUN: opt < %s -jump-threading -loop-rotate -instcombine -indvars -loop-unroll -simplifycfg -S -verify-dom-info -verify-loop-info > %t
-; RUN: grep {store volatile} %t | count 3
-; RUN: not grep {br label} %t
+; RUN: grep "store volatile" %t | count 3
+; RUN: not grep "br label" %t
 
 ; Jump threading should not prevent this loop from being unrolled.
 
@@ -17,11 +17,11 @@ bb:		; preds = %bb4
 	br i1 %0, label %bb1, label %bb2
 
 bb1:		; preds = %bb
-	volatile store i32 1000, i32* @v1, align 4
+	store volatile i32 1000, i32* @v1, align 4
 	br label %bb3
 
 bb2:		; preds = %bb
-	volatile store i32 1001, i32* @v1, align 4
+	store volatile i32 1001, i32* @v1, align 4
 	br label %bb3
 
 bb3:		; preds = %bb2, %bb1

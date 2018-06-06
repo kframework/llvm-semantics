@@ -22,7 +22,7 @@ module LLVM-SYNTAX
       Standard integers (such as ‘4’) are constants of the integer type.
       Negative numbers may be used with integer types.
     */
-    syntax HexConstant ::= Token {[u s]?[0][x][K M L]?[0-9 a-f A-F]*} [onlyLabel]
+    syntax HexConstant ::= Token {[u s]?[0][x][K M L H]?[0-9 a-f A-F]*} [onlyLabel]
     syntax UnsignedInt ::= Token{[0-9][0-9]*} [onlyLabel]
 
 
@@ -33,13 +33,13 @@ module LLVM-SYNTAX
     syntax Floating ::= Token{[\+\-]?[0-9]+"."[0-9]*([eE][\+\-]?[0-9]+)?([fFdD]|([pP][0-9]+[xX][0-9]+))?}
                          [onlyLabel]
                  //[regex("([\\+-]?[0-9]+(\\.[0-9]*)?|\\.[0-9]*)([eE][\\+-]?([0-9]+(\\.[0-9]*)?|\\.[0-9]+))?([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
-    syntax Floating ::= Token{[\+\-]?"Infinity"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
-                          [onlyLabel]
+    //syntax Floating ::= Token{[\+\-]?"Infinity"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
+                     //     [onlyLabel]
                //  [regex("[\\+-]?Infinity([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
-    syntax Floating ::= Token{"NaN"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
-                          [onlyLabel]
+    //syntax Floating ::= Token{"NaN"([fFdD]|([pP][0-9]+[xX][0-9]+))?}
+                         // [onlyLabel]
                 // [regex("NaN([fFdD]|([pP][0-9]+[xX][0-9]+))?"), token]
-    syntax Floating ::= "NaN" | "Infinity"
+    //syntax Floating ::= "NaN" | "Infinity"
     syntax FpVal ::= HexConstant | Floating
     syntax StringName ::= Token{[\"] (~[\"])* [\"]} [onlyLabel]
     //syntax StringName ::= String
@@ -123,6 +123,15 @@ module LLVM-SYNTAX
     */
     syntax OptVolatile ::= "volatile" | "" [klabel('volatileEmpty),onlyLabel]
 
+    /*@
+      If the cmpxchg operation is marked as weak then a spurious
+          failure is permitted: the operation
+         may not write <new> even if the comparison matched.
+
+
+    */
+    syntax OptWeak ::= "weak" [klabel('weakMemory),onlyLabel]
+                         | "" [klabel('weakEmpty),onlyLabel]
 
     /*@
       If the load is marked as atomic, it takes an extra ordering and optional
@@ -551,7 +560,8 @@ module LLVM-SYNTAX
       is known to not be significant and two identical functions can be merged.
     */
     syntax OptAddrSpace ::= addrspace(UnsignedInt) | "" [klabel('addrEmpty),onlyLabel]
-    syntax OptUnnamedAddr ::= "unnamed_addr" | "" [klabel('unnamedEmpty),onlyLabel]
+    syntax OptUnnamedAddr ::= "unnamed_addr" | "local_unnamed_addr"
+                            | "" [klabel('unnamedEmpty),onlyLabel]
 
 
     /*@
@@ -567,6 +577,7 @@ module LLVM-SYNTAX
     */
     syntax OptInBounds ::= "inbounds" | "" [klabel('inBoundsEmpty),onlyLabel]
 
+    syntax OptInRange ::= "inrange" | "" [klabel('inRangeEmpty),onlyLabel]
 
     /*@
       "sideeffect", "alignstack" and "inteldialect" are attributes that are used in
@@ -686,10 +697,11 @@ module LLVM-SYNTAX
     syntax LabelType ::= "label"
     syntax PrimType ::= FPType | IntType | LabelType
     syntax VoidType ::= "void"
+    syntax X86Type ::= "x86_mmx"
     syntax NonVoidType ::= "metadata"
-                         | "x86_mmx"
+                         | X86Type
                          | PrimType
-                         | Type OptAddrSpace "*"              [klabel('pointerType), strict]
+                         | Type OptAddrSpace "*"              [klabel('pointerType), strict(1)]
                          | Type "(" ArgList ")"               [klabel('functionType)]
                          | "[" UnsignedInt "x" Type "]"
                          | "<" UnsignedInt "x" Type ">"
@@ -704,7 +716,7 @@ module LLVM-SYNTAX
       The two arguments to the these instructions must be integer or vector
       of integer values. Both arguments must have identical types.
     */
-    syntax IntConstructors ::= "add" | "sub" | "mul" | "shl"
+    syntax IntConstructors ::= "add" [onlyLabel] | "sub" | "mul" | "shl"
 
 
     /*@
@@ -825,10 +837,12 @@ module LLVM-SYNTAX
       combination and another construct for the "IntegerType Value" combination.
     */
     syntax ResolvedVal ::= Type ValueRef
+    syntax ResolvedValGep ::= OptInRange ResolvedVal
     syntax IntResolveVal ::= IntType ValueRef [klabel('intResolveVal)]
     syntax IntResolveVals ::= "" [klabel('.IntResolveVals),onlyLabel]
                             | "," IntResolveVal IntResolveVals
     syntax ReturnedVal ::= List{ResolvedVal,","}
+    syntax ReturnedValGep ::= List{ResolvedValGep, ","}
     syntax Index ::= ResolvedVal | "null"  [klabel('nullOfIndex)]
     syntax IndexList ::= List{Index,","}
 
@@ -908,7 +922,7 @@ module LLVM-SYNTAX
       not have side effects (e.g. load and call are not supported).
       The following is the syntax for constant expressions.
     */
-    syntax ConstantIndexList ::= "," UnsignedInt | UnsignedInt "," ConstantIndexList
+    syntax ConstantIndexList ::= "," UnsignedInt | "," UnsignedInt ConstantIndexList
     syntax ConstExpr ::= CastOps "(" ResolvedVal "to" Type ")"              [klabel('constCast)]
                       | BinaryOps "(" ResolvedVal "," ResolvedVal ")"       [klabel('constBin)]
                       | LogicalOps "(" ResolvedVal "," ResolvedVal ")"      [klabel('constLogic)]
@@ -926,13 +940,13 @@ module LLVM-SYNTAX
 
 
    //definition the constructs for tail call and call
-   syntax OptTailCall ::= "tail" "call" | "call"
+   syntax OptTailCall ::= "tail" "call" | "call" | "notail" "call" | "musttail" "call"
 
     /*@
       This attribute is used in the landingpad instruction.
       The optional cleanup flag indicates that the landing pad block is a cleanup.
     */
-    syntax OptCleanup ::= "cleanup" | "" [klabel('cleanupEmpty),onlyLabel]
+    syntax Cleanup ::= "cleanup"
 
     /*@
       define the factors for the landingpad instruction.
@@ -940,7 +954,8 @@ module LLVM-SYNTAX
       and contains the global variable representing the “type” that may
       be caught or filtered respectively. 
     */
-    syntax LandingpadFactor ::= "catch" ResolvedVal | "filter" ResolvedVal
+    syntax ClauseLabel ::= "catch" | "filter"
+    syntax LandingpadFactor ::= ClauseLabel ResolvedVal
     syntax LandingpadFactors ::= List{LandingpadFactor," "}
 
     //define the allocation metadata. It is a syntactic convince to define it like this.
@@ -989,11 +1004,13 @@ module LLVM-SYNTAX
     */
     syntax Ordering ::= "unordered" | "monotonic" | "acquire" | "release"
                          | "acq_rel" | "seq_cst"
-    syntax OptSingleThread ::= "singlethread"
+    syntax SyncScopeKey ::= "singlethread" | "system" | "agent" | "workgroup"
+                           | "wavefront"
+    syntax OptSingleThread ::= "syncscope" "(" "\"" SyncScopeKey "\"" ")"
                              | "" [klabel('singlethreadEmpty),onlyLabel]
-    syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
+    /*syntax OptScopeOrder ::= OptSingleThread Ordering [klabel('optScopeOrder)]
                            | "" [klabel('scopeorderEmpty),onlyLabel]
-    syntax OrderingList ::= Ordering | Ordering OrderingList
+     */
     syntax OptDistinct ::= "distinct" | "" [klabel('distinctEmpty),onlyLabel]
 
     /*@
@@ -1070,22 +1087,24 @@ module LLVM-SYNTAX
     syntax InstVal ::= BinaryOps ResolvedVal "," ValueRef InstructionMetadatas
                      | LogicalOps ResolvedVal "," ValueRef InstructionMetadatas
                      | "icmp" IPredicate ResolvedVal "," ValueRef InstructionMetadatas
-                     | "fcmp" FPredicate ResolvedVal "," ValueRef InstructionMetadatas
+                     | "fcmp" FPredicate FastMathFlags ResolvedVal "," ValueRef InstructionMetadatas
                      | CastOps ResolvedVal "to" Type InstructionMetadatas
                      | Select ResolvedVal "," ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "va_arg" ResolvedVal "," Type InstructionMetadatas
-                     | "getelementptr" OptInBounds Type "," ReturnedVal InstructionMetadatas
+                     | "getelementptr" OptInBounds Type "," ReturnedValGep InstructionMetadatas
                      | "extractelement" ResolvedVal "," ResolvedVal InstructionMetadatas
                      | "insertelement" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas
                      | "shufflevector" ResolvedVal "," ResolvedVal
                        "," ResolvedVal InstructionMetadatas
                      | "phi" Type PHIList InstructionMetadatas              [klabel('phiFun)]
-                     | "landingpad" Type "personality" ResolvedVal OptCleanup
+                     | "landingpad" Type Cleanup
+                       LandingpadFactors InstructionMetadatas
+                     | "landingpad" Type LandingpadFactor
                        LandingpadFactors InstructionMetadatas
                      | OptTailCall OptCallingConv RetAttrs ResolvedVal
                        "(" ParamList ")" FuncAttrs InstructionMetadatas     [klabel('functionCall)]
-                     | "alloca" OptInalloca AllocMetadata InstructionMetadatas
+                     | "alloca" OptInalloca AllocMetadata OptAddrSpace InstructionMetadatas
                      // LLVM syntax 3.7.1 has a typo on this significantly without the first return type
                      //of load for atomic operator.
                      | "load" Atomic OptVolatile Type "," ResolvedVal
@@ -1094,8 +1113,8 @@ module LLVM-SYNTAX
                         "," Align InstructionMetadatas
                      | "load" OptVolatile Type "," ResolvedVal
                         InstructionMetadatas
-                     | "cmpxchg" OptVolatile ResolvedVal "," ResolvedVal ","
-                       ResolvedVal OptSingleThread OrderingList InstructionMetadatas
+                     | "cmpxchg" OptWeak OptVolatile ResolvedVal "," ResolvedVal ","
+                       ResolvedVal OptSingleThread Ordering Ordering InstructionMetadatas
                      //The ‘atomicrmw‘ instruction is used to atomically modify memory.
                      | "atomicrmw" OptVolatile BinOpsForAtomicrmw ResolvedVal
                        "," ResolvedVal OptSingleThread Ordering InstructionMetadatas
@@ -1154,9 +1173,9 @@ module LLVM-SYNTAX
     //Define argument lists for the function header.
     syntax ArgType ::= Type ParamAttrs           [klabel('argTypeTwo)]
                       | Type ParamAttrs LocalVar [klabel('argTypeThree)]
-    syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..."
-                     | ArgType
-                     | ArgType "," ArgList
+    syntax ArgList ::= "" [klabel('argListUnit),onlyLabel] | "..." [klabel('vaArgs), onlyLabel]
+                     | ArgType             
+                     | ArgType "," ArgList 
 
     /*@
       LLVM function declarations consist of the “declare” keyword, an optional

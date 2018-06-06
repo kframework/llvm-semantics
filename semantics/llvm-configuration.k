@@ -12,68 +12,128 @@ module LLVM-CONFIGURATION
 
     configuration
         <T>//top level
-            <nextLoc color="gray"> loc(startMemoryLoc +Int 1, 0, undef, undef) </nextLoc>
-            //this is a cell to calculate the next memory location.
-            <brk> loc(startMemoryLoc, 0, undef, undef) </brk>
+            <brk> loc(startMemoryLoc, void,
+              value(nullMemoryLoc,nullMemoryLoc),heap, none, none) </brk>
             //this is a cell holding brk pointer
+            <cbd> .Map </cbd> //common data bus
+            <threadStatus> .Map </threadStatus> //use for storing pthread status joinable info
+            <waitJoinThreads> .Map </waitJoinThreads>
+                //for detaching deadlock or see if two are joining with the same threads.
             <exBuffer> .List </exBuffer>
             //a cell to hold all to commit memory ops, simulating computer north bridge
-            <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
-            //a cell to hold the current all memory locations
             <matchPhisWithInEdges> .List </matchPhisWithInEdges>
             //a helper cell to store all phi edges that have not been type checked
             <checkUseCount> 0 </checkUseCount>
             //a counter cell to generate free vars for use checks, should be deleted
             <instructionCounter> 0 </instructionCounter>
             //a counter cell to genearte free vars for instruction location num
+            <tempGlobalVars> .List </tempGlobalVars> //use for store unnamed addr global vars
             <tempUses> .Set </tempUses> //set from use vars
+            <tempLabelUses> .Set </tempLabelUses>
+            <tempExceptionUses> .Set </tempExceptionUses>
+            <tempLandingpads> .List </tempLandingpads>
+            <tempResumes> .List </tempResumes>
+            <tempBlockAddrChecks> .Set </tempBlockAddrChecks>
             <tempBlockMap> .Map </tempBlockMap> //set for store inst map for a block
-            <thread multiplicity="*"> //thread cell
+            <mutexes>
+              <mutexCount> 0 </mutexCount>
+              <avaMutex> .Set </avaMutex> //all alive mutexes
+              <mutex multiplicity="*">
+                 <mutexId> 0 </mutexId>
+                 <holdThread> .K </holdThread> //holding lock thread
+              </mutex>
+            </mutexes>
+            <threads>
+              <threadCount> 1 </threadCount>
+              <thread multiplicity="*"> //thread cell
                 <threadId> 0 </threadId> //thread id
-                <buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
-                <k color="LightGreen"> $PGM:Module ~> initGlobals ~> callMain </k>
+                <memChannelId> 0 </memChannelId> //associated mem channel id
+                                             //a thread only talks to one chanel
+                //<buffer> .List </buffer> //thread execution buffer, items will be moved to exBuffer
+                <k color="LightGreen"> initialMemChannels(maxMemChannel) ~> 
+                               ($PGM:Module ~> (initGlobals ~> callMain)) </k>
                 //main cell containing program code
                 <tomasulo>
+                    <toExecute> .K </toExecute>
                     <instQueue> instList(.List) </instQueue> //instruction queue
                     <cpu> .K </cpu> //central execution unit
-                    <toCommit> .List </toCommit>
-                    <cdb> .List </cdb> //common data bus
-                    <reserveReg> .Map </reserveReg>
-                    <specChoice> allowChoice(.List) </specChoice>
+                    <toCommit> memList(.K, .Set, .List, .List, .List, .List) </toCommit>
+                    <readBack> readMap(.Map) </readBack>
+                    <specTree> .Map </specTree> //speculative tree
+                    <restChoice> .Map </restChoice>
                     <blockCount> 0 </blockCount> //model cpu: tomasulo
                 </tomasulo>//simulating tomosulo execution model.
+                <stack>
+                   <stackOpList> .List </stackOpList>
+                   <nextStack> startMemoryLoc </nextStack>
+                    <stackList> .List </stackList>
+                   <stackMap> .Map </stackMap>
+                </stack>
                 <callStack color="Goldenrod"> .List </callStack>
                 //stack for function calls
                 <control color="LightGoldenrod">
+                    <prevBlock color="Orchid"> .K </prevBlock>
                     <currBlock color="Orchid"> basicBlockNum(0, name(localVar, "Initial")) </currBlock>
                     //the current executing basic block
                     <currModule color="Orchid"> name(globalVar, "main") </currModule>
                     //current module
                     <currFunction color="Orchid"> name(globalVar, "Initial") </currFunction>
                     //current function that is being executed
-                    <valist> .List </valist> //a cell storing variable argument list info
+                    <vaList> .K </vaList>//a cell storing variable argument list info
+                    <expResume> .K </expResume>
                     <registers color="teal"> .Map </registers>
                     //registers (infinite) for a thread
-                    // TODO: this should eventually be a Set
+                    <specRegisters color="teal"> .Map </specRegisters>
+                    <memRegisters color="teal"> .Map </memRegisters>
+                    //registers to hold unordered speculative values.
                     <currentProgPoint> 0 </currentProgPoint>
                     //current program point (inst num), may not need
                     <currentModifiers color="Orchid"> .Set </currentModifiers>
                     //the modifiers (attributes) for the current functions
                     <currentMetadatas color="Orchid"> .ElemList </currentMetadatas>
                     //the metadatas for the current function
-                    <localMemory> .List </localMemory>
+                    <localMemory> .Set </localMemory>
                     //local memory (stack) 
                 </control> //control panel for function and basic blocks
-            </thread>
-            <memory color="teal" type="Map"> //main memory, heap
+              </thread>
+            </threads>
+            <stackObjects>
+                   <stackObject multiplicity="*" color="LightSkyBlue">
+                     <stackThreadId> 0 </stackThreadId> 
+                     <stackChunckRange> .K </stackChunckRange>
+                     //<stackChunck> .List </stackChunck>
+                     <stackSize> -1 </stackSize>
+                     <stackAlign> 0 </stackAlign>
+                     <stackAddrSpace> 0 </stackAddrSpace>
+                     <stackRange> .K </stackRange>
+                   </stackObject>
+            </stackObjects>
+            <memorys>
+              <memory multiplicity="*" color="teal" type="Map"> //main memory, heap
+                <channelId> 0 </channelId>
                 <object multiplicity="*" color="LightSkyBlue">
-                    <basePtr color="orange" type="Key"> -1 </basePtr>
-                    <type> .K </type>
-                    <size> 0 </size>
-                    <align> 'alignEmpty(.KList) </align>
-                    <bytes> .Map </bytes>
+                  <chunckRange> .K </chunckRange>
+                  <size> -1 </size>
+                  <align> 0 </align>
+                  <range> .K </range>
+                  <addrSpace> 0 </addrSpace>
+                  <complete> .Map </complete>
+                    //use for non atomic loads/stores to count bytes they read/write
+                  <race> .Set </race> //use to store the inst nums when a non-atomic load/store
+                    //is accessing this field. 
                 </object>
-            </memory>
+                <timeStamps> .Map </timeStamps> //vector time stamps for each channel
+                <channelOps> .List </channelOps>
+                <ackMap> .Map </ackMap>
+                <memOpList> .List </memOpList>
+                //a cell to hold the current all memory locations
+                <byteMap> .Map </byteMap>
+              </memory>
+                <memoryList> .List </memoryList> //all allocaed mem ranges
+                <nextBase color="gray"> startMemoryLoc </nextBase>
+                //this is a cell to calculate the next memory start location.
+                <memoryRange> value(startMemoryLoc, startMemoryLoc) </memoryRange>
+            </memorys>
             // auxiliary cells:
             <output stream="stdout" color="DodgerBlue"> .List </output>
              //output channel, like standard output
@@ -104,6 +164,8 @@ module LLVM-CONFIGURATION
                         //the module the function is belong to.
                        <functionName color="orange"> name(globalVar, "") </functionName>
                        //name of the function
+                       <funSize> 0 </funSize>
+                       <funPosition> 0 </funPosition>
                        <funModifiers> .Set </funModifiers> //function attributes
                        <varTypes color="teal"> .Map </varTypes> //variable types in a function
                        <returnType> .K </returnType> //return type of the function

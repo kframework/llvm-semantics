@@ -1,5 +1,5 @@
 ; RUN: opt < %s -instcombine -S | grep zext
-; PR1261.
+; PR1261. 
 
 define i16 @test(i31 %zzz) {
   %A = sext i31 %zzz to i32

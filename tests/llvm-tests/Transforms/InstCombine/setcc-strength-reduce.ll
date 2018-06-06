@@ -3,7 +3,7 @@
 ; into equivalent setne,eq instructions.
 ;
 ; RUN: opt < %s -instcombine -S | \
-; RUN:    grep -v {icmp eq} | grep -v {icmp ne} | not grep icmp
+; RUN:    grep -v "icmp eq" | grep -v "icmp ne" | not grep icmp
 ; END.
 
 define i1 @test1(i32 %A) {
@@ -25,7 +25,7 @@ define i1 @test3(i8 %A) {
 }
 
 define i1 @test4(i8 %A) {
-        ; setne %A, 127
+        ; setne %A, 127 
         %B = icmp sle i8 %A, 126                ; <i1> [#uses=1]
         ret i1 %B
 }

@@ -2,7 +2,7 @@
 ; RUN: llvm-as %t1.ll -o - | llvm-dis > %t2.ll
 ; RUN: diff %t1.ll %t2.ll
 
-%myty = type i32
+%myty = type i32 
 %myfn = type float (i32,double,i32,i16)
 %0 = type i32(%myfn*)
 %1 = type i32(i32)

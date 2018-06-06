@@ -1,4 +1,4 @@
-; It's a bad idea to go recursively traipsing through types without a safety
+; It's a bad idea to go recursively traipsing through types without a safety 
 ; net.
 
 ; RUN: llvm-as < %s > %t.out1.bc

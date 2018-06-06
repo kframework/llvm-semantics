@@ -11,7 +11,7 @@ entry:
   ; CHECK: movq    _a@TLVP(%rip), %rdi
   ; CHECK: callq   *(%rdi)
   ; CHECK: movl    $1, (%rax)
-
+  
   store i32 2, i32* @b, align 4
   ; CHECK: movq    _b@TLVP(%rip), %rdi
   ; CHECK: callq   *(%rdi)
@@ -21,12 +21,12 @@ entry:
   ; CHECK: movq    _c@TLVP(%rip), %rdi
   ; CHECK: callq   *(%rdi)
   ; CHECK: movl    $3, (%rax)
-
+  
   store i32 4, i32* @d, align 4
   ; CHECK: movq    _d@TLVP(%rip), %rdi
   ; CHECK: callq   *(%rdi)
   ; CHECK: movl    $4, (%rax)
   ; CHECK: popq
-
+  
   ret void
 }

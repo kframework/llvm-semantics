@@ -124,3 +124,28 @@ loop:
 return:
   ret void
 }
+
+; PR16130: Loop exit depends on an 'or' expression.
+; One side of the expression test against a value that will be skipped.
+; We can't assume undefined behavior just because we have an NSW flag.
+;
+; CHECK: Determining loop execution counts for: @exit_orcond_nsw
+; CHECK: Loop %for.body.i: Unpredictable backedge-taken count.
+; CHECK: Loop %for.body.i: max backedge-taken count is 1
+define void @exit_orcond_nsw(i32 *%a) nounwind {
+entry:
+  br label %for.body.i
+
+for.body.i:                                       ; preds = %for.body.i, %entry
+  %b.01.i = phi i32 [ 0, %entry ], [ %add.i, %for.body.i ]
+  %tobool.i = icmp ne i32 %b.01.i, 0
+  %add.i = add nsw i32 %b.01.i, 8
+  %cmp.i = icmp eq i32 %add.i, 13
+  %or.cond = or i1 %tobool.i, %cmp.i
+  br i1 %or.cond, label %exit, label %for.body.i
+
+exit:                                     ; preds = %for.body.i
+  %b.01.i.lcssa = phi i32 [ %b.01.i, %for.body.i ]
+  store i32 %b.01.i.lcssa, i32* %a, align 4
+  ret void
+}

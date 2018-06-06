@@ -1,4 +1,4 @@
-; RUN: llc -asm-verbose=false -march=x86-64 -mtriple=x86_64-apple-darwin -o - < %s | FileCheck %s
+; RUN: llc -asm-verbose=false -mtriple=x86_64-apple-darwin -o - < %s | FileCheck %s
 
 ; LSR should leave non-affine expressions alone because it currently
 ; doesn't know how to do anything with them, and when it tries, it
@@ -19,7 +19,7 @@ entry:
 
 loop:
   %i = phi i64 [ 0, %entry ], [ %i.next, %loop ]
-  volatile store i64 %i, i64* %p
+  store volatile i64 %i, i64* %p
   %i.next = add i64 %i, %s
   %c = icmp slt i64 %i.next, %n
   br i1 %c, label %loop, label %exit

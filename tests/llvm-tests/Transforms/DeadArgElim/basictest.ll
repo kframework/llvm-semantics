@@ -6,7 +6,7 @@ define internal i32 @test(i32 %v, i32 %DEADARG1, i32* %p) {
         ret i32 %v
 }
 
-; hardertest - an argument which is only used by a call of a function with a
+; hardertest - an argument which is only used by a call of a function with a 
 ; dead argument.
 define internal i32 @hardertest(i32 %DEADARG2) {
         %p = alloca i32         ; <i32*> [#uses=1]

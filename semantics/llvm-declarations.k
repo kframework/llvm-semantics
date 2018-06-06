@@ -22,7 +22,7 @@ module LLVM-DECLARATIONS
 
     // TODO: semantic design pattern: assignment rule
     rule
-        <k> alias(Mod:K, X:SymbolicValueRef, K:K) => . ...</k>
+        <k> alias(Mod:K, X:SymbolicValueRef, K:KResult) => . ...</k>
         <globalRegisters> Map:Map => Map[X <- K] </globalRegisters>
 
     // TODO KListToK module sections
@@ -31,10 +31,10 @@ module LLVM-DECLARATIONS
         <k> theModule(Label:SymbolicValueRef, TargetLayout:K, TargetTriple:K, MetaVars:K
             , Typedefs:K, GlobalVars:K, Aliases:K, Functions:K)
             => MetaVars
-            ~> Typedefs
-            ~> GlobalVars
-            ~> Aliases
-            ~> Functions
+            ~> (Typedefs
+            ~> (GlobalVars
+            ~> (Aliases
+            ~> Functions)))
         ...</k>
         <currModule> _ => Label </currModule>
         <modules>...
@@ -62,35 +62,56 @@ module LLVM-DECLARATIONS
     //rule funptr(A:SymbolicValueRef) => A
 
     rule
-        <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K, F:K)
+        <k> functionDef(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult, F:K)
             => setInitBlock(F) ~> checkSingleAssignment(F) ...</k>
         <currFunction> _ => Label </currFunction>
          <currentProgPoint> ProgCount:Int => 0 </currentProgPoint>
-        <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
+        <cbd> CM:Map => CM[aLoc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                                 getArgTypes(Arguments)), defaultAddrSpace),heap) <- value(
+                   functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
+        <globalRegisters> M:Map => M[Label <-
+                loc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                              getArgTypes(Arguments)), defaultAddrSpace),
+                         value(FunCount, FunCount),heap, none, none)] </globalRegisters>
         <currModule> ModName:SymbolicValueRef </currModule>
-        <instructionCounter> InstCount:Int => 0 </instructionCounter>
+        <nextBase> FunCount:Int => FunCount +Int
+                         sizeOfFunArg(Arguments) +Int numBytesFunHeader </nextBase>
+        <instructionCounter> InstCount:Int => 1 </instructionCounter>
+        <localFunVarCounter> LocalI:Int => 0 </localFunVarCounter>
+            <tempLabelUses> TL:Set => .Set </tempLabelUses>
+            <tempExceptionUses> ETL:Set => .Set </tempExceptionUses>
         (.Bag =>
             <function>...
                 <funModuleName> ModName </funModuleName>
                 <funModifiers> Attributes </funModifiers>
                 <returnType> RetType </returnType>
-                <formalParameters> Arguments:K </formalParameters>
+                <formalParameters> arguments(Arguments) </formalParameters>
                 <functionName> Label </functionName>
-            ...</function>
-        )
+                <funPosition> FunCount </funPosition>
+                <funSize> sizeOfFunArg(Arguments) +Int numBytesFunHeader </funSize>
+            ...</function> )
 
     rule
-        <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:K)
+        <k> functionDecl(Attributes:Set,RetType:KResult, Label:SymbolicValueRef, Arguments:KResult)
             => .K ...</k>
-        <globalRegisters> M:Map => M[Label <- funptr(Label)] </globalRegisters>
+        <cbd> CM:Map => CM[aLoc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                                 getArgTypes(Arguments)), defaultAddrSpace),heap) <- value(
+                   functionTypeValue(RetType, getArgTypes(Arguments)), funptr(Label))] </cbd>
+        <globalRegisters> M:Map => M[Label <-
+             loc(FunCount, pointerTypeValue(functionTypeValue(RetType,
+                  getArgTypes(Arguments)), defaultAddrSpace),
+                        value(FunCount, FunCount),heap, none,none)] </globalRegisters>
+        <nextBase> FunCount:Int => FunCount +Int numBytesFunHeader </nextBase>
         <currModule> ModName:SymbolicValueRef </currModule>
         (.Bag =>
             <function>...
                 <funModuleName> ModName </funModuleName>
                 <funModifiers> Attributes </funModifiers>
                 <returnType> RetType </returnType>
-                <formalParameters> Arguments:K </formalParameters>
+                <formalParameters> arguments(Arguments) </formalParameters>
                 <functionName> Label </functionName>
+                <funPosition> FunCount </funPosition>
+                <funSize> sizeOfFunArg(Arguments) +Int numBytesFunHeader </funSize>
             ...</function>
         )
 
@@ -144,7 +165,22 @@ module LLVM-DECLARATIONS
         <basicBlocks>... .Map => Name:SymbolicValueRef |-> (setBlock(Name) ~> K:K) ...</basicBlocks>
 */
     rule
-        <k> setBlock(Label:K) => .K ...</k>
-        <currBlock> Label':K => Label </currBlock>
+        <k> startInitBlock(Label:K) =>
+              blockExecution(basicBlockNum(Count, Label),
+                  formInstList(1, .K, Body)) ...</k>
+        <currBlock> Label':K => basicBlockNum(Count, Label) </currBlock>
+        <blockCount> Count:Int => Count +Int 1 </blockCount>
+        <specTree> M:Map => M[Count <-
+                       runBlock(Count, Label, none,
+                     formMemList(Count, formInstList(1, .K, Body), VaLoc),
+                 getVarsFromVarOp(.K, OutDefs -Set InDefs), .Set)] </specTree>
+        <vaList> value(_:K, VaLoc:Loc) </vaList>
+        <currModule> ModName:SymbolicValueRef </currModule>
+        <funModuleName> ModName </funModuleName>
+        <functionName> FunName </functionName>
+         <currFunction> FunName:SymbolicValueRef </currFunction>
+        <basicBlocks>... Label |-> blockContent(Body:Map,
+               _:Bool, _:Set, _:Set, InDefs:Set,
+                 _:Set, OutDefs:Set, _:Set, _:Set) ...</basicBlocks>
 
 endmodule

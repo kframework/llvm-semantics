@@ -7,6 +7,6 @@ target triple = "mipsallegrexel-unknown-psp-elf"
 
 define internal fastcc i32 @A(i32 %u) nounwind  {
 entry:
-  ret i32 %u
+  ret i32 %u 
 }
 

@@ -1,6 +1,11 @@
-; RUN: opt < %s -std-compile-opts -o - | llc -o - | grep bork_directive | wc -l | grep 2
+; RUN: opt < %s -O3 | llc -no-integrated-as | FileCheck %s
+; REQUIRES: default_triple
 
 ;; We don't want branch folding to fold asm directives.
+
+; CHECK: bork_directive
+; CHECK: bork_directive
+; CHECK-NOT: bork_directive
 
 define void @bork(i32 %param) {
 entry:

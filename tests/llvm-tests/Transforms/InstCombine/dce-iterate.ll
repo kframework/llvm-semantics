@@ -1,4 +1,4 @@
-; RUN: opt < %s -instcombine -S | grep {ret double .sy}
+; RUN: opt < %s -instcombine -S | grep "ret double .sy"
 
 define internal double @ScaleObjectAdd(double %sx, double %sy, double %sz) nounwind {
 entry:
@@ -11,8 +11,8 @@ entry:
         %sz10 = bitcast double %sz to i64               ; <i64> [#uses=1]
         %sz1011 = zext i64 %sz10 to i960                ; <i960> [#uses=1]
         %sz101112 = shl i960 %sz1011, 640               ; <i960> [#uses=1]
-        %sz101112.ins = or i960 %sy222324.ins, %sz101112
-
+        %sz101112.ins = or i960 %sy222324.ins, %sz101112 
+        
         %a = trunc i960 %sz101112.ins to i64            ; <i64> [#uses=1]
         %b = bitcast i64 %a to double           ; <double> [#uses=1]
         %c = lshr i960 %sz101112.ins, 320               ; <i960> [#uses=1]

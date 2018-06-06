@@ -40,4 +40,4 @@ bb21:		; preds = %bb9, %entry
 	ret i32 0
 }
 
-declare i32 @atoi(i8*) nounwind readonly
+declare i32 @atoi(i8*) nounwind readonly 

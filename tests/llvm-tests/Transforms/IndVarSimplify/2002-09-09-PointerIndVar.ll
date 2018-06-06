@@ -1,4 +1,4 @@
-; Induction variable pass is doing bad things with pointer induction vars,
+; Induction variable pass is doing bad things with pointer induction vars, 
 ; trying to do arithmetic on them directly.
 ;
 ; RUN: opt < %s -indvars

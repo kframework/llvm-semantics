@@ -1,5 +1,7 @@
-; RUN: llc  < %s -march=mips64el -mcpu=mips64r1 -mattr=n64 | FileCheck %s -check-prefix=CHECK-N64
-; RUN: llc  < %s -march=mips64el -mcpu=mips64r1 -mattr=n32 | FileCheck %s -check-prefix=CHECK-N32
+; RUN: llc  < %s -march=mips64el -mcpu=mips4 -target-abi n64 -relocation-model=pic | FileCheck %s -check-prefix=CHECK-N64
+; RUN: llc  < %s -march=mips64el -mcpu=mips4 -target-abi n32 -relocation-model=pic | FileCheck %s -check-prefix=CHECK-N32
+; RUN: llc  < %s -march=mips64el -mcpu=mips64 -target-abi n64 -relocation-model=pic | FileCheck %s -check-prefix=CHECK-N64
+; RUN: llc  < %s -march=mips64el -mcpu=mips64 -target-abi n32 -relocation-model=pic | FileCheck %s -check-prefix=CHECK-N32
 
 @c = common global i8 0, align 4
 @s = common global i16 0, align 4
@@ -16,9 +18,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(c)
 ; CHECK-N64: lb ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: func1
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(c)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(c)
 ; CHECK-N32: lb ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i8* @c, align 4
+  %0 = load i8, i8* @c, align 4
   %conv = sext i8 %0 to i64
   ret i64 %conv
 }
@@ -29,9 +31,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(s)
 ; CHECK-N64: lh ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: func2
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(s)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(s)
 ; CHECK-N32: lh ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i16* @s, align 4
+  %0 = load i16, i16* @s, align 4
   %conv = sext i16 %0 to i64
   ret i64 %conv
 }
@@ -42,9 +44,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(i)
 ; CHECK-N64: lw ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: func3
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(i)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(i)
 ; CHECK-N32: lw ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i32* @i, align 4
+  %0 = load i32, i32* @i, align 4
   %conv = sext i32 %0 to i64
   ret i64 %conv
 }
@@ -55,9 +57,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(l)
 ; CHECK-N64: ld ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: func4
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(l)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(l)
 ; CHECK-N32: ld ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i64* @l, align 8
+  %0 = load i64, i64* @l, align 8
   ret i64 %0
 }
 
@@ -67,9 +69,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(uc)
 ; CHECK-N64: lbu ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: ufunc1
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(uc)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(uc)
 ; CHECK-N32: lbu ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i8* @uc, align 4
+  %0 = load i8, i8* @uc, align 4
   %conv = zext i8 %0 to i64
   ret i64 %conv
 }
@@ -80,9 +82,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(us)
 ; CHECK-N64: lhu ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: ufunc2
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(us)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(us)
 ; CHECK-N32: lhu ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i16* @us, align 4
+  %0 = load i16, i16* @us, align 4
   %conv = zext i16 %0 to i64
   ret i64 %conv
 }
@@ -93,9 +95,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(ui)
 ; CHECK-N64: lwu ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: ufunc3
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(ui)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(ui)
 ; CHECK-N32: lwu ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i32* @ui, align 4
+  %0 = load i32, i32* @ui, align 4
   %conv = zext i32 %0 to i64
   ret i64 %conv
 }
@@ -106,9 +108,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(c)
 ; CHECK-N64: sb ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: sfunc1
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(c)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(c)
 ; CHECK-N32: sb ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i64* @l1, align 8
+  %0 = load i64, i64* @l1, align 8
   %conv = trunc i64 %0 to i8
   store i8 %conv, i8* @c, align 4
   ret void
@@ -120,9 +122,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(s)
 ; CHECK-N64: sh ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: sfunc2
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(s)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(s)
 ; CHECK-N32: sh ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i64* @l1, align 8
+  %0 = load i64, i64* @l1, align 8
   %conv = trunc i64 %0 to i16
   store i16 %conv, i16* @s, align 4
   ret void
@@ -134,9 +136,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(i)
 ; CHECK-N64: sw ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: sfunc3
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(i)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(i)
 ; CHECK-N32: sw ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i64* @l1, align 8
+  %0 = load i64, i64* @l1, align 8
   %conv = trunc i64 %0 to i32
   store i32 %conv, i32* @i, align 4
   ret void
@@ -148,9 +150,9 @@ entry:
 ; CHECK-N64: ld $[[R0:[0-9]+]], %got_disp(l)
 ; CHECK-N64: sd ${{[0-9]+}}, 0($[[R0]])
 ; CHECK-N32: sfunc4
-; CHECK-N32: lw $[[R0:[0-9]+]], %got(l)
+; CHECK-N32: lw $[[R0:[0-9]+]], %got_disp(l)
 ; CHECK-N32: sd ${{[0-9]+}}, 0($[[R0]])
-  %0 = load i64* @l1, align 8
+  %0 = load i64, i64* @l1, align 8
   store i64 %0, i64* @l, align 8
   ret void
 }

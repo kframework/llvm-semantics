@@ -1,4 +1,4 @@
-; RUN: llc < %s -march=x86 | FileCheck %s
+; RUN: llc < %s -mtriple=i686-- | FileCheck %s
 
 ; Don't crash on an empty struct member.
 
@@ -9,6 +9,6 @@
 
 define void @foo() nounwind {
   %1 = alloca %testType
-  volatile store %testType {i32 1, [0 x i32] zeroinitializer, i32 2}, %testType* %1
+  store volatile %testType {i32 1, [0 x i32] zeroinitializer, i32 2}, %testType* %1
   ret void
 }

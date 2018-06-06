@@ -1,8 +1,8 @@
-; RUN: llc < %s -march=x86 | grep sar | count 1
-; RUN: llc < %s -march=x86-64 | not grep sar
+; RUN: llc < %s -mtriple=i686-- | grep sar | count 1
+; RUN: llc < %s -mtriple=x86_64-- | not grep sar
 
 define i32 @test(i32 %f12) nounwind {
-	%tmp7.25 = lshr i32 %f12, 16
+	%tmp7.25 = lshr i32 %f12, 16		
 	%tmp7.26 = trunc i32 %tmp7.25 to i8
 	%tmp78.2 = sext i8 %tmp7.26 to i32
 	ret i32 %tmp78.2

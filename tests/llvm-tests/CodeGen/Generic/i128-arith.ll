@@ -1,4 +1,4 @@
-; RUN: llc < %s
+; RUN: llc < %s 
 
 define i64 @foo(i64 %x, i64 %y, i32 %amt) {
         %tmp0 = zext i64 %x to i128

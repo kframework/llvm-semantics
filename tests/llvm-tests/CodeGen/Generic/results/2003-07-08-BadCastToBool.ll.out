@@ -1,6 +1,0 @@
-d = 3, ct = 2, d ^ ct = 1
-<result>
-  <returnValue>
-    0
-  </returnValue>
-</result>

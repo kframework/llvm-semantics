@@ -11,7 +11,7 @@
 %fwdref = type { %fwd* }
 
 ; same as above with unnamed types
-%1 = type %0*
+%1 = type %0* 
 %test = type %1
 %0 = type { %1* }
 

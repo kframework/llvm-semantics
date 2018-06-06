@@ -1,5 +1,5 @@
-; RUN: llc < %s -march=x86
-; RUN: llc < %s -march=x86-64
+; RUN: llc < %s -mtriple=i686--
+; RUN: llc < %s -mtriple=x86_64--
 
 	%struct.FRAME.gnat__perfect_hash_generators__select_char_position__build_identical_keys_sets = type { i32, i32, void (i32, i32)*, i8 (i32, i32)* }
 
@@ -10,7 +10,7 @@ entry:
 	unreachable
 }
 
-declare void @gnat__perfect_hash_generators__select_char_position__build_identical_keys_sets__move.5177(%struct.FRAME.gnat__perfect_hash_generators__select_char_position__build_identical_keys_sets* nest , i32, i32) nounwind
+declare void @gnat__perfect_hash_generators__select_char_position__build_identical_keys_sets__move.5177(%struct.FRAME.gnat__perfect_hash_generators__select_char_position__build_identical_keys_sets* nest , i32, i32) nounwind 
 
-declare void @llvm.init.trampoline(i8*, i8*, i8*) nounwind
-declare i8* @llvm.adjust.trampoline(i8*) nounwind
+declare void @llvm.init.trampoline(i8*, i8*, i8*) nounwind 
+declare i8* @llvm.adjust.trampoline(i8*) nounwind 

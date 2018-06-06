@@ -1,5 +1,5 @@
-; RUN: llc < %s -march=x86 | grep fldz
-; RUN: llc < %s -march=x86-64 | grep fld1
+; RUN: llc < %s -mtriple=i686-- | grep fldz
+; RUN: llc < %s -mtriple=x86_64-- | grep fld1
 
 %0 = type { x86_fp80, x86_fp80 }
 
@@ -33,7 +33,7 @@ define void @call1(x86_fp80 *%P1, x86_fp80 *%P2) {
 
   %c = extractvalue %0 %a, 1
   store x86_fp80 %c, x86_fp80* %P2
-  ret void
+  ret void 
 }
 
 ; Uses both values, requires fxch
@@ -52,7 +52,7 @@ define void @call3(x86_fp80 *%P1, x86_fp80 *%P2) {
   %a = call %0 @test()
   %b = extractvalue %0 %a, 0
   store x86_fp80 %b, x86_fp80* %P1
-  ret void
+  ret void 
 }
 
 ; Uses ST(1), ST(0) is dead and must be popped.
@@ -61,6 +61,6 @@ define void @call4(x86_fp80 *%P1, x86_fp80 *%P2) {
 
   %c = extractvalue %0 %a, 1
   store x86_fp80 %c, x86_fp80* %P2
-  ret void
+  ret void 
 }
 

@@ -3,16 +3,17 @@ The previous version of the LLVM semantics (using K version 2) is now located at
 Versions of tools used to generate the .ll files:
 
 LLVM (http://llvm.org/):
-  LLVM version 3.7.1
+  LLVM version 6.0.0
   
   Optimized build.
-  Built Mar  5 2014 (17:05:10).
-  Default target: x86_64-pc-linux-gnu
+  Built Mar  5 2018 (17:05:10).
+  Default target: x86_64-unknown-linux-gnu
   Host CPU: core-avx-i
 
-Ubuntu clang version 3.7.1-1ubuntu3 (tags/RELEASE_37/final) (based on LLVM 3.7.1)
-Target: x86_64-pc-linux-gnu
+clang version 6.0.0 (tags/RELEASE_600/final)
+Target: x86_64-unknown-linux-gnu
 Thread model: posix
+InstalledDir: /usr/local/bin
 
 Currently, the K parser cannot parse LLVM comments. They need to be
 removed from your LLVM program before you call the kast tool on them.

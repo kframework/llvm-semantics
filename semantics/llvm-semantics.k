@@ -115,6 +115,7 @@ module LLVM-GEP
           <thread>...
            <k> getElementPtr(pointerTypeValue(T:K, Ad:Int), A:K, Indices:KResult) ~> K:K </k>
           ...</thread> => .Bag
+         </threads>
          <output>... .List
                 => ListItem("error: undefined behavior due to getelementptr of struct type index out of range.") </output>
          requires A ==K badValue orBool (isALoc(A) andBool base(A) ==K badValue)

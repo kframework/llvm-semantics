@@ -111,14 +111,12 @@ module LLVM-GEP
     imports LLVM-STANDARD-LIBRARY-SYNTAX
     imports LLVM-SYSCALLS-SYNTAX
 
-    rule <k> getElementPtr(pointerTypeValue(T:K, Ad:Int), A:K, Indices:KResult) ~> K:K => .K </k>
+    rule <threads> TB:Bag
+          <thread>...
+           <k> getElementPtr(pointerTypeValue(T:K, Ad:Int), A:K, Indices:KResult) ~> K:K </k>
+          ...</thread> => .Bag
          <output>... .List
                 => ListItem("error: undefined behavior due to getelementptr of struct type index out of range.") </output>
-         (<tomasulo>
-            D:Bag
-         </tomasulo> =>  <tomasulo>...
-                        <instQueue> instList(.List) </instQueue>
-                          ...</tomasulo>)
          requires A ==K badValue orBool (isALoc(A) andBool base(A) ==K badValue)
 
     rule getElementPtr(pointerTypeValue(T:K, Ad:Int), poisonVal, Indices:KResult)
